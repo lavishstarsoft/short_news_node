@@ -9,21 +9,37 @@ const cacheStats = {
 };
 
 // Create Redis client with enhanced configuration
-const redisClient = redis.createClient({
-  socket: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: process.env.REDIS_PORT || 6379,
-    reconnectStrategy: (retries) => {
-      // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms, max 3000ms
-      const delay = Math.min(50 * Math.pow(2, retries), 3000);
-      console.log(`⏳ Redis reconnection attempt ${retries + 1}, waiting ${delay}ms...`);
-      return delay;
-    },
-    connectTimeout: 10000, // 10 second connection timeout
-  },
-  // Add password if using production Redis
-  password: process.env.REDIS_PASSWORD || undefined,
-});
+// Support both URL-based (Upstash) and host/port configurations
+const redisClient = redis.createClient(
+  process.env.REDIS_URL
+    ? {
+      // Upstash or other cloud Redis providers using URL
+      url: process.env.REDIS_URL,
+      socket: {
+        reconnectStrategy: (retries) => {
+          // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms, max 3000ms
+          const delay = Math.min(50 * Math.pow(2, retries), 3000);
+          console.log(`⏳ Redis reconnection attempt ${retries + 1}, waiting ${delay}ms...`);
+          return delay;
+        },
+        connectTimeout: 10000, // 10 second connection timeout
+      },
+    }
+    : {
+      // Local Redis using host/port
+      socket: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: process.env.REDIS_PORT || 6379,
+        reconnectStrategy: (retries) => {
+          const delay = Math.min(50 * Math.pow(2, retries), 3000);
+          console.log(`⏳ Redis reconnection attempt ${retries + 1}, waiting ${delay}ms...`);
+          return delay;
+        },
+        connectTimeout: 10000,
+      },
+      password: process.env.REDIS_PASSWORD || undefined,
+    }
+);
 
 // Track connection status
 let isConnected = false;
@@ -41,7 +57,13 @@ redisClient.on('ready', () => {
   console.log(`🚀 Redis connection established at ${new Date().toISOString()}`);
 
   // Log connection details
-  console.log(`📍 Redis host: ${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`);
+  if (process.env.REDIS_URL) {
+    // Hide the password in the URL for security
+    const urlWithoutPassword = process.env.REDIS_URL.replace(/:([^@]+)@/, ':****@');
+    console.log(`📍 Redis connection: ${urlWithoutPassword}`);
+  } else {
+    console.log(`📍 Redis host: ${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`);
+  }
 });
 
 redisClient.on('error', (err) => {
