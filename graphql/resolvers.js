@@ -344,7 +344,7 @@ const resolvers = {
         },
 
         // New user interaction mutations (matching REST API functionality)
-        interactWithNews: async (_, { newsId, action, userId, userName, userEmail, commentText }) => {
+        interactWithNews: async (_, { newsId, action, userId, userName, userEmail, commentText }, context) => {
             try {
                 const news = await News.findById(newsId);
                 if (!news) {
@@ -481,6 +481,34 @@ const resolvers = {
                 await invalidateCache('graphql:news:*');
                 await invalidateItemCache('newsById', newsId);
 
+                // 🚀 REAL-TIME BROADCAST via Socket.IO
+                const io = context?.io;
+                if (io) {
+                    const updatePayload = {
+                        newsId: newsId,
+                        action: action,
+                        likes: news.likes,
+                        dislikes: news.dislikes,
+                        comments: news.comments,
+                        userId: userId,
+                        userName: userName,
+                        userLikes: news.userInteractions?.likes?.map(l => ({ userId: l.userId, userName: l.userName })) || [],
+                        userDislikes: news.userInteractions?.dislikes?.map(d => ({ userId: d.userId, userName: d.userName })) || [],
+                        userComments: news.userInteractions?.comments?.map(c => ({
+                            userId: c.userId,
+                            userName: c.userName,
+                            comment: c.comment,
+                            timestamp: c.timestamp?.toISOString?.() || new Date().toISOString(),
+                            likes: (c.likes || []).map(l => ({ userId: l.userId, userName: l.userName }))
+                        })) || [],
+                        timestamp: new Date().toISOString()
+                    };
+
+                    // Broadcast to all connected clients
+                    io.emit('news_interaction_update', updatePayload);
+                    console.log(`📡 Real-time broadcast: news_interaction_update for ${newsId}`);
+                }
+
                 return news;
             } catch (error) {
                 console.error('Error in interactWithNews:', error);
@@ -488,7 +516,7 @@ const resolvers = {
             }
         },
 
-        interactWithViralVideo: async (_, { videoId, action, userId, userName, userEmail, commentText }) => {
+        interactWithViralVideo: async (_, { videoId, action, userId, userName, userEmail, commentText }, context) => {
             try {
                 console.log(`🎬 GraphQL: Viral video interaction: ${action} by ${userName} (${userId})`);
 
@@ -604,8 +632,6 @@ const resolvers = {
                 console.log(`   🔍 Returning video object:`);
                 console.log(`      - ID: ${video._id}`);
                 console.log(`      - Title: ${video.title}`);
-                console.log(`      - createdAt: ${video.createdAt}`);
-                console.log(`      - publishedAt: ${video.publishedAt}`);
                 console.log(`      - Likes: ${video.likes}, Dislikes: ${video.dislikes}`);
                 console.log(`      - userLikes: ${video.userInteractions.likes.length}`);
                 console.log(`      - userDislikes: ${video.userInteractions.dislikes.length}\n`);
@@ -613,6 +639,34 @@ const resolvers = {
                 // Invalidate related caches after mutation
                 await invalidateCache('graphql:viralVideos:*');
                 await invalidateItemCache('viralVideoById', videoId);
+
+                // 🚀 REAL-TIME BROADCAST via Socket.IO
+                const io = context?.io;
+                if (io) {
+                    const updatePayload = {
+                        videoId: videoId,
+                        action: action,
+                        likes: video.likes,
+                        dislikes: video.dislikes,
+                        comments: video.comments,
+                        userId: userId,
+                        userName: userName,
+                        userLikes: video.userInteractions?.likes?.map(l => ({ userId: l.userId, userName: l.userName })) || [],
+                        userDislikes: video.userInteractions?.dislikes?.map(d => ({ userId: d.userId, userName: d.userName })) || [],
+                        userComments: video.userInteractions?.comments?.map(c => ({
+                            userId: c.userId,
+                            userName: c.userName,
+                            comment: c.comment,
+                            timestamp: c.timestamp?.toISOString?.() || new Date().toISOString(),
+                            likes: (c.likes || []).map(l => ({ userId: l.userId, userName: l.userName }))
+                        })) || [],
+                        timestamp: new Date().toISOString()
+                    };
+
+                    // Broadcast to all connected clients
+                    io.emit('video_interaction_update', updatePayload);
+                    console.log(`📡 Real-time broadcast: video_interaction_update for ${videoId}`);
+                }
 
                 return video;
             } catch (error) {
@@ -622,7 +676,7 @@ const resolvers = {
         },
 
         // Like/Unlike a viral video comment
-        likeViralVideoComment: async (_, { videoId, commentText, userId, userName }) => {
+        likeViralVideoComment: async (_, { videoId, commentText, userId, userName }, context) => {
             try {
                 console.log(`❤️ GraphQL: Like viral video comment by ${userName}`);
 
@@ -659,6 +713,30 @@ const resolvers = {
                 // CRITICAL: Force Mongoose to detect changes/moves in nested array!
                 video.markModified('userInteractions.comments');
                 await video.save();
+
+                // 🚀 REAL-TIME BROADCAST for comment likes
+                const io = context?.io;
+                if (io) {
+                    const updatePayload = {
+                        videoId: videoId,
+                        action: 'comment_like',
+                        commentText: commentText,
+                        likeCount: comment.likes.length,
+                        userId: userId,
+                        userName: userName,
+                        userComments: video.userInteractions?.comments?.map(c => ({
+                            userId: c.userId,
+                            userName: c.userName,
+                            comment: c.comment,
+                            timestamp: c.timestamp?.toISOString?.() || new Date().toISOString(),
+                            likes: (c.likes || []).map(l => ({ userId: l.userId, userName: l.userName }))
+                        })) || [],
+                        timestamp: new Date().toISOString()
+                    };
+                    io.emit('video_comment_like_update', updatePayload);
+                    console.log(`📡 Real-time broadcast: video_comment_like_update for ${videoId}`);
+                }
+
                 return video;
             } catch (error) {
                 console.error('Error liking viral video comment:', error);
