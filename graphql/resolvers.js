@@ -314,6 +314,15 @@ const resolvers = {
                     throw new Error('News not found');
                 }
 
+                // Initialize userInteractions if it doesn't exist
+                if (!news.userInteractions) {
+                    news.userInteractions = { likes: [], dislikes: [], comments: [], views: [] };
+                }
+                // Initialize views array if it doesn't exist
+                if (!news.userInteractions.views) {
+                    news.userInteractions.views = [];
+                }
+
                 // Check if user already viewed this news
                 const alreadyViewed = news.userInteractions.views.some(
                     view => view.userId === userId
