@@ -13,17 +13,85 @@ const CommentReport = require('../models/CommentReport'); // Add CommentReport m
 const { cacheMiddleware } = require('../middleware/cache');
 
 // Public API endpoint for Flutter app (no authentication required)
-// Enhanced to handle both GET and POST requests for user-specific data
 // GET route with caching (5 minutes) for non-authenticated users
+// Cache works because we're calling res.json() directly in this handler
 router.get('/api/public/news', cacheMiddleware(300), async (req, res) => {
   try {
-    await handleNewsRequest(req, res);
+    let newsList;
+
+    // Check if MongoDB is connected
+    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
+
+    if (isConnectedToMongoDB) {
+      // Build query filter
+      const filter = {
+        $or: [{ isActive: true }, { isActive: { $exists: false } }]
+      };
+
+      // Add mediaType filter if provided
+      if (req.query.mediaType) {
+        filter.mediaType = req.query.mediaType;
+      }
+
+      // Fetch only active published news from MongoDB
+      newsList = await News.find(filter).sort({ publishedAt: -1 });
+    } else {
+      // Use in-memory storage and filter for active news
+      const allNews = req.app.locals.newsData || [];
+      newsList = allNews
+        .filter(news => {
+          const isActive = news.isActive !== false;
+          const matchesMediaType = !req.query.mediaType || news.mediaType === req.query.mediaType;
+          return isActive && matchesMediaType;
+        })
+        .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+    }
+
+    // Transform data for Flutter app (no user-specific data for cached GET requests)
+    const transformedNews = newsList.map(news => {
+      const newsObj = news.toObject ? news.toObject() : news;
+
+      return {
+        id: newsObj._id,
+        title: newsObj.title,
+        content: newsObj.content,
+        imageUrl: newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        mediaUrl: newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        mediaType: newsObj.mediaType || 'image',
+        category: newsObj.category,
+        location: newsObj.location,
+        publishedAt: newsObj.publishedAt,
+        likes: newsObj.likes || 0,
+        dislikes: newsObj.dislikes || 0,
+        comments: newsObj.comments || 0,
+        author: newsObj.author,
+        isRead: newsObj.isRead || false,
+        readFullLink: newsObj.readFullLink || null,
+        ePaperLink: newsObj.ePaperLink || null,
+        // Include user interaction details for checking user state
+        userLikes: newsObj.userInteractions?.likes || [],
+        userDislikes: newsObj.userInteractions?.dislikes || [],
+        userComments: (newsObj.userInteractions?.comments || []).map(comment => ({
+          userId: comment.userId,
+          userName: comment.userName,
+          userEmail: comment.userEmail,
+          comment: comment.comment,
+          timestamp: comment.timestamp,
+          likes: comment.likes || []
+        }))
+      };
+    });
+
+    console.log(`📊 Returning ${transformedNews.length} news items (cached GET request)`);
+    // This res.json() will be intercepted by cache middleware
+    res.json(transformedNews);
   } catch (error) {
     console.error('Error in GET /api/public/news:', error);
     res.status(500).json({ error: 'Error fetching news' });
   }
 });
 
+// POST route for user-specific data (no caching - user context required)
 router.post('/api/public/news', async (req, res) => {
   try {
     await handleNewsRequest(req, res);

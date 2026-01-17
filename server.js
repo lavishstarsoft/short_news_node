@@ -236,59 +236,9 @@ const verifyGoogleToken = async (req, res, next) => {
 app.locals.verifyGoogleToken = verifyGoogleToken;
 app.locals.googleAuthClient = client;
 
-// Public API endpoint for Flutter app (no authentication required)
-app.get('/api/public/news', async (req, res) => {
-  try {
-    // Get pagination parameters from query string
-    const page = parseInt(req.query.page) || 0;
-    const limit = parseInt(req.query.limit) || 500;
-    const skip = page * limit;
+// Public API endpoint moved to publicRoutes.js with cache middleware
+// DO NOT add duplicate routes here - use publicRoutes.js instead
 
-    let newsList;
-
-    // Check if MongoDB is connected
-    const isConnectedToMongoDB = mongoose.connection.readyState === 1;
-
-    if (isConnectedToMongoDB) {
-      // Fetch paginated news from MongoDB
-      newsList = await News.find()
-        .sort({ publishedAt: -1 })
-        .skip(skip)
-        .limit(limit);
-
-      console.log(`📄 Pagination: page=${page}, limit=${limit}, skip=${skip}, returned=${newsList.length} items`);
-    } else {
-      // Use in-memory storage with pagination
-      newsList = newsData.slice(skip, skip + limit);
-    }
-
-    // Transform data for Flutter app
-    const transformedNews = newsList.map(news => {
-      const newsObj = news.toObject ? news.toObject() : news;
-      return {
-        id: newsObj._id,
-        title: newsObj.title,
-        content: newsObj.content,
-        imageUrl: newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
-        mediaType: newsObj.mediaType || 'image',
-        category: newsObj.category,
-        location: newsObj.location,
-        publishedAt: newsObj.publishedAt,
-        likes: newsObj.likes || 0,
-        dislikes: newsObj.dislikes || 0,
-        comments: newsObj.comments || 0,
-        author: newsObj.author,
-        readFullLink: newsObj.readFullLink || null,
-        ePaperLink: newsObj.ePaperLink || null
-      };
-    });
-
-    res.json(transformedNews);
-  } catch (error) {
-    console.error('Error fetching public news:', error);
-    res.status(500).json({ error: 'Error fetching news' });
-  }
-});
 
 // Set EJS as templating engine
 app.set('view engine', 'ejs');
