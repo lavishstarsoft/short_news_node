@@ -28,11 +28,13 @@ const Notification = require('./models/Notification');
 // Import OneSignal service
 const oneSignalService = require('./services/oneSignalService');
 
+// Import Redis configuration
+const { isRedisAvailable, getCacheStats, closeRedisConnection } = require('./config/redis');
+
 // GraphQL imports
 const { ApolloServer } = require('apollo-server-express');
 const typeDefs = require('./graphql/schema');
 const resolvers = require('./graphql/resolvers');
-
 
 // Initialize Google OAuth2 client
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID';
@@ -158,6 +160,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const adRoutes = require('./routes/adRoutes'); // Add this line for ads routes
 const intelligentAdRoutes = require('./routes/intelligentAdRoutes'); // Add this line for intelligent ads routes
+const cacheRoutes = require('./routes/cacheRoutes'); // Cache management routes
 
 // Import admin controller for middleware
 const { requireAuth, requireAdmin, requireEditor } = require('./controllers/adminController');
@@ -515,6 +518,9 @@ const createDefaultAdmin = async () => {
 // Function to start the server
 const startServer = async () => {
   try {
+    // Redis connection is now initialized at top level (before routes load)
+    // No need to connect again here
+
     // Initialize Apollo Server for GraphQL
     const apolloServer = new ApolloServer({
       typeDefs,
@@ -548,12 +554,33 @@ const startServer = async () => {
 
     console.log(`GraphQL endpoint available at http://localhost:${PORT}${apolloServer.graphqlPath}`);
 
+    // Log Redis status
+    console.log('\n=== Redis Cache Status ===');
+    if (isRedisAvailable()) {
+      console.log('✅ Redis cache is ENABLED and ready');
+      try {
+        const stats = await getCacheStats();
+        console.log(`📊 Cache Statistics: Hits: ${stats.hits}, Misses: ${stats.misses}, Hit Rate: ${stats.hitRate}`);
+        console.log(`🔑 Total Cached Keys: ${stats.totalKeys}`);
+        console.log(`💾 ${stats.memoryInfo}`);
+      } catch (error) {
+        console.log('⚠️  Could not retrieve cache statistics');
+      }
+    } else {
+      console.log('⚠️  Redis cache is DISABLED - running without cache');
+      console.log('💡 To enable Redis: Ensure Redis server is running on localhost:6379');
+    }
+    console.log('===========================\n');
+
     // Start the HTTP server
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`Server is running on 0.0.0.0:${PORT}`);
       console.log(`Visit http://localhost:${PORT} to view the dashboard`);
       console.log(`Network access: http://0.0.0.0:${PORT}`);
       console.log(`GraphQL Playground: http://localhost:${PORT}${apolloServer.graphqlPath}`);
+      if (isRedisAvailable()) {
+        console.log(`Cache Management: http://localhost:${PORT}/cache/management`);
+      }
     });
   } catch (error) {
     console.error('Error starting server:', error);
@@ -627,6 +654,7 @@ app.use('/viral-videos', viralVideosRoutes);
 app.use('/locations', locationRoutes);
 app.use('/ads', adRoutes); // Add this line for ads routes
 app.use('/intelligent-ads', intelligentAdRoutes); // Add this line for intelligent ads routes
+app.use('/cache', cacheRoutes); // Cache management routes
 
 // Log all registered routes for debugging
 console.log('Registered routes:');
