@@ -5,11 +5,20 @@ const Location = require('../models/Location');
 const Ad = require('../models/Ad');
 const User = require('../models/User');
 
+// Import GraphQL cache utility
+const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = require('./cache');
+
 const resolvers = {
     Query: {
-        // News queries
+        // News queries (with Redis caching - 5 minutes TTL)
         news: async (_, { limit = 50, offset = 0, category, location }) => {
             try {
+                // Check cache first
+                const variables = { limit, offset, category, location };
+                const cached = await getCachedData('news', variables);
+                if (cached) return cached;
+
+                // Cache miss - fetch from DB
                 let query = { isActive: true };
 
                 if (category) {
@@ -25,6 +34,9 @@ const resolvers = {
                     .skip(offset)
                     .limit(limit);
 
+                // Cache the result (300s = 5 minutes)
+                await setCachedData('news', variables, news, 300);
+
                 return news;
             } catch (error) {
                 console.error('Error fetching news:', error);
@@ -34,7 +46,16 @@ const resolvers = {
 
         newsById: async (_, { id }) => {
             try {
+                // Check cache first (10 minutes TTL for specific items)
+                const cached = await getCachedData('newsById', { id });
+                if (cached) return cached;
+
+                // Cache miss - fetch from DB
                 const news = await News.findById(id);
+
+                // Cache the result (600s = 10 minutes)
+                await setCachedData('newsById', { id }, news, 600);
+
                 return news;
             } catch (error) {
                 console.error('Error fetching news by ID:', error);
@@ -42,10 +63,19 @@ const resolvers = {
             }
         },
 
-        // Category queries
+        // Category queries (with Redis caching - 30 minutes TTL)
         categories: async () => {
             try {
+                // Check cache first
+                const cached = await getCachedData('categories');
+                if (cached) return cached;
+
+                // Cache miss - fetch from DB
                 const categories = await Category.find();
+
+                // Cache the result (1800s = 30 minutes - categories rarely change)
+                await setCachedData('categories', {}, categories, 1800);
+
                 return categories;
             } catch (error) {
                 console.error('Error fetching categories:', error);
@@ -63,10 +93,19 @@ const resolvers = {
             }
         },
 
-        // Location queries
+        // Location queries (with Redis caching - 30 minutes TTL)
         locations: async () => {
             try {
+                // Check cache first
+                const cached = await getCachedData('locations');
+                if (cached) return cached;
+
+                // Cache miss - fetch from DB
                 const locations = await Location.find();
+
+                // Cache the result (1800s = 30 minutes - locations rarely change)
+                await setCachedData('locations', {}, locations, 1800);
+
                 return locations;
             } catch (error) {
                 console.error('Error fetching locations:', error);
@@ -95,13 +134,22 @@ const resolvers = {
             }
         },
 
-        // Viral videos queries
+        // Viral videos queries (with Redis caching - 5 minutes TTL)
         viralVideos: async (_, { limit = 50, offset = 0 }) => {
             try {
+                // Check cache first
+                const variables = { limit, offset };
+                const cached = await getCachedData('viralVideos', variables);
+                if (cached) return cached;
+
+                // Cache miss - fetch from DB
                 const videos = await ViralVideo.find()
                     .sort({ createdAt: -1 })
                     .skip(offset)
                     .limit(limit);
+
+                // Cache the result (300s = 5 minutes)
+                await setCachedData('viralVideos', variables, videos, 300);
 
                 return videos;
             } catch (error) {
@@ -428,6 +476,11 @@ const resolvers = {
 
                 await news.save();
                 console.log(`✅ GraphQL: ${action} by ${userName} on news ${newsId}`);
+
+                // Invalidate related caches after mutation
+                await invalidateCache('graphql:news:*');
+                await invalidateItemCache('newsById', newsId);
+
                 return news;
             } catch (error) {
                 console.error('Error in interactWithNews:', error);
@@ -556,6 +609,10 @@ const resolvers = {
                 console.log(`      - Likes: ${video.likes}, Dislikes: ${video.dislikes}`);
                 console.log(`      - userLikes: ${video.userInteractions.likes.length}`);
                 console.log(`      - userDislikes: ${video.userInteractions.dislikes.length}\n`);
+
+                // Invalidate related caches after mutation
+                await invalidateCache('graphql:viralVideos:*');
+                await invalidateItemCache('viralVideoById', videoId);
 
                 return video;
             } catch (error) {
