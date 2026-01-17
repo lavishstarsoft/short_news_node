@@ -340,6 +340,11 @@ const resolvers = {
                     });
 
                     await news.save();
+
+                    // 🚀 Invalidate cache so fresh data is returned
+                    await invalidateCache('graphql:news:*');
+                    await invalidateItemCache('newsById', newsId);
+
                     console.log(`✅ View tracked: ${news.title.substring(0, 40)}... - User: ${userId} - Total views: ${news.views}`);
                 } else {
                     console.log(`ℹ️ Duplicate view prevented: ${news.title.substring(0, 40)}... - User: ${userId}`);
