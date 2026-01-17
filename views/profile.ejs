@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Admin Profile - Short News Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .profile-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .profile-card {
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            border: none;
+            margin-bottom: 20px;
+            background: white;
+        }
+
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 30px;
+        }
+
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            margin: 0 auto 20px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            cursor: pointer;
+        }
+
+        .profile-avatar:hover .edit-overlay {
+            display: flex;
+        }
+
+        .edit-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+
+        .login-history-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .login-history-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .user-agent {
+            font-size: 0.85rem;
+            color: #6c757d;
+            word-break: break-all;
+        }
+
+        .badge-role {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .btn-logout {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            border: none;
+        }
+
+        .btn-logout:hover {
+            background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+        }
+
+        .btn-edit {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+
+        .btn-edit:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+
+        /* VPN Warning Styles */
+        .vpn-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            color: #856404;
+        }
+
+        .vpn-warning.high {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .vpn-warning.medium {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+
+        /* Modal styles */
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 20px 24px;
+        }
+
+        /* Feedback message */
+        .feedback-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: 500;
+            z-index: 9999;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+            transform: translateX(200%);
+            transition: transform 0.3s ease;
+        }
+
+        .feedback-message.show {
+            transform: translateX(0);
+        }
+
+        .feedback-message.success {
+            background-color: #28a745;
+        }
+
+        .feedback-message.error {
+            background-color: #dc3545;
+        }
+
+        /* Mobile-specific styles */
+        @media (max-width: 767.98px) {
+            .profile-container {
+                padding: 0;
+            }
+
+            .profile-header {
+                padding: 20px 15px;
+            }
+
+            .profile-avatar {
+                width: 80px;
+                height: 80px;
+                font-size: 32px;
+                margin: 0 auto 10px;
+            }
+
+            .profile-card {
+                border-radius: 0;
+                box-shadow: none;
+                margin-bottom: 16px;
+            }
+
+            .card-body {
+                padding: 16px;
+            }
+        }
+
+        @media (min-width: 768px) {
+            .profile-header {
+                padding: 40px;
+            }
+
+            .profile-card {
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+                transition: all 0.3s cubic-bezier(.25, .8, .25, 1);
+                margin-bottom: 30px;
+            }
+
+            .profile-card:hover {
+                box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+            }
+
+            .card-body {
+                padding: 24px;
+            }
+        }
+
+        /* Larger screens */
+        @media (min-width: 992px) {
+            .profile-container {
+                padding: 30px;
+            }
+
+            .profile-header {
+                padding: 50px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Mobile Top Navigation -->
+    <div class="top-nav d-md-none">
+        <button class="menu-toggle ripple" onclick="window.location.href='/'">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <h1 class="page-title">Profile</h1>
+        <button class="menu-toggle ripple" onclick="window.location.href='/logout'">
+            <i class="fas fa-sign-out-alt"></i>
+        </button>
+    </div>
+
+    <!-- Desktop Navigation -->
+    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
+        <h1 class="page-title mb-0">Admin Profile</h1>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-light ripple" onclick="window.location.href='/'">
+                <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+            </button>
+            <button class="btn btn-logout ripple" onclick="window.location.href='/logout'">
+                <i class="fas fa-sign-out-alt me-1"></i> Logout
+            </button>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar', { activePage: 'profile' }) %>
+                <!-- Main Content -->
+                <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                    <div class="content-area">
+                        <div class="card profile-card">
+                            <div class="card-header profile-header">
+                                <div class="profile-avatar" onclick="openEditProfileModal()">
+                                    <i class="fas fa-user"></i>
+                                    <div class="edit-overlay">
+                                        <i class="fas fa-camera"></i>
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <h2>
+                                        <%= admin.username %>
+                                    </h2>
+                                    <p class="mb-2">
+                                        <%= admin.email %>
+                                    </p>
+                                    <span class="badge badge-role">
+                                        <%= admin.role.toUpperCase() %>
+                                    </span>
+                                    <p class="mb-0 mt-3">
+                                        <small>
+                                            <% if (admin.lastLogin) { %>
+                                                Last login: <%= new Date(admin.lastLogin).toLocaleString() %>
+                                                    <% } else { %>
+                                                        First time login
+                                                        <% } %>
+                                        </small>
+                                    </p>
+                                    <button class="btn btn-edit btn-edit-profile mt-3" onclick="openEditProfileModal()">
+                                        <i class="fas fa-edit me-2"></i>Edit Profile
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-4 mb-md-0">
+                                        <h4><i class="fas fa-info-circle me-2"></i>Account Information</h4>
+                                        <table class="table table-borderless">
+                                            <tr>
+                                                <td><strong>Username:</strong></td>
+                                                <td>
+                                                    <%= admin.username %>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Email:</strong></td>
+                                                <td>
+                                                    <%= admin.email %>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Role:</strong></td>
+                                                <td><span class="badge badge-role">
+                                                        <%= admin.role.toUpperCase() %>
+                                                    </span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Status:</strong></td>
+                                                <td>
+                                                    <% if (admin.isActive) { %>
+                                                        <span class="badge bg-success">Active</span>
+                                                        <% } else { %>
+                                                            <span class="badge bg-danger">Inactive</span>
+                                                            <% } %>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Member Since:</strong></td>
+                                                <td>
+                                                    <%= new Date(admin.createdAt).toLocaleDateString() %>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h4><i class="fas fa-chart-line me-2"></i>Statistics</h4>
+                                        <table class="table table-borderless">
+                                            <tr>
+                                                <td><strong>Total Logins:</strong></td>
+                                                <td>
+                                                    <%= admin.loginHistory.length %>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Last Login:</strong></td>
+                                                <td>
+                                                    <% if (admin.lastLogin) { %>
+                                                        <%= new Date(admin.lastLogin).toLocaleString() %>
+                                                            <% } else { %>
+                                                                Never
+                                                                <% } %>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Suspicious Logins:</strong></td>
+                                                <td>
+                                                    <% const suspiciousLogins=admin.loginHistory.filter(login=>
+                                                        login.locationDetails &&
+                                                        (login.locationDetails.isVpn || login.locationDetails.riskLevel
+                                                        !== 'low')
+                                                        ).length;
+                                                        %>
+                                                        <%= suspiciousLogins %> detected
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card profile-card">
+                            <div class="card-header">
+                                <h3 class="mb-0"><i class="fas fa-history me-2"></i>Login History</h3>
+                            </div>
+                            <div class="card-body">
+                                <% if (admin.loginHistory && admin.loginHistory.length> 0) { %>
+                                    <div class="table-responsive">
+                                        <table class="table login-history-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date & Time</th>
+                                                    <th>IP Address</th>
+                                                    <th>Location</th>
+                                                    <th>Coordinates</th>
+                                                    <th>Device/System</th>
+                                                    <th>Security Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <% admin.loginHistory.slice().reverse().forEach(function(login) { %>
+                                                    <tr>
+                                                        <td>
+                                                            <%= new Date(login.timestamp).toLocaleString() %>
+                                                        </td>
+                                                        <td>
+                                                            <%= login.ip %>
+                                                        </td>
+                                                        <td>
+                                                            <% if (login.location && login.location !=='Unknown' &&
+                                                                login.location !=='Unknown Location' ) { %>
+                                                                <%= login.location %>
+                                                                    <% } else if (login.locationDetails &&
+                                                                        login.locationDetails.isp &&
+                                                                        login.locationDetails.isp !=='Unknown' ) { %>
+                                                                        <%= login.locationDetails.isp %> (ISP Only)
+                                                                            <% } else { %>
+                                                                                Unknown Location
+                                                                                <% } %>
+                                                                                    <% if (login.locationDetails &&
+                                                                                        login.locationDetails.timezone
+                                                                                        !=='Unknown' ) { %>
+                                                                                        <br><small
+                                                                                            class="text-muted">Timezone:
+                                                                                            <%= login.locationDetails.timezone
+                                                                                                %></small>
+                                                                                        <% } %>
+                                                        </td>
+                                                        <td>
+                                                            <% if (login.locationDetails &&
+                                                                login.locationDetails.latitude &&
+                                                                login.locationDetails.longitude) { %>
+                                                                <%= login.locationDetails.latitude.toFixed(6) %>, <%=
+                                                                        login.locationDetails.longitude.toFixed(6) %>
+                                                                        <% } else if (login.location && login.location
+                                                                            !=='Unknown' && login.location
+                                                                            !=='Unknown Location' ) { %>
+                                                                            Coordinates not captured
+                                                                            <% } else { %>
+                                                                                Not available
+                                                                                <% } %>
+                                                        </td>
+                                                        <td>
+                                                            <div class="user-agent">
+                                                                <%= login.userAgent %>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <% if (login.locationDetails) { %>
+                                                                <% if (login.locationDetails.isVpn) { %>
+                                                                    <span class="badge bg-danger">VPN Detected</span>
+                                                                    <br>
+                                                                    <small>Risk: <%= login.locationDetails.riskLevel %>
+                                                                            </small>
+                                                                    <br>
+                                                                    <small>Confidence: <%=
+                                                                            login.locationDetails.confidence %>%</small>
+                                                                    <% } else if
+                                                                        (login.locationDetails.riskLevel==='medium' ) {
+                                                                        %>
+                                                                        <span class="badge bg-warning">Medium
+                                                                            Risk</span>
+                                                                        <br>
+                                                                        <small>Confidence: <%=
+                                                                                login.locationDetails.confidence %>
+                                                                                %</small>
+                                                                        <% } else { %>
+                                                                            <span class="badge bg-success">Normal</span>
+                                                                            <% } %>
+                                                                                <% } else { %>
+                                                                                    <span
+                                                                                        class="badge bg-secondary">Unknown</span>
+                                                                                    <% } %>
+                                                        </td>
+                                                    </tr>
+                                                    <% if (login.locationDetails && login.locationDetails.isVpn) { %>
+                                                        <tr>
+                                                            <td colspan="6">
+                                                                <div
+                                                                    class="vpn-warning <%= login.locationDetails.riskLevel %>">
+                                                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                                                    <strong>Security Alert:</strong> Suspicious login
+                                                                    detected from a VPN or proxy service.
+                                                                    <% if (login.locationDetails.isp !=='Unknown' ) { %>
+                                                                        ISP: <%= login.locationDetails.isp %>
+                                                                            <% } %>
+                                                                                This login has been flagged for security
+                                                                                review.
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                        <% } %>
+                                                            <% }); %>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <% } else { %>
+                                        <div class="text-center py-5">
+                                            <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                                            <p class="text-muted">No login history available</p>
+                                        </div>
+                                        <% } %>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                </div>
+        </div>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editProfileModalLabel">Edit Profile</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editProfileForm">
+                        <div class="mb-4 text-center">
+                            <div class="profile-avatar mx-auto" style="width: 100px; height: 100px; font-size: 40px;">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary mt-2">
+                                <i class="fas fa-camera me-1"></i> Change Profile Picture
+                            </button>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="username" value="<%= admin.username %>"
+                                    disabled>
+                                <div class="form-text">Username cannot be changed</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" value="<%= admin.email %>" disabled>
+                                <div class="form-text">Email cannot be changed</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="currentPassword" class="form-label">Current Password</label>
+                                <input type="password" class="form-control" id="currentPassword" required>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="newPassword" class="form-label">New Password</label>
+                                <input type="password" class="form-control" id="newPassword" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                                <input type="password" class="form-control" id="confirmPassword" required>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-1"></i>Cancel
+                            </button>
+                            <button type="submit" class="btn btn-edit">
+                                <i class="fas fa-save me-1"></i>Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Message -->
+    <div id="feedbackMessage" class="feedback-message"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Add ripple effect to elements with "ripple" class
+        document.addEventListener('DOMContentLoaded', function () {
+            const rippleElements = document.querySelectorAll('.ripple');
+            rippleElements.forEach(element => {
+                element.addEventListener('click', function (e) {
+                    // Remove any existing ripple
+                    const existingRipple = this.querySelector('.ripple-effect');
+                    if (existingRipple) {
+                        existingRipple.remove();
+                    }
+
+                    // Create ripple
+                    const ripple = document.createElement('span');
+                    ripple.classList.add('ripple-effect');
+
+                    // Position ripple
+                    const rect = this.getBoundingClientRect();
+                    const size = Math.max(rect.width, rect.height);
+                    const x = e.clientX - rect.left - size / 2;
+                    const y = e.clientY - rect.top - size / 2;
+
+                    ripple.style.width = ripple.style.height = size + 'px';
+                    ripple.style.left = x + 'px';
+                    ripple.style.top = y + 'px';
+
+                    this.appendChild(ripple);
+
+                    // Remove ripple after animation
+                    setTimeout(() => {
+                        ripple.remove();
+                    }, 600);
+                });
+            });
+
+            // Handle form submission
+            document.getElementById('editProfileForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const currentPassword = document.getElementById('currentPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+
+                // Validate passwords
+                if (newPassword !== confirmPassword) {
+                    showFeedback('New passwords do not match', 'error');
+                    return;
+                }
+
+                if (newPassword.length < 6) {
+                    showFeedback('Password must be at least 6 characters long', 'error');
+                    return;
+                }
+
+                // Send data to server
+                fetch('/profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        currentPassword: currentPassword,
+                        newPassword: newPassword
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            showFeedback(data.error, 'error');
+                        } else {
+                            showFeedback(data.message, 'success');
+                            var modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+                            modal.hide();
+
+                            // Reset form
+                            document.getElementById('editProfileForm').reset();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showFeedback('An error occurred while updating profile', 'error');
+                    });
+            });
+        });
+
+        // Function to open edit profile modal
+        function openEditProfileModal() {
+            var modal = new bootstrap.Modal(document.getElementById('editProfileModal'));
+            modal.show();
+        }
+
+        // Function to show feedback message
+        function showFeedback(message, type) {
+            const feedback = document.getElementById('feedbackMessage');
+            feedback.textContent = message;
+            feedback.className = 'feedback-message ' + type + ' show';
+
+            // Hide after 3 seconds
+            setTimeout(() => {
+                feedback.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+
+    <!-- Global Admin Notifications -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/admin-notifications.js"></script>
+</body>
+
+</html>

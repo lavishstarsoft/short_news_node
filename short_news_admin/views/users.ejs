@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Users List - Short News Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .users-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .users-card {
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            border: none;
+            margin-bottom: 20px;
+            background: white;
+        }
+        
+        .users-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 30px;
+        }
+        
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .badge-role {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .badge-active {
+            background-color: #28a745;
+        }
+        
+        .badge-inactive {
+            background-color: #dc3545;
+        }
+        
+        .btn-logout {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            border: none;
+        }
+        
+        .btn-logout:hover {
+            background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .interaction-badge {
+            font-size: 0.75rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .news-title {
+            font-weight: 500;
+            font-size: 0.9rem;
+            margin-bottom: 0;
+        }
+        
+        .comment-text {
+            font-size: 0.85rem;
+            background-color: #f8f9fa;
+            padding: 8px;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+        
+        .interaction-section {
+            margin-bottom: 15px;
+        }
+        
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #495057;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 5px;
+        }
+        
+        /* Feedback message */
+        .feedback-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: 500;
+            z-index: 9999;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            transform: translateX(200%);
+            transition: transform 0.3s ease;
+        }
+        
+        .feedback-message.show {
+            transform: translateX(0);
+        }
+        
+        .feedback-message.success {
+            background-color: #28a745;
+        }
+        
+        .feedback-message.error {
+            background-color: #dc3545;
+        }
+        
+        /* Mobile-specific styles */
+        @media (max-width: 767.98px) {
+            .users-container {
+                padding: 0;
+            }
+            
+            .users-header {
+                padding: 20px 15px;
+            }
+            
+            .users-card {
+                border-radius: 0;
+                box-shadow: none;
+                margin-bottom: 16px;
+            }
+            
+            .card-body {
+                padding: 16px;
+            }
+            
+            .table-responsive {
+                font-size: 0.85rem;
+            }
+            
+            .modal-lg {
+                max-width: 95%;
+            }
+        }
+        
+        @media (min-width: 768px) {
+            .users-header {
+                padding: 40px;
+            }
+            
+            .users-card {
+                box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+                transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+                margin-bottom: 30px;
+            }
+            
+            .users-card:hover {
+                box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+            }
+            
+            .card-body {
+                padding: 24px;
+            }
+        }
+        
+        /* Larger screens */
+        @media (min-width: 992px) {
+            .users-container {
+                padding: 30px;
+            }
+            
+            .users-header {
+                padding: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile Top Navigation -->
+    <div class="top-nav d-md-none">
+        <button class="menu-toggle ripple" onclick="window.location.href='/'">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <h1 class="page-title">Users</h1>
+        <button class="menu-toggle ripple" onclick="window.location.href='/logout'">
+            <i class="fas fa-sign-out-alt"></i>
+        </button>
+    </div>
+
+    <!-- Desktop Navigation -->
+    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
+        <h1 class="page-title mb-0">Users List</h1>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-light ripple" onclick="window.location.href='/'">
+                <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+            </button>
+            <button class="btn btn-logout ripple" onclick="window.location.href='/logout'">
+                <i class="fas fa-sign-out-alt me-1"></i> Logout
+            </button>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar - Hidden on mobile, visible on desktop -->
+            <%- include('partials/sidebar', { activePage: 'users' }) %>
+
+            <!-- Main Content -->
+            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="content-area">
+                    <div class="card users-card">
+                        <div class="card-header users-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h2><i class="fas fa-users me-2"></i>Users Management</h2>
+                                    <p class="mb-0">View and manage user accounts with detailed interaction information</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <% if (users && users.length > 0) { %>
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>User</th>
+                                                <th>Authentication</th>
+                                                <th>Email/Mobile</th>
+                                                <th>Registration</th>
+                                                <th>Last Login</th>
+                                                <th>Activity Summary</th>
+                                                <th>Details</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <% users.forEach(function(user) { %>
+                                                <tr id="user-<%= user._id %>">
+                                                    <td>
+                                                        <div class="d-flex align-items-center">
+                                                            <% if (user.photoUrl) { %>
+                                                                <img src="<%= user.photoUrl %>" alt="<%= user.displayName %>" class="user-avatar me-2">
+                                                            <% } else { %>
+                                                                <div class="user-avatar bg-light d-flex align-items-center justify-content-center me-2">
+                                                                    <i class="fas fa-user"></i>
+                                                                </div>
+                                                            <% } %>
+                                                            <div>
+                                                                <div><%= user.displayName %></div>
+                                                                <small class="text-muted"><%= user._id %></small>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <% if (user.googleId) { %>
+                                                            <span class="badge bg-primary">Google</span>
+                                                        <% } else if (user.mobileNumber) { %>
+                                                            <span class="badge bg-success">Mobile</span>
+                                                        <% } else { %>
+                                                            <span class="badge bg-secondary">Other</span>
+                                                        <% } %>
+                                                    </td>
+                                                    <td>
+                                                        <% if (user.email) { %>
+                                                            <div><%= user.email %></div>
+                                                        <% } %>
+                                                        <% if (user.mobileNumber) { %>
+                                                            <div><%= user.mobileNumber %></div>
+                                                        <% } %>
+                                                        <% if (!user.email && !user.mobileNumber) { %>
+                                                            <div>N/A</div>
+                                                        <% } %>
+                                                    </td>
+                                                    <td><%= new Date(user.createdAt).toLocaleDateString() %></td>
+                                                    <td>
+                                                        <% if (user.lastLogin) { %>
+                                                            <%= new Date(user.lastLogin).toLocaleDateString() %>
+                                                        <% } else { %>
+                                                            <span class="text-muted">Never</span>
+                                                        <% } %>
+                                                    </td>
+                                                    <td>
+                                                        <div class="d-flex flex-wrap">
+                                                            <span class="badge bg-info interaction-badge">
+                                                                <i class="fas fa-thumbs-up me-1"></i><%= user.interactions.likes.length %>
+                                                            </span>
+                                                            <span class="badge bg-warning interaction-badge">
+                                                                <i class="fas fa-thumbs-down me-1"></i><%= user.interactions.dislikes.length %>
+                                                            </span>
+                                                            <span class="badge bg-success interaction-badge">
+                                                                <i class="fas fa-comment me-1"></i><%= user.interactions.comments.length %>
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <button class="btn btn-sm btn-outline-primary ripple" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#userDetailsModal<%= user._id %>">
+                                                            <i class="fas fa-eye me-1"></i>View Details
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            <% }); %>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <% } else { %>
+                                <div class="text-center py-5">
+                                    <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                                    <h4>No Users Found</h4>
+                                    <p class="text-muted">No users have registered yet</p>
+                                </div>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Details Modals -->
+    <% users.forEach(function(user) { %>
+        <div class="modal fade" id="userDetailsModal<%= user._id %>" tabindex="-1" aria-labelledby="userDetailsModalLabel<%= user._id %>" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="userDetailsModalLabel<%= user._id %>">
+                            <i class="fas fa-user me-2"></i>User Details: <%= user.displayName %>
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <div class="text-center">
+                                    <% if (user.photoUrl) { %>
+                                        <img src="<%= user.photoUrl %>" alt="<%= user.displayName %>" class="user-avatar mb-2" style="width: 80px; height: 80px;">
+                                    <% } else { %>
+                                        <div class="user-avatar bg-light d-flex align-items-center justify-content-center mb-2" style="width: 80px; height: 80px; margin: 0 auto;">
+                                            <i class="fas fa-user fa-2x"></i>
+                                        </div>
+                                    <% } %>
+                                    <h6><%= user.displayName %></h6>
+                                    <p class="text-muted small mb-1">
+                                        <% if (user.googleId) { %>
+                                            <span class="badge bg-primary">Google User</span>
+                                        <% } else if (user.mobileNumber) { %>
+                                            <span class="badge bg-success">Mobile User</span>
+                                        <% } else { %>
+                                            <span class="badge bg-secondary">Other</span>
+                                        <% } %>
+                                    </p>
+                                </div>
+                                
+                                <div class="card mt-3">
+                                    <div class="card-header">
+                                        <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>User Info</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="mb-1"><strong>ID:</strong> <%= user._id %></p>
+                                        <% if (user.email) { %>
+                                            <p class="mb-1"><strong>Email:</strong> <%= user.email %></p>
+                                        <% } %>
+                                        <% if (user.mobileNumber) { %>
+                                            <p class="mb-1"><strong>Mobile:</strong> <%= user.mobileNumber %></p>
+                                        <% } %>
+                                        <p class="mb-1"><strong>Registered:</strong> <%= new Date(user.createdAt).toLocaleDateString() %></p>
+                                        <p class="mb-0"><strong>Last Login:</strong> 
+                                            <% if (user.lastLogin) { %>
+                                                <%= new Date(user.lastLogin).toLocaleDateString() %>
+                                            <% } else { %>
+                                                <span class="text-muted">Never</span>
+                                            <% } %>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-8">
+                                <!-- Activity Summary -->
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Activity Summary</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-around text-center">
+                                            <div>
+                                                <div class="fs-4 text-info"><%= user.interactions.likes.length %></div>
+                                                <div class="small text-muted">Likes</div>
+                                            </div>
+                                            <div>
+                                                <div class="fs-4 text-warning"><%= user.interactions.dislikes.length %></div>
+                                                <div class="small text-muted">Dislikes</div>
+                                            </div>
+                                            <div>
+                                                <div class="fs-4 text-success"><%= user.interactions.comments.length %></div>
+                                                <div class="small text-muted">Comments</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Likes Section -->
+                                <div class="interaction-section">
+                                    <h6 class="section-title"><i class="fas fa-thumbs-up text-info me-2"></i>Likes (<%= user.interactions.likes.length %>)</h6>
+                                    <% if (user.interactions.likes && user.interactions.likes.length > 0) { %>
+                                        <div class="row">
+                                            <% user.interactions.likes.slice(0, 5).forEach(function(like) { %>
+                                                <div class="col-md-12 mb-2">
+                                                    <div class="p-2 bg-light rounded">
+                                                        <p class="news-title text-info"><%= like.title %></p>
+                                                        <div class="d-flex justify-content-between small">
+                                                            <span><i class="fas fa-tag me-1"></i><%= like.category %></span>
+                                                            <span><i class="fas fa-calendar me-1"></i><%= new Date(like.publishedAt).toLocaleDateString() %></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <% }); %>
+                                            <% if (user.interactions.likes.length > 5) { %>
+                                                <div class="col-md-12">
+                                                    <p class="text-muted small">+ <%= user.interactions.likes.length - 5 %> more likes...</p>
+                                                </div>
+                                            <% } %>
+                                        </div>
+                                    <% } else { %>
+                                        <p class="text-muted small">No likes yet</p>
+                                    <% } %>
+                                </div>
+                                
+                                <!-- Dislikes Section -->
+                                <div class="interaction-section">
+                                    <h6 class="section-title"><i class="fas fa-thumbs-down text-warning me-2"></i>Dislikes (<%= user.interactions.dislikes.length %>)</h6>
+                                    <% if (user.interactions.dislikes && user.interactions.dislikes.length > 0) { %>
+                                        <div class="row">
+                                            <% user.interactions.dislikes.slice(0, 5).forEach(function(dislike) { %>
+                                                <div class="col-md-12 mb-2">
+                                                    <div class="p-2 bg-light rounded">
+                                                        <p class="news-title text-warning"><%= dislike.title %></p>
+                                                        <div class="d-flex justify-content-between small">
+                                                            <span><i class="fas fa-tag me-1"></i><%= dislike.category %></span>
+                                                            <span><i class="fas fa-calendar me-1"></i><%= new Date(dislike.publishedAt).toLocaleDateString() %></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <% }); %>
+                                            <% if (user.interactions.dislikes.length > 5) { %>
+                                                <div class="col-md-12">
+                                                    <p class="text-muted small">+ <%= user.interactions.dislikes.length - 5 %> more dislikes...</p>
+                                                </div>
+                                            <% } %>
+                                        </div>
+                                    <% } else { %>
+                                        <p class="text-muted small">No dislikes yet</p>
+                                    <% } %>
+                                </div>
+                                
+                                <!-- Comments Section -->
+                                <div class="interaction-section">
+                                    <h6 class="section-title"><i class="fas fa-comments text-success me-2"></i>Comments (<%= user.interactions.comments.length %>)</h6>
+                                    <% if (user.interactions.comments && user.interactions.comments.length > 0) { %>
+                                        <div class="row">
+                                            <% user.interactions.comments.slice(0, 3).forEach(function(commentObj) { %>
+                                                <div class="col-md-12 mb-3">
+                                                    <div class="p-2 bg-light rounded">
+                                                        <% if (commentObj.newsId) { %>
+                                                            <p class="news-title text-success"><%= commentObj.newsId.title %></p>
+                                                        <% } else { %>
+                                                            <p class="news-title text-success">Unknown News</p>
+                                                        <% } %>
+                                                        <div class="comment-text">
+                                                            <%= commentObj.comment %>
+                                                        </div>
+                                                        <div class="d-flex justify-content-between small mt-1">
+                                                            <% if (commentObj.newsId) { %>
+                                                                <span><i class="fas fa-tag me-1"></i><%= commentObj.newsId.category %></span>
+                                                            <% } %>
+                                                            <span><i class="fas fa-calendar me-1"></i><%= new Date(commentObj.timestamp).toLocaleDateString() %></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <% }); %>
+                                            <% if (user.interactions.comments.length > 3) { %>
+                                                <div class="col-md-12">
+                                                    <p class="text-muted small">+ <%= user.interactions.comments.length - 3 %> more comments...</p>
+                                                </div>
+                                            <% } %>
+                                        </div>
+                                    <% } else { %>
+                                        <p class="text-muted small">No comments yet</p>
+                                    <% } %>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <% }); %>
+
+    <!-- Feedback Message -->
+    <div id="feedbackMessage" class="feedback-message"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Add ripple effect to elements with "ripple" class
+        document.addEventListener('DOMContentLoaded', function() {
+            const rippleElements = document.querySelectorAll('.ripple');
+            rippleElements.forEach(element => {
+                element.addEventListener('click', function(e) {
+                    // Remove any existing ripple
+                    const existingRipple = this.querySelector('.ripple-effect');
+                    if (existingRipple) {
+                        existingRipple.remove();
+                    }
+                    
+                    // Create ripple
+                    const ripple = document.createElement('span');
+                    ripple.classList.add('ripple-effect');
+                    
+                    // Position ripple
+                    const rect = this.getBoundingClientRect();
+                    const size = Math.max(rect.width, rect.height);
+                    const x = e.clientX - rect.left - size / 2;
+                    const y = e.clientY - rect.top - size / 2;
+                    
+                    ripple.style.width = ripple.style.height = size + 'px';
+                    ripple.style.left = x + 'px';
+                    ripple.style.top = y + 'px';
+                    
+                    this.appendChild(ripple);
+                    
+                    // Remove ripple after animation
+                    setTimeout(() => {
+                        ripple.remove();
+                    }, 600);
+                });
+            });
+        });
+        
+        // Function to show feedback message
+        function showFeedback(message, type) {
+            const feedback = document.getElementById('feedbackMessage');
+            feedback.textContent = message;
+            feedback.className = 'feedback-message ' + type + ' show';
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                feedback.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

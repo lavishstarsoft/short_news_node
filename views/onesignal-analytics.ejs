@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OneSignal Analytics - Short News Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <!-- Mobile Top Navigation -->
+    <div class="top-nav d-md-none">
+        <button class="menu-toggle ripple" id="menuToggle">
+            <i class="fas fa-bars"></i>
+        </button>
+        <h1 class="page-title">OneSignal Analytics</h1>
+        <div class="mobile-header-icons">
+            <button class="menu-toggle ripple" onclick="window.location.href='/admin/profile'">
+                <i class="fas fa-user"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Desktop Navigation -->
+    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
+        <h1 class="page-title mb-0">OneSignal Analytics</h1>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary ripple" onclick="window.location.href='/admin/profile'">
+                <i class="fas fa-user me-1"></i> Profile
+            </button>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <% if (typeof admin !=='undefined' ) { %>
+                <%- include('partials/sidebar', { activePage: 'onesignal-analytics' }) %>
+                    <% } %>
+
+                        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                            <div
+                                class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                                <h1 class="h2">OneSignal Analytics</h1>
+                            </div>
+
+                            <!-- OneSignal Analytics Content -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="mb-0">OneSignal Analytics Data</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="onesignal-analytics-content">
+                                                <p>Loading OneSignal analytics data...</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Image Modal -->
+                            <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Notification Image</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body text-center">
+                                            <img id="modalImage" src="" alt="Notification Image"
+                                                style="max-width: 100%; height: auto;" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/main.js"></script>
+    <script>
+        // Add ripple effect to buttons
+        document.addEventListener('DOMContentLoaded', function () {
+            // Add ripple effect to elements with "ripple" class
+            const rippleElements = document.querySelectorAll('.ripple');
+            rippleElements.forEach(element => {
+                element.addEventListener('click', function (e) {
+                    // Remove any existing ripple
+                    const existingRipple = this.querySelector('.ripple-effect');
+                    if (existingRipple) {
+                        existingRipple.remove();
+                    }
+
+                    // Create ripple
+                    const ripple = document.createElement('span');
+                    ripple.classList.add('ripple-effect');
+
+                    // Position ripple
+                    const rect = this.getBoundingClientRect();
+                    const size = Math.max(rect.width, rect.height);
+                    const x = e.clientX - rect.left - size / 2;
+                    const y = e.clientY - rect.top - size / 2;
+
+                    ripple.style.width = ripple.style.height = size + 'px';
+                    ripple.style.left = x + 'px';
+                    ripple.style.top = y + 'px';
+
+                    this.appendChild(ripple);
+
+                    // Remove ripple after animation
+                    setTimeout(() => {
+                        ripple.remove();
+                    }, 600);
+                });
+            });
+
+            // Mobile menu toggle
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.querySelector('main');
+
+            if (menuToggle && sidebar) {
+                menuToggle.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    sidebar.classList.toggle('active');
+                    if (mainContent) {
+                        mainContent.classList.toggle('sidebar-active');
+                    }
+                });
+            }
+
+            // Load OneSignal analytics
+            loadOneSignalAnalytics();
+
+            // Set up periodic refresh for analytics (every 60 seconds)
+            setInterval(loadOneSignalAnalytics, 60000);
+        });
+
+        // Load OneSignal analytics
+        async function loadOneSignalAnalytics() {
+            try {
+                const response = await fetch('/admin/api/onesignal/analytics');
+                const data = await response.json();
+
+                if (response.ok) {
+                    const analyticsContainer = document.getElementById('onesignal-analytics-content');
+                    if (analyticsContainer) {
+                        // Check if we have either app details or recent notifications
+                        if (data.appDetails || (data.recentNotifications && data.recentNotifications.notifications)) {
+                            let html = '';
+
+                            // Display app details if available
+                            if (data.appDetails) {
+                                html += `
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>App Information</h6>
+                                            <p><strong>Name:</strong> ${data.appDetails.name || 'N/A'}</p>
+                                            <p><strong>ID:</strong> ${data.appDetails.id || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+
+                            // Display recent notifications if available
+                            if (data.recentNotifications && data.recentNotifications.notifications) {
+                                html += `
+                                    <div class="row mt-3">
+                                        <div class="col-12">
+                                            <h6>Recent OneSignal Notifications</h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-striped">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Title</th>
+                                                            <th>Message</th>
+                                                            <th>Image</th>
+                                                            <th>Successful</th>
+                                                            <th>Failed</th>
+                                                            <th>Converted</th>
+                                                            <th>Remaining</th>
+                                                            <th>Date</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                `;
+
+                                data.recentNotifications.notifications.forEach(notification => {
+                                    // Try multiple possible date fields
+                                    let dateValue = 'N/A';
+                                    if (notification.sent_time) {
+                                        dateValue = new Date(notification.sent_time * 1000).toLocaleString();
+                                    } else if (notification.created_at) {
+                                        dateValue = new Date(notification.created_at).toLocaleString();
+                                    } else if (notification.send_after) {
+                                        dateValue = new Date(notification.send_after).toLocaleString();
+                                    } else if (notification.completed_at) {
+                                        dateValue = new Date(notification.completed_at).toLocaleString();
+                                    }
+
+                                    const imageUrl = notification.big_picture || (notification.ios_attachments && Object.values(notification.ios_attachments)[0]) || null;
+
+                                    html += `
+                                        <tr>
+                                            <td>${notification.headings ? notification.headings.en : 'N/A'}</td>
+                                            <td>${notification.contents ? notification.contents.en : 'N/A'}</td>
+                                            <td>
+                                                ${imageUrl ?
+                                            `<img src="${imageUrl}" alt="Notification Image" style="max-width: 100px; max-height: 100px; cursor: pointer;" onclick="showImageModal('${imageUrl}')" />` :
+                                            'No Image'
+                                        }
+                                            </td>
+                                            <td>${notification.successful || 0}</td>
+                                            <td>${notification.failed || 0}</td>
+                                            <td>${notification.converted || 0}</td>
+                                            <td>${notification.remaining || 0}</td>
+                                            <td>${dateValue}</td>
+                                        </tr>
+                                    `;
+                                });
+
+                                html += `
+                                                    </tbody>
+                                `;
+
+                                // Add summary row
+                                if (data.recentNotifications.total_count !== undefined) {
+                                    html += `
+                                        <tfoot>
+                                            <tr>
+                                                <td><strong>Total Notifications</strong></td>
+                                                <td colspan="7"><strong>${data.recentNotifications.total_count}</strong></td>
+                                            </tr>
+                                        </tfoot>
+                                    `;
+                                }
+
+                                html += `
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+
+                            analyticsContainer.innerHTML = html;
+                        } else {
+                            analyticsContainer.innerHTML = '<p>No OneSignal analytics data available.</p>';
+                        }
+                    }
+                } else {
+                    document.getElementById('onesignal-analytics-content').innerHTML = '<p>Error loading OneSignal analytics data.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading OneSignal analytics:', error);
+                document.getElementById('onesignal-analytics-content').innerHTML = '<p>Error loading OneSignal analytics data.</p>';
+            }
+        }
+
+        // Function to show image in modal
+        function showImageModal(imageUrl) {
+            const modalImage = document.getElementById('modalImage');
+            modalImage.src = imageUrl;
+            const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+            modal.show();
+        }
+    </script>
+
+    <!-- Global Admin Notifications -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/admin-notifications.js"></script>
+</body>
+
+</html>

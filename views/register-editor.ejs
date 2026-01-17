@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Register Editor - Short News Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .register-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .register-card {
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            border: none;
+            margin-bottom: 20px;
+            background: white;
+        }
+
+        .register-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 30px;
+        }
+
+        .btn-register {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+
+        .btn-register:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+
+        .btn-logout {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            border: none;
+        }
+
+        .btn-logout:hover {
+            background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+        }
+
+        /* Mobile-specific styles */
+        @media (max-width: 767.98px) {
+            .register-container {
+                padding: 0;
+            }
+
+            .register-header {
+                padding: 20px 15px;
+            }
+
+            .register-card {
+                border-radius: 0;
+                box-shadow: none;
+                margin-bottom: 16px;
+            }
+
+            .card-body {
+                padding: 16px;
+            }
+        }
+
+        @media (min-width: 768px) {
+            .register-header {
+                padding: 40px;
+            }
+
+            .register-card {
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+                transition: all 0.3s cubic-bezier(.25, .8, .25, 1);
+                margin-bottom: 30px;
+            }
+
+            .register-card:hover {
+                box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+            }
+
+            .card-body {
+                padding: 24px;
+            }
+
+            h4 {
+                font-size: 20px;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+            }
+        }
+
+        /* Larger screens */
+        @media (min-width: 992px) {
+            .register-container {
+                padding: 30px;
+            }
+
+            .register-header {
+                padding: 50px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Mobile Top Navigation -->
+    <div class="top-nav d-md-none">
+        <button class="menu-toggle ripple" onclick="window.location.href='/'">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <h1 class="page-title">Register Editor</h1>
+        <button class="menu-toggle ripple" onclick="window.location.href='/logout'">
+            <i class="fas fa-sign-out-alt"></i>
+        </button>
+    </div>
+
+    <!-- Desktop Navigation -->
+    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
+        <h1 class="page-title mb-0">Register Editor</h1>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-light ripple" onclick="window.location.href='/'">
+                <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+            </button>
+            <button class="btn btn-logout ripple" onclick="window.location.href='/logout'">
+                <i class="fas fa-sign-out-alt me-1"></i> Logout
+            </button>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar - Hidden on mobile, visible on desktop -->
+            <%- include('partials/sidebar', { activePage: 'register-editor' }) %>
+
+                <!-- Main Content -->
+                <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                    <div class="content-area">
+                        <div class="card register-card">
+                            <div class="card-header register-header">
+                                <div class="text-center">
+                                    <h2><i class="fas fa-user-plus me-2"></i>Register New Editor</h2>
+                                    <p class="mb-0">Create a new editor account to contribute news articles</p>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <% if (typeof error !=='undefined' && error) { %>
+                                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                        <i class="fas fa-exclamation-circle me-2"></i>
+                                        <%= error %>
+                                            <button type="button" class="btn-close" data-bs-dismiss="alert"
+                                                aria-label="Close"></button>
+                                    </div>
+                                    <% } %>
+
+                                        <% if (typeof success !=='undefined' && success) { %>
+                                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                                <i class="fas fa-check-circle me-2"></i>
+                                                <%= success %>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="alert"
+                                                        aria-label="Close"></button>
+                                            </div>
+                                            <% } %>
+
+                                                <form id="registerEditorForm" action="/register-editor" method="POST">
+                                                    <div class="row">
+                                                        <div class="col-md-6 mb-3">
+                                                            <label for="username" class="form-label">Username</label>
+                                                            <input type="text" class="form-control" id="username"
+                                                                name="username" required>
+                                                        </div>
+                                                        <div class="col-md-6 mb-3">
+                                                            <label for="email" class="form-label">Email</label>
+                                                            <input type="email" class="form-control" id="email"
+                                                                name="email" required>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="row">
+                                                        <div class="col-md-6 mb-3">
+                                                            <label for="password" class="form-label">Password</label>
+                                                            <input type="password" class="form-control" id="password"
+                                                                name="password" required>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="d-flex justify-content-end gap-2 mt-4">
+                                                        <button type="button" class="btn btn-secondary"
+                                                            onclick="window.location.href='/'">
+                                                            <i class="fas fa-times me-1"></i>Cancel
+                                                        </button>
+                                                        <button type="submit" class="btn btn-register">
+                                                            <i class="fas fa-user-plus me-1"></i>Register Editor
+                                                        </button>
+                                                    </div>
+                                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Add ripple effect to elements with "ripple" class
+        document.addEventListener('DOMContentLoaded', function () {
+            const rippleElements = document.querySelectorAll('.ripple');
+            rippleElements.forEach(element => {
+                element.addEventListener('click', function (e) {
+                    // Remove any existing ripple
+                    const existingRipple = this.querySelector('.ripple-effect');
+                    if (existingRipple) {
+                        existingRipple.remove();
+                    }
+
+                    // Create ripple
+                    const ripple = document.createElement('span');
+                    ripple.classList.add('ripple-effect');
+
+                    // Position ripple
+                    const rect = this.getBoundingClientRect();
+                    const size = Math.max(rect.width, rect.height);
+                    const x = e.clientX - rect.left - size / 2;
+                    const y = e.clientY - rect.top - size / 2;
+
+                    ripple.style.width = ripple.style.height = size + 'px';
+                    ripple.style.left = x + 'px';
+                    ripple.style.top = y + 'px';
+
+                    this.appendChild(ripple);
+
+                    // Remove ripple after animation
+                    setTimeout(() => {
+                        ripple.remove();
+                    }, 600);
+                });
+            });
+        });
+    </script>
+
+    <!-- Global Admin Notifications -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/admin-notifications.js"></script>
+</body>
+
+</html>

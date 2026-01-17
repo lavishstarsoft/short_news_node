@@ -1,0 +1,142 @@
+// Public API endpoint for Flutter app (no authentication required)
+router.get('/api/public/news', async (req, res) => {
+  try {
+    let newsList;
+    
+    // Check if MongoDB is connected
+    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
+    
+    if (isConnectedToMongoDB) {
+      // Fetch only active published news from MongoDB
+      newsList = await News.find({ isActive: true }).sort({ publishedAt: -1 });
+    } else {
+      // Use in-memory storage and filter for active news
+      const allNews = req.app.locals.newsData || [];
+      newsList = allNews
+        .filter(news => news.isActive !== false) // Include news where isActive is true or undefined
+        .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)); // Sort by publishedAt descending (newest first)
+    }
+    
+    // Transform data for Flutter app
+    const transformedNews = newsList.map(news => {
+      const newsObj = news.toObject ? news.toObject() : news;
+      return {
+        id: newsObj._id,
+        title: newsObj.title,
+        content: newsObj.content,
+        imageUrl: newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        mediaUrl: newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        mediaType: newsObj.mediaType || 'image',
+        category: newsObj.category,
+        location: newsObj.location,
+        publishedAt: newsObj.publishedAt,
+        likes: newsObj.likes || 0,
+        dislikes: newsObj.dislikes || 0,
+        comments: newsObj.comments || 0,
+        author: newsObj.author,
+        isRead: newsObj.isRead || false // Add this line
+      };
+    });
+    
+    res.json(transformedNews);
+  } catch (error) {
+    console.error('Error fetching public news:', error);
+    res.status(500).json({ error: 'Error fetching news' });
+  }
+});
+
+// Public API endpoint for Flutter app with category filter (no authentication required)
+router.get('/api/public/news/category/:category', async (req, res) => {
+  try {
+    const { category } = req.params;
+    let newsList;
+    
+    // Check if MongoDB is connected
+    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
+    
+    if (isConnectedToMongoDB) {
+      // Fetch only active published news from MongoDB with category filter
+      newsList = await News.find({ isActive: true, category: category }).sort({ publishedAt: -1 });
+    } else {
+      // Use in-memory storage and filter for active news with category filter
+      const allNews = req.app.locals.newsData || [];
+      newsList = allNews
+        .filter(news => news.isActive !== false && news.category === category)
+        .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)); // Sort by publishedAt descending (newest first)
+    }
+    
+    // Transform data for Flutter app
+    const transformedNews = newsList.map(news => {
+      const newsObj = news.toObject ? news.toObject() : news;
+      return {
+        id: newsObj._id,
+        title: newsObj.title,
+        content: newsObj.content,
+        imageUrl: newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        mediaUrl: newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        mediaType: newsObj.mediaType || 'image',
+        category: newsObj.category,
+        location: newsObj.location,
+        publishedAt: newsObj.publishedAt,
+        likes: newsObj.likes || 0,
+        dislikes: newsObj.dislikes || 0,
+        comments: newsObj.comments || 0,
+        author: newsObj.author,
+        isRead: newsObj.isRead || false // Add this line
+      };
+    });
+    
+    res.json(transformedNews);
+  } catch (error) {
+    console.error('Error fetching public news by category:', error);
+    res.status(500).json({ error: 'Error fetching news by category' });
+  }
+});
+
+// Public API endpoint for Flutter app with location filter (no authentication required)
+router.get('/api/public/news/location/:location', async (req, res) => {
+  try {
+    const { location } = req.params;
+    let newsList;
+    
+    // Check if MongoDB is connected
+    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
+    
+    if (isConnectedToMongoDB) {
+      // Fetch only active published news from MongoDB with location filter
+      newsList = await News.find({ isActive: true, location: location }).sort({ publishedAt: -1 });
+    } else {
+      // Use in-memory storage and filter for active news with location filter
+      const allNews = req.app.locals.newsData || [];
+      newsList = allNews
+        .filter(news => news.isActive !== false && news.location === location)
+        .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)); // Sort by publishedAt descending (newest first)
+    }
+    
+    // Transform data for Flutter app
+    const transformedNews = newsList.map(news => {
+      const newsObj = news.toObject ? news.toObject() : news;
+      return {
+        id: newsObj._id,
+        title: newsObj.title,
+        content: newsObj.content,
+        imageUrl: newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        mediaUrl: newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        mediaType: newsObj.mediaType || 'image',
+        category: newsObj.category,
+        location: newsObj.location,
+        publishedAt: newsObj.publishedAt,
+        likes: newsObj.likes || 0,
+        dislikes: newsObj.dislikes || 0,
+        comments: newsObj.comments || 0,
+        author: newsObj.author,
+        isRead: newsObj.isRead || false // Add this line
+      };
+    });
+    
+    res.json(transformedNews);
+  } catch (error) {
+    console.error('Error fetching public news by location:', error);
+    res.status(500).json({ error: 'Error fetching news by location' });
+  }
+});

@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Notification - Short News Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <!-- Mobile Top Navigation -->
+    <div class="top-nav d-md-none">
+        <button class="menu-toggle ripple" id="menuToggle">
+            <i class="fas fa-bars"></i>
+        </button>
+        <h1 class="page-title">Send Notification</h1>
+        <div class="mobile-header-icons">
+            <button class="menu-toggle ripple" onclick="window.location.href='/admin/profile'">
+                <i class="fas fa-user"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Desktop Navigation -->
+    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
+        <h1 class="page-title mb-0">Send Notification</h1>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary ripple" onclick="window.location.href='/admin/profile'">
+                <i class="fas fa-user me-1"></i> Profile
+            </button>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <% if (typeof admin !== 'undefined') { %>
+                <%- include('partials/sidebar', { activePage: 'notifications' }) %>
+            <% } %>
+            
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Send Notification</h1>
+                </div>
+
+                <!-- Notification Statistics -->
+                <% if (typeof stats !== 'undefined') { %>
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body">
+                                <h5 class="card-title text-white">Total Notifications</h5>
+                                <h2><%= stats.total %></h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body">
+                                <h5 class="card-title text-white">High Priority</h5>
+                                <h2><%= stats.priorityStats.high || 0 %></h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body">
+                                <h5 class="card-title text-white">Urgent</h5>
+                                <h2><%= stats.priorityStats.urgent || 0 %></h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body">
+                                <h5 class="card-title text-white">Normal</h5>
+                                <h2><%= stats.priorityStats.normal || 0 %></h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Delivery Statistics -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card bg-success text-white">
+                            <div class="card-body">
+                                <h5 class="card-title text-white">Total Recipients</h5>
+                                <h2><%= stats.deliveryStats.totalRecipients || 0 %></h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-secondary text-white">
+                            <div class="card-body">
+                                <h5 class="card-title text-white">Received</h5>
+                                <h2><%= stats.deliveryStats.totalReceived || 0 %></h2>
+                                <% if (stats.deliveryStats.totalRecipients > 0) { 
+                                    var receivedPercentage = Math.round((stats.deliveryStats.totalReceived / stats.deliveryStats.totalRecipients) * 100);
+                                %>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar" role="progressbar" 
+                                             data-width="<%= receivedPercentage %>">
+                                        </div>
+                                    </div>
+                                    <small><%= receivedPercentage %>% delivery rate</small>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-dark text-white">
+                            <div class="card-body">
+                                <h5 class="card-title text-white">Opened</h5>
+                                <h2><%= stats.deliveryStats.totalOpened || 0 %></h2>
+                                <% if (stats.deliveryStats.totalRecipients > 0) { 
+                                    var openedPercentage = Math.round((stats.deliveryStats.totalOpened / stats.deliveryStats.totalRecipients) * 100);
+                                %>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar" role="progressbar" 
+                                             data-width="<%= openedPercentage %>">
+                                        </div>
+                                    </div>
+                                    <small><%= openedPercentage %>% open rate</small>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <% } %>
+
+                <div class="row">
+                    <!-- Send Notification Form -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Send New Notification</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="notificationForm">
+                                    <div class="mb-3">
+                                        <label for="title" class="form-label">Notification Title</label>
+                                        <input type="text" class="form-control" id="title" required>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="message" class="form-label">Message</label>
+                                        <textarea class="form-control" id="message" rows="4" required></textarea>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="newsId" class="form-label">Related News ID (Optional)</label>
+                                        <input type="text" class="form-control" id="newsId">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="imageUrl" class="form-label">Image URL (Optional)</label>
+                                        <input type="url" class="form-control" id="imageUrl" placeholder="https://example.com/image.jpg">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="launchUrl" class="form-label">Launch URL (Optional)</label>
+                                        <input type="url" class="form-control" id="launchUrl" placeholder="https://example.com/destination">
+                                    </div>
+                                    
+                                    <!-- Platform Settings Collapsible Section -->
+                                    <div class="mb-3">
+                                        <button class="btn btn-outline-secondary w-100" type="button" data-bs-toggle="collapse" data-bs-target="#platformSettings" aria-expanded="false" aria-controls="platformSettings">
+                                            <i class="fas fa-cog me-2"></i>Platform Settings
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="collapse" id="platformSettings">
+                                        <div class="card card-body mb-3">
+                                            <h6>Platform-Specific Settings</h6>
+                                            
+                                            <!-- Android Settings -->
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Android Settings</label>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="androidSound" checked>
+                                                    <label class="form-check-label" for="androidSound">Play Sound</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="androidVibrate" checked>
+                                                    <label class="form-check-label" for="androidVibrate">Vibrate</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="androidLights">
+                                                    <label class="form-check-label" for="androidLights">LED Lights</label>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label for="androidChannel" class="form-label">Channel ID</label>
+                                                    <input type="text" class="form-control" id="androidChannel" placeholder="Default channel">
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label for="androidIcon" class="form-label">Small Icon</label>
+                                                    <input type="text" class="form-control" id="androidIcon" placeholder="drawable resource name" value="ic_stat_onesignal_default">
+                                                </div>
+                                                <!-- New Large Icon and Big Picture fields -->
+                                                <div class="mb-2">
+                                                    <label for="androidLargeIcon" class="form-label">Large Icon URL</label>
+                                                    <input type="url" class="form-control" id="androidLargeIcon" placeholder="https://example.com/large-icon.png" value="https://res.cloudinary.com/dhz64y9ll/image/upload/v1761305540/a1_vc7mgi.png">
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label for="androidBigPicture" class="form-label">Big Picture URL</label>
+                                                    <input type="url" class="form-control" id="androidBigPicture" placeholder="https://example.com/big-picture.jpg">
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- iOS Settings -->
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">iOS Settings</label>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="iosSound" checked>
+                                                    <label class="form-check-label" for="iosSound">Play Sound</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="iosBadge" checked>
+                                                    <label class="form-check-label" for="iosBadge">Update Badge</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="iosContentAvailable">
+                                                    <label class="form-check-label" for="iosContentAvailable">Content Available</label>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label for="iosCategory" class="form-label">Category</label>
+                                                    <input type="text" class="form-control" id="iosCategory" placeholder="Notification category">
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Web Settings -->
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Web Settings</label>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="webSound" checked>
+                                                    <label class="form-check-label" for="webSound">Play Sound</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="webBadge">
+                                                    <label class="form-check-label" for="webBadge">Show Badge</label>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label for="webIcon" class="form-label">Icon URL</label>
+                                                    <input type="url" class="form-control" id="webIcon" placeholder="https://example.com/icon.png">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="priority" class="form-label">Priority</label>
+                                        <select class="form-control" id="priority">
+                                            <option value="normal">Normal</option>
+                                            <option value="high">High</option>
+                                            <option value="urgent">Urgent</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="titleColor" class="form-label">Title Color (Optional)</label>
+                                        <input type="color" class="form-control form-control-color" id="titleColor" value="#000000">
+                                        <div class="form-text">Select a custom color for the notification title</div>
+                                    </div>
+                                    
+                                    <button type="submit" class="btn btn-primary">Send Notification</button>
+                                </form>
+                                
+                                <div id="result" class="mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Live Preview (replacing Recent Notifications) -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Live Notification Preview</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="border rounded p-3 bg-light">
+                                    <div class="notification-preview-live">
+                                        <!-- Preview Header with Icon -->
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px;">
+                                                <i class="fas fa-bell text-white"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold" id="livePreviewTitle">Notification Title</div>
+                                                <small class="text-muted">Just now</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Preview Message -->
+                                        <div class="mb-2">
+                                            <p class="mb-1" id="livePreviewMessage">Notification message will appear here...</p>
+                                        </div>
+                                        
+                                        <!-- Preview Image (if available) -->
+                                        <div class="mb-2" id="livePreviewImageContainer" style="display: none;">
+                                            <img id="livePreviewImage" src="" alt="Notification Image" class="img-fluid rounded" style="max-height: 100px; object-fit: cover;">
+                                        </div>
+                                        
+                                        <!-- Preview Priority Badge -->
+                                        <div class="mb-2">
+                                            <span class="badge bg-info" id="livePreviewPriority">Normal</span>
+                                        </div>
+                                        
+                                        <!-- Android Settings Preview Indicators -->
+                                        <div class="mt-2">
+                                            <small class="text-muted">Android Settings:</small>
+                                            <div class="d-flex flex-wrap gap-2 mt-1">
+                                                <span class="badge bg-secondary" id="livePreviewLargeIcon" style="display: none;">Large Icon</span>
+                                                <span class="badge bg-secondary" id="livePreviewBigPicture" style="display: none;">Big Picture</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Preview Actions -->
+                                        <div class="d-flex justify-content-between mt-3">
+                                            <button class="btn btn-sm btn-outline-primary">Open</button>
+                                            <small class="text-muted">Preview • by Admin</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Full Notification History -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Notification History</h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Filter options -->
+                                <div class="row mb-3">
+                                    <div class="col-md-3">
+                                        <select class="form-control" id="filterType">
+                                            <option value="">All Types</option>
+                                            <option value="news">News</option>
+                                            <option value="admin">Admin</option>
+                                            <option value="system">System</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <select class="form-control" id="filterPriority">
+                                            <option value="">All Priorities</option>
+                                            <option value="normal">Normal</option>
+                                            <option value="high">High</option>
+                                            <option value="urgent">Urgent</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="date" class="form-control" id="startDate" placeholder="Start Date">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="date" class="form-control" id="endDate" placeholder="End Date">
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-12">
+                                        <button class="btn btn-secondary" id="applyFilters">Apply Filters</button>
+                                        <button class="btn btn-outline-secondary" id="clearFilters">Clear Filters</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Title</th>
+                                                <th>Message</th>
+                                                <th>Type</th>
+                                                <th>Priority</th>
+                                                <th>Sent By</th>
+                                                <th>Sent At</th>
+                                                <th>Recipients</th>
+                                                <th>Opened</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="notificationHistory">
+                                            <!-- Notification history will be loaded here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-3">
+                                    <button id="deleteAllBtn" class="btn btn-danger" onclick="deleteAllNotifications()">Delete All Notifications</button>
+                                    <nav>
+                                        <ul class="pagination justify-content-center mb-0" id="pagination">
+                                            <!-- Pagination will be loaded here -->
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/main.js"></script>
+    <script>
+        // Add ripple effect to buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add ripple effect to elements with "ripple" class
+            const rippleElements = document.querySelectorAll('.ripple');
+            rippleElements.forEach(element => {
+                element.addEventListener('click', function(e) {
+                    // Remove any existing ripple
+                    const existingRipple = this.querySelector('.ripple-effect');
+                    if (existingRipple) {
+                        existingRipple.remove();
+                    }
+                    
+                    // Create ripple
+                    const ripple = document.createElement('span');
+                    ripple.classList.add('ripple-effect');
+                    
+                    // Position ripple
+                    const rect = this.getBoundingClientRect();
+                    const size = Math.max(rect.width, rect.height);
+                    const x = e.clientX - rect.left - size / 2;
+                    const y = e.clientY - rect.top - size / 2;
+                    
+                    ripple.style.width = ripple.style.height = size + 'px';
+                    ripple.style.left = x + 'px';
+                    ripple.style.top = y + 'px';
+                    
+                    this.appendChild(ripple);
+                    
+                    // Remove ripple after animation
+                    setTimeout(() => {
+                        ripple.remove();
+                    }, 600);
+                });
+            });
+            
+            // Mobile menu toggle
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.querySelector('main');
+            
+            if (menuToggle && sidebar) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    sidebar.classList.toggle('active');
+                    if (mainContent) {
+                        mainContent.classList.toggle('sidebar-active');
+                    }
+                });
+            }
+            
+            // Set progress bar widths after page load
+            const progressBars = document.querySelectorAll('.progress-bar');
+            progressBars.forEach(bar => {
+                const width = bar.getAttribute('data-width');
+                if (width) {
+                    bar.style.width = width + '%';
+                    bar.setAttribute('aria-valuenow', width);
+                }
+            });
+            
+            // Load notification history
+            loadNotificationHistory(1);
+            
+            // Load recent notifications
+            loadRecentNotifications();
+            
+            // Set up periodic refresh for recent notifications (every 30 seconds)
+            setInterval(loadRecentNotifications, 30000);
+            
+            // Add event listeners for filter buttons
+            document.getElementById('applyFilters').addEventListener('click', function() {
+                loadNotificationHistory(1);
+            });
+            
+            document.getElementById('clearFilters').addEventListener('click', function() {
+                document.getElementById('filterType').value = '';
+                document.getElementById('filterPriority').value = '';
+                document.getElementById('startDate').value = '';
+                document.getElementById('endDate').value = '';
+                loadNotificationHistory(1);
+            });
+            
+            // Add real-time preview functionality
+            setupLivePreview();
+        });
+
+        // Setup live preview functionality
+        function setupLivePreview() {
+            // Get form elements
+            const titleInput = document.getElementById('title');
+            const messageInput = document.getElementById('message');
+            const imageUrlInput = document.getElementById('imageUrl');
+            const prioritySelect = document.getElementById('priority');
+            // Get new Android fields
+            const androidLargeIconInput = document.getElementById('androidLargeIcon');
+            const androidBigPictureInput = document.getElementById('androidBigPicture');
+            
+            // Get live preview elements (new unified preview)
+            const livePreviewTitle = document.getElementById('livePreviewTitle');
+            const livePreviewMessage = document.getElementById('livePreviewMessage');
+            const livePreviewImage = document.getElementById('livePreviewImage');
+            const livePreviewImageContainer = document.getElementById('livePreviewImageContainer');
+            const livePreviewPriority = document.getElementById('livePreviewPriority');
+            // Get Android indicators for live preview
+            const livePreviewLargeIcon = document.getElementById('livePreviewLargeIcon');
+            const livePreviewBigPicture = document.getElementById('livePreviewBigPicture');
+            
+            // Get original preview elements (from form section)
+            const previewTitle = document.getElementById('previewTitle');
+            const previewMessage = document.getElementById('previewMessage');
+            const previewImage = document.getElementById('previewImage');
+            const previewImageContainer = document.getElementById('previewImageContainer');
+            const previewPriority = document.getElementById('previewPriority');
+            // Get Android indicators for form preview
+            const previewLargeIcon = document.getElementById('previewLargeIcon');
+            const previewBigPicture = document.getElementById('previewBigPicture');
+            
+            // Function to update previews
+            function updatePreviews() {
+                const title = titleInput.value || 'Notification Title';
+                const message = messageInput.value || 'Notification message will appear here...';
+                const imageUrl = imageUrlInput.value;
+                const priority = prioritySelect.value || 'normal';
+                // Get new Android field values
+                const androidLargeIcon = androidLargeIconInput.value;
+                const androidBigPicture = androidBigPictureInput.value;
+                
+                // Update both preview sections
+                updatePreviewElements(livePreviewTitle, livePreviewMessage, livePreviewImage, 
+                                    livePreviewImageContainer, livePreviewPriority, 
+                                    livePreviewLargeIcon, livePreviewBigPicture,
+                                    title, message, imageUrl, priority, androidLargeIcon, androidBigPicture);
+                
+                updatePreviewElements(previewTitle, previewMessage, previewImage, 
+                                    previewImageContainer, previewPriority, 
+                                    previewLargeIcon, previewBigPicture,
+                                    title, message, imageUrl, priority, androidLargeIcon, androidBigPicture);
+            }
+            
+            // Function to update preview elements
+            function updatePreviewElements(titleEl, messageEl, imageEl, imageContainerEl, priorityEl, largeIconIndicator, bigPictureIndicator, title, message, imageUrl, priority, androidLargeIcon, androidBigPicture) {
+                // Update title and message
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+                
+                // Update image preview (use imageUrl by default, but prefer bigPicture if available)
+                const displayImage = androidBigPicture || imageUrl;
+                if (displayImage) {
+                    imageEl.src = displayImage;
+                    imageContainerEl.style.display = 'block';
+                } else {
+                    imageContainerEl.style.display = 'none';
+                }
+                
+                // Update priority badge
+                updatePriorityBadge(priorityEl, priority);
+                
+                // Update Android settings indicators
+                if (largeIconIndicator) {
+                    largeIconIndicator.style.display = androidLargeIcon ? 'inline-block' : 'none';
+                }
+                
+                if (bigPictureIndicator) {
+                    bigPictureIndicator.style.display = androidBigPicture ? 'inline-block' : 'none';
+                }
+            }
+            
+            // Function to update priority badge
+            function updatePriorityBadge(element, priority) {
+                element.className = 'badge'; // Reset classes
+                switch (priority) {
+                    case 'urgent':
+                        element.classList.add('badge', 'bg-danger');
+                        element.textContent = 'Urgent';
+                        break;
+                    case 'high':
+                        element.classList.add('badge', 'bg-warning');
+                        element.textContent = 'High';
+                        break;
+                    default:
+                        element.classList.add('badge', 'bg-info');
+                        element.textContent = 'Normal';
+                        break;
+                }
+            }
+            
+            // Add event listeners to form elements
+            if (titleInput) titleInput.addEventListener('input', updatePreviews);
+            if (messageInput) messageInput.addEventListener('input', updatePreviews);
+            if (imageUrlInput) imageUrlInput.addEventListener('input', updatePreviews);
+            if (prioritySelect) prioritySelect.addEventListener('change', updatePreviews);
+            // Add event listeners for new Android fields
+            if (androidLargeIconInput) androidLargeIconInput.addEventListener('input', updatePreviews);
+            if (androidBigPictureInput) androidBigPictureInput.addEventListener('input', updatePreviews);
+            
+            // Initial update
+            updatePreviews();
+        }
+
+        document.getElementById('notificationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('title').value;
+            const message = document.getElementById('message').value;
+            const newsId = document.getElementById('newsId').value;
+            const imageUrl = document.getElementById('imageUrl').value;
+            const launchUrl = document.getElementById('launchUrl').value;
+            const titleColor = document.getElementById('titleColor').value;
+            const priority = document.getElementById('priority').value;
+            
+            // Collect platform settings
+            const platformSettings = {
+                android: {
+                    sound: document.getElementById('androidSound').checked,
+                    vibrate: document.getElementById('androidVibrate').checked,
+                    lights: document.getElementById('androidLights').checked,
+                    channel: document.getElementById('androidChannel').value,
+                    icon: document.getElementById('androidIcon').value,
+                    // Add new fields
+                    largeIcon: document.getElementById('androidLargeIcon').value,
+                    bigPicture: document.getElementById('androidBigPicture').value
+                },
+                ios: {
+                    sound: document.getElementById('iosSound').checked,
+                    badge: document.getElementById('iosBadge').checked,
+                    contentAvailable: document.getElementById('iosContentAvailable').checked,
+                    category: document.getElementById('iosCategory').value
+                },
+                web: {
+                    sound: document.getElementById('webSound').checked,
+                    badge: document.getElementById('webBadge').checked,
+                    icon: document.getElementById('webIcon').value
+                }
+            };
+            
+            // Add LED timing if lights are enabled
+            if (platformSettings.android.lights) {
+                platformSettings.android.ledOnMs = 1000;
+                platformSettings.android.ledOffMs = 1000;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/send-notification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ title, message, newsId, imageUrl, launchUrl, titleColor, platformSettings, priority })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('result').innerHTML = `<div class="alert alert-success">${result.message}</div>`;
+                    document.getElementById('notificationForm').reset();
+                    // Reset the default values
+                    document.getElementById('androidLargeIcon').value = 'https://res.cloudinary.com/dhz64y9ll/image/upload/v1761305540/a1_vc7mgi.png';
+                    document.getElementById('androidIcon').value = 'ic_stat_onesignal_default';
+                    // Reset title color to default black
+                    document.getElementById('titleColor').value = '#000000';
+                    // Reload notification history after sending
+                    loadNotificationHistory(1);
+                    // Reload recent notifications
+                    loadRecentNotifications();
+                } else {
+                    document.getElementById('result').innerHTML = `<div class="alert alert-danger">${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `<div class="alert alert-danger">Error sending notification: ${error.message}</div>`;
+            }
+        });
+        
+        // Load notification history with pagination and filters
+        async function loadNotificationHistory(page) {
+            try {
+                // Get filter values
+                const type = document.getElementById('filterType').value;
+                const priority = document.getElementById('filterPriority').value;
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                
+                // Build query string
+                let query = `?page=${page}&limit=10`;
+                if (type) query += `&type=${type}`;
+                if (priority) query += `&priority=${priority}`;
+                if (startDate) query += `&startDate=${startDate}`;
+                if (endDate) query += `&endDate=${endDate}`;
+                
+                const response = await fetch(`/admin/api/notifications/history${query}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const historyContainer = document.getElementById('notificationHistory');
+                    historyContainer.innerHTML = '';
+                    
+                    if (data.notifications && data.notifications.length > 0) {
+                        data.notifications.forEach(notification => {
+                            // Calculate recipient statistics
+                            const totalRecipients = notification.recipients.length;
+                            const openedRecipients = notification.recipients.filter(r => r.opened).length;
+                            
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${notification.title}</td>
+                                <td>${notification.message.substring(0, 50)}${notification.message.length > 50 ? '...' : ''}</td>
+                                <td>${notification.type}</td>
+                                <td>
+                                    ${notification.priority === 'urgent' ? 
+                                        '<span class="badge bg-danger">Urgent</span>' : 
+                                        notification.priority === 'high' ? 
+                                        '<span class="badge bg-warning">High</span>' : 
+                                        '<span class="badge bg-info">Normal</span>'}
+                                </td>
+                                <td>${notification.sentBy}</td>
+                                <td>${new Date(notification.sentAt).toLocaleString()}</td>
+                                <td>${totalRecipients}</td>
+                                <td>${openedRecipients} (${totalRecipients > 0 ? Math.round((openedRecipients/totalRecipients)*100) : 0}%)</td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteNotification('${notification._id}')">Delete</button>
+                                </td>
+                            `;
+                            historyContainer.appendChild(row);
+                        });
+                        
+                        // Update pagination
+                        updatePagination(data.pagination);
+                    } else {
+                        historyContainer.innerHTML = '<tr><td colspan="9">No notifications found.</td></tr>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading notification history:', error);
+                document.getElementById('notificationHistory').innerHTML = '<tr><td colspan="9">Error loading notification history.</td></tr>';
+            }
+        }
+        
+        // Load recent notifications
+        async function loadRecentNotifications() {
+            try {
+                const response = await fetch('/admin/api/notifications/recent');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const recentContainer = document.querySelector('.list-group');
+                    const noRecentNotifications = document.getElementById('noRecentNotifications');
+                    const recentNotificationsPreview = document.getElementById('recentNotificationsPreview');
+                    
+                    if (recentContainer) {
+                        recentContainer.innerHTML = '';
+                        
+                        if (data.recentNotifications && data.recentNotifications.length > 0) {
+                            // Show recent notifications
+                            data.recentNotifications.forEach(notification => {
+                                const item = document.createElement('div');
+                                item.className = 'list-group-item';
+                                
+                                // Format the time difference
+                                const sentTime = new Date(notification.sentAt);
+                                const now = new Date();
+                                const diffMinutes = Math.floor((now - sentTime) / (1000 * 60));
+                                const timeAgo = diffMinutes < 1 ? 'Just now' : 
+                                                diffMinutes < 60 ? `${diffMinutes} min ago` : 
+                                                `${Math.floor(diffMinutes / 60)} hr ago`;
+                                
+                                item.innerHTML = `
+                                    <div class="d-flex w-100 justify-content-between mb-2">
+                                        <h6 class="mb-1">${notification.title}</h6>
+                                        <small>
+                                            ${notification.priority === 'urgent' ? 
+                                                '<span class="badge bg-danger">Urgent</span>' : 
+                                                notification.priority === 'high' ? 
+                                                '<span class="badge bg-warning">High</span>' : 
+                                                '<span class="badge bg-info">Normal</span>'}
+                                        </small>
+                                    </div>
+                                    
+                                    <!-- Notification Preview -->
+                                    <div class="notification-preview border rounded p-3 mb-2">
+                                        <!-- Preview Header with Icon -->
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px;">
+                                                <i class="fas fa-bell text-white"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">${notification.title}</div>
+                                                <small class="text-muted">${timeAgo}</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Preview Message -->
+                                        <div class="mb-2">
+                                            <p class="mb-1">${notification.message}</p>
+                                        </div>
+                                        
+                                        <!-- Preview Image (if available) -->
+                                        ${notification.imageUrl ? 
+                                            `<div class="mb-2">
+                                                <img src="${notification.imageUrl}" alt="Notification Image" class="img-fluid rounded" style="max-height: 100px; object-fit: cover;">
+                                            </div>` : ''}
+                                        
+                                        <!-- Preview Actions -->
+                                        <div class="d-flex justify-content-between">
+                                            <button class="btn btn-sm btn-outline-primary">Open</button>
+                                            <small class="text-muted">${new Date(notification.sentAt).toLocaleString()} by ${notification.sentBy}</small>
+                                        </div>
+                                    </div>
+                                `;
+                                recentContainer.appendChild(item);
+                            });
+                        } else {
+                            // Show message when no recent notifications
+                            recentContainer.innerHTML = '<p class="mb-0">No recent notifications found.</p>';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading recent notifications:', error);
+            }
+        }
+        
+
+        
+        // Delete a single notification
+        async function deleteNotification(id) {
+            if (!confirm('Are you sure you want to delete this notification?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/api/notifications/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Reload notification history
+                    loadNotificationHistory(1);
+                    // Reload recent notifications
+                    loadRecentNotifications();
+
+                    alert(result.message);
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error deleting notification:', error);
+                alert('Error deleting notification: ' + error.message);
+            }
+        }
+        
+        // Delete all notifications
+        async function deleteAllNotifications() {
+            if (!confirm('Are you sure you want to delete ALL notifications? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/notifications', {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Reload notification history
+                    loadNotificationHistory(1);
+                    // Reload recent notifications
+                    loadRecentNotifications();
+
+                    alert(result.message);
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error deleting all notifications:', error);
+                alert('Error deleting all notifications: ' + error.message);
+            }
+        }
+        
+        // Update pagination controls
+        function updatePagination(pagination) {
+            const paginationContainer = document.getElementById('pagination');
+            paginationContainer.innerHTML = '';
+            
+            // Previous button
+            const prevItem = document.createElement('li');
+            prevItem.className = `page-item ${pagination.page === 1 ? 'disabled' : ''}`;
+            prevItem.innerHTML = `<a class="page-link" href="#" onclick="loadNotificationHistory(${pagination.page - 1})">Previous</a>`;
+            paginationContainer.appendChild(prevItem);
+            
+            // Page numbers
+            for (let i = 1; i <= pagination.pages; i++) {
+                const pageItem = document.createElement('li');
+                pageItem.className = `page-item ${i === pagination.page ? 'active' : ''}`;
+                pageItem.innerHTML = `<a class="page-link" href="#" onclick="loadNotificationHistory(${i})">${i}</a>`;
+                paginationContainer.appendChild(pageItem);
+            }
+            
+            // Next button
+            const nextItem = document.createElement('li');
+            nextItem.className = `page-item ${pagination.page === pagination.pages ? 'disabled' : ''}`;
+            nextItem.innerHTML = `<a class="page-link" href="#" onclick="loadNotificationHistory(${pagination.page + 1})">Next</a>`;
+            paginationContainer.appendChild(nextItem);
+        }
+    </script>
+</body>
+</html>

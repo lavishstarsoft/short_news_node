@@ -1,0 +1,133 @@
+<div class="col-md-3 col-lg-2 d-md-block sidebar" id="sidebar">
+    <div class="position-sticky pt-3">
+        <div class="sidebar-header text-center py-3 mb-3">
+            <h4 class="mb-0">Short News</h4>
+            <p class="small mb-0">Admin Dashboard</p>
+            <% if (typeof admin !=='undefined' && admin) { %>
+                <div class="d-flex align-items-center justify-content-center mt-2">
+                    <i class="fas fa-user-circle fa-2x text-white me-2"></i>
+                    <div class="text-white text-start">
+                        <div class="fw-bold">
+                            <%= admin.username %>
+                        </div>
+                        <div class="small">
+                            <%= admin.role %>
+                        </div>
+                    </div>
+                </div>
+                <% } %>
+        </div>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link ripple <%= activePage === 'dashboard' ? 'active' : '' %>" href="/news">
+                    <i class="fas fa-home me-3"></i>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link ripple <%= activePage === 'news-list' ? 'active' : '' %>" href="/news-list">
+                    <i class="fas fa-newspaper me-3"></i>
+                    <span class="nav-text">News List</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link ripple <%= activePage === 'add-news' ? 'active' : '' %>" href="/add-news">
+                    <i class="fas fa-plus-circle me-3"></i>
+                    <span class="nav-text">Add News</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link ripple <%= activePage === 'viral-videos' ? 'active' : '' %>" href="/viral-videos">
+                    <i class="fas fa-video me-3"></i>
+                    <span class="nav-text">Viral Videos</span>
+                </a>
+            </li>
+            <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
+                admin.role==='superadmin' )) { %>
+                <li class="nav-item">
+                    <a class="nav-link ripple <%= activePage === 'ads' ? 'active' : '' %>" href="/ads/ads">
+                        <i class="fas fa-ad me-3"></i>
+                        <span class="nav-text">Ads Management</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link ripple <%= activePage === 'intelligent-ads' ? 'active' : '' %>"
+                        href="/intelligent-ads">
+                        <i class="fas fa-brain me-3"></i>
+                        <span class="nav-text">Intelligent Ads</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link ripple <%= activePage === 'register-editor' ? 'active' : '' %>"
+                        href="/register-editor">
+                        <i class="fas fa-user-plus me-3"></i>
+                        <span class="nav-text">Register Editor</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link ripple <%= activePage === 'editors' ? 'active' : '' %>" href="/editors">
+                        <i class="fas fa-users me-3"></i>
+                        <span class="nav-text">Editors</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link ripple <%= activePage === 'users' ? 'active' : '' %>" href="/admin/users">
+                        <i class="fas fa-users me-3"></i>
+                        <span class="nav-text">Users</span>
+                    </a>
+                </li>
+                <% } %>
+                    <li class="nav-item">
+                        <a class="nav-link ripple <%= activePage === 'categories' ? 'active' : '' %>"
+                            href="/categories">
+                            <i class="fas fa-list me-3"></i>
+                            <span class="nav-text">Categories</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link ripple <%= activePage === 'locations' ? 'active' : '' %>" href="/locations">
+                            <i class="fas fa-map-marker-alt me-3"></i>
+                            <span class="nav-text">Locations</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link ripple <%= activePage === 'reports' ? 'active' : '' %>"
+                            href="/admin/reports">
+                            <i class="fas fa-flag me-3"></i>
+                            <span class="nav-text">Reports</span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link ripple <%= activePage === 'notifications' ? 'active' : '' %>"
+                            href="/admin/notifications">
+                            <i class="fas fa-bell me-3"></i>
+                            <span class="nav-text">Send Notification</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link ripple <%= activePage === 'onesignal-analytics' ? 'active' : '' %>"
+                            href="/admin/onesignal-analytics">
+                            <i class="fas fa-chart-bar me-3"></i>
+                            <span class="nav-text">OneSignal Analytics</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link ripple <%= activePage === 'profile' ? 'active' : '' %>"
+                            href="/admin/profile">
+                            <i class="fas fa-user me-3"></i>
+                            <span class="nav-text">Profile</span>
+                        </a>
+                    </li>
+                    <li class="nav-item mt-3">
+                        <a class="nav-link ripple" href="/logout">
+                            <i class="fas fa-sign-out-alt me-3"></i>
+                            <span class="nav-text">Logout</span>
+                        </a>
+                    </li>
+        </ul>
+        <div class="sidebar-footer text-center py-3 mt-3">
+            <small class="text-white">© 2025 Short News</small>
+        </div>
+    </div>
+</div>
