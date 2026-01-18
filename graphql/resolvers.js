@@ -4,6 +4,8 @@ const Category = require('../models/Category');
 const Location = require('../models/Location');
 const Ad = require('../models/Ad');
 const User = require('../models/User');
+const Report = require('../models/Report');
+const CommentReport = require('../models/CommentReport');
 
 // Import GraphQL cache utility
 const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = require('./cache');
@@ -937,6 +939,78 @@ const resolvers = {
                     timestamp: like.timestamp ? (like.timestamp.toISOString ? like.timestamp.toISOString() : new Date(like.timestamp).toISOString()) : new Date().toISOString()
                 }))
             }));
+        },
+    },
+
+    // Report mutations
+    Mutation: {
+        ...resolvers?.Mutation,
+
+        reportNews: async (_, { newsId, reason, description, userId, userName, userEmail }) => {
+            try {
+                const report = new Report({
+                    newsId,
+                    reason,
+                    description,
+                    userId,
+                    userName,
+                    userEmail,
+                    status: 'pending'
+                });
+                await report.save();
+                console.log(`✅ GraphQL: News reported by ${userName}`);
+                return { success: true, message: 'Report submitted successfully' };
+            } catch (error) {
+                console.error('Error reporting news:', error);
+                return { success: false, message: 'Failed to submit report' };
+            }
+        },
+
+        reportComment: async (_, { newsId, commentText, commentUserId, commentUserName, userId, userName, userEmail, reason, additionalDetails }) => {
+            try {
+                const report = new CommentReport({
+                    newsId,
+                    commentText,
+                    commentUserId,
+                    commentUserName,
+                    userId,
+                    userName,
+                    userEmail,
+                    reason,
+                    additionalDetails: additionalDetails || '',
+                    status: 'pending'
+                });
+                await report.save();
+                console.log(`✅ GraphQL: Comment reported by ${userName}`);
+                return { success: true, message: 'Comment report submitted successfully' };
+            } catch (error) {
+                console.error('Error reporting comment:', error);
+                return { success: false, message: 'Failed to submit comment report' };
+            }
+        },
+
+        reportViralVideoComment: async (_, { videoId, commentText, commentUserId, commentUserName, userId, userName, userEmail, reason, additionalDetails }) => {
+            try {
+                const report = new CommentReport({
+                    videoId,
+                    commentText,
+                    commentUserId,
+                    commentUserName,
+                    userId,
+                    userName,
+                    userEmail,
+                    reason,
+                    additionalDetails: additionalDetails || '',
+                    status: 'pending',
+                    type: 'viral_video'
+                });
+                await report.save();
+                console.log(`✅ GraphQL: Viral video comment reported by ${userName}`);
+                return { success: true, message: 'Comment report submitted successfully' };
+            } catch (error) {
+                console.error('Error reporting viral video comment:', error);
+                return { success: false, message: 'Failed to submit comment report' };
+            }
         },
     },
 };

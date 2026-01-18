@@ -131,6 +131,16 @@ const typeDefs = gql`
     interactWithViralVideo(videoId: ID!, action: String!, userId: String!, userName: String!, userEmail: String, commentText: String): ViralVideo
     likeViralVideoComment(videoId: ID!, commentText: String!, userId: String!, userName: String!): ViralVideo
     deleteViralVideoComment(videoId: ID!, commentId: String, commentText: String, userId: String!, timestamp: String): ViralVideo
+    
+    # Report mutations (migrated from REST API)
+    reportNews(newsId: ID!, reason: String!, description: String!, userId: String!, userName: String!, userEmail: String!): ReportResponse
+    reportComment(newsId: ID!, commentText: String!, commentUserId: String!, commentUserName: String!, userId: String!, userName: String!, userEmail: String!, reason: String!, additionalDetails: String): ReportResponse
+    reportViralVideoComment(videoId: ID!, commentText: String!, commentUserId: String!, commentUserName: String!, userId: String!, userName: String!, userEmail: String!, reason: String!, additionalDetails: String): ReportResponse
+  }
+  
+  type ReportResponse {
+    success: Boolean!
+    message: String!
   }
 `;
 
