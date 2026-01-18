@@ -436,6 +436,22 @@ const resolvers = {
                         }
                         break;
 
+                    case 'unlike':
+                        const likeIdx = news.userInteractions.likes.findIndex(l => String(l.userId) === String(userId));
+                        if (likeIdx !== -1) {
+                            news.userInteractions.likes.splice(likeIdx, 1);
+                            news.likes = Math.max(0, news.likes - 1);
+                        }
+                        break;
+
+                    case 'undislike':
+                        const dislikeIdx = news.userInteractions.dislikes.findIndex(d => String(d.userId) === String(userId));
+                        if (dislikeIdx !== -1) {
+                            news.userInteractions.dislikes.splice(dislikeIdx, 1);
+                            news.dislikes = Math.max(0, news.dislikes - 1);
+                        }
+                        break;
+
                     case 'comment':
                         if (!commentText) {
                             throw new Error('Comment text is required');
