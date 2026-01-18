@@ -6,6 +6,7 @@ const Ad = require('../models/Ad');
 const User = require('../models/User');
 const Report = require('../models/Report');
 const CommentReport = require('../models/CommentReport');
+const LiveStream = require('../models/LiveStream');
 
 // Import GraphQL cache utility
 const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = require('./cache');
@@ -167,6 +168,19 @@ const resolvers = {
             } catch (error) {
                 console.error('Error fetching viral video by ID:', error);
                 throw new Error('Failed to fetch viral video');
+            }
+        },
+
+        getLiveStreamStatus: async () => {
+            try {
+                let status = await LiveStream.findOne();
+                if (!status) {
+                    status = await LiveStream.create({ isLive: false, url: '' });
+                }
+                return status;
+            } catch (error) {
+                console.error('Error fetching live stream status:', error);
+                throw new Error('Failed to fetch live stream status');
             }
         },
     },
@@ -780,6 +794,23 @@ const resolvers = {
             } catch (error) {
                 console.error('Error liking viral video comment:', error);
                 throw error;
+            }
+        },
+
+        updateLiveStreamStatus: async (_, { isLive, url }) => {
+            try {
+                let status = await LiveStream.findOne();
+                if (!status) {
+                    status = new LiveStream({ isLive, url });
+                } else {
+                    status.isLive = isLive;
+                    if (url !== undefined) status.url = url;
+                }
+                await status.save();
+                return status;
+            } catch (error) {
+                console.error('Error updating live stream status:', error);
+                throw new Error('Failed to update live stream status');
             }
         },
 

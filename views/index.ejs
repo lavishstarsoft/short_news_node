@@ -38,6 +38,7 @@
         .news-content-preview {
             display: -webkit-box;
             -webkit-line-clamp: 3;
+            line-clamp: 3;
             -webkit-box-orient: vertical;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -168,6 +169,38 @@
                 <!-- Main Content -->
                 <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
                     <div class="content-area">
+                        <!-- Live Stream Control -->
+                        <div class="card mb-4 shadow-sm border-0"
+                            style="background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%); color: white;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="card-title text-white mb-1"><i
+                                                class="fas fa-broadcast-tower me-2"></i>Live Stream Control</h5>
+                                        <p class="mb-0 opacity-75 small">Manage YouTube Live Streaming status</p>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="liveStreamToggle"
+                                            style="width: 3em; height: 1.5em; cursor: pointer;">
+                                        <label class="form-check-label ms-2 fw-bold" for="liveStreamToggle"
+                                            id="liveStreamStatusLabel">OFF</label>
+                                    </div>
+                                </div>
+                                <div class="mt-3 collapse show" id="liveStreamConfig">
+                                    <label class="form-label text-white small">YouTube URL (Live Stream or
+                                        Video)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text border-0 bg-white text-danger"><i
+                                                class="fab fa-youtube"></i></span>
+                                        <input type="text" class="form-control border-0" id="liveStreamUrl"
+                                            placeholder="https://www.youtube.com/watch?v=..." style="box-shadow: none;">
+                                        <button class="btn btn-dark" type="button"
+                                            onclick="saveLiveStreamConfig()">Update</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Stats Cards -->
                         <div class="stats-container">
                             <div class="card text-white bg-primary stats-card">
@@ -811,6 +844,90 @@
             } else {
                 console.error('News item not found for ID:', newsId); // Debug log
                 alert('News item not found');
+            }
+        }
+
+        // --- Live Stream Logic ---
+        document.addEventListener('DOMContentLoaded', function () {
+            loadLiveStreamStatus();
+
+            // Toggle change listener
+            document.getElementById('liveStreamToggle').addEventListener('change', function () {
+                const isLive = this.checked;
+                document.getElementById('liveStreamStatusLabel').textContent = isLive ? 'LIVE' : 'OFF';
+                // Auto-save on toggle? Maybe wait for explicit update if we want to change URL too.
+                // But user might just want to toggle. Let's auto-save status, but URL update is specific.
+                // Actually, let's just update both when toggle changes or button is clicked.
+                saveLiveStreamConfig();
+            });
+        });
+
+        async function loadLiveStreamStatus() {
+            const query = `
+                query {
+                    getLiveStreamStatus {
+                        isLive
+                        url
+                    }
+                }
+            `;
+
+            try {
+                const response = await fetch('/graphql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                const result = await response.json();
+                if (result.data && result.data.getLiveStreamStatus) {
+                    const status = result.data.getLiveStreamStatus;
+                    const toggle = document.getElementById('liveStreamToggle');
+                    const label = document.getElementById('liveStreamStatusLabel');
+                    const urlInput = document.getElementById('liveStreamUrl');
+
+                    toggle.checked = status.isLive;
+                    label.textContent = status.isLive ? 'LIVE' : 'OFF';
+                    urlInput.value = status.url || '';
+                }
+            } catch (error) {
+                console.error('Error loading live stream status:', error);
+            }
+        }
+
+        async function saveLiveStreamConfig() {
+            const isLive = document.getElementById('liveStreamToggle').checked;
+            const url = document.getElementById('liveStreamUrl').value;
+
+            const mutation = `
+                mutation UpdateLive($isLive: Boolean!, $url: String) {
+                    updateLiveStreamStatus(isLive: $isLive, url: $url) {
+                        isLive
+                        url
+                    }
+                }
+            `;
+
+            try {
+                const response = await fetch('/graphql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: mutation,
+                        variables: { isLive, url }
+                    })
+                });
+                const result = await response.json();
+                if (result.data && result.data.updateLiveStreamStatus) {
+                    alert('Live Stream updated successfully!');
+                    const status = result.data.updateLiveStreamStatus;
+                    document.getElementById('liveStreamStatusLabel').textContent = status.isLive ? 'LIVE' : 'OFF';
+                } else {
+                    alert('Failed to update. Check console.');
+                    console.error('Update failed:', result);
+                }
+            } catch (error) {
+                console.error('Error updating live stream status:', error);
+                alert('Network error while updating.');
             }
         }
     </script>

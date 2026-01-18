@@ -142,6 +142,19 @@ const typeDefs = gql`
     success: Boolean!
     message: String!
   }
+
+  type LiveStreamStatus {
+    isLive: Boolean
+    url: String
+  }
+
+  extend type Query {
+    getLiveStreamStatus: LiveStreamStatus
+  }
+
+  extend type Mutation {
+    updateLiveStreamStatus(isLive: Boolean!, url: String): LiveStreamStatus
+  }
 `;
 
 module.exports = typeDefs;
