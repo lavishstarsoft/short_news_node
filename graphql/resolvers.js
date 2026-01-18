@@ -895,57 +895,8 @@ const resolvers = {
                 throw error;
             }
         },
-    },
 
-    ViralVideo: {
-        createdAt: (parent) => {
-            // Provide default timestamp if missing
-            if (parent.createdAt) {
-                return parent.createdAt.toISOString ? parent.createdAt.toISOString() : parent.createdAt;
-            }
-            // Fallback to publishedAt or current time
-            if (parent.publishedAt) {
-                return parent.publishedAt.toISOString ? parent.publishedAt.toISOString() : parent.publishedAt;
-            }
-            return new Date().toISOString();
-        },
-        userLikes: (parent) => {
-            return (parent.userInteractions?.likes || []).map(like => ({
-                userId: like.userId,
-                userName: like.userName,
-                userEmail: like.userEmail || '',
-                timestamp: like.timestamp ? (like.timestamp.toISOString ? like.timestamp.toISOString() : new Date(like.timestamp).toISOString()) : new Date().toISOString()
-            }));
-        },
-        userDislikes: (parent) => {
-            return (parent.userInteractions?.dislikes || []).map(dislike => ({
-                userId: dislike.userId,
-                userName: dislike.userName,
-                userEmail: dislike.userEmail || '',
-                timestamp: dislike.timestamp ? (dislike.timestamp.toISOString ? dislike.timestamp.toISOString() : new Date(dislike.timestamp).toISOString()) : new Date().toISOString()
-            }));
-        },
-        userComments: (parent) => {
-            return (parent.userInteractions?.comments || []).map(comment => ({
-                id: comment._id ? comment._id.toString() : null,
-                userId: comment.userId,
-                userName: comment.userName,
-                userEmail: comment.userEmail || '',
-                comment: comment.comment,
-                timestamp: comment.timestamp ? (comment.timestamp.toISOString ? comment.timestamp.toISOString() : new Date(comment.timestamp).toISOString()) : new Date().toISOString(),
-                likes: (comment.likes || []).map(like => ({
-                    userId: like.userId,
-                    userName: like.userName,
-                    timestamp: like.timestamp ? (like.timestamp.toISOString ? like.timestamp.toISOString() : new Date(like.timestamp).toISOString()) : new Date().toISOString()
-                }))
-            }));
-        },
-    },
-
-    // Report mutations
-    Mutation: {
-        ...resolvers?.Mutation,
-
+        // Report mutations
         reportNews: async (_, { newsId, reason, description, userId, userName, userEmail }) => {
             try {
                 const report = new Report({
@@ -1013,6 +964,53 @@ const resolvers = {
             }
         },
     },
+
+    ViralVideo: {
+        createdAt: (parent) => {
+            // Provide default timestamp if missing
+            if (parent.createdAt) {
+                return parent.createdAt.toISOString ? parent.createdAt.toISOString() : parent.createdAt;
+            }
+            // Fallback to publishedAt or current time
+            if (parent.publishedAt) {
+                return parent.publishedAt.toISOString ? parent.publishedAt.toISOString() : parent.publishedAt;
+            }
+            return new Date().toISOString();
+        },
+        userLikes: (parent) => {
+            return (parent.userInteractions?.likes || []).map(like => ({
+                userId: like.userId,
+                userName: like.userName,
+                userEmail: like.userEmail || '',
+                timestamp: like.timestamp ? (like.timestamp.toISOString ? like.timestamp.toISOString() : new Date(like.timestamp).toISOString()) : new Date().toISOString()
+            }));
+        },
+        userDislikes: (parent) => {
+            return (parent.userInteractions?.dislikes || []).map(dislike => ({
+                userId: dislike.userId,
+                userName: dislike.userName,
+                userEmail: dislike.userEmail || '',
+                timestamp: dislike.timestamp ? (dislike.timestamp.toISOString ? dislike.timestamp.toISOString() : new Date(dislike.timestamp).toISOString()) : new Date().toISOString()
+            }));
+        },
+        userComments: (parent) => {
+            return (parent.userInteractions?.comments || []).map(comment => ({
+                id: comment._id ? comment._id.toString() : null,
+                userId: comment.userId,
+                userName: comment.userName,
+                userEmail: comment.userEmail || '',
+                comment: comment.comment,
+                timestamp: comment.timestamp ? (comment.timestamp.toISOString ? comment.timestamp.toISOString() : new Date(comment.timestamp).toISOString()) : new Date().toISOString(),
+                likes: (comment.likes || []).map(like => ({
+                    userId: like.userId,
+                    userName: like.userName,
+                    timestamp: like.timestamp ? (like.timestamp.toISOString ? like.timestamp.toISOString() : new Date(like.timestamp).toISOString()) : new Date().toISOString()
+                }))
+            }));
+        },
+    },
+
+
 };
 
 module.exports = resolvers;
