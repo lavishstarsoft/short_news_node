@@ -32,6 +32,7 @@ const reportSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: [
+      // Web dashboard reasons
       'Inappropriate Content',
       'Spam',
       'Misleading Information',
@@ -39,7 +40,13 @@ const reportSchema = new mongoose.Schema({
       'Violence',
       'Hate Speech',
       'Copyright Violation',
-      'Other'
+      'Other',
+      // Flutter app reasons
+      'Mistakes observed',
+      'Wrong content',
+      'Hateful statements',
+      'Biased story',
+      'Copyright violation'
     ]
   },
   description: {
