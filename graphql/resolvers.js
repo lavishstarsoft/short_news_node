@@ -997,9 +997,11 @@ const resolvers = {
                     commentText,
                     commentUserId,
                     commentUserName,
-                    userId,
-                    userName,
-                    userEmail,
+                    reportedBy: {
+                        userId: userId,
+                        userName: userName,
+                        userEmail: userEmail
+                    },
                     reason,
                     additionalDetails: additionalDetails || '',
                     status: 'pending'
@@ -1037,17 +1039,18 @@ const resolvers = {
         reportViralVideoComment: async (_, { videoId, commentText, commentUserId, commentUserName, userId, userName, userEmail, reason, additionalDetails }, context) => {
             try {
                 const report = new CommentReport({
-                    videoId,
+                    newsId: videoId,
                     commentText,
                     commentUserId,
                     commentUserName,
-                    userId,
-                    userName,
-                    userEmail,
+                    reportedBy: {
+                        userId: userId,
+                        userName: userName,
+                        userEmail: userEmail
+                    },
                     reason,
                     additionalDetails: additionalDetails || '',
-                    status: 'pending',
-                    type: 'viral_video'
+                    status: 'pending'
                 });
                 await report.save();
                 console.log(`✅ GraphQL: Viral video comment reported by ${userName}`);
