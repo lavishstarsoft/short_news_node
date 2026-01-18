@@ -173,6 +173,7 @@ const resolvers = {
 
     // Field resolvers for News type
     News: {
+        id: (parent) => parent.id || parent._id.toString(),
         commentsData: (parent) => {
             // Convert userInteractions.comments to Comment type
             if (parent.userInteractions && parent.userInteractions.comments) {
@@ -193,7 +194,8 @@ const resolvers = {
                     userId: like.userId,
                     userName: like.userName,
                     userEmail: like.userEmail || '',
-                    timestamp: like.timestamp ? like.timestamp.toISOString() : new Date().toISOString(),
+                    userEmail: like.userEmail || '',
+                    timestamp: new Date(like.timestamp || Date.now()).toISOString(),
                     likes: [] // Schema requires this field for UserInteraction type
                 }));
             }
@@ -206,7 +208,8 @@ const resolvers = {
                     userId: dislike.userId,
                     userName: dislike.userName,
                     userEmail: dislike.userEmail || '',
-                    timestamp: dislike.timestamp ? dislike.timestamp.toISOString() : new Date().toISOString(),
+                    userEmail: dislike.userEmail || '',
+                    timestamp: new Date(dislike.timestamp || Date.now()).toISOString(),
                     likes: [] // Schema requires this field for UserInteraction type
                 }));
             }
@@ -220,11 +223,11 @@ const resolvers = {
                     userName: comment.userName,
                     userEmail: comment.userEmail || '',
                     comment: comment.comment,
-                    timestamp: comment.timestamp ? comment.timestamp.toISOString() : new Date().toISOString(),
+                    timestamp: new Date(comment.timestamp || Date.now()).toISOString(),
                     likes: (comment.likes || []).map(like => ({
                         userId: like.userId,
                         userName: like.userName,
-                        timestamp: like.timestamp ? like.timestamp.toISOString() : new Date().toISOString(),
+                        timestamp: new Date(like.timestamp || Date.now()).toISOString(),
                     })),
                 }));
             }
@@ -237,7 +240,8 @@ const resolvers = {
                     userId: view.userId,
                     userName: view.userName,
                     userEmail: view.userEmail || '',
-                    timestamp: view.timestamp ? view.timestamp.toISOString() : new Date().toISOString(),
+                    userEmail: view.userEmail || '',
+                    timestamp: new Date(view.timestamp || Date.now()).toISOString(),
                     likes: [] // Schema requires this field for UserInteraction type
                 }));
             }
@@ -969,6 +973,7 @@ const resolvers = {
     },
 
     ViralVideo: {
+        id: (parent) => parent.id || parent._id.toString(),
         createdAt: (parent) => {
             // Provide default timestamp if missing
             if (parent.createdAt) {
@@ -985,7 +990,8 @@ const resolvers = {
                 userId: like.userId,
                 userName: like.userName,
                 userEmail: like.userEmail || '',
-                timestamp: like.timestamp ? (like.timestamp.toISOString ? like.timestamp.toISOString() : new Date(like.timestamp).toISOString()) : new Date().toISOString()
+                timestamp: new Date(like.timestamp || Date.now()).toISOString(),
+                likes: []
             }));
         },
         userDislikes: (parent) => {
@@ -993,7 +999,8 @@ const resolvers = {
                 userId: dislike.userId,
                 userName: dislike.userName,
                 userEmail: dislike.userEmail || '',
-                timestamp: dislike.timestamp ? (dislike.timestamp.toISOString ? dislike.timestamp.toISOString() : new Date(dislike.timestamp).toISOString()) : new Date().toISOString()
+                timestamp: new Date(dislike.timestamp || Date.now()).toISOString(),
+                likes: []
             }));
         },
         userComments: (parent) => {
@@ -1003,14 +1010,22 @@ const resolvers = {
                 userName: comment.userName,
                 userEmail: comment.userEmail || '',
                 comment: comment.comment,
-                timestamp: comment.timestamp ? (comment.timestamp.toISOString ? comment.timestamp.toISOString() : new Date(comment.timestamp).toISOString()) : new Date().toISOString(),
+                timestamp: new Date(comment.timestamp || Date.now()).toISOString(),
                 likes: (comment.likes || []).map(like => ({
                     userId: like.userId,
                     userName: like.userName,
-                    timestamp: like.timestamp ? (like.timestamp.toISOString ? like.timestamp.toISOString() : new Date(like.timestamp).toISOString()) : new Date().toISOString()
+                    timestamp: new Date(like.timestamp || Date.now()).toISOString()
                 }))
             }));
         },
+    },
+
+    Category: {
+        id: (parent) => parent.id || parent._id.toString(),
+    },
+
+    Location: {
+        id: (parent) => parent.id || parent._id.toString(),
     },
 
 
