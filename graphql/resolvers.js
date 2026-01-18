@@ -951,7 +951,7 @@ const resolvers = {
         },
 
         // Report mutations
-        reportNews: async (_, { newsId, reason, description, userId, userName, userEmail }) => {
+        reportNews: async (_, { newsId, reason, description, userId, userName, userEmail }, context) => {
             try {
                 const report = new Report({
                     newsId,
@@ -964,6 +964,25 @@ const resolvers = {
                 });
                 await report.save();
                 console.log(`✅ GraphQL: News reported by ${userName}`);
+
+                // 🚀 REAL-TIME BROADCAST to Admin Dashboard
+                const io = context?.io;
+                if (io) {
+                    const notificationData = {
+                        type: 'news',
+                        reportId: report._id,
+                        newsId: newsId,
+                        reason: reason,
+                        description: description,
+                        reportedBy: userName,
+                        reporterId: userId,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    io.emit('new_news_report', notificationData);
+                    console.log(`📡 Emitted new_news_report event`);
+                }
+
                 return { success: true, message: 'Report submitted successfully' };
             } catch (error) {
                 console.error('Error reporting news:', error);
@@ -971,7 +990,7 @@ const resolvers = {
             }
         },
 
-        reportComment: async (_, { newsId, commentText, commentUserId, commentUserName, userId, userName, userEmail, reason, additionalDetails }) => {
+        reportComment: async (_, { newsId, commentText, commentUserId, commentUserName, userId, userName, userEmail, reason, additionalDetails }, context) => {
             try {
                 const report = new CommentReport({
                     newsId,
@@ -987,6 +1006,27 @@ const resolvers = {
                 });
                 await report.save();
                 console.log(`✅ GraphQL: Comment reported by ${userName}`);
+
+                // 🚀 REAL-TIME BROADCAST to Admin Dashboard
+                const io = context?.io;
+                if (io) {
+                    const notificationData = {
+                        type: 'comment',
+                        reportType: 'news_comment',
+                        reportId: report._id,
+                        newsId: newsId,
+                        commentText: commentText,
+                        reason: reason,
+                        reportedBy: userName,
+                        reporterId: userId,
+                        commentOwner: commentUserName,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    io.emit('new_comment_report', notificationData);
+                    console.log(`📡 Emitted new_comment_report event`);
+                }
+
                 return { success: true, message: 'Comment report submitted successfully' };
             } catch (error) {
                 console.error('Error reporting comment:', error);
@@ -994,7 +1034,7 @@ const resolvers = {
             }
         },
 
-        reportViralVideoComment: async (_, { videoId, commentText, commentUserId, commentUserName, userId, userName, userEmail, reason, additionalDetails }) => {
+        reportViralVideoComment: async (_, { videoId, commentText, commentUserId, commentUserName, userId, userName, userEmail, reason, additionalDetails }, context) => {
             try {
                 const report = new CommentReport({
                     videoId,
@@ -1011,6 +1051,27 @@ const resolvers = {
                 });
                 await report.save();
                 console.log(`✅ GraphQL: Viral video comment reported by ${userName}`);
+
+                // 🚀 REAL-TIME BROADCAST to Admin Dashboard
+                const io = context?.io;
+                if (io) {
+                    const notificationData = {
+                        type: 'comment',
+                        reportType: 'viral_video_comment',
+                        reportId: report._id,
+                        videoId: videoId,
+                        commentText: commentText,
+                        reason: reason,
+                        reportedBy: userName,
+                        reporterId: userId,
+                        commentOwner: commentUserName,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    io.emit('new_comment_report', notificationData);
+                    console.log(`📡 Emitted new_comment_report event (Viral Video)`);
+                }
+
                 return { success: true, message: 'Comment report submitted successfully' };
             } catch (error) {
                 console.error('Error reporting viral video comment:', error);
