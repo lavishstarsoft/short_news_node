@@ -194,6 +194,7 @@ const resolvers = {
                     userName: like.userName,
                     userEmail: like.userEmail || '',
                     timestamp: like.timestamp ? like.timestamp.toISOString() : new Date().toISOString(),
+                    likes: [] // Schema requires this field for UserInteraction type
                 }));
             }
             return [];
@@ -206,6 +207,7 @@ const resolvers = {
                     userName: dislike.userName,
                     userEmail: dislike.userEmail || '',
                     timestamp: dislike.timestamp ? dislike.timestamp.toISOString() : new Date().toISOString(),
+                    likes: [] // Schema requires this field for UserInteraction type
                 }));
             }
             return [];
@@ -236,6 +238,7 @@ const resolvers = {
                     userName: view.userName,
                     userEmail: view.userEmail || '',
                     timestamp: view.timestamp ? view.timestamp.toISOString() : new Date().toISOString(),
+                    likes: [] // Schema requires this field for UserInteraction type
                 }));
             }
             return [];
