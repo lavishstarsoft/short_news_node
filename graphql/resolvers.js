@@ -183,6 +183,105 @@ const resolvers = {
                 throw new Error('Failed to fetch live stream status');
             }
         },
+
+        // Get editor by ID for real-time profile sync
+        getEditorById: async (_, { id }) => {
+            try {
+                const Admin = require('../models/Admin');
+                const editor = await Admin.findById(id);
+
+                if (!editor) {
+                    return null;
+                }
+
+                return {
+                    id: editor._id.toString(),
+                    username: editor.username,
+                    email: editor.email,
+                    role: editor.role,
+                    displayRole: editor.displayRole || 'Reporter',
+                    profileImage: editor.profileImage || null,
+                    name: editor.name || null,
+                    location: editor.location || null,
+                    mobileNumber: editor.mobileNumber || null,
+                    constituency: editor.constituency || null,
+                    isActive: editor.isActive
+                };
+            } catch (error) {
+                console.error('Error fetching editor:', error);
+                return null;
+            }
+        },
+
+        // Get news posted by a specific editor
+        getNewsByEditor: async (_, { editorId, limit }) => {
+            try {
+                const News = require('../models/News');
+
+                let query = News.find({ authorId: editorId })
+                    .sort({ publishedAt: -1 });
+
+                if (limit) {
+                    query = query.limit(limit);
+                }
+
+                const newsList = await query;
+
+                return newsList.map(news => ({
+                    id: news._id.toString(),
+                    title: news.title,
+                    content: news.content,
+                    category: news.category,
+                    location: news.location,
+                    imageUrl: news.mediaUrl || news.imageUrl || '/images/placeholder.png',
+                    mediaUrl: news.mediaUrl || news.imageUrl,
+                    mediaType: news.mediaType || 'image',
+                    thumbnailUrl: news.thumbnailUrl || news.mediaUrl || news.imageUrl,
+                    isActive: news.isActive !== false,
+                    publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
+                    views: news.views || 0,
+                    likes: news.likes || 0,
+                    author: news.author,
+                    authorId: news.authorId
+                }));
+            } catch (error) {
+                console.error('Error fetching news by editor:', error);
+                return [];
+            }
+        },
+
+        // Get single news by ID
+        getNewsById: async (_, { id }) => {
+            try {
+                const News = require('../models/News');
+                const news = await News.findById(id);
+                if (!news) return null;
+
+                return {
+                    id: news._id.toString(),
+                    title: news.title,
+                    content: news.content,
+                    category: news.category,
+                    location: news.location,
+                    imageUrl: news.mediaUrl || news.imageUrl || '/images/placeholder.png',
+                    mediaUrl: news.mediaUrl || news.imageUrl,
+                    mediaType: news.mediaType || 'image',
+                    thumbnailUrl: news.thumbnailUrl || news.mediaUrl || news.imageUrl,
+                    isActive: news.isActive !== false,
+                    publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
+                    views: news.userInteractions?.views?.length || news.views || 0,
+                    likes: news.userInteractions?.likes?.length || news.likes || 0,
+                    dislikes: news.userInteractions?.dislikes?.length || news.dislikes || 0,
+                    author: news.author,
+                    authorId: news.authorId,
+                    userInteractions: news.userInteractions,
+                    comments: news.userInteractions?.comments?.length || 0
+                };
+            } catch (error) {
+                console.error('Error fetching news by ID:', error);
+                return null;
+            }
+        }
     },
 
     // Field resolvers for News type
@@ -811,6 +910,154 @@ const resolvers = {
             } catch (error) {
                 console.error('Error updating live stream status:', error);
                 throw new Error('Failed to update live stream status');
+            }
+        },
+
+        // Editor/Reporter Login
+        loginEditor: async (_, { username, password }) => {
+            try {
+                const Admin = require('../models/Admin');
+
+                // Find editor/reporter by username (must have role 'editor')
+                const editor = await Admin.findOne({
+                    username: username,
+                    role: 'editor'
+                });
+
+                if (!editor) {
+                    return {
+                        success: false,
+                        message: 'Invalid username or password',
+                        token: null,
+                        editor: null
+                    };
+                }
+
+                // Check if editor is active
+                if (!editor.isActive) {
+                    return {
+                        success: false,
+                        message: 'Your account has been deactivated. Please contact admin.',
+                        token: null,
+                        editor: null
+                    };
+                }
+
+                // Validate password
+                const isPasswordValid = await editor.comparePassword(password);
+                if (!isPasswordValid) {
+                    return {
+                        success: false,
+                        message: 'Invalid username or password',
+                        token: null,
+                        editor: null
+                    };
+                }
+
+                // Update last login
+                editor.lastLogin = new Date();
+                await editor.save();
+
+                // Generate a simple token (in production, use JWT)
+                const jwt = require('jsonwebtoken');
+
+                // ... (imports)
+
+                // Inside loginEditor:
+                // Generate a JWT token (matching adminController logic)
+                const token = jwt.sign(
+                    {
+                        id: editor._id,
+                        username: editor.username,
+                        role: editor.role
+                    },
+                    process.env.JWT_SECRET || 'short_news_secret_key',
+                    { expiresIn: '24h' }
+                );
+
+                return {
+                    success: true,
+                    message: 'Login successful',
+                    token: token,
+                    editor: {
+                        id: editor._id.toString(),
+                        username: editor.username,
+                        email: editor.email,
+                        role: editor.role,
+                        displayRole: editor.displayRole || 'Reporter',
+                        profileImage: editor.profileImage || null,
+                        name: editor.name || null,
+                        location: editor.location || null,
+                        mobileNumber: editor.mobileNumber || null,
+                        constituency: editor.constituency || null,
+                        isActive: editor.isActive
+                    }
+                };
+            } catch (error) {
+                console.error('Editor login error:', error);
+                return {
+                    success: false,
+                    message: 'An error occurred during login',
+                    token: null,
+                    editor: null
+                };
+            }
+        },
+
+        // Update Editor Profile (name, displayRole, location, profileImage)
+        updateEditorProfile: async (_, { editorId, name, displayRole, location, profileImage }) => {
+            try {
+                const Admin = require('../models/Admin');
+
+                const editor = await Admin.findById(editorId);
+                if (!editor) {
+                    return {
+                        success: false,
+                        message: 'Editor not found',
+                        editor: null
+                    };
+                }
+
+                // Update fields if provided
+                if (name !== undefined && name !== null) {
+                    editor.name = name;
+                }
+                if (displayRole !== undefined && displayRole !== null) {
+                    editor.displayRole = displayRole;
+                }
+                if (location !== undefined && location !== null) {
+                    editor.location = location;
+                }
+                if (profileImage !== undefined && profileImage !== null) {
+                    editor.profileImage = profileImage;
+                }
+
+                await editor.save();
+
+                return {
+                    success: true,
+                    message: 'Profile updated successfully',
+                    editor: {
+                        id: editor._id.toString(),
+                        username: editor.username,
+                        email: editor.email,
+                        role: editor.role,
+                        displayRole: editor.displayRole || 'Reporter',
+                        profileImage: editor.profileImage || null,
+                        name: editor.name || null,
+                        location: editor.location || null,
+                        mobileNumber: editor.mobileNumber || null,
+                        constituency: editor.constituency || null,
+                        isActive: editor.isActive
+                    }
+                };
+            } catch (error) {
+                console.error('Update editor profile error:', error);
+                return {
+                    success: false,
+                    message: 'An error occurred while updating profile',
+                    editor: null
+                };
             }
         },
 

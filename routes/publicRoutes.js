@@ -12,6 +12,9 @@ const CommentReport = require('../models/CommentReport'); // Add CommentReport m
 // Import cache middleware for Redis caching
 const { cacheMiddleware } = require('../middleware/cache');
 
+// Import upload middleware for profile image upload
+const { uploadMedia } = require('../middleware/upload');
+
 // Public API endpoint for Flutter app (no authentication required)
 // GET route with caching (5 minutes) for non-authenticated users
 // Cache works because we're calling res.json() directly in this handler
@@ -1671,5 +1674,28 @@ function _getMostActiveUsers(userInteractions) {
     .sort((a, b) => b.totalActivity - a.totalActivity)
     .slice(0, 10); // Top 10 most active users
 }
+
+// Public endpoint for uploading profile images (no session auth required)
+// This is used by the Next.js reporters app for profile image uploads
+router.post('/api/public/upload-profile-image', uploadMedia.single('media'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const fileUrl = req.file.path;
+
+    console.log('Profile image uploaded successfully:', fileUrl);
+
+    return res.json({
+      url: fileUrl,
+      success: true,
+      message: 'Profile image uploaded successfully'
+    });
+  } catch (error) {
+    console.error('Profile image upload error:', error);
+    res.status(500).json({ error: 'Error uploading profile image: ' + error.message });
+  }
+});
 
 module.exports = router;

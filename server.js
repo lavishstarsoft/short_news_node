@@ -47,7 +47,7 @@ const PORT = process.env.PORT || 3001;
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://10.0.2.2:3001', 'https://news.lavishstar.in', 'http://192.168.0.127:3001'],
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://10.0.2.2:3001', 'https://news.lavishstar.in', 'http://192.168.0.127:3001', 'http://192.168.29.205:3000', 'http://192.168.29.205:3001', 'http://192.168.29.8:3000', 'http://192.168.29.8:3001'],
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -166,23 +166,31 @@ const cacheRoutes = require('./routes/cacheRoutes'); // Cache management routes
 const { requireAuth, requireAdmin, requireEditor } = require('./controllers/adminController');
 
 // Import the login functions directly
-const { renderLoginPage, login, logout, renderRegisterEditorPage, registerEditor, renderProfilePage, updateProfile, renderUsersListPage, renderEditorsPage } = require('./controllers/adminController');
+const { renderLoginPage, login, logout, renderRegisterEditorPage, registerEditor, renderProfilePage, updateProfile, renderUsersListPage, renderEditorsPage, updateEditor } = require('./controllers/adminController');
 const { renderReportsPage } = require('./controllers/newsController');
 const newsController = require('./controllers/newsController');
 
 
 
 // Middleware - ORDER MATTERS!
+// Middleware - ORDER MATTERS!
+// CORS must be first to handle preflight requests
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://10.0.2.2:3001', 'https://news.lavishstar.in', 'http://192.168.0.127:3001', 'http://192.168.29.205:3000', 'http://192.168.29.205:3001', 'http://192.168.29.8:3000', 'http://192.168.29.8:3001', 'https://short-news-next-reporters.vercel.app'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+}));
+
 // Handle JSON and URL-encoded data with large limits
 app.use(express.json({ limit: '10mb' })); // Increase payload limit
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Increase payload limit
 app.use(cookieParser()); // Add cookie parser middleware
 
-// CORS and static files
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://10.0.2.2:3001', 'https://news.lavishstar.in', 'http://192.168.0.127:3001'],
-  credentials: true
-}));
+// Static files
+// app.use(express.static(path.join(__dirname, 'public'))); -> This was in original line 186, I should keep it?
+// Line 186 was: app.use(express.static(path.join(__dirname, 'public')));
+// My EndLine is 185. So 186 remains.
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Google authentication verification middleware
@@ -497,7 +505,7 @@ const startServer = async () => {
       app,
       path: '/graphql',
       cors: {
-        origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://10.0.2.2:3001', 'https://news.lavishstar.in', 'http://192.168.0.127:3001'],
+        origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://10.0.2.2:3001', 'https://news.lavishstar.in', 'http://192.168.0.127:3001', 'http://192.168.29.205:3000', 'http://192.168.29.205:3001', 'http://192.168.29.8:3000', 'http://192.168.29.8:3001'],
         credentials: true,
       },
     });
@@ -589,6 +597,7 @@ app.get('/', (req, res) => {
 
 // Add editors route at the root level
 app.get('/editors', requireAuth, renderEditorsPage);
+app.put('/editors/:id', requireAuth, updateEditor);
 
 // Redirect root path to ads list for backward compatibility
 app.get('/ads', requireAuth, (req, res) => {

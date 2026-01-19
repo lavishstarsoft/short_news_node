@@ -29,6 +29,30 @@ const adminSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  profileImage: {
+    type: String,
+    default: null
+  },
+  displayRole: {
+    type: String,
+    default: 'Reporter'
+  },
+  name: {
+    type: String,
+    default: null
+  },
+  location: {
+    type: String,
+    default: null
+  },
+  constituency: {
+    type: String,
+    default: null
+  },
+  mobileNumber: {
+    type: String,
+    default: null
+  },
   lastLogin: {
     type: Date
   },
@@ -68,9 +92,9 @@ const adminSchema = new mongoose.Schema({
 });
 
 // Hash password before saving
-adminSchema.pre('save', async function(next) {
+adminSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  
+
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -81,12 +105,12 @@ adminSchema.pre('save', async function(next) {
 });
 
 // Compare password method
-adminSchema.methods.comparePassword = async function(candidatePassword) {
+adminSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Add login history method
-adminSchema.methods.addLoginHistory = function(ip, userAgent, location, locationDetails = null) {
+adminSchema.methods.addLoginHistory = function (ip, userAgent, location, locationDetails = null) {
   this.loginHistory.push({
     ip: ip,
     userAgent: userAgent,
@@ -94,12 +118,12 @@ adminSchema.methods.addLoginHistory = function(ip, userAgent, location, location
     locationDetails: locationDetails,
     timestamp: new Date()
   });
-  
+
   // Keep only the last 10 login records
   if (this.loginHistory.length > 10) {
     this.loginHistory = this.loginHistory.slice(-10);
   }
-  
+
   return this.save();
 };
 

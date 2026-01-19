@@ -375,7 +375,10 @@ const renderRegisterEditorPage = async (req, res) => {
       return res.status(403).send('Access denied. Admins only.');
     }
 
-    res.render('register-editor', { admin, error: null });
+    // Fetch all locations for dropdown
+    const locations = await Location.find().sort({ name: 1 });
+
+    res.render('register-editor', { admin, error: null, locations });
   } catch (error) {
     console.error('Register editor error:', error);
     res.redirect('/login');
@@ -395,17 +398,17 @@ const registerEditor = async (req, res) => {
       return res.status(403).send('Access denied. Admins only.');
     }
 
-    const { username, email, password } = req.body;
+    const { username, email, password, name, location, displayRole, constituency, mobileNumber } = req.body;
 
     // Validate input
     if (!username || !email || !password) {
-      return res.render('register-editor', { admin, error: 'Please provide all required fields' });
+      return res.render('register-editor', { admin, error: 'Please provide all required fields', locations: await Location.find().sort({ name: 1 }) });
     }
 
     // Check if editor already exists
     const existingEditor = await Admin.findOne({ username });
     if (existingEditor) {
-      return res.render('register-editor', { admin, error: 'Username already exists' });
+      return res.render('register-editor', { admin, error: 'Username already exists', locations: await Location.find().sort({ name: 1 }) });
     }
 
     // Create new editor
@@ -413,7 +416,12 @@ const registerEditor = async (req, res) => {
       username,
       email,
       password,
-      role: 'editor'
+      role: 'editor',
+      name: name || null,
+      location: location || null,
+      displayRole: displayRole || 'Reporter',
+      constituency: constituency || null,
+      mobileNumber: mobileNumber || null
     });
 
     await newEditor.save();
@@ -596,10 +604,61 @@ async function renderEditorsPage(req, res) {
     // Get all editors
     const editors = await Admin.find({ role: 'editor' }).sort({ createdAt: -1 });
 
-    res.render('editors', { admin, editors });
+    // Fetch locations for edit dropdown
+    const locations = await Location.find().sort({ name: 1 });
+
+    res.render('editors', { admin, editors, locations });
   } catch (error) {
     console.error('Editors page error:', error);
     res.status(500).send('Error fetching editors');
+  }
+}
+
+// Update editor (PUT /editors/:id)
+async function updateEditor(req, res) {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Only admins and superadmins can update editors
+    if (admin.role !== 'admin' && admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. Admins only.' });
+    }
+
+    const editorId = req.params.id;
+    const { name, displayRole, location, constituency, mobileNumber } = req.body;
+
+    const editor = await Admin.findById(editorId);
+    if (!editor || editor.role !== 'editor') {
+      return res.status(404).json({ error: 'Editor not found' });
+    }
+
+    // Update fields
+    if (name !== undefined) editor.name = name || null;
+    if (displayRole !== undefined) editor.displayRole = displayRole || 'Reporter';
+    if (location !== undefined) editor.location = location || null;
+    if (constituency !== undefined) editor.constituency = constituency || null;
+    if (mobileNumber !== undefined) editor.mobileNumber = mobileNumber || null;
+
+    await editor.save();
+
+    res.json({
+      message: 'Editor updated successfully',
+      editor: {
+        _id: editor._id,
+        username: editor.username,
+        name: editor.name,
+        displayRole: editor.displayRole,
+        location: editor.location,
+        constituency: editor.constituency,
+        mobileNumber: editor.mobileNumber
+      }
+    });
+  } catch (error) {
+    console.error('Update editor error:', error);
+    res.status(500).json({ error: 'An error occurred while updating editor' });
   }
 }
 
@@ -1121,7 +1180,13 @@ async function renderOneSignalAnalyticsPage(req, res) {
 // Authentication middleware
 const requireAuth = (req, res, next) => {
   console.log('requireAuth called for path:', req.path); // Debug log
-  const token = req.cookies?.token;
+  console.log('Auth Header:', req.headers.authorization); // Debug log
+  let token = req.cookies?.token;
+
+  // Check Authorization header if cookie is missing
+  if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
 
   // Check if this is an API request (based on content type or accept header)
   const isApiRequest = req.path.startsWith('/api/') ||
@@ -1341,6 +1406,7 @@ module.exports = {
   renderRegisterEditorPage,
   registerEditor,
   renderEditorsPage,
+  updateEditor,
   renderUsersListPage,
   getUserById,
   renderReportsPage, // Add this back

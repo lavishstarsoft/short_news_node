@@ -150,11 +150,45 @@ const typeDefs = gql`
 
   extend type Query {
     getLiveStreamStatus: LiveStreamStatus
+    getEditorById(id: ID!): Editor
+    getNewsByEditor(editorId: ID!, limit: Int): [News!]!
+    getNewsById(id: ID!): News
   }
 
   extend type Mutation {
     updateLiveStreamStatus(isLive: Boolean!, url: String): LiveStreamStatus
+    loginEditor(username: String!, password: String!): EditorLoginPayload
+    updateEditorProfile(editorId: ID!, name: String, displayRole: String, location: String, profileImage: String): EditorProfileUpdatePayload
+  }
+
+  type EditorLoginPayload {
+    success: Boolean!
+    message: String!
+    token: String
+    editor: Editor
+  }
+
+  type EditorProfileUpdatePayload {
+    success: Boolean!
+    message: String!
+    editor: Editor
+  }
+
+  type Editor {
+    id: ID!
+    username: String!
+    email: String!
+    role: String!
+    displayRole: String
+    profileImage: String
+    name: String
+    location: String
+    mobileNumber: String
+    constituency: String
+    isActive: Boolean!
   }
 `;
 
 module.exports = typeDefs;
+
+
