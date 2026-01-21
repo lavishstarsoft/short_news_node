@@ -8,6 +8,7 @@ const Report = require('../models/Report'); // Add report model
 const Ad = require('../models/Ad'); // Add ad model
 const ViralVideo = require('../models/ViralVideo'); // Add ViralVideo model
 const CommentReport = require('../models/CommentReport'); // Add CommentReport model
+const Admin = require('../models/Admin'); // Add Admin model
 
 // Import cache middleware for Redis caching
 const { cacheMiddleware } = require('../middleware/cache');
@@ -50,6 +51,19 @@ router.get('/api/public/news', cacheMiddleware(300), async (req, res) => {
         .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
     }
 
+
+
+    // Fetch author details for all news items
+    const authorIds = [...new Set(newsList.map(news => news.authorId).filter(id => id))];
+    const authors = await Admin.find({ _id: { $in: authorIds } }, 'profileImage constituency');
+    const authorMap = {};
+    authors.forEach(author => {
+      authorMap[author._id.toString()] = {
+        profileImage: author.profileImage,
+        constituency: author.constituency
+      };
+    });
+
     // Transform data for Flutter app (no user-specific data for cached GET requests)
     const transformedNews = newsList.map(news => {
       const newsObj = news.toObject ? news.toObject() : news;
@@ -72,6 +86,9 @@ router.get('/api/public/news', cacheMiddleware(300), async (req, res) => {
         isRead: newsObj.isRead || false,
         readFullLink: newsObj.readFullLink || null,
         ePaperLink: newsObj.ePaperLink || null,
+        // Add reporter details
+        authorProfileImage: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].profileImage : null,
+        authorConstituency: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].constituency : null,
         // Include user interaction details for checking user state
         userLikes: newsObj.userInteractions?.likes || [],
         userDislikes: newsObj.userInteractions?.dislikes || [],
@@ -144,6 +161,19 @@ async function handleNewsRequest(req, res) {
       .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)); // Sort by publishedAt descending (newest first)
   }
 
+  // Fetch author details for all news items (only if connected to MongoDB)
+  let authorMap = {};
+  if (req.app.locals.isConnectedToMongoDB) {
+    const authorIds = [...new Set(newsList.map(news => news.authorId).filter(id => id))];
+    const authors = await Admin.find({ _id: { $in: authorIds } }, 'profileImage constituency');
+    authors.forEach(author => {
+      authorMap[author._id.toString()] = {
+        profileImage: author.profileImage,
+        constituency: author.constituency
+      };
+    });
+  }
+
   // Transform data for Flutter app with user interaction data
   const transformedNews = newsList.map(news => {
     const newsObj = news.toObject ? news.toObject() : news;
@@ -180,6 +210,9 @@ async function handleNewsRequest(req, res) {
       isRead: newsObj.isRead || false,
       readFullLink: newsObj.readFullLink || null,
       ePaperLink: newsObj.ePaperLink || null,
+      // Add reporter details
+      authorProfileImage: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].profileImage : null,
+      authorConstituency: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].constituency : null,
       // Include user interaction details for checking user state
       userLikes: userLikes,
       userDislikes: userDislikes,
