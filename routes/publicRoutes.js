@@ -56,6 +56,7 @@ router.get('/api/public/news', cacheMiddleware(300), async (req, res) => {
     // Fetch author details for all news items
     const authorIds = [...new Set(newsList.map(news => news.authorId).filter(id => id))];
     const authors = await Admin.find({ _id: { $in: authorIds } }, 'profileImage constituency');
+    console.log(`🔍 Found ${authors.length} authors for ${authorIds.length} unique authorIds`);
     const authorMap = {};
     authors.forEach(author => {
       authorMap[author._id.toString()] = {
@@ -87,6 +88,7 @@ router.get('/api/public/news', cacheMiddleware(300), async (req, res) => {
         readFullLink: newsObj.readFullLink || null,
         ePaperLink: newsObj.ePaperLink || null,
         // Add reporter details
+        authorId: newsObj.authorId || null, // Include authorId for debugging
         authorProfileImage: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].profileImage : null,
         authorConstituency: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].constituency : null,
         // Include user interaction details for checking user state
@@ -102,6 +104,12 @@ router.get('/api/public/news', cacheMiddleware(300), async (req, res) => {
         }))
       };
     });
+
+    // Log the first item's author details for debugging
+    if (transformedNews.length > 0) {
+      console.log(`🔍 [Debug] First Item Author: ${transformedNews[0].author} (ID: ${transformedNews[0].authorId})`);
+      console.log(`🔍 [Debug] First Item Image: ${transformedNews[0].authorProfileImage}`);
+    }
 
     console.log(`📊 Returning ${transformedNews.length} news items (cached GET request)`);
     // This res.json() will be intercepted by cache middleware
@@ -166,6 +174,7 @@ async function handleNewsRequest(req, res) {
   if (req.app.locals.isConnectedToMongoDB) {
     const authorIds = [...new Set(newsList.map(news => news.authorId).filter(id => id))];
     const authors = await Admin.find({ _id: { $in: authorIds } }, 'profileImage constituency');
+    console.log(`🔍 Found ${authors.length} authors for ${authorIds.length} unique authorIds (User Context)`);
     authors.forEach(author => {
       authorMap[author._id.toString()] = {
         profileImage: author.profileImage,
@@ -211,6 +220,7 @@ async function handleNewsRequest(req, res) {
       readFullLink: newsObj.readFullLink || null,
       ePaperLink: newsObj.ePaperLink || null,
       // Add reporter details
+      authorId: newsObj.authorId || null, // Include authorId
       authorProfileImage: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].profileImage : null,
       authorConstituency: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].constituency : null,
       // Include user interaction details for checking user state

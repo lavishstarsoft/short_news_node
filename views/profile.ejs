@@ -258,11 +258,15 @@
                     <div class="content-area">
                         <div class="card profile-card">
                             <div class="card-header profile-header">
-                                <div class="profile-avatar" onclick="openEditProfileModal()">
-                                    <i class="fas fa-user"></i>
-                                    <div class="edit-overlay">
-                                        <i class="fas fa-camera"></i>
-                                    </div>
+                                <div class="profile-avatar" onclick="openEditProfileModal()" <% if (admin.profileImage)
+                                    { %> style="background-image: url('<%= admin.profileImage %>'); background-size:
+                                        cover; background-position: center;" <% } %>>
+                                            <% if (!admin.profileImage) { %>
+                                                <i class="fas fa-user"></i>
+                                                <% } %>
+                                                    <div class="edit-overlay">
+                                                        <i class="fas fa-camera"></i>
+                                                    </div>
                                 </div>
                                 <div class="text-center">
                                     <h2>
@@ -410,7 +414,8 @@
                                                                                         <br><small
                                                                                             class="text-muted">Timezone:
                                                                                             <%= login.locationDetails.timezone
-                                                                                                %></small>
+                                                                                                %>
+                                                                                        </small>
                                                                                         <% } %>
                                                         </td>
                                                         <td>
@@ -438,7 +443,7 @@
                                                                     <span class="badge bg-danger">VPN Detected</span>
                                                                     <br>
                                                                     <small>Risk: <%= login.locationDetails.riskLevel %>
-                                                                            </small>
+                                                                    </small>
                                                                     <br>
                                                                     <small>Confidence: <%=
                                                                             login.locationDetails.confidence %>%</small>
@@ -511,11 +516,18 @@
                     <form id="editProfileForm">
                         <div class="mb-4 text-center">
                             <div class="profile-avatar mx-auto" style="width: 100px; height: 100px; font-size: 40px;">
-                                <i class="fas fa-user"></i>
+                                <% if (admin.profileImage) { %>
+                                    <div
+                                        style="width: 100%; height: 100%; background-image: url('<%= admin.profileImage %>'); background-size: cover; background-position: center; border-radius: 50%;">
+                                    </div>
+                                    <% } else { %>
+                                        <i class="fas fa-user"></i>
+                                        <% } %>
                             </div>
-                            <button type="button" class="btn btn-outline-primary mt-2">
+                            <button type="button" class="btn btn-outline-primary mt-2" id="changeProfilePicBtn">
                                 <i class="fas fa-camera me-1"></i> Change Profile Picture
                             </button>
+                            <input type="file" id="profileImageInput" accept="image/*" style="display: none;">
                         </div>
 
                         <div class="row">
@@ -602,6 +614,75 @@
                     }, 600);
                 });
             });
+
+            // Profile Image Upload Handling
+            const changeProfilePicBtn = document.getElementById('changeProfilePicBtn');
+            const profileImageInput = document.getElementById('profileImageInput');
+
+            if (changeProfilePicBtn && profileImageInput) {
+                changeProfilePicBtn.addEventListener('click', function () {
+                    profileImageInput.click();
+                });
+
+                profileImageInput.addEventListener('change', function () {
+                    if (this.files && this.files[0]) {
+                        uploadProfileImage(this.files[0]);
+                    }
+                });
+            }
+
+            function uploadProfileImage(file) {
+                const formData = new FormData();
+                formData.append('profileImage', file);
+
+                // Show loading state
+                const originalBtnText = changeProfilePicBtn.innerHTML;
+                changeProfilePicBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Uploading...';
+                changeProfilePicBtn.disabled = true;
+
+                fetch('/profile/image', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            showFeedback(data.error, 'error');
+                        } else {
+                            showFeedback(data.message, 'success');
+                            // Update profile images on page
+                            if (data.imageUrl) {
+                                // Update avatar in modal
+                                const modalAvatar = document.querySelector('#editProfileModal .profile-avatar');
+                                if (modalAvatar) {
+                                    modalAvatar.innerHTML = `<div style="width: 100%; height: 100%; background-image: url('${data.imageUrl}'); background-size: cover; background-position: center; border-radius: 50%;"></div>`;
+                                }
+
+                                // Update main profile avatar
+                                const mainAvatar = document.querySelector('.card-header .profile-avatar');
+                                if (mainAvatar) {
+                                    mainAvatar.style.backgroundImage = `url('${data.imageUrl}')`;
+                                    mainAvatar.style.backgroundSize = 'cover';
+                                    mainAvatar.style.backgroundPosition = 'center';
+                                    // Remove icon if present
+                                    const icon = mainAvatar.querySelector('.fa-user');
+                                    if (icon) icon.remove();
+                                }
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showFeedback('An error occurred while uploading image', 'error');
+                    })
+                    .finally(() => {
+                        // Reset button state
+                        changeProfilePicBtn.innerHTML = originalBtnText;
+                        changeProfilePicBtn.disabled = false;
+                        // Clear input
+                        profileImageInput.value = '';
+                    });
+            }
 
             // Handle form submission
             document.getElementById('editProfileForm').addEventListener('submit', function (e) {

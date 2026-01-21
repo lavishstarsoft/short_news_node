@@ -13,6 +13,12 @@ router.get('/dashboard', adminController.requireAuth, adminController.renderDash
 router.get('/profile', adminController.requireAuth, adminController.renderProfilePage);
 router.put('/profile', adminController.requireAuth, adminController.updateProfile);
 
+// Import upload middleware
+const { uploadCategoryMedia } = require('../middleware/upload');
+
+// Update profile image
+router.post('/profile/image', adminController.requireAuth, uploadCategoryMedia.single('profileImage'), adminController.updateProfileImage);
+
 // Admin management routes
 router.get('/register-editor', adminController.requireAdmin, adminController.renderRegisterEditorPage);
 router.post('/register-editor', adminController.requireAdmin, adminController.registerEditor);

@@ -362,6 +362,40 @@ const updateProfile = async (req, res) => {
   }
 };
 
+// Update profile image
+const updateProfileImage = async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image uploaded' });
+    }
+
+    // Find admin by ID
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    // Update profile image URL (Cloudinary path)
+    // CloudinaryStorage returns path in file.path or file.secure_url (multer-storage-cloudinary usually puts it in path or path is local?)
+    // Actually with multer-storage-cloudinary, file.path is usually the full URL.
+    // Let's check upload.js or just use file.path which is standard for Cloudinary storage in multer.
+
+    // Using file.path from multer-storage-cloudinary
+    admin.profileImage = req.file.path;
+    await admin.save();
+
+    res.json({
+      message: 'Profile image updated successfully',
+      imageUrl: admin.profileImage
+    });
+  } catch (error) {
+    console.error('Profile image update error:', error);
+    res.status(500).json({ error: 'An error occurred while updating profile image' });
+  }
+};
+
 // Render register editor page (only for admins/superadmins)
 const renderRegisterEditorPage = async (req, res) => {
   try {
@@ -1421,5 +1455,6 @@ module.exports = {
   markNotificationOpened,
   markNotificationReceived,
   renderOneSignalAnalyticsPage,
-  getOneSignalAnalytics
+  getOneSignalAnalytics,
+  updateProfileImage
 };

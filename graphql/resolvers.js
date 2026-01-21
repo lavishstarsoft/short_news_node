@@ -4,6 +4,7 @@ const Category = require('../models/Category');
 const Location = require('../models/Location');
 const Ad = require('../models/Ad');
 const User = require('../models/User');
+const Admin = require('../models/Admin');
 const Report = require('../models/Report');
 const CommentReport = require('../models/CommentReport');
 const LiveStream = require('../models/LiveStream');
@@ -359,6 +360,36 @@ const resolvers = {
                 }));
             }
             return [];
+        },
+        // Fetch reporter profile image from Admin model
+        authorProfileImage: async (parent) => {
+            try {
+                if (parent.authorId) {
+                    const editor = await Admin.findById(parent.authorId);
+                    if (editor && editor.profileImage) {
+                        return editor.profileImage;
+                    }
+                }
+                return null;
+            } catch (error) {
+                console.error('Error fetching author profile image:', error);
+                return null;
+            }
+        },
+        // Fetch reporter constituency from Admin model
+        authorConstituency: async (parent) => {
+            try {
+                if (parent.authorId) {
+                    const editor = await Admin.findById(parent.authorId);
+                    if (editor && editor.constituency) {
+                        return editor.constituency;
+                    }
+                }
+                return null;
+            } catch (error) {
+                console.error('Error fetching author constituency:', error);
+                return null;
+            }
         },
     },
 

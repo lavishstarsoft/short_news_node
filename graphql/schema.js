@@ -48,6 +48,9 @@ const typeDefs = gql`
     userViews: [UserInteraction!]!
     isActive: Boolean!
     author: String
+    authorId: String
+    authorProfileImage: String
+    authorConstituency: String
     readFullLink: String
     ePaperLink: String
     createdAt: String
