@@ -3,264 +3,18 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const News = require('../models/News');
 const User = require('../models/User');
-const Location = require('../models/Location'); // Add this import
-const Report = require('../models/Report'); // Add report model
-const Ad = require('../models/Ad'); // Add ad model
-const ViralVideo = require('../models/ViralVideo'); // Add ViralVideo model
-const CommentReport = require('../models/CommentReport'); // Add CommentReport model
-<<<<<<< HEAD
-const Admin = require('../models/Admin'); // Add Admin model
-=======
->>>>>>> a02007d6 (Initial commit)
+const Location = require('../models/Location');
+const Report = require('../models/Report');
+const Ad = require('../models/Ad');
+const ViralVideo = require('../models/ViralVideo');
+const CommentReport = require('../models/CommentReport');
+const Admin = require('../models/Admin');
 
 // Import cache middleware for Redis caching
 const { cacheMiddleware } = require('../middleware/cache');
 
-<<<<<<< HEAD
 // Import upload middleware for profile image upload
 const { uploadMedia } = require('../middleware/upload');
-
-=======
->>>>>>> a02007d6 (Initial commit)
-// Public API endpoint for Flutter app (no authentication required)
-// GET route with caching (5 minutes) for non-authenticated users
-// Cache works because we're calling res.json() directly in this handler
-router.get('/api/public/news', cacheMiddleware(300), async (req, res) => {
-  try {
-    let newsList;
-
-    // Check if MongoDB is connected
-    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
-
-    if (isConnectedToMongoDB) {
-      // Build query filter
-      const filter = {
-        $or: [{ isActive: true }, { isActive: { $exists: false } }]
-      };
-
-      // Add mediaType filter if provided
-      if (req.query.mediaType) {
-        filter.mediaType = req.query.mediaType;
-      }
-
-      // Fetch only active published news from MongoDB
-      newsList = await News.find(filter).sort({ publishedAt: -1 });
-    } else {
-      // Use in-memory storage and filter for active news
-      const allNews = req.app.locals.newsData || [];
-      newsList = allNews
-        .filter(news => {
-          const isActive = news.isActive !== false;
-          const matchesMediaType = !req.query.mediaType || news.mediaType === req.query.mediaType;
-          return isActive && matchesMediaType;
-        })
-        .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
-    }
-
-<<<<<<< HEAD
-
-
-    // Fetch author details for all news items
-    const authorIds = [...new Set(newsList.map(news => news.authorId).filter(id => id))];
-    const authors = await Admin.find({ _id: { $in: authorIds } }, 'profileImage constituency');
-    console.log(`🔍 Found ${authors.length} authors for ${authorIds.length} unique authorIds`);
-    const authorMap = {};
-    authors.forEach(author => {
-      authorMap[author._id.toString()] = {
-        profileImage: author.profileImage,
-        constituency: author.constituency
-      };
-    });
-
-=======
->>>>>>> a02007d6 (Initial commit)
-    // Transform data for Flutter app (no user-specific data for cached GET requests)
-    const transformedNews = newsList.map(news => {
-      const newsObj = news.toObject ? news.toObject() : news;
-
-      return {
-        id: newsObj._id,
-        title: newsObj.title,
-        content: newsObj.content,
-        imageUrl: newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
-        mediaUrl: newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
-        mediaType: newsObj.mediaType || 'image',
-        category: newsObj.category,
-        location: newsObj.location,
-        publishedAt: newsObj.publishedAt,
-        likes: newsObj.likes || 0,
-        dislikes: newsObj.dislikes || 0,
-        views: newsObj.views || 0,
-        comments: newsObj.comments || 0,
-        author: newsObj.author,
-        isRead: newsObj.isRead || false,
-        readFullLink: newsObj.readFullLink || null,
-        ePaperLink: newsObj.ePaperLink || null,
-<<<<<<< HEAD
-        // Add reporter details
-        authorId: newsObj.authorId || null, // Include authorId for debugging
-        authorProfileImage: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].profileImage : null,
-        authorConstituency: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].constituency : null,
-=======
->>>>>>> a02007d6 (Initial commit)
-        // Include user interaction details for checking user state
-        userLikes: newsObj.userInteractions?.likes || [],
-        userDislikes: newsObj.userInteractions?.dislikes || [],
-        userComments: (newsObj.userInteractions?.comments || []).map(comment => ({
-          userId: comment.userId,
-          userName: comment.userName,
-          userEmail: comment.userEmail,
-          comment: comment.comment,
-          timestamp: comment.timestamp,
-          likes: comment.likes || []
-        }))
-      };
-    });
-
-<<<<<<< HEAD
-    // Log the first item's author details for debugging
-    if (transformedNews.length > 0) {
-      console.log(`🔍 [Debug] First Item Author: ${transformedNews[0].author} (ID: ${transformedNews[0].authorId})`);
-      console.log(`🔍 [Debug] First Item Image: ${transformedNews[0].authorProfileImage}`);
-    }
-
-=======
->>>>>>> a02007d6 (Initial commit)
-    console.log(`📊 Returning ${transformedNews.length} news items (cached GET request)`);
-    // This res.json() will be intercepted by cache middleware
-    res.json(transformedNews);
-  } catch (error) {
-    console.error('Error in GET /api/public/news:', error);
-    res.status(500).json({ error: 'Error fetching news' });
-  }
-});
-
-// POST route for user-specific data (no caching - user context required)
-router.post('/api/public/news', async (req, res) => {
-  try {
-    await handleNewsRequest(req, res);
-  } catch (error) {
-    console.error('Error in POST /api/public/news:', error);
-    res.status(500).json({ error: 'Error fetching news' });
-  }
-});
-
-// Common handler for both GET and POST requests
-async function handleNewsRequest(req, res) {
-  let newsList;
-  let userId = null;
-
-  // Extract user data from POST body if available
-  if (req.method === 'POST' && req.body && req.body.userId) {
-    userId = req.body.userId;
-    console.log('🔐 Fetching news with user context for:', req.body.userName);
-  }
-
-  // Check if MongoDB is connected
-  const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
-
-  if (isConnectedToMongoDB) {
-    // Build query filter
-    const filter = {
-      $or: [{ isActive: true }, { isActive: { $exists: false } }]
-    };
-
-    // Add mediaType filter if provided
-    if (req.query.mediaType) {
-      filter.mediaType = req.query.mediaType;
-    }
-
-    // Fetch only active published news from MongoDB
-    newsList = await News.find(filter).sort({ publishedAt: -1 });
-  } else {
-    // Use in-memory storage and filter for active news
-    const allNews = req.app.locals.newsData || [];
-    newsList = allNews
-      .filter(news => {
-        const isActive = news.isActive !== false;
-        const matchesMediaType = !req.query.mediaType || news.mediaType === req.query.mediaType;
-        return isActive && matchesMediaType;
-      })
-      .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)); // Sort by publishedAt descending (newest first)
-  }
-
-<<<<<<< HEAD
-  // Fetch author details for all news items (only if connected to MongoDB)
-  let authorMap = {};
-  if (req.app.locals.isConnectedToMongoDB) {
-    const authorIds = [...new Set(newsList.map(news => news.authorId).filter(id => id))];
-    const authors = await Admin.find({ _id: { $in: authorIds } }, 'profileImage constituency');
-    console.log(`🔍 Found ${authors.length} authors for ${authorIds.length} unique authorIds (User Context)`);
-    authors.forEach(author => {
-      authorMap[author._id.toString()] = {
-        profileImage: author.profileImage,
-        constituency: author.constituency
-      };
-    });
-  }
-
-=======
->>>>>>> a02007d6 (Initial commit)
-  // Transform data for Flutter app with user interaction data
-  const transformedNews = newsList.map(news => {
-    const newsObj = news.toObject ? news.toObject() : news;
-
-    // Get user interaction arrays
-    const userLikes = newsObj.userInteractions?.likes || [];
-    const userDislikes = newsObj.userInteractions?.dislikes || [];
-    const userComments = newsObj.userInteractions?.comments || [];
-
-    // Check if current user has interacted
-    const hasUserLiked = userId ? userLikes.some(like => like.userId === userId) : false;
-    const hasUserDisliked = userId ? userDislikes.some(dislike => dislike.userId === userId) : false;
-    const hasUserCommented = userId ? userComments.some(comment => comment.userId === userId) : false;
-
-    if (userId && (hasUserLiked || hasUserDisliked || hasUserCommented)) {
-      console.log(`🎯 News ${newsObj._id}: User ${userId} - Liked: ${hasUserLiked}, Disliked: ${hasUserDisliked}, Commented: ${hasUserCommented}`);
-    }
-
-    return {
-      id: newsObj._id,
-      title: newsObj.title,
-      content: newsObj.content,
-      imageUrl: newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
-      mediaUrl: newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
-      mediaType: newsObj.mediaType || 'image',
-      category: newsObj.category,
-      location: newsObj.location,
-      publishedAt: newsObj.publishedAt,
-      likes: newsObj.likes || 0,
-      dislikes: newsObj.dislikes || 0,
-      views: newsObj.views || 0,
-      comments: newsObj.comments || 0,
-      author: newsObj.author,
-      isRead: newsObj.isRead || false,
-      readFullLink: newsObj.readFullLink || null,
-      ePaperLink: newsObj.ePaperLink || null,
-<<<<<<< HEAD
-      // Add reporter details
-      authorId: newsObj.authorId || null, // Include authorId
-      authorProfileImage: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].profileImage : null,
-      authorConstituency: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].constituency : null,
-=======
->>>>>>> a02007d6 (Initial commit)
-      // Include user interaction details for checking user state
-      userLikes: userLikes,
-      userDislikes: userDislikes,
-      userComments: userComments.map(comment => ({
-        userId: comment.userId,
-        userName: comment.userName,
-        userEmail: comment.userEmail,
-        comment: comment.comment,
-        timestamp: comment.timestamp,
-        likes: comment.likes || [] // Explicitly include likes array
-      }))
-    };
-  });
-
-  console.log(`📊 Returning ${transformedNews.length} news items${userId ? ' with user interaction data' : ''}`);
-  res.json(transformedNews);
-}
 
 // Public API endpoint for Flutter app with category filter (no authentication required)
 // Cached for 10 minutes (600 seconds)
@@ -1739,7 +1493,6 @@ function _getMostActiveUsers(userInteractions) {
     .slice(0, 10); // Top 10 most active users
 }
 
-<<<<<<< HEAD
 // Public endpoint for uploading profile images (no session auth required)
 // This is used by the Next.js reporters app for profile image uploads
 router.post('/api/public/upload-profile-image', uploadMedia.single('media'), async (req, res) => {
@@ -1763,6 +1516,4 @@ router.post('/api/public/upload-profile-image', uploadMedia.single('media'), asy
   }
 });
 
-=======
->>>>>>> a02007d6 (Initial commit)
 module.exports = router;
