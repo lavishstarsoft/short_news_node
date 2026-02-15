@@ -10,25 +10,16 @@ const cacheStats = {
 
 // Create Redis client with enhanced configuration
 // Support both URL-based (Upstash) and host/port configurations
+// Create Redis client with enhanced configuration
+// Prioritize REDIS_HOST (local/specific) over REDIS_URL (cloud/generic)
+const useLocalConfig = process.env.REDIS_HOST && process.env.REDIS_HOST !== '';
+
 const redisClient = redis.createClient(
-  process.env.REDIS_URL
+  useLocalConfig
     ? {
-      // Upstash or other cloud Redis providers using URL
-      url: process.env.REDIS_URL,
+      // Local Redis using host/port (Explicitly configured)
       socket: {
-        reconnectStrategy: (retries) => {
-          // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms, max 3000ms
-          const delay = Math.min(50 * Math.pow(2, retries), 3000);
-          console.log(`⏳ Redis reconnection attempt ${retries + 1}, waiting ${delay}ms...`);
-          return delay;
-        },
-        connectTimeout: 10000, // 10 second connection timeout
-      },
-    }
-    : {
-      // Local Redis using host/port
-      socket: {
-        host: process.env.REDIS_HOST || 'localhost',
+        host: process.env.REDIS_HOST,
         port: process.env.REDIS_PORT || 6379,
         reconnectStrategy: (retries) => {
           const delay = Math.min(50 * Math.pow(2, retries), 3000);
@@ -39,6 +30,33 @@ const redisClient = redis.createClient(
       },
       password: process.env.REDIS_PASSWORD || undefined,
     }
+    : process.env.REDIS_URL
+      ? {
+        // Upstash or other cloud Redis providers using URL
+        url: process.env.REDIS_URL,
+        socket: {
+          reconnectStrategy: (retries) => {
+            // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms, max 3000ms
+            const delay = Math.min(50 * Math.pow(2, retries), 3000);
+            console.log(`⏳ Redis reconnection attempt ${retries + 1}, waiting ${delay}ms...`);
+            return delay;
+          },
+          connectTimeout: 10000, // 10 second connection timeout
+        },
+      }
+      : {
+        // Fallback to default local
+        socket: {
+          host: 'localhost',
+          port: 6379,
+          reconnectStrategy: (retries) => {
+            const delay = Math.min(50 * Math.pow(2, retries), 3000);
+            console.log(`⏳ Redis reconnection attempt ${retries + 1}, waiting ${delay}ms...`);
+            return delay;
+          },
+          connectTimeout: 10000,
+        }
+      }
 );
 
 // Track connection status
@@ -57,7 +75,7 @@ redisClient.on('ready', () => {
   console.log(`🚀 Redis connection established at ${new Date().toISOString()}`);
 
   // Log connection details
-  if (process.env.REDIS_URL) {
+  if (!useLocalConfig && process.env.REDIS_URL) {
     // Hide the password in the URL for security
     const urlWithoutPassword = process.env.REDIS_URL.replace(/:([^@]+)@/, ':****@');
     console.log(`📍 Redis connection: ${urlWithoutPassword}`);
