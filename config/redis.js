@@ -12,7 +12,9 @@ const cacheStats = {
 // Support both URL-based (Upstash) and host/port configurations
 // Create Redis client with enhanced configuration
 // Prioritize REDIS_HOST (local/specific) over REDIS_URL (cloud/generic)
+console.log('DEBUG: config/redis.js EXECUTION START. REDIS_HOST:', process.env.REDIS_HOST, 'REDIS_URL:', process.env.REDIS_URL);
 const useLocalConfig = process.env.REDIS_HOST && process.env.REDIS_HOST !== '';
+console.log('DEBUG: useLocalConfig:', useLocalConfig);
 
 const redisClient = redis.createClient(
   useLocalConfig
