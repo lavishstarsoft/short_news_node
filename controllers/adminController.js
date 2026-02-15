@@ -607,6 +607,86 @@ async function updateEditor(req, res) {
     res.status(500).json({ error: 'An error occurred while updating editor' });
   }
 }
+// Render register editor page
+async function renderRegisterEditorPage(req, res) {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) {
+      return res.redirect('/login');
+    }
+
+    // Only admins and superadmins can register editors
+    if (admin.role !== 'admin' && admin.role !== 'superadmin') {
+      return res.status(403).send('Access denied. Admins only.');
+    }
+
+    // Fetch locations for dropdown
+    const locations = await Location.find().sort({ name: 1 });
+
+    res.render('register-editor', { admin, locations });
+  } catch (error) {
+    console.error('Register editor page error:', error);
+    res.status(500).send('Error loading register editor page');
+  }
+}
+
+// Register new editor
+async function registerEditor(req, res) {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Only admins and superadmins can register editors
+    if (admin.role !== 'admin' && admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. Admins only.' });
+    }
+
+    const { username, email, password, name, displayRole, location, constituency, mobileNumber } = req.body;
+
+    // Validate required fields
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email, and password are required' });
+    }
+
+    // Check if username or email already exists
+    const existingUser = await Admin.findOne({ $or: [{ username }, { email }] });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username or email already exists' });
+    }
+
+    // Create new editor
+    const newEditor = new Admin({
+      username,
+      email,
+      password, // Password will be hashed by pre-save hook
+      role: 'editor',
+      name: name || null,
+      displayRole: displayRole || 'Reporter', // Default display role
+      location: location || null,
+      constituency: constituency || null,
+      mobileNumber: mobileNumber || null,
+      createdBy: admin._id
+    });
+
+    await newEditor.save();
+
+    res.status(201).json({
+      message: 'Editor registered successfully',
+      editor: {
+        id: newEditor._id,
+        username: newEditor.username,
+        email: newEditor.email,
+        role: newEditor.role
+      }
+    });
+  } catch (error) {
+    console.error('Register editor error:', error);
+    res.status(500).json({ error: 'An error occurred while registering editor' });
+  }
+}
+
 // Render reports page
 async function renderReportsPage(req, res) {
   try {
