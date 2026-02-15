@@ -8,14 +8,20 @@ const Report = require('../models/Report'); // Add report model
 const Ad = require('../models/Ad'); // Add ad model
 const ViralVideo = require('../models/ViralVideo'); // Add ViralVideo model
 const CommentReport = require('../models/CommentReport'); // Add CommentReport model
+<<<<<<< HEAD
 const Admin = require('../models/Admin'); // Add Admin model
+=======
+>>>>>>> a02007d6 (Initial commit)
 
 // Import cache middleware for Redis caching
 const { cacheMiddleware } = require('../middleware/cache');
 
+<<<<<<< HEAD
 // Import upload middleware for profile image upload
 const { uploadMedia } = require('../middleware/upload');
 
+=======
+>>>>>>> a02007d6 (Initial commit)
 // Public API endpoint for Flutter app (no authentication required)
 // GET route with caching (5 minutes) for non-authenticated users
 // Cache works because we're calling res.json() directly in this handler
@@ -51,6 +57,7 @@ router.get('/api/public/news', cacheMiddleware(300), async (req, res) => {
         .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
     }
 
+<<<<<<< HEAD
 
 
     // Fetch author details for all news items
@@ -65,6 +72,8 @@ router.get('/api/public/news', cacheMiddleware(300), async (req, res) => {
       };
     });
 
+=======
+>>>>>>> a02007d6 (Initial commit)
     // Transform data for Flutter app (no user-specific data for cached GET requests)
     const transformedNews = newsList.map(news => {
       const newsObj = news.toObject ? news.toObject() : news;
@@ -87,10 +96,13 @@ router.get('/api/public/news', cacheMiddleware(300), async (req, res) => {
         isRead: newsObj.isRead || false,
         readFullLink: newsObj.readFullLink || null,
         ePaperLink: newsObj.ePaperLink || null,
+<<<<<<< HEAD
         // Add reporter details
         authorId: newsObj.authorId || null, // Include authorId for debugging
         authorProfileImage: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].profileImage : null,
         authorConstituency: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].constituency : null,
+=======
+>>>>>>> a02007d6 (Initial commit)
         // Include user interaction details for checking user state
         userLikes: newsObj.userInteractions?.likes || [],
         userDislikes: newsObj.userInteractions?.dislikes || [],
@@ -105,12 +117,15 @@ router.get('/api/public/news', cacheMiddleware(300), async (req, res) => {
       };
     });
 
+<<<<<<< HEAD
     // Log the first item's author details for debugging
     if (transformedNews.length > 0) {
       console.log(`🔍 [Debug] First Item Author: ${transformedNews[0].author} (ID: ${transformedNews[0].authorId})`);
       console.log(`🔍 [Debug] First Item Image: ${transformedNews[0].authorProfileImage}`);
     }
 
+=======
+>>>>>>> a02007d6 (Initial commit)
     console.log(`📊 Returning ${transformedNews.length} news items (cached GET request)`);
     // This res.json() will be intercepted by cache middleware
     res.json(transformedNews);
@@ -169,6 +184,7 @@ async function handleNewsRequest(req, res) {
       .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)); // Sort by publishedAt descending (newest first)
   }
 
+<<<<<<< HEAD
   // Fetch author details for all news items (only if connected to MongoDB)
   let authorMap = {};
   if (req.app.locals.isConnectedToMongoDB) {
@@ -183,6 +199,8 @@ async function handleNewsRequest(req, res) {
     });
   }
 
+=======
+>>>>>>> a02007d6 (Initial commit)
   // Transform data for Flutter app with user interaction data
   const transformedNews = newsList.map(news => {
     const newsObj = news.toObject ? news.toObject() : news;
@@ -219,10 +237,13 @@ async function handleNewsRequest(req, res) {
       isRead: newsObj.isRead || false,
       readFullLink: newsObj.readFullLink || null,
       ePaperLink: newsObj.ePaperLink || null,
+<<<<<<< HEAD
       // Add reporter details
       authorId: newsObj.authorId || null, // Include authorId
       authorProfileImage: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].profileImage : null,
       authorConstituency: newsObj.authorId && authorMap[newsObj.authorId.toString()] ? authorMap[newsObj.authorId.toString()].constituency : null,
+=======
+>>>>>>> a02007d6 (Initial commit)
       // Include user interaction details for checking user state
       userLikes: userLikes,
       userDislikes: userDislikes,
@@ -1718,6 +1739,7 @@ function _getMostActiveUsers(userInteractions) {
     .slice(0, 10); // Top 10 most active users
 }
 
+<<<<<<< HEAD
 // Public endpoint for uploading profile images (no session auth required)
 // This is used by the Next.js reporters app for profile image uploads
 router.post('/api/public/upload-profile-image', uploadMedia.single('media'), async (req, res) => {
@@ -1741,4 +1763,6 @@ router.post('/api/public/upload-profile-image', uploadMedia.single('media'), asy
   }
 });
 
+=======
+>>>>>>> a02007d6 (Initial commit)
 module.exports = router;

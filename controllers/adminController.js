@@ -377,6 +377,7 @@ const updateProfileImage = async (req, res) => {
       return res.status(404).json({ error: 'Admin not found' });
     }
 
+<<<<<<< HEAD
     // Update profile image URL (Cloudinary path)
     // CloudinaryStorage returns path in file.path or file.secure_url (multer-storage-cloudinary usually puts it in path or path is local?)
     // Actually with multer-storage-cloudinary, file.path is usually the full URL.
@@ -384,11 +385,19 @@ const updateProfileImage = async (req, res) => {
 
     // Using file.path from multer-storage-cloudinary
     admin.profileImage = req.file.path;
+=======
+    // Update profile image URL (Cloudinary URL from multer)
+    admin.avatar = req.file.path;
+>>>>>>> a02007d6 (Initial commit)
     await admin.save();
 
     res.json({
       message: 'Profile image updated successfully',
+<<<<<<< HEAD
       imageUrl: admin.profileImage
+=======
+      imageUrl: admin.avatar
+>>>>>>> a02007d6 (Initial commit)
     });
   } catch (error) {
     console.error('Profile image update error:', error);
@@ -409,10 +418,14 @@ const renderRegisterEditorPage = async (req, res) => {
       return res.status(403).send('Access denied. Admins only.');
     }
 
+<<<<<<< HEAD
     // Fetch all locations for dropdown
     const locations = await Location.find().sort({ name: 1 });
 
     res.render('register-editor', { admin, error: null, locations });
+=======
+    res.render('register-editor', { admin, error: null });
+>>>>>>> a02007d6 (Initial commit)
   } catch (error) {
     console.error('Register editor error:', error);
     res.redirect('/login');
@@ -432,17 +445,29 @@ const registerEditor = async (req, res) => {
       return res.status(403).send('Access denied. Admins only.');
     }
 
+<<<<<<< HEAD
     const { username, email, password, name, location, displayRole, constituency, mobileNumber } = req.body;
 
     // Validate input
     if (!username || !email || !password) {
       return res.render('register-editor', { admin, error: 'Please provide all required fields', locations: await Location.find().sort({ name: 1 }) });
+=======
+    const { username, email, password } = req.body;
+
+    // Validate input
+    if (!username || !email || !password) {
+      return res.render('register-editor', { admin, error: 'Please provide all required fields' });
+>>>>>>> a02007d6 (Initial commit)
     }
 
     // Check if editor already exists
     const existingEditor = await Admin.findOne({ username });
     if (existingEditor) {
+<<<<<<< HEAD
       return res.render('register-editor', { admin, error: 'Username already exists', locations: await Location.find().sort({ name: 1 }) });
+=======
+      return res.render('register-editor', { admin, error: 'Username already exists' });
+>>>>>>> a02007d6 (Initial commit)
     }
 
     // Create new editor
@@ -450,12 +475,16 @@ const registerEditor = async (req, res) => {
       username,
       email,
       password,
+<<<<<<< HEAD
       role: 'editor',
       name: name || null,
       location: location || null,
       displayRole: displayRole || 'Reporter',
       constituency: constituency || null,
       mobileNumber: mobileNumber || null
+=======
+      role: 'editor'
+>>>>>>> a02007d6 (Initial commit)
     });
 
     await newEditor.save();
@@ -467,6 +496,45 @@ const registerEditor = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
+=======
+// Update editor
+const updateEditor = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Only admins and superadmins can update editors
+    if (admin.role !== 'admin' && admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. Admins only.' });
+    }
+
+    const editorId = req.params.id;
+    const { username, email, password, isActive } = req.body;
+
+    const editor = await Admin.findById(editorId);
+    if (!editor) {
+      return res.status(404).json({ error: 'Editor not found' });
+    }
+
+    // Update fields
+    if (username) editor.username = username;
+    if (email) editor.email = email;
+    if (password) editor.password = password; // Will be hashed by pre-save hook
+    if (isActive !== undefined) editor.isActive = isActive;
+
+    await editor.save();
+
+    res.json({ message: 'Editor updated successfully', editor });
+  } catch (error) {
+    console.error('Update editor error:', error);
+    res.status(500).json({ error: 'An error occurred while updating editor' });
+  }
+};
+
+>>>>>>> a02007d6 (Initial commit)
 // Render users list page with detailed interactions
 const renderUsersListPage = async (req, res) => {
   try {
@@ -638,16 +706,21 @@ async function renderEditorsPage(req, res) {
     // Get all editors
     const editors = await Admin.find({ role: 'editor' }).sort({ createdAt: -1 });
 
+<<<<<<< HEAD
     // Fetch locations for edit dropdown
     const locations = await Location.find().sort({ name: 1 });
 
     res.render('editors', { admin, editors, locations });
+=======
+    res.render('editors', { admin, editors });
+>>>>>>> a02007d6 (Initial commit)
   } catch (error) {
     console.error('Editors page error:', error);
     res.status(500).send('Error fetching editors');
   }
 }
 
+<<<<<<< HEAD
 // Update editor (PUT /editors/:id)
 async function updateEditor(req, res) {
   try {
@@ -696,6 +769,8 @@ async function updateEditor(req, res) {
   }
 }
 
+=======
+>>>>>>> a02007d6 (Initial commit)
 // Render reports page
 async function renderReportsPage(req, res) {
   try {
@@ -1214,6 +1289,7 @@ async function renderOneSignalAnalyticsPage(req, res) {
 // Authentication middleware
 const requireAuth = (req, res, next) => {
   console.log('requireAuth called for path:', req.path); // Debug log
+<<<<<<< HEAD
   console.log('Auth Header:', req.headers.authorization); // Debug log
   let token = req.cookies?.token;
 
@@ -1221,6 +1297,9 @@ const requireAuth = (req, res, next) => {
   if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
     token = req.headers.authorization.split(' ')[1];
   }
+=======
+  const token = req.cookies?.token;
+>>>>>>> a02007d6 (Initial commit)
 
   // Check if this is an API request (based on content type or accept header)
   const isApiRequest = req.path.startsWith('/api/') ||
@@ -1437,6 +1516,10 @@ module.exports = {
   renderDashboard,
   renderProfilePage,
   updateProfile,
+<<<<<<< HEAD
+=======
+  updateProfileImage,
+>>>>>>> a02007d6 (Initial commit)
   renderRegisterEditorPage,
   registerEditor,
   renderEditorsPage,
@@ -1455,6 +1538,10 @@ module.exports = {
   markNotificationOpened,
   markNotificationReceived,
   renderOneSignalAnalyticsPage,
+<<<<<<< HEAD
   getOneSignalAnalytics,
   updateProfileImage
+=======
+  getOneSignalAnalytics
+>>>>>>> a02007d6 (Initial commit)
 };

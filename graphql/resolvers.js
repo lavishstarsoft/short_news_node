@@ -4,7 +4,10 @@ const Category = require('../models/Category');
 const Location = require('../models/Location');
 const Ad = require('../models/Ad');
 const User = require('../models/User');
+<<<<<<< HEAD
 const Admin = require('../models/Admin');
+=======
+>>>>>>> a02007d6 (Initial commit)
 const Report = require('../models/Report');
 const CommentReport = require('../models/CommentReport');
 const LiveStream = require('../models/LiveStream');
@@ -184,6 +187,7 @@ const resolvers = {
                 throw new Error('Failed to fetch live stream status');
             }
         },
+<<<<<<< HEAD
 
         // Get editor by ID for real-time profile sync
         getEditorById: async (_, { id }) => {
@@ -283,6 +287,8 @@ const resolvers = {
                 return null;
             }
         }
+=======
+>>>>>>> a02007d6 (Initial commit)
     },
 
     // Field resolvers for News type
@@ -361,6 +367,7 @@ const resolvers = {
             }
             return [];
         },
+<<<<<<< HEAD
         // Fetch reporter profile image from Admin model
         authorProfileImage: async (parent) => {
             try {
@@ -391,6 +398,8 @@ const resolvers = {
                 return null;
             }
         },
+=======
+>>>>>>> a02007d6 (Initial commit)
     },
 
     Mutation: {
@@ -944,6 +953,7 @@ const resolvers = {
             }
         },
 
+<<<<<<< HEAD
         // Editor/Reporter Login
         loginEditor: async (_, { username, password }) => {
             try {
@@ -1092,6 +1102,8 @@ const resolvers = {
             }
         },
 
+=======
+>>>>>>> a02007d6 (Initial commit)
         // Delete own viral video comment
         deleteViralVideoComment: async (_, { videoId, commentId, commentText, userId, timestamp }) => {
             try {
