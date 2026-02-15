@@ -48,12 +48,9 @@ const typeDefs = gql`
     userViews: [UserInteraction!]!
     isActive: Boolean!
     author: String
-<<<<<<< HEAD
     authorId: String
     authorProfileImage: String
     authorConstituency: String
-=======
->>>>>>> a02007d6 (Initial commit)
     readFullLink: String
     ePaperLink: String
     createdAt: String
@@ -156,17 +153,13 @@ const typeDefs = gql`
 
   extend type Query {
     getLiveStreamStatus: LiveStreamStatus
-<<<<<<< HEAD
     getEditorById(id: ID!): Editor
     getNewsByEditor(editorId: ID!, limit: Int): [News!]!
     getNewsById(id: ID!): News
-=======
->>>>>>> a02007d6 (Initial commit)
   }
 
   extend type Mutation {
     updateLiveStreamStatus(isLive: Boolean!, url: String): LiveStreamStatus
-<<<<<<< HEAD
     loginEditor(username: String!, password: String!): EditorLoginPayload
     updateEditorProfile(editorId: ID!, name: String, displayRole: String, location: String, profileImage: String): EditorProfileUpdatePayload
   }
@@ -196,14 +189,7 @@ const typeDefs = gql`
     mobileNumber: String
     constituency: String
     isActive: Boolean!
-=======
->>>>>>> a02007d6 (Initial commit)
   }
 `;
 
 module.exports = typeDefs;
-<<<<<<< HEAD
-
-
-=======
->>>>>>> a02007d6 (Initial commit)
