@@ -1,4 +1,8 @@
-require('dotenv').config();
+const dotenv = require('dotenv');
+dotenv.config();
+
+console.log('DEBUG: REDIS_URL is:', process.env.REDIS_URL);
+console.log('DEBUG: REDIS_HOST is:', process.env.REDIS_HOST);
 
 const express = require('express');
 const mongoose = require('mongoose');
