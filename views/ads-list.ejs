@@ -139,7 +139,7 @@
                                                         </div>
                                                         <div class="card-body">
                                                             <h5 class="card-title">
-                                                                <%= ad.title.substring(0, 30) %>
+                                                                <%= (ad.title || '' ).substring(0, 30) %>
                                                             </h5>
                                                             <p class="card-text ad-content-preview">
                                                                 <%= ad.content ? ad.content.substring(0, 60) : '' %>

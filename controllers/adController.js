@@ -4,9 +4,9 @@ const { deleteFromR2 } = require('../config/cloudflare');
 // Render ads list page
 async function renderAdsListPage(req, res) {
   try {
+    const selectedStatus = req.query.status || '';
     if (req.app.locals.isConnectedToMongoDB) {
       let adsList;
-      let selectedStatus = req.query.status || '';
 
       // Build query based on filters
       const query = {};
