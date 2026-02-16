@@ -23,6 +23,8 @@ router.post('/profile/image', adminController.requireAuth, uploadCategoryMedia.s
 router.get('/register-editor', adminController.requireAdmin, adminController.renderRegisterEditorPage);
 router.post('/register-editor', adminController.requireAdmin, adminController.registerEditor);
 router.get('/editors', adminController.requireAuth, adminController.renderEditorsPage);
+router.put('/editors/:id', adminController.requireAuth, adminController.updateEditor);
+router.delete('/editors/:id', adminController.requireAdmin, adminController.deleteEditor);
 
 // User management routes
 router.get('/users', adminController.requireAuth, adminController.renderUsersListPage);

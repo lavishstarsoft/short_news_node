@@ -96,77 +96,6 @@
             border-right: none;
         }
 
-        .location-warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 10px 0;
-            color: #856404;
-            display: none;
-        }
-
-        .location-error {
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 10px 0;
-            color: #721c24;
-            display: none;
-        }
-
-        .location-success {
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 10px 0;
-            color: #155724;
-            display: none;
-        }
-
-        .instruction-panel {
-            background-color: #d1ecf1;
-            border: 1px solid #bee5eb;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 10px 0;
-            color: #0c5460;
-            display: none;
-        }
-
-        .instruction-steps {
-            padding-left: 20px;
-        }
-
-        .instruction-steps li {
-            margin-bottom: 8px;
-        }
-
-        .spinner-border {
-            width: 1rem;
-            height: 1rem;
-        }
-
-        .permission-required {
-            color: #dc3545;
-            font-weight: 500;
-        }
-
-        .step-number {
-            display: inline-block;
-            width: 25px;
-            height: 25px;
-            background: #17a2b8;
-            color: white;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 25px;
-            font-weight: bold;
-            margin-right: 10px;
-        }
-
         /* Modal Styles */
         .modal-content {
             border-radius: 15px;
@@ -178,21 +107,6 @@
             color: white;
             border-radius: 15px 15px 0 0 !important;
             padding: 20px;
-        }
-
-        .browser-icon {
-            width: 24px;
-            height: 24px;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-
-        .browser-instructions {
-            display: none;
-        }
-
-        .browser-instructions.active {
-            display: block;
         }
     </style>
 </head>
@@ -213,54 +127,8 @@
                 </div>
                 <% } %>
 
-                    <div id="locationWarning" class="location-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Location Permission Required:</strong>
-                        <p class="mb-0">Please enable location permissions to continue. This is required for security
-                            purposes.</p>
-                        <button id="requestLocationBtn" class="btn btn-sm btn-primary mt-2">Enable Location</button>
-                    </div>
-
-                    <div id="locationError" class="location-error">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        <strong>Location Access Denied:</strong>
-                        <p class="mb-0" id="locationErrorMessage"></p>
-                        <p class="mb-0 mt-2"><small class="permission-required">Location permission is required to
-                                login.</small></p>
-                        <button id="showInstructionsBtn" class="btn btn-sm btn-info mt-2">Show Instructions</button>
-                    </div>
-
-                    <div id="instructionPanel" class="instruction-panel">
-                        <h5><i class="fas fa-info-circle me-2"></i>How to Enable Location Permission</h5>
-                        <ol class="instruction-steps">
-                            <li><span class="step-number">1</span> Click the location icon or "Enable Location" button
-                                in your browser's address bar</li>
-                            <li><span class="step-number">2</span> Select "Allow" or "Enable" when prompted for location
-                                access</li>
-                            <li><span class="step-number">3</span> Refresh this page after enabling permissions</li>
-                            <li><span class="step-number">4</span> If you don't see a prompt, check your browser
-                                settings:</li>
-                            <ul>
-                                <li><strong>Chrome:</strong> Click the lock icon → Site settings → Location → Allow</li>
-                                <li><strong>Firefox:</strong> Click the info icon → Permissions → Location → Allow</li>
-                                <li><strong>Safari:</strong> Preferences → Websites → Location → Allow this site</li>
-                                <li><strong>Edge:</strong> Click the lock icon → Permissions → Location → Allow</li>
-                            </ul>
-                        </ol>
-                        <button id="hideInstructionsBtn" class="btn btn-sm btn-secondary">Hide Instructions</button>
-                        <button id="refreshPageBtn" class="btn btn-sm btn-primary ms-2">Refresh Page</button>
-                    </div>
-
-                    <div id="locationSuccess" class="location-success">
-                        <i class="fas fa-check-circle me-2"></i>
-                        <strong>Location Permission Granted!</strong>
-                        <p class="mb-0">You can now proceed with login.</p>
-                    </div>
-
                     <form id="loginForm" action="/login" method="POST">
-                        <input type="hidden" id="latitude" name="latitude">
-                        <input type="hidden" id="longitude" name="longitude">
-                        <input type="hidden" id="locationPermission" name="locationPermission" value="false">
+
 
                         <div class="mb-3">
                             <label for="username" class="form-label">Username</label>
@@ -281,298 +149,28 @@
                         </div>
 
                         <div class="d-grid mb-3">
-                            <button type="submit" class="btn btn-login btn-primary" id="loginButton" disabled>
+                            <button type="submit" class="btn btn-login btn-primary" id="loginButton">
                                 <span id="loginButtonText"><i class="fas fa-sign-in-alt me-2"></i>Login</span>
                                 <span id="loginSpinner" class="spinner-border spinner-border-sm ms-2 d-none"
                                     role="status" aria-hidden="true"></span>
                             </button>
                         </div>
 
-                        <div class="text-center">
-                            <small class="text-muted">
-                                <i class="fas fa-map-marker-alt me-1"></i>
-                                Location permission is required for security
-                            </small>
-                        </div>
+
                     </form>
         </div>
     </div>
 
-    <!-- Unified Instructions Modal -->
-    <div class="modal fade" id="instructionsModal" tabindex="-1" aria-labelledby="instructionsModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="instructionsModalLabel">
-                        <i class="fas fa-map-marker-alt me-2"></i>Enable Location Permission
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <!-- Browser Selection -->
-                    <div class="mb-3">
-                        <label class="form-label">Select your browser:</label>
-                        <div class="d-flex flex-wrap gap-2">
-                            <button class="btn btn-outline-primary browser-selector active" data-browser="chrome">
-                                <i class="fab fa-chrome me-1"></i>Chrome
-                            </button>
-                            <button class="btn btn-outline-primary browser-selector" data-browser="firefox">
-                                <i class="fab fa-firefox me-1"></i>Firefox
-                            </button>
-                            <button class="btn btn-outline-primary browser-selector" data-browser="safari">
-                                <i class="fab fa-safari me-1"></i>Safari
-                            </button>
-                            <button class="btn btn-outline-primary browser-selector" data-browser="edge">
-                                <i class="fab fa-edge me-1"></i>Edge
-                            </button>
-                        </div>
-                    </div>
 
-                    <!-- Chrome Instructions -->
-                    <div id="chromeInstructions" class="browser-instructions active">
-                        <h6><i class="fab fa-chrome me-2"></i>Chrome Instructions</h6>
-                        <ol class="instruction-steps">
-                            <li><span class="step-number">1</span> Look for the <strong>Lock Icon</strong> or
-                                <strong>"i" Icon</strong> next to the website address in the address bar</li>
-                            <li><span class="step-number">2</span> Click on the icon and select
-                                <strong>Permissions</strong> or <strong>Site settings</strong></li>
-                            <li><span class="step-number">3</span> Find <strong>Location</strong> in the list</li>
-                            <li><span class="step-number">4</span> Click on <strong>Location</strong> and select
-                                <strong>Allow</strong></li>
-                            <li><span class="step-number">5</span> <strong>Refresh</strong> this page to apply changes
-                            </li>
-                            <li><span class="step-number">6</span> When prompted, click <strong>Allow</strong> to share
-                                your location</li>
-                        </ol>
-
-                        <div class="alert alert-info">
-                            <i class="fas fa-mobile-alt me-2"></i>
-                            <strong>Mobile Chrome:</strong> Tap the three dots menu → Reload to force refresh after
-                            enabling permissions.
-                        </div>
-                    </div>
-
-                    <!-- Firefox Instructions -->
-                    <div id="firefoxInstructions" class="browser-instructions">
-                        <h6><i class="fab fa-firefox me-2"></i>Firefox Instructions</h6>
-                        <ol class="instruction-steps">
-                            <li><span class="step-number">1</span> Click the <strong>Information Icon</strong> (i) or
-                                <strong>Lock Icon</strong> in the address bar</li>
-                            <li><span class="step-number">2</span> Select <strong>Permissions</strong> or <strong>More
-                                    Information</strong></li>
-                            <li><span class="step-number">3</span> Find <strong>Access Your Location</strong> in the
-                                permissions list</li>
-                            <li><span class="step-number">4</span> Change the setting to <strong>Allow</strong></li>
-                            <li><span class="step-number">5</span> <strong>Refresh</strong> this page to apply changes
-                            </li>
-                            <li><span class="step-number">6</span> When prompted, click <strong>Share Location</strong>
-                            </li>
-                        </ol>
-                    </div>
-
-                    <!-- Safari Instructions -->
-                    <div id="safariInstructions" class="browser-instructions">
-                        <h6><i class="fab fa-safari me-2"></i>Safari Instructions</h6>
-                        <ol class="instruction-steps">
-                            <li><span class="step-number">1</span> Go to <strong>Safari</strong> →
-                                <strong>Preferences</strong></li>
-                            <li><span class="step-number">2</span> Click on the <strong>Websites</strong> tab</li>
-                            <li><span class="step-number">3</span> Select <strong>Location</strong> from the left panel
-                            </li>
-                            <li><span class="step-number">4</span> Find this website in the list and set it to
-                                <strong>Allow</strong></li>
-                            <li><span class="step-number">5</span> <strong>Refresh</strong> this page to apply changes
-                            </li>
-                            <li><span class="step-number">6</span> When prompted, click <strong>Allow</strong></li>
-                        </ol>
-                    </div>
-
-                    <!-- Edge Instructions -->
-                    <div id="edgeInstructions" class="browser-instructions">
-                        <h6><i class="fab fa-edge me-2"></i>Edge Instructions</h6>
-                        <ol class="instruction-steps">
-                            <li><span class="step-number">1</span> Click the <strong>Lock Icon</strong> in the address
-                                bar</li>
-                            <li><span class="step-number">2</span> Select <strong>Permissions</strong> for this site
-                            </li>
-                            <li><span class="step-number">3</span> Find <strong>Location</strong> in the permissions
-                                list</li>
-                            <li><span class="step-number">4</span> Click on <strong>Location</strong> and select
-                                <strong>Allow</strong></li>
-                            <li><span class="step-number">5</span> <strong>Refresh</strong> this page to apply changes
-                            </li>
-                            <li><span class="step-number">6</span> When prompted, click <strong>Allow</strong></li>
-                        </ol>
-                    </div>
-
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Note:</strong> After enabling permissions, you must refresh this page for changes to
-                        take effect.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="refreshAfterInstructions">Refresh Page</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let locationPermissionGranted = false;
-
-        // Get user's location
-        function getLocation() {
-            const locationWarning = document.getElementById('locationWarning');
-            const locationError = document.getElementById('locationError');
-            const locationSuccess = document.getElementById('locationSuccess');
-            const loginButton = document.getElementById('loginButton');
-            const instructionPanel = document.getElementById('instructionPanel');
-
-            // Show warning that location is being requested
-            locationWarning.style.display = 'block';
-            locationError.style.display = 'none';
-            locationSuccess.style.display = 'none';
-            instructionPanel.style.display = 'none';
-            loginButton.disabled = true;
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    function (position) {
-                        // Success - hide warnings and set coordinates
-                        locationWarning.style.display = 'none';
-                        locationError.style.display = 'none';
-                        locationSuccess.style.display = 'block';
-                        instructionPanel.style.display = 'none';
-                        loginButton.disabled = false;
-
-                        document.getElementById('latitude').value = position.coords.latitude;
-                        document.getElementById('longitude').value = position.coords.longitude;
-                        document.getElementById('locationPermission').value = 'true';
-                        locationPermissionGranted = true;
-                    },
-                    function (error) {
-                        // Error handling
-                        locationWarning.style.display = 'none';
-                        locationSuccess.style.display = 'none';
-                        instructionPanel.style.display = 'none';
-                        locationError.style.display = 'block';
-                        loginButton.disabled = true;
-
-                        let errorMessage = '';
-                        switch (error.code) {
-                            case error.PERMISSION_DENIED:
-                                errorMessage = "Location access was denied. Please enable location permissions to login.";
-                                break;
-                            case error.POSITION_UNAVAILABLE:
-                                errorMessage = "Location information is unavailable. Please check your device settings.";
-                                break;
-                            case error.TIMEOUT:
-                                errorMessage = "Location request timed out. Please try again.";
-                                break;
-                            default:
-                                errorMessage = "An unknown error occurred while getting location. Please try again.";
-                                break;
-                        }
-
-                        document.getElementById('locationErrorMessage').textContent = errorMessage;
-                        document.getElementById('locationPermission').value = 'false';
-                        locationPermissionGranted = false;
-                    }
-                );
-            } else {
-                // Geolocation not supported
-                locationWarning.style.display = 'none';
-                locationSuccess.style.display = 'none';
-                instructionPanel.style.display = 'none';
-                locationError.style.display = 'block';
-                loginButton.disabled = true;
-                document.getElementById('locationErrorMessage').textContent = "Geolocation is not supported by this browser. Location permission is required to login.";
-                document.getElementById('locationPermission').value = 'false';
-                locationPermissionGranted = false;
-            }
-        }
-
         // Handle form submission
         document.getElementById('loginForm').addEventListener('submit', function (e) {
-            // Check if location permission is granted
-            if (!locationPermissionGranted) {
-                e.preventDefault();
-                alert("Location permission is required to login. Please enable location permissions and try again.");
-                return false;
-            }
-
             // Show loading spinner
             document.getElementById('loginButtonText').innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in...';
             document.getElementById('loginSpinner').classList.remove('d-none');
             document.getElementById('loginButton').disabled = true;
-        });
-
-        // Request location permission manually
-        document.getElementById('requestLocationBtn').addEventListener('click', function () {
-            getLocation();
-        });
-
-        // Show instructions panel
-        document.getElementById('showInstructionsBtn').addEventListener('click', function () {
-            // Hide the error panel and show the modal
-            document.getElementById('locationError').style.display = 'none';
-            var modal = new bootstrap.Modal(document.getElementById('instructionsModal'));
-            modal.show();
-        });
-
-        // Hide instructions panel
-        document.getElementById('hideInstructionsBtn').addEventListener('click', function () {
-            document.getElementById('instructionPanel').style.display = 'none';
-            document.getElementById('locationError').style.display = 'block';
-        });
-
-        // Browser selector functionality
-        document.querySelectorAll('.browser-selector').forEach(button => {
-            button.addEventListener('click', function () {
-                // Remove active class from all buttons
-                document.querySelectorAll('.browser-selector').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-
-                // Add active class to clicked button
-                this.classList.add('active');
-
-                // Hide all instruction panels
-                document.querySelectorAll('.browser-instructions').forEach(panel => {
-                    panel.classList.remove('active');
-                });
-
-                // Show selected browser instructions
-                const browser = this.getAttribute('data-browser');
-                document.getElementById(browser + 'Instructions').classList.add('active');
-            });
-        });
-
-        // Refresh page after instructions
-        document.getElementById('refreshAfterInstructions').addEventListener('click', function () {
-            window.location.reload();
-        });
-
-        // Refresh page
-        document.getElementById('refreshPageBtn').addEventListener('click', function () {
-            window.location.reload();
-        });
-
-        // Handle modal hidden event to ensure it can be shown again
-        const instructionsModal = document.getElementById('instructionsModal');
-        instructionsModal.addEventListener('hidden.bs.modal', function () {
-            // Reset modal to initial state
-            document.getElementById('locationError').style.display = 'block';
-        });
-
-        // Get location when page loads
-        window.addEventListener('load', function () {
-            getLocation();
         });
     </script>
 </body>

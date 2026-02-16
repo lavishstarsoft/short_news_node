@@ -42,26 +42,6 @@
             margin: 0 auto 20px;
             border: 4px solid rgba(255, 255, 255, 0.3);
             position: relative;
-            cursor: pointer;
-        }
-
-        .profile-avatar:hover .edit-overlay {
-            display: flex;
-        }
-
-        .edit-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            border-radius: 50%;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 24px;
         }
 
         .login-history-table th {
@@ -99,28 +79,6 @@
 
         .btn-edit:hover {
             background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-        }
-
-        /* VPN Warning Styles */
-        .vpn-warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 5px;
-            padding: 10px;
-            margin: 10px 0;
-            color: #856404;
-        }
-
-        .vpn-warning.high {
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-            color: #721c24;
-        }
-
-        .vpn-warning.medium {
-            background-color: #fff3cd;
-            border-color: #ffeaa7;
-            color: #856404;
         }
 
         /* Modal styles */
@@ -164,12 +122,7 @@
             background-color: #dc3545;
         }
 
-        /* Mobile-specific styles */
         @media (max-width: 767.98px) {
-            .profile-container {
-                padding: 0;
-            }
-
             .profile-header {
                 padding: 20px 15px;
             }
@@ -178,48 +131,6 @@
                 width: 80px;
                 height: 80px;
                 font-size: 32px;
-                margin: 0 auto 10px;
-            }
-
-            .profile-card {
-                border-radius: 0;
-                box-shadow: none;
-                margin-bottom: 16px;
-            }
-
-            .card-body {
-                padding: 16px;
-            }
-        }
-
-        @media (min-width: 768px) {
-            .profile-header {
-                padding: 40px;
-            }
-
-            .profile-card {
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-                transition: all 0.3s cubic-bezier(.25, .8, .25, 1);
-                margin-bottom: 30px;
-            }
-
-            .profile-card:hover {
-                box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
-            }
-
-            .card-body {
-                padding: 24px;
-            }
-        }
-
-        /* Larger screens */
-        @media (min-width: 992px) {
-            .profile-container {
-                padding: 30px;
-            }
-
-            .profile-header {
-                padding: 50px;
             }
         }
     </style>
@@ -252,60 +163,228 @@
 
     <div class="container-fluid">
         <div class="row">
+            <!-- Sidebar -->
             <%- include('partials/sidebar', { activePage: 'profile' }) %>
-                const confirmPassword = document.getElementById('confirmPassword').value;
 
-                // Validate passwords
-                if (newPassword !== confirmPassword) {
-                showFeedback('New passwords do not match', 'error');
-                return;
-                }
+                <!-- Main Content -->
+                <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                    <div class="content-area mt-4">
+                        <div class="profile-container">
+                            <div class="card profile-card">
+                                <div class="profile-header text-center">
+                                    <div class="profile-avatar">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <h2 class="mb-1">
+                                        <%= admin.name || admin.username %>
+                                    </h2>
+                                    <p class="mb-3 opacity-75">
+                                        <%= admin.email %>
+                                    </p>
+                                    <span class="badge badge-role px-3 py-2">
+                                        <%= admin.role.toUpperCase() %>
+                                    </span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="text-muted small">Username</label>
+                                            <p class="fw-bold mb-0">
+                                                <%= admin.username %>
+                                            </p>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="text-muted small">Display Role</label>
+                                            <p class="fw-bold mb-0">
+                                                <%= admin.displayRole || 'Reporter' %>
+                                            </p>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="text-muted small">Location</label>
+                                            <p class="fw-bold mb-0">
+                                                <%= admin.location || 'Not Set' %>
+                                            </p>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="text-muted small">Constituency</label>
+                                            <p class="fw-bold mb-0">
+                                                <%= admin.constituency || 'Not Set' %>
+                                            </p>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="text-muted small">Mobile Number</label>
+                                            <p class="fw-bold mb-0">
+                                                <%= admin.mobileNumber || 'Not Set' %>
+                                            </p>
+                                        </div>
+                                        <div class="col-md-6 mb-3 text-md-end">
+                                            <button class="btn btn-edit text-white" onclick="openEditProfileModal()">
+                                                <i class="fas fa-key me-1"></i> Change Password
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                if (newPassword.length < 6) { showFeedback('Password must be at least 6 characters long', 'error' );
-                    return; } // Send data to server fetch('/profile', { method: 'PUT' , headers: { 'Content-Type'
-                    : 'application/json' }, body: JSON.stringify({ currentPassword: currentPassword, newPassword:
-                    newPassword }) }) .then(response=> response.json())
-                    .then(data => {
-                    if (data.error) {
-                    showFeedback(data.error, 'error');
-                    } else {
-                    showFeedback(data.message, 'success');
-                    var modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
-                    modal.hide();
+                            <!-- Login History -->
+                            <div class="card profile-card">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Login History</h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table login-history-table mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>IP Address</th>
+                                                    <th>Location</th>
+                                                    <th>Device / Browser</th>
+                                                    <th>Timestamp</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <% if (admin.loginHistory && admin.loginHistory.length> 0) { %>
+                                                    <% admin.loginHistory.reverse().forEach(function(login) { %>
+                                                        <tr>
+                                                            <td><code><%= login.ip %></code></td>
+                                                            <td>
+                                                                <%= login.location || 'Unknown' %>
+                                                            </td>
+                                                            <td class="user-agent">
+                                                                <%= login.userAgent %>
+                                                            </td>
+                                                            <td>
+                                                                <%= new Date(login.timestamp).toLocaleString() %>
+                                                            </td>
+                                                        </tr>
+                                                        <% }); %>
+                                                            <% } else { %>
+                                                                <tr>
+                                                                    <td colspan="4" class="text-center py-4 text-muted">
+                                                                        No login history available</td>
+                                                                </tr>
+                                                                <% } %>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        </div>
+    </div>
 
-                    // Reset form
-                    document.getElementById('editProfileForm').reset();
+    <!-- Edit Profile Modal -->
+    <div class="modal fade" id="editProfileModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-key me-2"></i>Change Password</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editProfileForm">
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="currentPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="newPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirmPassword" required>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-edit text-white">Update Password</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Message -->
+    <div id="feedbackMessage" class="feedback-message"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const editProfileForm = document.getElementById('editProfileForm');
+
+            if (editProfileForm) {
+                editProfileForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+
+                    const currentPassword = document.getElementById('currentPassword').value;
+                    const newPassword = document.getElementById('newPassword').value;
+                    const confirmPassword = document.getElementById('confirmPassword').value;
+
+                    // Validate passwords
+                    if (newPassword !== confirmPassword) {
+                        showFeedback('New passwords do not match', 'error');
+                        return;
                     }
+
+                    if (newPassword.length < 6) {
+                        showFeedback('Password must be at least 6 characters long', 'error');
+                        return;
+                    }
+
+                    // Send data to server
+                    fetch('/profile', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ currentPassword: currentPassword, newPassword: newPassword })
                     })
-                    .catch(error => {
-                    console.error('Error:', error);
-                    showFeedback('An error occurred while updating profile', 'error');
-                    });
-                    });
-                    });
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.error) {
+                                showFeedback(data.error, 'error');
+                            } else {
+                                showFeedback(data.message, 'success');
+                                const modalElement = document.getElementById('editProfileModal');
+                                const modal = bootstrap.Modal.getInstance(modalElement);
+                                if (modal) modal.hide();
 
-                    // Function to open edit profile modal
-                    function openEditProfileModal() {
-                    var modal = new bootstrap.Modal(document.getElementById('editProfileModal'));
-                    modal.show();
-                    }
+                                // Reset form
+                                editProfileForm.reset();
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            showFeedback('An error occurred while updating profile', 'error');
+                        });
+                });
+            }
+        });
 
-                    // Function to show feedback message
-                    function showFeedback(message, type) {
-                    const feedback = document.getElementById('feedbackMessage');
-                    feedback.textContent = message;
-                    feedback.className = 'feedback-message ' + type + ' show';
+        // Function to open edit profile modal
+        function openEditProfileModal() {
+            const modalElement = document.getElementById('editProfileModal');
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
 
-                    // Hide after 3 seconds
-                    setTimeout(() => {
-                    feedback.classList.remove('show');
-                    }, 3000);
-                    }
-                    </script>
+        // Function to show feedback message
+        function showFeedback(message, type) {
+            const feedback = document.getElementById('feedbackMessage');
+            feedback.textContent = message;
+            feedback.className = 'feedback-message ' + type + ' show';
 
-                    <!-- Global Admin Notifications -->
-                    <script src="/socket.io/socket.io.js"></script>
-                    <script src="/js/admin-notifications.js"></script>
+            // Hide after 3 seconds
+            setTimeout(() => {
+                feedback.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+
+    <!-- Global Admin Notifications -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/admin-notifications.js"></script>
 </body>
 
 </html>

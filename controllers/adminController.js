@@ -184,16 +184,6 @@ const login = async (req, res) => {
       return res.render('login', { error: 'Please provide username and password' });
     }
 
-    // Check if location permission is granted
-    if (locationPermission !== 'true') {
-      return res.render('login', { error: 'Location permission is required to login. Please enable location permissions and try again.' });
-    }
-
-    // Validate that latitude and longitude are provided
-    if (!latitude || !longitude) {
-      return res.render('login', { error: 'Location data is required to login. Please enable location permissions and try again.' });
-    }
-
     // Check if MongoDB is connected
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
 
@@ -605,6 +595,43 @@ async function updateEditor(req, res) {
   } catch (error) {
     console.error('Update editor error:', error);
     res.status(500).json({ error: 'An error occurred while updating editor' });
+  }
+}
+
+// Delete editor (DELETE /editors/:id)
+async function deleteEditor(req, res) {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Only admins and superadmins can delete editors
+    if (admin.role !== 'admin' && admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. Admins only.' });
+    }
+
+    const editorId = req.params.id;
+
+    // Prevent deleting self
+    if (editorId === req.admin.id) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    const editor = await Admin.findById(editorId);
+    if (!editor || editor.role !== 'editor') {
+      return res.status(404).json({ error: 'Editor not found' });
+    }
+
+    await Admin.findByIdAndDelete(editorId);
+
+    // Also remove their news author name reference or handle differently if needed
+    // For now, we just delete the account
+
+    res.json({ message: 'Editor deleted successfully' });
+  } catch (error) {
+    console.error('Delete editor error:', error);
+    res.status(500).json({ error: 'An error occurred while deleting editor' });
   }
 }
 // Render register editor page
@@ -1433,6 +1460,7 @@ module.exports = {
   registerEditor,
   renderEditorsPage,
   updateEditor,
+  deleteEditor,
   renderUsersListPage,
   getUserById,
   renderReportsPage, // Add this back
