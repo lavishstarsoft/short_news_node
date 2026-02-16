@@ -5,6 +5,7 @@ const { deleteFromR2 } = require('../config/cloudflare');
 async function renderAdsListPage(req, res) {
   try {
     const selectedStatus = req.query.status || '';
+    console.log('DEBUG: renderAdsListPage - isConnectedToMongoDB:', req.app.locals.isConnectedToMongoDB);
     if (req.app.locals.isConnectedToMongoDB) {
       let adsList;
 
@@ -19,6 +20,7 @@ async function renderAdsListPage(req, res) {
       }
 
       adsList = await Ad.find(query).sort({ createdAt: -1 });
+      console.log(`DEBUG: Found ${adsList.length} ads in MongoDB (status: ${selectedStatus || 'all'})`);
 
       res.render('ads-list', {
         adsList,
