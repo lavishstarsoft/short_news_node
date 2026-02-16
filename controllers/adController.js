@@ -5,22 +5,22 @@ const { deleteFromR2 } = require('../config/cloudflare');
 async function renderAdsListPage(req, res) {
   try {
     const selectedStatus = req.query.status || '';
-    console.log('DEBUG: renderAdsListPage - isConnectedToMongoDB:', req.app.locals.isConnectedToMongoDB);
-    if (req.app.locals.isConnectedToMongoDB) {
-      let adsList;
+    console.log(`DEBUG: renderAdsListPage - isConnectedToMongoDB: ${req.app.locals.isConnectedToMongoDB}, Status Filter: ${selectedStatus}`);
 
+    if (req.app.locals.isConnectedToMongoDB) {
       // Build query based on filters
       const query = {};
-
-      // Status filter
       if (selectedStatus === 'active') {
         query.isActive = true;
       } else if (selectedStatus === 'inactive') {
         query.isActive = false;
       }
 
-      adsList = await Ad.find(query).sort({ createdAt: -1 });
-      console.log(`DEBUG: Found ${adsList.length} ads in MongoDB (status: ${selectedStatus || 'all'})`);
+      const adsList = await Ad.find(query).sort({ createdAt: -1 }).lean();
+      console.log(`DEBUG: Found ${adsList.length} ads in MongoDB.`);
+      if (adsList.length > 0) {
+        console.log('DEBUG: Ad Titles:', adsList.map(a => a.title).join(', '));
+      }
 
       res.render('ads-list', {
         adsList,
