@@ -1,12 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cache Management - Short News Admin</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="/css/admin.css">
+<%- include('partials/header', { title: 'Cache Management - Short News Admin' }) %>
   <style>
     .stat-card {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -15,340 +7,358 @@
       color: white;
       margin-bottom: 20px;
     }
+
     .stat-card h3 {
       font-size: 2.5rem;
       font-weight: bold;
       margin: 0;
     }
+
     .stat-card p {
       margin: 5px 0 0 0;
       opacity: 0.9;
     }
+
     .action-btn {
       margin: 5px;
     }
+
     .cache-key-list {
       max-height: 400px;
       overflow-y: auto;
     }
+
     .cache-key-item {
       padding: 10px;
       border-bottom: 1px solid #eee;
       font-family: monospace;
       font-size: 0.9rem;
     }
+
     .ttl-badge {
       float: right;
     }
   </style>
-</head>
-<body>
-  <%- include('partials/navbar') %>
-  
-  <div class="container-fluid mt-4">
-    <div class="row">
-      <div class="col-12">
-        <h1><i class="fas fa-tachometer-alt"></i> Redis Cache Management</h1>
-        <p class="text-muted">Monitor and manage your application cache</p>
-        <hr>
-      </div>
-    </div>
+  </head>
 
-    <!-- Cache Statistics -->
-    <div class="row">
-      <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-          <p>Cache Hits</p>
-          <h3 id="cacheHits"><%= stats.hits || 0 %></h3>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-          <p>Cache Misses</p>
-          <h3 id="cacheMisses"><%= stats.misses || 0 %></h3>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-          <p>Hit Rate</p>
-          <h3 id="hitRate"><%= stats.hitRate || '0%' %></h3>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-          <p>Total Keys</p>
-          <h3 id="totalKeys"><%= stats.totalKeys || 0 %></h3>
-        </div>
-      </div>
-    </div>
+  <body>
+    <%- include('partials/top-nav', { pageTitle: 'Cache Management' , backButton: true, backUrl: '/' , actions: [] }) %>
 
-    <!-- Cache Status Info -->
-    <div class="row mt-4">
-      <div class="col-md-12">
-        <div class="card">
-          <div class="card-header bg-info text-white">
-            <h5><i class="fas fa-info-circle"></i> Cache Status</h5>
-          </div>
-          <div class="card-body">
-            <div class="row">
-              <div class="col-md-6">
-                <p><strong>Status:</strong> 
-                  <% if (stats.available && stats.connected) { %>
-                    <span class="badge bg-success">✅ Connected & Ready</span>
-                  <% } else { %>
-                    <span class="badge bg-danger">❌ Disconnected</span>
-                  <% } %>
-                </p>
-                <p><strong>Errors:</strong> <span id="cacheErrors"><%= stats.errors || 0 %></span></p>
+      <div class="container-fluid">
+        <div class="row">
+          <!-- Sidebar -->
+          <%- include('partials/sidebar', { activePage: 'cache-management' }) %>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+              <div
+                class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2"><i class="fas fa-tachometer-alt"></i> Redis Cache Management</h1>
               </div>
-              <div class="col-md-6">
-                <p><strong>Memory Info:</strong> <%= stats.memoryInfo || 'N/A' %></p>
-                <p><strong>Last Reset:</strong> <%= stats.lastReset ? new Date(stats.lastReset).toLocaleString() : 'Never' %></p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Cache Actions -->
-    <div class="row mt-4">
-      <div class="col-md-12">
-        <div class="card">
-          <div class="card-header bg-primary text-white">
-            <h5><i class="fas fa-tools"></i> Cache Actions</h5>
-          </div>
-          <div class="card-body">
-            <button class="btn btn-success action-btn" onclick="warmCache()">
-              <i class="fas fa-fire"></i> Warm Cache
-            </button>
-            <button class="btn btn-warning action-btn" onclick="resetStats()">
-              <i class="fas fa-redo"></i> Reset Statistics
-            </button>
-            <button class="btn btn-danger action-btn" onclick="clearAllCache()">
-              <i class="fas fa-trash"></i> Clear All Cache
-            </button>
-            <button class="btn btn-info action-btn" onclick="refreshStats()">
-              <i class="fas fa-sync"></i> Refresh Stats
-            </button>
-            <button class="btn btn-secondary action-btn" onclick="loadCacheKeys()">
-              <i class="fas fa-key"></i> View All Keys
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Clear by Pattern -->
-    <div class="row mt-4">
-      <div class="col-md-12">
-        <div class="card">
-          <div class="card-header bg-warning text-dark">
-            <h5><i class="fas fa-filter"></i> Clear Cache by Pattern</h5>
-          </div>
-          <div class="card-body">
-            <div class="input-group">
-              <input type="text" class="form-control" id="cachePattern" 
-                     placeholder="Enter pattern (e.g., cache:/api/public/news*)"
-                     value="cache:*">
-              <button class="btn btn-warning" onclick="clearByPattern()">
-                <i class="fas fa-eraser"></i> Clear Pattern
-              </button>
-            </div>
-            <small class="text-muted">Common patterns: 
-              <code>cache:*</code> (all), 
-              <code>cache:/api/public/news*</code> (news), 
-              <code>cache:/api/public/viral-videos*</code> (videos)
-            </small>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Cache Keys List -->
-    <div class="row mt-4">
-      <div class="col-md-12">
-        <div class="card">
-          <div class="card-header bg-secondary text-white">
-            <h5><i class="fas fa-list"></i> Cached Keys (<span id="keyCount">0</span>)</h5>
-          </div>
-          <div class="card-body cache-key-list" id="cacheKeysList">
-            <p class="text-muted text-center">Click "View All Keys" to load cache keys</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    function showToast(message, type = 'success') {
-      const toast = document.createElement('div');
-      toast.className = `alert alert-${type} position-fixed top-0 end-0 m-3`;
-      toast.style.zIndex = '9999';
-      toast.innerHTML = message;
-      document.body.appendChild(toast);
-      
-      setTimeout(() => {
-        toast.remove();
-      }, 3000);
-    }
-
-    async function warmCache() {
-      try {
-        const response = await fetch('/cache/warm', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          showToast('✅ Cache warmed successfully!', 'success');
-          setTimeout(() => refreshStats(), 1000);
-        } else {
-          showToast('❌ Failed to warm cache: ' + data.error, 'danger');
-        }
-      } catch (error) {
-        showToast('❌ Error: ' + error.message, 'danger');
-      }
-    }
-
-    async function resetStats() {
-      if (!confirm('Are you sure you want to reset cache statistics?')) return;
-      
-      try {
-        const response = await fetch('/cache/reset-stats', {
-          method: 'POST'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          showToast('✅ Statistics reset successfully!', 'success');
-          location.reload();
-        } else {
-          showToast('❌ Failed to reset statistics', 'danger');
-        }
-      } catch (error) {
-        showToast('❌ Error: ' + error.message, 'danger');
-      }
-    }
-
-    async function clearAllCache() {
-      if (!confirm('Are you sure you want to clear ALL cache? This cannot be undone.')) return;
-      
-      try {
-        const response = await fetch('/cache/clear', {
-          method: 'POST'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          showToast('✅ All cache cleared successfully!', 'success');
-          setTimeout(() => location.reload(), 1000);
-        } else {
-          showToast('❌ Failed to clear cache', 'danger');
-        }
-      } catch (error) {
-        showToast('❌ Error: ' + error.message, 'danger');
-      }
-    }
-
-    async function clearByPattern() {
-      const pattern = document.getElementById('cachePattern').value;
-      
-      if (!pattern) {
-        showToast('❌ Please enter a pattern', 'warning');
-        return;
-      }
-      
-      if (!confirm(`Are you sure you want to clear cache matching pattern: ${pattern}?`)) return;
-      
-      try {
-        const response = await fetch('/cache/clear-pattern', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ pattern })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          showToast('✅ ' + data.message, 'success');
-          setTimeout(() => refreshStats(), 1000);
-        } else {
-          showToast('❌ Failed to clear cache', 'danger');
-        }
-      } catch (error) {
-        showToast('❌ Error: ' + error.message, 'danger');
-      }
-    }
-
-    async function refreshStats() {
-      try {
-        const response = await fetch('/cache/stats');
-        const stats = await response.json();
-        
-        if (stats.available) {
-          document.getElementById('cacheHits').textContent = stats.hits || 0;
-          document.getElementById('cacheMisses').textContent = stats.misses || 0;
-          document.getElementById('hitRate').textContent = stats.hitRate || '0%';
-          document.getElementById('totalKeys').textContent = stats.totalKeys || 0;
-          document.getElementById('cacheErrors').textContent = stats.errors || 0;
-          
-          showToast('✅ Statistics refreshed', 'info');
-        } else {
-          showToast('⚠️ Redis is not available', 'warning');
-        }
-      } catch (error) {
-        showToast('❌ Error: ' + error.message, 'danger');
-      }
-    }
-
-    async function loadCacheKeys() {
-      try {
-        const pattern = document.getElementById('cachePattern').value || 'cache:*';
-        const response = await fetch(`/cache/keys?pattern=${encodeURIComponent(pattern)}`);
-        const data = await response.json();
-        
-        if (data.success) {
-          const keysList = document.getElementById('cacheKeysList');
-          const keyCount = document.getElementById('keyCount');
-          
-          keyCount.textContent = data.count;
-          
-          if (data.keys.length === 0) {
-            keysList.innerHTML = '<p class="text-muted text-center">No cached keys found</p>';
-          } else {
-            keysList.innerHTML = data.keys.map(item => {
-              const ttlText = item.ttl === -1 ? 'No expiry' : 
-                             item.ttl === -2 ? 'Key not found' :
-                             `${item.ttl}s`;
-              return `
-                <div class="cache-key-item">
-                  <code>${item.key}</code>
-                  <span class="badge bg-info ttl-badge">TTL: ${ttlText}</span>
+              <!-- Cache Statistics -->
+              <div class="row">
+                <div class="col-md-3">
+                  <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <p>Cache Hits</p>
+                    <h3 id="cacheHits">
+                      <%= stats.hits || 0 %>
+                    </h3>
+                  </div>
                 </div>
-              `;
-            }).join('');
-          }
-        } else {
-          showToast('❌ Failed to load cache keys', 'danger');
-        }
-      } catch (error) {
-        showToast('❌ Error: ' + error.message, 'danger');
-      }
-    }
+                <div class="col-md-3">
+                  <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <p>Cache Misses</p>
+                    <h3 id="cacheMisses">
+                      <%= stats.misses || 0 %>
+                    </h3>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <p>Hit Rate</p>
+                    <h3 id="hitRate">
+                      <%= stats.hitRate || '0%' %>
+                    </h3>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <p>Total Keys</p>
+                    <h3 id="totalKeys">
+                      <%= stats.totalKeys || 0 %>
+                    </h3>
+                  </div>
+                </div>
+              </div>
 
-    // Auto-refresh stats every 30 seconds
-    setInterval(refreshStats, 30000);
-  </script>
-</body>
-</html>
+              <!-- Cache Status Info -->
+              <div class="row mt-4">
+                <div class="col-md-12">
+                  <div class="card">
+                    <div class="card-header bg-info text-white">
+                      <h5 class="mb-0"><i class="fas fa-info-circle"></i> Cache Status</h5>
+                    </div>
+                    <div class="card-body">
+                      <div class="row">
+                        <div class="col-md-6">
+                          <p><strong>Status:</strong>
+                            <% if (stats.available && stats.connected) { %>
+                              <span class="badge bg-success">✅ Connected & Ready</span>
+                              <% } else { %>
+                                <span class="badge bg-danger">❌ Disconnected</span>
+                                <% } %>
+                          </p>
+                          <p><strong>Errors:</strong> <span id="cacheErrors">
+                              <%= stats.errors || 0 %>
+                            </span></p>
+                        </div>
+                        <div class="col-md-6">
+                          <p><strong>Memory Info:</strong>
+                            <%= stats.memoryInfo || 'N/A' %>
+                          </p>
+                          <p><strong>Last Reset:</strong>
+                            <%= stats.lastReset ? new Date(stats.lastReset).toLocaleString() : 'Never' %>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Cache Actions -->
+              <div class="row mt-4">
+                <div class="col-md-12">
+                  <div class="card">
+                    <div class="card-header bg-primary text-white">
+                      <h5 class="mb-0"><i class="fas fa-tools"></i> Cache Actions</h5>
+                    </div>
+                    <div class="card-body">
+                      <button class="btn btn-success action-btn ripple" onclick="warmCache()">
+                        <i class="fas fa-fire me-1"></i> Warm Cache
+                      </button>
+                      <button class="btn btn-warning action-btn ripple" onclick="resetStats()">
+                        <i class="fas fa-redo me-1"></i> Reset Statistics
+                      </button>
+                      <button class="btn btn-danger action-btn ripple" onclick="clearAllCache()">
+                        <i class="fas fa-trash me-1"></i> Clear All Cache
+                      </button>
+                      <button class="btn btn-info action-btn ripple" onclick="refreshStats()">
+                        <i class="fas fa-sync me-1"></i> Refresh Stats
+                      </button>
+                      <button class="btn btn-secondary action-btn ripple" onclick="loadCacheKeys()">
+                        <i class="fas fa-key me-1"></i> View All Keys
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Clear by Pattern -->
+              <div class="row mt-4">
+                <div class="col-md-12">
+                  <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                      <h5 class="mb-0"><i class="fas fa-filter"></i> Clear Cache by Pattern</h5>
+                    </div>
+                    <div class="card-body">
+                      <div class="input-group">
+                        <input type="text" class="form-control" id="cachePattern"
+                          placeholder="Enter pattern (e.g., cache:/api/public/news*)" value="cache:*">
+                        <button class="btn btn-warning ripple" onclick="clearByPattern()">
+                          <i class="fas fa-eraser me-1"></i> Clear Pattern
+                        </button>
+                      </div>
+                      <small class="text-muted d-block mt-2">Common patterns:
+                        <code>cache:*</code> (all),
+                        <code>cache:/api/public/news*</code> (news),
+                        <code>cache:/api/public/viral-videos*</code> (videos)
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Cache Keys List -->
+              <div class="row mt-4 mb-4">
+                <div class="col-md-12">
+                  <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                      <h5 class="mb-0"><i class="fas fa-list"></i> Cached Keys (<span id="keyCount">0</span>)</h5>
+                    </div>
+                    <div class="card-body cache-key-list" id="cacheKeysList">
+                      <p class="text-muted text-center py-4">Click "View All Keys" to load cache keys</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </main>
+        </div>
+      </div>
+
+      <%- include('partials/footer') %>
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            setupMobileMenu();
+            setInterval(refreshStats, 30000);
+          });
+
+          function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} position-fixed top-0 end-0 m-3`;
+            toast.style.zIndex = '9999';
+            toast.innerHTML = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+              toast.remove();
+            }, 3000);
+          }
+
+          async function warmCache() {
+            try {
+              const response = await fetch('/cache/warm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+              });
+              const data = await response.json();
+              if (data.success) {
+                showToast('✅ Cache warmed successfully!', 'success');
+                setTimeout(() => refreshStats(), 1000);
+              } else {
+                showToast('❌ Failed: ' + data.error, 'danger');
+              }
+            } catch (error) {
+              showToast('❌ Error: ' + error.message, 'danger');
+            }
+          }
+
+          async function resetStats() {
+            if (!confirm('Are you sure you want to reset cache statistics?')) return;
+            try {
+              const response = await fetch('/cache/reset-stats', { method: 'POST' });
+              const data = await response.json();
+              if (data.success) {
+                showToast('✅ Statistics reset successfully!', 'success');
+                location.reload();
+              } else {
+                showToast('❌ Failed to reset statistics', 'danger');
+              }
+            } catch (error) {
+              showToast('❌ Error: ' + error.message, 'danger');
+            }
+          }
+
+          async function clearAllCache() {
+            if (!confirm('Are you sure you want to clear ALL cache?')) return;
+            try {
+              const response = await fetch('/cache/clear', { method: 'POST' });
+              const data = await response.json();
+              if (data.success) {
+                showToast('✅ All cache cleared successfully!', 'success');
+                setTimeout(() => location.reload(), 1000);
+              } else {
+                showToast('❌ Failed to clear cache', 'danger');
+              }
+            } catch (error) {
+              showToast('❌ Error: ' + error.message, 'danger');
+            }
+          }
+
+          async function clearByPattern() {
+            const pattern = document.getElementById('cachePattern').value;
+            if (!pattern) {
+              showToast('❌ Please enter a pattern', 'warning');
+              return;
+            }
+            if (!confirm(`Are you sure you want to clear cache matching: ${pattern}?`)) return;
+            try {
+              const response = await fetch('/cache/clear-pattern', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pattern })
+              });
+              const data = await response.json();
+              if (data.success) {
+                showToast('✅ ' + data.message, 'success');
+                setTimeout(() => refreshStats(), 1000);
+              } else {
+                showToast('❌ Failed to clear cache', 'danger');
+              }
+            } catch (error) {
+              showToast('❌ Error: ' + error.message, 'danger');
+            }
+          }
+
+          async function refreshStats() {
+            try {
+              const response = await fetch('/cache/stats');
+              const stats = await response.json();
+              if (stats.available) {
+                document.getElementById('cacheHits').textContent = stats.hits || 0;
+                document.getElementById('cacheMisses').textContent = stats.misses || 0;
+                document.getElementById('hitRate').textContent = stats.hitRate || '0%';
+                document.getElementById('totalKeys').textContent = stats.totalKeys || 0;
+                document.getElementById('cacheErrors').textContent = stats.errors || 0;
+                showToast('✅ Statistics refreshed', 'info');
+              } else {
+                showToast('⚠️ Redis is not available', 'warning');
+              }
+            } catch (error) {
+              showToast('❌ Error: ' + error.message, 'danger');
+            }
+          }
+
+          async function loadCacheKeys() {
+            try {
+              const pattern = document.getElementById('cachePattern').value || 'cache:*';
+              const response = await fetch(`/cache/keys?pattern=${encodeURIComponent(pattern)}`);
+              const data = await response.json();
+              if (data.success) {
+                const keysList = document.getElementById('cacheKeysList');
+                document.getElementById('keyCount').textContent = data.count;
+                if (data.keys.length === 0) {
+                  keysList.innerHTML = '<p class="text-muted text-center py-4">No cached keys found</p>';
+                } else {
+                  keysList.innerHTML = data.keys.map(item => {
+                    const ttlText = item.ttl === -1 ? 'No expiry' :
+                      item.ttl === -2 ? 'Key not found' :
+                        `${item.ttl}s`;
+                    return `
+                                <div class="cache-key-item">
+                                    <code>${item.key}</code>
+                                    <span class="badge bg-info ttl-badge">TTL: ${ttlText}</span>
+                                </div>
+                            `;
+                  }).join('');
+                }
+              } else {
+                showToast('❌ Failed to load cache keys', 'danger');
+              }
+            } catch (error) {
+              showToast('❌ Error: ' + error.message, 'danger');
+            }
+          }
+
+          function setupMobileMenu() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.querySelector('main');
+            if (menuToggle && sidebar) {
+              menuToggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                sidebar.classList.toggle('active');
+                if (mainContent) mainContent.classList.toggle('sidebar-active');
+              });
+            }
+            document.addEventListener('click', function (event) {
+              if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('active') && !sidebar.contains(event.target) && event.target !== menuToggle) {
+                sidebar.classList.remove('active');
+                if (mainContent) mainContent.classList.remove('sidebar-active');
+              }
+            });
+          }
+        </script>
+  </body>
+
+  </html>

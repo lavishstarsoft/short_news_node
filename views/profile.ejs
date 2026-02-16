@@ -1,14 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Admin Profile - Short News Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/style.css">
+<%- include('partials/header', { title: 'Admin Profile' }) %>
+
     <style>
         .profile-container {
             max-width: 1200px;
@@ -134,257 +128,238 @@
             }
         }
     </style>
-</head>
+    </head>
 
-<body>
-    <!-- Mobile Top Navigation -->
-    <div class="top-nav d-md-none">
-        <button class="menu-toggle ripple" onclick="window.location.href='/'">
-            <i class="fas fa-arrow-left"></i>
-        </button>
-        <h1 class="page-title">Profile</h1>
-        <button class="menu-toggle ripple" onclick="window.location.href='/logout'">
-            <i class="fas fa-sign-out-alt"></i>
-        </button>
-    </div>
+    <body>
+        <%- include('partials/top-nav', { pageTitle: 'Admin Profile' , backButton: true, backUrl: '/' }) %>
+            </div>
 
-    <!-- Desktop Navigation -->
-    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
-        <h1 class="page-title mb-0">Admin Profile</h1>
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-light ripple" onclick="window.location.href='/'">
-                <i class="fas fa-tachometer-alt me-1"></i> Dashboard
-            </button>
-            <button class="btn btn-logout ripple" onclick="window.location.href='/logout'">
-                <i class="fas fa-sign-out-alt me-1"></i> Logout
-            </button>
-        </div>
-    </div>
+            <div class="container-fluid">
+                <div class="row">
+                    <!-- Sidebar -->
+                    <%- include('partials/sidebar', { activePage: 'profile' }) %>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <%- include('partials/sidebar', { activePage: 'profile' }) %>
-
-                <!-- Main Content -->
-                <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-                    <div class="content-area mt-4">
-                        <div class="profile-container">
-                            <div class="card profile-card">
-                                <div class="profile-header text-center">
-                                    <div class="profile-avatar">
-                                        <i class="fas fa-user"></i>
-                                    </div>
-                                    <h2 class="mb-1">
-                                        <%= admin.name || admin.username %>
-                                    </h2>
-                                    <p class="mb-3 opacity-75">
-                                        <%= admin.email %>
-                                    </p>
-                                    <span class="badge badge-role px-3 py-2">
-                                        <%= admin.role.toUpperCase() %>
-                                    </span>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-6 mb-3">
-                                            <label class="text-muted small">Username</label>
-                                            <p class="fw-bold mb-0">
-                                                <%= admin.username %>
+                        <!-- Main Content -->
+                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                            <div class="content-area mt-4">
+                                <div class="profile-container">
+                                    <div class="card profile-card">
+                                        <div class="profile-header text-center">
+                                            <div class="profile-avatar">
+                                                <i class="fas fa-user"></i>
+                                            </div>
+                                            <h2 class="mb-1">
+                                                <%= admin.name || admin.username %>
+                                            </h2>
+                                            <p class="mb-3 opacity-75">
+                                                <%= admin.email %>
                                             </p>
+                                            <span class="badge badge-role px-3 py-2">
+                                                <%= admin.role.toUpperCase() %>
+                                            </span>
                                         </div>
-                                        <div class="col-md-6 mb-3">
-                                            <label class="text-muted small">Display Role</label>
-                                            <p class="fw-bold mb-0">
-                                                <%= admin.displayRole || 'Reporter' %>
-                                            </p>
-                                        </div>
-                                        <div class="col-md-6 mb-3">
-                                            <label class="text-muted small">Location</label>
-                                            <p class="fw-bold mb-0">
-                                                <%= admin.location || 'Not Set' %>
-                                            </p>
-                                        </div>
-                                        <div class="col-md-6 mb-3">
-                                            <label class="text-muted small">Constituency</label>
-                                            <p class="fw-bold mb-0">
-                                                <%= admin.constituency || 'Not Set' %>
-                                            </p>
-                                        </div>
-                                        <div class="col-md-6 mb-3">
-                                            <label class="text-muted small">Mobile Number</label>
-                                            <p class="fw-bold mb-0">
-                                                <%= admin.mobileNumber || 'Not Set' %>
-                                            </p>
-                                        </div>
-                                        <div class="col-md-6 mb-3 text-md-end">
-                                            <button class="btn btn-edit text-white" onclick="openEditProfileModal()">
-                                                <i class="fas fa-key me-1"></i> Change Password
-                                            </button>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-6 mb-3">
+                                                    <label class="text-muted small">Username</label>
+                                                    <p class="fw-bold mb-0">
+                                                        <%= admin.username %>
+                                                    </p>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <label class="text-muted small">Display Role</label>
+                                                    <p class="fw-bold mb-0">
+                                                        <%= admin.displayRole || 'Reporter' %>
+                                                    </p>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <label class="text-muted small">Location</label>
+                                                    <p class="fw-bold mb-0">
+                                                        <%= admin.location || 'Not Set' %>
+                                                    </p>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <label class="text-muted small">Constituency</label>
+                                                    <p class="fw-bold mb-0">
+                                                        <%= admin.constituency || 'Not Set' %>
+                                                    </p>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <label class="text-muted small">Mobile Number</label>
+                                                    <p class="fw-bold mb-0">
+                                                        <%= admin.mobileNumber || 'Not Set' %>
+                                                    </p>
+                                                </div>
+                                                <div class="col-md-6 mb-3 text-md-end">
+                                                    <button class="btn btn-edit text-white"
+                                                        onclick="openEditProfileModal()">
+                                                        <i class="fas fa-key me-1"></i> Change Password
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
 
-                            <!-- Login History -->
-                            <div class="card profile-card">
-                                <div class="card-header bg-light">
-                                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Login History</h5>
-                                </div>
-                                <div class="card-body p-0">
-                                    <div class="table-responsive">
-                                        <table class="table login-history-table mb-0">
-                                            <thead>
-                                                <tr>
-                                                    <th>IP Address</th>
-                                                    <th>Location</th>
-                                                    <th>Device / Browser</th>
-                                                    <th>Timestamp</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <% if (admin.loginHistory && admin.loginHistory.length> 0) { %>
-                                                    <% admin.loginHistory.reverse().forEach(function(login) { %>
+                                    <!-- Login History -->
+                                    <div class="card profile-card">
+                                        <div class="card-header bg-light">
+                                            <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Login History
+                                            </h5>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div class="table-responsive">
+                                                <table class="table login-history-table mb-0">
+                                                    <thead>
                                                         <tr>
-                                                            <td><code><%= login.ip %></code></td>
-                                                            <td>
-                                                                <%= login.location || 'Unknown' %>
-                                                            </td>
-                                                            <td class="user-agent">
-                                                                <%= login.userAgent %>
-                                                            </td>
-                                                            <td>
-                                                                <%= new Date(login.timestamp).toLocaleString() %>
-                                                            </td>
+                                                            <th>IP Address</th>
+                                                            <th>Location</th>
+                                                            <th>Device / Browser</th>
+                                                            <th>Timestamp</th>
                                                         </tr>
-                                                        <% }); %>
-                                                            <% } else { %>
+                                                    </thead>
+                                                    <tbody>
+                                                        <% if (admin.loginHistory && admin.loginHistory.length> 0) { %>
+                                                            <% admin.loginHistory.reverse().forEach(function(login) { %>
                                                                 <tr>
-                                                                    <td colspan="4" class="text-center py-4 text-muted">
-                                                                        No login history available</td>
+                                                                    <td><code><%= login.ip %></code></td>
+                                                                    <td>
+                                                                        <%= login.location || 'Unknown' %>
+                                                                    </td>
+                                                                    <td class="user-agent">
+                                                                        <%= login.userAgent %>
+                                                                    </td>
+                                                                    <td>
+                                                                        <%= new Date(login.timestamp).toLocaleString()
+                                                                            %>
+                                                                    </td>
                                                                 </tr>
-                                                                <% } %>
-                                            </tbody>
-                                        </table>
+                                                                <% }); %>
+                                                                    <% } else { %>
+                                                                        <tr>
+                                                                            <td colspan="4"
+                                                                                class="text-center py-4 text-muted">
+                                                                                No login history available</td>
+                                                                        </tr>
+                                                                        <% } %>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                </div>
+            </div>
+
+            <!-- Edit Profile Modal -->
+            <div class="modal fade" id="editProfileModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-key me-2"></i>Change Password</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="editProfileForm">
+                                <div class="mb-3">
+                                    <label for="currentPassword" class="form-label">Current Password</label>
+                                    <input type="password" class="form-control" id="currentPassword" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="newPassword" class="form-label">New Password</label>
+                                    <input type="password" class="form-control" id="newPassword" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                                    <input type="password" class="form-control" id="confirmPassword" required>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary btn-edit text-white">Update
+                                        Password</button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
-        </div>
-    </div>
-
-    <!-- Edit Profile Modal -->
-    <div class="modal fade" id="editProfileModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-key me-2"></i>Change Password</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="editProfileForm">
-                        <div class="mb-3">
-                            <label for="currentPassword" class="form-label">Current Password</label>
-                            <input type="password" class="form-control" id="currentPassword" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="newPassword" class="form-label">New Password</label>
-                            <input type="password" class="form-control" id="newPassword" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="confirmPassword" class="form-label">Confirm New Password</label>
-                            <input type="password" class="form-control" id="confirmPassword" required>
-                        </div>
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-edit text-white">Update Password</button>
-                        </div>
-                    </form>
-                </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Feedback Message -->
-    <div id="feedbackMessage" class="feedback-message"></div>
+            <!-- Feedback Message -->
+            <div id="feedbackMessage" class="feedback-message"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const editProfileForm = document.getElementById('editProfileForm');
+            <%- include('partials/footer') %>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        const editProfileForm = document.getElementById('editProfileForm');
 
-            if (editProfileForm) {
-                editProfileForm.addEventListener('submit', function (e) {
-                    e.preventDefault();
+                        if (editProfileForm) {
+                            editProfileForm.addEventListener('submit', function (e) {
+                                e.preventDefault();
 
-                    const currentPassword = document.getElementById('currentPassword').value;
-                    const newPassword = document.getElementById('newPassword').value;
-                    const confirmPassword = document.getElementById('confirmPassword').value;
+                                const currentPassword = document.getElementById('currentPassword').value;
+                                const newPassword = document.getElementById('newPassword').value;
+                                const confirmPassword = document.getElementById('confirmPassword').value;
 
-                    // Validate passwords
-                    if (newPassword !== confirmPassword) {
-                        showFeedback('New passwords do not match', 'error');
-                        return;
+                                // Validate passwords
+                                if (newPassword !== confirmPassword) {
+                                    showFeedback('New passwords do not match', 'error');
+                                    return;
+                                }
+
+                                if (newPassword.length < 6) {
+                                    showFeedback('Password must be at least 6 characters long', 'error');
+                                    return;
+                                }
+
+                                // Send data to server
+                                fetch('/profile', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ currentPassword: currentPassword, newPassword: newPassword })
+                                })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.error) {
+                                            showFeedback(data.error, 'error');
+                                        } else {
+                                            showFeedback(data.message, 'success');
+                                            const modalElement = document.getElementById('editProfileModal');
+                                            const modal = bootstrap.Modal.getInstance(modalElement);
+                                            if (modal) modal.hide();
+
+                                            // Reset form
+                                            editProfileForm.reset();
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('Error:', error);
+                                        showFeedback('An error occurred while updating profile', 'error');
+                                    });
+                            });
+                        }
+                    });
+
+                    // Function to open edit profile modal
+                    function openEditProfileModal() {
+                        const modalElement = document.getElementById('editProfileModal');
+                        const modal = new bootstrap.Modal(modalElement);
+                        modal.show();
                     }
 
-                    if (newPassword.length < 6) {
-                        showFeedback('Password must be at least 6 characters long', 'error');
-                        return;
+                    // Function to show feedback message
+                    function showFeedback(message, type) {
+                        const feedback = document.getElementById('feedbackMessage');
+                        feedback.textContent = message;
+                        feedback.className = 'feedback-message ' + type + ' show';
+
+                        // Hide after 3 seconds
+                        setTimeout(() => {
+                            feedback.classList.remove('show');
+                        }, 3000);
                     }
+                </script>
 
-                    // Send data to server
-                    fetch('/profile', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ currentPassword: currentPassword, newPassword: newPassword })
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.error) {
-                                showFeedback(data.error, 'error');
-                            } else {
-                                showFeedback(data.message, 'success');
-                                const modalElement = document.getElementById('editProfileModal');
-                                const modal = bootstrap.Modal.getInstance(modalElement);
-                                if (modal) modal.hide();
-
-                                // Reset form
-                                editProfileForm.reset();
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            showFeedback('An error occurred while updating profile', 'error');
-                        });
-                });
-            }
-        });
-
-        // Function to open edit profile modal
-        function openEditProfileModal() {
-            const modalElement = document.getElementById('editProfileModal');
-            const modal = new bootstrap.Modal(modalElement);
-            modal.show();
-        }
-
-        // Function to show feedback message
-        function showFeedback(message, type) {
-            const feedback = document.getElementById('feedbackMessage');
-            feedback.textContent = message;
-            feedback.className = 'feedback-message ' + type + ' show';
-
-            // Hide after 3 seconds
-            setTimeout(() => {
-                feedback.classList.remove('show');
-            }, 3000);
-        }
-    </script>
-
-    <!-- Global Admin Notifications -->
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/admin-notifications.js"></script>
-</body>
+    </body>
 
 </html>

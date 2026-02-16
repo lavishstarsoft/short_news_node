@@ -1,14 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>News List - Short News Admin</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/style.css">
+<%- include('partials/header', { title: 'News List' }) %>
     <style>
         /* News content preview - exactly 3 lines */
         .news-content-preview {
@@ -42,12 +35,6 @@
         /* Make action buttons not trigger card click */
         .news-card .btn {
             pointer-events: auto;
-        }
-
-        /* Mobile header icons */
-        .mobile-header-icons {
-            display: flex;
-            gap: 10px;
         }
 
         /* Interaction stats card */
@@ -99,523 +86,438 @@
             margin-bottom: 1.5rem;
         }
     </style>
-</head>
+    </head>
 
-<body>
-    <!-- Mobile Top Navigation - Android Material Design -->
-    <div class="top-nav d-md-none">
-        <button class="menu-toggle ripple" id="menuToggle">
-            <i class="fas fa-bars"></i>
-        </button>
-        <h1 class="page-title">News List</h1>
-        <div class="mobile-header-icons">
-            <button class="menu-toggle ripple" onclick="window.location.href='/profile'">
-                <i class="fas fa-user"></i>
-            </button>
-            <button class="menu-toggle ripple" onclick="window.location.href='/add-news'">
-                <i class="fas fa-plus"></i>
-            </button>
-        </div>
-    </div>
+    <body>
+        <%- include('partials/top-nav', { pageTitle: 'News List' , backButton: true, backUrl: '/' }) %>
 
-    <!-- Desktop Navigation -->
-    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
-        <h1 class="page-title mb-0">News List</h1>
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-primary ripple" onclick="window.location.href='/profile'" title="Profile">
-                <i class="fas fa-user"></i>
-            </button>
-            <button class="btn btn-primary ripple" onclick="window.location.href='/add-news'" title="Add News">
-                <i class="fas fa-plus"></i>
-            </button>
-        </div>
-    </div>
+            <div class="container-fluid">
+                <div class="row">
+                    <!-- Sidebar -->
+                    <%- include('partials/sidebar', { activePage: 'news-list' }) %>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <%- include('partials/sidebar', { activePage: 'news-list' }) %>
-
-                <!-- Main Content -->
-                <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                    <div class="content-area">
-                        <!-- Filter Section -->
-                        <div class="filter-section">
-                            <div class="row align-items-center">
-                                <div class="col-md-12">
-                                    <h3 class="mb-0">Filter News</h3>
+                        <!-- Main Content -->
+                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                            <div class="content-area">
+                                <!-- Filter Section -->
+                                <div class="filter-section">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-12">
+                                            <h3 class="mb-0">Filter News</h3>
+                                        </div>
+                                    </div>
+                                    <div class="row align-items-center mt-3">
+                                        <div class="col-md-4 mb-2 mb-md-0">
+                                            <select class="form-select" id="locationFilter" name="location">
+                                                <option value="">All Locations</option>
+                                                <% locations.forEach(function(location) { %>
+                                                    <option value="<%= location.name %>" <%=(typeof selectedLocation
+                                                        !=='undefined' && selectedLocation===location.name) ? 'selected'
+                                                        : '' %>
+                                                        ><%= location.name %>
+                                                    </option>
+                                                    <% }); %>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4 mb-2 mb-md-0">
+                                            <select class="form-select" id="statusFilter" name="status">
+                                                <option value="">All Status</option>
+                                                <option value="active" <%=(typeof selectedStatus !=='undefined' &&
+                                                    selectedStatus==='active' ) ? 'selected' : '' %>>Active</option>
+                                                <option value="inactive" <%=(typeof selectedStatus !=='undefined' &&
+                                                    selectedStatus==='inactive' ) ? 'selected' : '' %>>Inactive</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="d-flex gap-2">
+                                                <button type="submit" class="btn btn-primary" form="filterForm"
+                                                    title="Filter">
+                                                    <i class="fas fa-filter"></i>
+                                                </button>
+                                                <a href="/news-list" class="btn btn-outline-secondary" title="Clear">
+                                                    <i class="fas fa-times"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="row align-items-center mt-3">
-                                <div class="col-md-4 mb-2 mb-md-0">
-                                    <select class="form-select" id="locationFilter" name="location">
-                                        <option value="">All Locations</option>
-                                        <% locations.forEach(function(location) { %>
-                                            <option value="<%= location.name %>" <%=(typeof selectedLocation
-                                                !=='undefined' && selectedLocation===location.name) ? 'selected' : '' %>
-                                                ><%= location.name %>
-                                            </option>
-                                            <% }); %>
-                                    </select>
+
+                                <form id="filterForm" class="d-none" method="GET">
+                                    <input type="hidden" id="locationFilterInput" name="location"
+                                        value="<%= typeof selectedLocation !== 'undefined' ? selectedLocation : '' %>">
+                                    <input type="hidden" id="statusFilterInput" name="status"
+                                        value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : '' %>">
+                                </form>
+
+                                <!-- News List -->
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h3 class="mb-0">All News Articles</h3>
+                                    <span class="badge bg-primary">
+                                        <%= newsList.length %> articles
+                                    </span>
                                 </div>
-                                <div class="col-md-4 mb-2 mb-md-0">
-                                    <select class="form-select" id="statusFilter" name="status">
-                                        <option value="">All Status</option>
-                                        <option value="active" <%=(typeof selectedStatus !=='undefined' &&
-                                            selectedStatus==='active' ) ? 'selected' : '' %>>Active</option>
-                                        <option value="inactive" <%=(typeof selectedStatus !=='undefined' &&
-                                            selectedStatus==='inactive' ) ? 'selected' : '' %>>Inactive</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="d-flex gap-2">
-                                        <button type="submit" class="btn btn-primary" form="filterForm" title="Filter">
-                                            <i class="fas fa-filter"></i>
+
+                                <% if (newsList.length===0) { %>
+                                    <div class="text-center py-5">
+                                        <i class="fas fa-newspaper fa-3x text-muted mb-3"></i>
+                                        <h4 class="text-muted">No news articles found</h4>
+                                        <p class="text-muted">Try changing your filter criteria or add a new news
+                                            article</p>
+                                        <button class="btn btn-primary" onclick="window.location.href='/add-news'"
+                                            title="Add News">
+                                            <i class="fas fa-plus"></i>
                                         </button>
-                                        <a href="/news-list" class="btn btn-outline-secondary" title="Clear">
-                                            <i class="fas fa-times"></i>
-                                        </a>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <form id="filterForm" class="d-none" method="GET">
-                            <input type="hidden" id="locationFilterInput" name="location"
-                                value="<%= typeof selectedLocation !== 'undefined' ? selectedLocation : '' %>">
-                            <input type="hidden" id="statusFilterInput" name="status"
-                                value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : '' %>">
-                        </form>
-
-                        <!-- News List -->
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h3 class="mb-0">All News Articles</h3>
-                            <span class="badge bg-primary">
-                                <%= newsList.length %> articles
-                            </span>
-                        </div>
-
-                        <% if (newsList.length===0) { %>
-                            <div class="text-center py-5">
-                                <i class="fas fa-newspaper fa-3x text-muted mb-3"></i>
-                                <h4 class="text-muted">No news articles found</h4>
-                                <p class="text-muted">Try changing your filter criteria or add a new news article</p>
-                                <button class="btn btn-primary" onclick="window.location.href='/add-news'"
-                                    title="Add News">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                            <% } else { %>
-                                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                                    <% newsList.forEach(function(news) { %>
-                                        <div class="col">
-                                            <div class="card news-card h-100" onclick="viewNews('<%= news._id %>')"
-                                                style="cursor: pointer;">
-                                                <div style="position: relative;">
-                                                    <% if (news.mediaType==='video' ) { %>
-                                                        <video src="<%= news.mediaUrl %>" class="card-img-top"
-                                                            style="height: 200px; object-fit: cover;" controls></video>
-                                                        <% } else { %>
-                                                            <img src="<%= news.mediaUrl || news.imageUrl %>"
-                                                                class="card-img-top" alt="<%= news.title %>"
-                                                                style="height: 200px; object-fit: cover;">
-                                                            <% } %>
-                                                                <% if (news.location) { %>
-                                                                    <div
-                                                                        style="position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.7); color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.8rem;">
-                                                                        <i class="fas fa-map-marker-alt me-1"></i>
-                                                                        <% if (news.locationCode) { %>
-                                                                            <%= news.locationCode %>
-                                                                                <% } %>
-                                                                    </div>
+                                    <% } else { %>
+                                        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                                            <% newsList.forEach(function(news) { %>
+                                                <div class="col">
+                                                    <div class="card news-card h-100"
+                                                        onclick="viewNews('<%= news._id %>')" style="cursor: pointer;">
+                                                        <div style="position: relative;">
+                                                            <% if (news.mediaType==='video' ) { %>
+                                                                <video src="<%= news.mediaUrl %>" class="card-img-top"
+                                                                    style="height: 200px; object-fit: cover;"
+                                                                    controls></video>
+                                                                <% } else { %>
+                                                                    <img src="<%= news.mediaUrl || news.imageUrl %>"
+                                                                        class="card-img-top" alt="<%= news.title %>"
+                                                                        style="height: 200px; object-fit: cover;">
                                                                     <% } %>
-                                                                        <!-- Active status indicator -->
-                                                                        <div
-                                                                            style="position: absolute; top: 10px; right: 10px;">
-                                                                            <span
-                                                                                class="badge <%= news.isActive === false ? 'bg-secondary' : 'bg-success' %>">
-                                                                                <%= news.isActive===false ? 'Inactive'
-                                                                                    : 'Active' %>
-                                                                            </span>
-                                                                        </div>
-                                                </div>
-                                                <div class="card-body d-flex flex-column">
-                                                    <h5 class="card-title">
-                                                        <%= news.title.substring(0, 50) + (news.title.length> 50 ? '...'
-                                                            : '') %>
-                                                    </h5>
-                                                    <p class="card-text news-content-preview flex-grow-1">
-                                                        <%= news.content.substring(0, 100) + (news.content.length> 100 ?
-                                                            '...' : '') %>
-                                                    </p>
-                                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                                        <small class="text-muted">
-                                                            <%= news.category %>
-                                                        </small>
-                                                        <small class="text-muted">
-                                                            <%= new Date(news.publishedAt).toLocaleDateString() %>
-                                                        </small>
-                                                    </div>
-                                                    <% if (typeof admin !=='undefined' && admin && admin.role
-                                                        !=='editor' ) { %>
-                                                        <div
-                                                            class="d-flex justify-content-between align-items-center mb-2">
-                                                            <small class="text-muted">
-                                                                <i class="fas fa-user me-1"></i>
-                                                                <%= news.author %>
-                                                            </small>
+                                                                        <% if (news.location) { %>
+                                                                            <div
+                                                                                style="position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.7); color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.8rem;">
+                                                                                <i
+                                                                                    class="fas fa-map-marker-alt me-1"></i>
+                                                                                <% if (news.locationCode) { %>
+                                                                                    <%= news.locationCode %>
+                                                                                        <% } %>
+                                                                            </div>
+                                                                            <% } %>
+                                                                                <!-- Active status indicator -->
+                                                                                <div
+                                                                                    style="position: absolute; top: 10px; right: 10px;">
+                                                                                    <span
+                                                                                        class="badge <%= news.isActive === false ? 'bg-secondary' : 'bg-success' %>">
+                                                                                        <%= news.isActive===false
+                                                                                            ? 'Inactive' : 'Active' %>
+                                                                                    </span>
+                                                                                </div>
                                                         </div>
-                                                        <% } %>
-                                                            <!-- Interaction counts -->
-                                                            <div class="d-flex justify-content-between mb-3">
+                                                        <div class="card-body d-flex flex-column">
+                                                            <h5 class="card-title">
+                                                                <%= news.title.substring(0, 50) + (news.title.length> 50
+                                                                    ? '...'
+                                                                    : '') %>
+                                                            </h5>
+                                                            <p class="card-text news-content-preview flex-grow-1">
+                                                                <%= news.content.substring(0, 100) +
+                                                                    (news.content.length> 100 ?
+                                                                    '...' : '') %>
+                                                            </p>
+                                                            <div
+                                                                class="d-flex justify-content-between align-items-center mb-2">
                                                                 <small class="text-muted">
-                                                                    <i class="fas fa-thumbs-up text-primary me-1"></i>
-                                                                    <%= news.likes || 0 %>
+                                                                    <%= news.category %>
                                                                 </small>
                                                                 <small class="text-muted">
-                                                                    <i class="fas fa-thumbs-down text-danger me-1"></i>
-                                                                    <%= news.dislikes || 0 %>
-                                                                </small>
-                                                                <small class="text-muted">
-                                                                    <i class="fas fa-comment text-success me-1"></i>
-                                                                    <%= news.comments || 0 %>
-                                                                </small>
-                                                                <small class="text-muted">
-                                                                    <i class="fas fa-eye text-info me-1"></i>
-                                                                    <%= news.views || 0 %>
+                                                                    <%= new Date(news.publishedAt).toLocaleDateString()
+                                                                        %>
                                                                 </small>
                                                             </div>
-                                                            <div class="d-flex gap-2 mt-auto">
-                                                                <button
-                                                                    class="btn btn-sm btn-<%= news.isActive === false ? 'success' : 'secondary' %> ripple"
-                                                                    onclick="toggleNewsStatus('<%= news._id %>'); event.stopPropagation();"
-                                                                    title="<%= news.isActive === false ? 'Activate' : 'Deactivate' %>">
-                                                                    <i
-                                                                        class="fas fa-<%= news.isActive === false ? 'check' : 'times' %>"></i>
-                                                                </button>
-                                                                <button class="btn btn-sm btn-outline-primary ripple"
-                                                                    onclick="viewNews('<%= news._id %>'); event.stopPropagation();"
-                                                                    title="View">
-                                                                    <i class="fas fa-eye"></i>
-                                                                </button>
-                                                                <button class="btn btn-sm btn-primary ripple"
-                                                                    onclick="editNews('<%= news._id %>'); event.stopPropagation();"
-                                                                    title="Edit">
-                                                                    <i class="fas fa-edit"></i>
-                                                                </button>
-                                                                <button class="btn btn-sm btn-info ripple"
-                                                                    onclick="sendNotificationForNews('<%= news._id %>'); event.stopPropagation();"
-                                                                    title="Notify">
-                                                                    <i class="fas fa-bell"></i>
-                                                                </button>
-                                                                <button class="btn btn-sm btn-danger ripple"
-                                                                    onclick="deleteNews('<%= news._id %>'); event.stopPropagation();"
-                                                                    title="Delete">
-                                                                    <i class="fas fa-trash"></i>
-                                                                </button>
-                                                            </div>
+                                                            <% if (typeof admin !=='undefined' && admin && admin.role
+                                                                !=='editor' ) { %>
+                                                                <div
+                                                                    class="d-flex justify-content-between align-items-center mb-2">
+                                                                    <small class="text-muted">
+                                                                        <i class="fas fa-user me-1"></i>
+                                                                        <%= news.author %>
+                                                                    </small>
+                                                                </div>
+                                                                <% } %>
+                                                                    <!-- Interaction counts -->
+                                                                    <div class="d-flex justify-content-between mb-3">
+                                                                        <small class="text-muted">
+                                                                            <i
+                                                                                class="fas fa-thumbs-up text-primary me-1"></i>
+                                                                            <%= news.likes || 0 %>
+                                                                        </small>
+                                                                        <small class="text-muted">
+                                                                            <i
+                                                                                class="fas fa-thumbs-down text-danger me-1"></i>
+                                                                            <%= news.dislikes || 0 %>
+                                                                        </small>
+                                                                        <small class="text-muted">
+                                                                            <i
+                                                                                class="fas fa-comment text-success me-1"></i>
+                                                                            <%= news.comments || 0 %>
+                                                                        </small>
+                                                                        <small class="text-muted">
+                                                                            <i class="fas fa-eye text-info me-1"></i>
+                                                                            <%= news.views || 0 %>
+                                                                        </small>
+                                                                    </div>
+                                                                    <div class="d-flex gap-2 mt-auto">
+                                                                        <button
+                                                                            class="btn btn-sm btn-<%= news.isActive === false ? 'success' : 'secondary' %> ripple"
+                                                                            onclick="toggleNewsStatus('<%= news._id %>'); event.stopPropagation();"
+                                                                            title="<%= news.isActive === false ? 'Activate' : 'Deactivate' %>">
+                                                                            <i
+                                                                                class="fas fa-<%= news.isActive === false ? 'check' : 'times' %>"></i>
+                                                                        </button>
+                                                                        <button
+                                                                            class="btn btn-sm btn-outline-primary ripple"
+                                                                            onclick="viewNews('<%= news._id %>'); event.stopPropagation();"
+                                                                            title="View">
+                                                                            <i class="fas fa-eye"></i>
+                                                                        </button>
+                                                                        <button class="btn btn-sm btn-primary ripple"
+                                                                            onclick="editNews('<%= news._id %>'); event.stopPropagation();"
+                                                                            title="Edit">
+                                                                            <i class="fas fa-edit"></i>
+                                                                        </button>
+                                                                        <button class="btn btn-sm btn-info ripple"
+                                                                            onclick="sendNotificationForNews('<%= news._id %>'); event.stopPropagation();"
+                                                                            title="Notify">
+                                                                            <i class="fas fa-bell"></i>
+                                                                        </button>
+                                                                        <button class="btn btn-sm btn-danger ripple"
+                                                                            onclick="deleteNews('<%= news._id %>'); event.stopPropagation();"
+                                                                            title="Delete">
+                                                                            <i class="fas fa-trash"></i>
+                                                                        </button>
+                                                                    </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                                <% }); %>
                                         </div>
-                                        <% }); %>
-                                </div>
-                                <% } %>
-                    </div>
-                </div>
-        </div>
-    </div>
-
-    <!-- News Detail Modal -->
-    <div class="modal fade" id="newsDetailModal" tabindex="-1" aria-labelledby="newsDetailModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="newsDetailModalLabel">News Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="news-detail-content">
-                        <div class="row">
-                            <div class="col-lg-8">
-                                <div id="newsDetailMediaContainer" class="mb-3">
-                                    <img id="newsDetailImage" src="" class="img-fluid rounded" alt="News Image"
-                                        style="width: 100%; max-height: 400px; object-fit: cover;">
-                                </div>
-                                <h3 id="newsDetailTitle" class="mb-3"></h3>
-                                <div class="d-flex flex-wrap gap-3 mb-3">
-                                    <span id="newsDetailCategory" class="badge bg-primary"></span>
-                                    <span id="newsDetailLocation" class="badge bg-success"></span>
-                                    <span id="newsDetailDate" class="badge bg-secondary"></span>
-                                    <span id="newsDetailStatus" class="badge bg-info"></span>
-                                </div>
-                                <p id="newsDetailContent" class="mb-4"></p>
-                            </div>
-                            <div class="col-lg-4">
-                                <!-- Interaction Stats -->
-                                <div class="card mb-4">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Interaction Stats</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-around text-center">
-                                            <div>
-                                                <div class="fs-4 text-primary" id="newsDetailLikes">0</div>
-                                                <div class="small text-muted">Likes</div>
-                                            </div>
-                                            <div>
-                                                <div class="fs-4 text-danger" id="newsDetailDislikes">0</div>
-                                                <div class="small text-muted">Dislikes</div>
-                                            </div>
-                                            <div>
-                                                <div class="fs-4 text-success" id="newsDetailCommentsCount">0</div>
-                                                <div class="small text-muted">Comments</div>
-                                            </div>
-                                            <div>
-                                                <div class="fs-4 text-info" id="newsDetailViews">0</div>
-                                                <div class="small text-muted">Views</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Author Information -->
-                                <div class="card mb-4">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0"><i class="fas fa-user-edit me-2"></i>Published By</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="d-flex align-items-center">
-                                            <div class="me-3">
-                                                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center"
-                                                    style="width: 50px; height: 50px;">
-                                                    <i class="fas fa-user fa-lg text-muted"></i>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <h6 class="mb-0" id="newsDetailAuthor">-</h6>
-                                                <small class="text-muted">Editor/Admin</small>
-                                                <div class="small text-muted" id="newsDetailAuthorId"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Likes Section -->
-                                <div class="card mb-4">
-                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                        <h6 class="mb-0"><i class="fas fa-thumbs-up text-primary me-2"></i>Likes</h6>
-                                        <span class="badge bg-primary" id="likesCount">0</span>
-                                    </div>
-                                    <div class="card-body p-0">
-                                        <div id="likesList" class="list-group list-group-flush"
-                                            style="max-height: 200px; overflow-y: auto;">
-                                            <div class="text-center p-3">
-                                                <small class="text-muted">No likes yet</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Dislikes Section -->
-                                <div class="card mb-4">
-                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                        <h6 class="mb-0"><i class="fas fa-thumbs-down text-danger me-2"></i>Dislikes
-                                        </h6>
-                                        <span class="badge bg-danger" id="dislikesCount">0</span>
-                                    </div>
-                                    <div class="card-body p-0">
-                                        <div id="dislikesList" class="list-group list-group-flush"
-                                            style="max-height: 200px; overflow-y: auto;">
-                                            <div class="text-center p-3">
-                                                <small class="text-muted">No dislikes yet</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                        <% } %>
                             </div>
                         </div>
-
-                        <!-- Comments Section -->
-                        <div class="card">
-                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                <h6 class="mb-0"><i class="fas fa-comments text-success me-2"></i>Comments</h6>
-                                <span class="badge bg-success" id="commentsCount">0</span>
-                            </div>
-                            <div class="card-body">
-                                <div id="commentsList">
-                                    <div class="text-center p-3">
-                                        <small class="text-muted">No comments yet</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" title="Close">
-                        <i class="fas fa-times"></i>
-                    </button>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/main.js"></script>
-    <script id="newsData" type="application/json"><%- JSON.stringify(newsList) %></script>
-    <script>
-        // Make newsList available globally
-        const newsList = JSON.parse(document.getElementById('newsData').textContent);
+            <!-- News Detail Modal -->
+            <div class="modal fade" id="newsDetailModal" tabindex="-1" aria-labelledby="newsDetailModalLabel"
+                aria-hidden="true">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="newsDetailModalLabel">News Details</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="news-detail-content">
+                                <div class="row">
+                                    <div class="col-lg-8">
+                                        <div id="newsDetailMediaContainer" class="mb-3">
+                                            <img id="newsDetailImage" src="" class="img-fluid rounded" alt="News Image"
+                                                style="width: 100%; max-height: 400px; object-fit: cover;">
+                                        </div>
+                                        <h3 id="newsDetailTitle" class="mb-3"></h3>
+                                        <div class="d-flex flex-wrap gap-3 mb-3">
+                                            <span id="newsDetailCategory" class="badge bg-primary"></span>
+                                            <span id="newsDetailLocation" class="badge bg-success"></span>
+                                            <span id="newsDetailDate" class="badge bg-secondary"></span>
+                                            <span id="newsDetailStatus" class="badge bg-info"></span>
+                                        </div>
+                                        <p id="newsDetailContent" class="mb-4"></p>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <!-- Interaction Stats -->
+                                        <div class="card mb-4">
+                                            <div class="card-header bg-light">
+                                                <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Interaction Stats
+                                                </h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-around text-center">
+                                                    <div>
+                                                        <div class="fs-4 text-primary" id="newsDetailLikes">0</div>
+                                                        <div class="small text-muted">Likes</div>
+                                                    </div>
+                                                    <div>
+                                                        <div class="fs-4 text-danger" id="newsDetailDislikes">0</div>
+                                                        <div class="small text-muted">Dislikes</div>
+                                                    </div>
+                                                    <div>
+                                                        <div class="fs-4 text-success" id="newsDetailCommentsCount">0
+                                                        </div>
+                                                        <div class="small text-muted">Comments</div>
+                                                    </div>
+                                                    <div>
+                                                        <div class="fs-4 text-info" id="newsDetailViews">0</div>
+                                                        <div class="small text-muted">Views</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
 
-        // Wait for DOM to be fully loaded
-        document.addEventListener('DOMContentLoaded', function () {
-            // Add ripple effect to buttons
-            addRippleEffect();
+                                        <!-- Author Information -->
+                                        <div class="card mb-4">
+                                            <div class="card-header bg-light">
+                                                <h6 class="mb-0"><i class="fas fa-user-edit me-2"></i>Published By</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="me-3">
+                                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center"
+                                                            style="width: 50px; height: 50px;">
+                                                            <i class="fas fa-user fa-lg text-muted"></i>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="mb-0" id="newsDetailAuthor">-</h6>
+                                                        <small class="text-muted">Editor/Admin</small>
+                                                        <div class="small text-muted" id="newsDetailAuthorId"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
 
-            // Mobile menu toggle
-            const menuToggle = document.getElementById('menuToggle');
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
+                                        <!-- Likes Section -->
+                                        <div class="card mb-4">
+                                            <div
+                                                class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0"><i class="fas fa-thumbs-up text-primary me-2"></i>Likes
+                                                </h6>
+                                                <span class="badge bg-primary" id="likesCount">0</span>
+                                            </div>
+                                            <div class="card-body p-0">
+                                                <div id="likesList" class="list-group list-group-flush"
+                                                    style="max-height: 200px; overflow-y: auto;">
+                                                    <div class="text-center p-3">
+                                                        <small class="text-muted">No likes yet</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
 
-            if (menuToggle && sidebar) {
-                menuToggle.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    sidebar.classList.toggle('active');
-                    mainContent.classList.toggle('sidebar-active');
-                });
-            }
+                                        <!-- Dislikes Section -->
+                                        <div class="card mb-4">
+                                            <div
+                                                class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0"><i
+                                                        class="fas fa-thumbs-down text-danger me-2"></i>Dislikes
+                                                </h6>
+                                                <span class="badge bg-danger" id="dislikesCount">0</span>
+                                            </div>
+                                            <div class="card-body p-0">
+                                                <div id="dislikesList" class="list-group list-group-flush"
+                                                    style="max-height: 200px; overflow-y: auto;">
+                                                    <div class="text-center p-3">
+                                                        <small class="text-muted">No dislikes yet</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-            // Close sidebar when clicking outside on mobile
-            document.addEventListener('click', function (event) {
-                if (window.innerWidth < 768 &&
-                    sidebar && sidebar.classList.contains('active') &&
-                    !sidebar.contains(event.target) &&
-                    event.target !== menuToggle &&
-                    !menuToggle.contains(event.target)) {
-                    sidebar.classList.remove('active');
-                    if (mainContent) {
-                        mainContent.classList.remove('sidebar-active');
-                    }
-                }
-            });
+                                <!-- Comments Section -->
+                                <div class="card">
+                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0"><i class="fas fa-comments text-success me-2"></i>Comments</h6>
+                                        <span class="badge bg-success" id="commentsCount">0</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="commentsList">
+                                            <div class="text-center p-3">
+                                                <small class="text-muted">No comments yet</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" title="Close">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            // Close sidebar when clicking on sidebar links on mobile
-            const sidebarLinks = document.querySelectorAll('.sidebar a');
-            sidebarLinks.forEach(link => {
-                link.addEventListener('click', function () {
-                    if (window.innerWidth < 768 && sidebar) {
-                        sidebar.classList.remove('active');
-                        if (mainContent) {
-                            mainContent.classList.remove('sidebar-active');
+            <%- include('partials/footer') %>
+                <script src="/js/main.js"></script>
+                <script id="newsData" type="application/json"><%- JSON.stringify(newsList) %></script>
+                <script>
+                    // Make newsList available globally
+                    const newsListItems = JSON.parse(document.getElementById('newsData').textContent);
+
+                    // Wait for DOM to be fully loaded
+                    document.addEventListener('DOMContentLoaded', function () {
+                        // Handle filter form submission
+                        const locationFilter = document.getElementById('locationFilter');
+                        const statusFilter = document.getElementById('statusFilter');
+                        const locationFilterInput = document.getElementById('locationFilterInput');
+                        const statusFilterInput = document.getElementById('statusFilterInput');
+
+                        if (locationFilter && statusFilter && locationFilterInput && statusFilterInput && filterForm) {
+                            locationFilter.addEventListener('change', function () {
+                                locationFilterInput.value = this.value;
+                                filterForm.submit();
+                            });
+
+                            statusFilter.addEventListener('change', function () {
+                                statusFilterInput.value = this.value;
+                                filterForm.submit();
+                            });
                         }
-                    }
-                });
-            });
 
-            // Handle filter form submission
-            const locationFilter = document.getElementById('locationFilter');
-            const statusFilter = document.getElementById('statusFilter');
-            const locationFilterInput = document.getElementById('locationFilterInput');
-            const statusFilterInput = document.getElementById('statusFilterInput');
-            const filterForm = document.getElementById('filterForm');
+                        setupMobileMenu();
+                    });
 
-            if (locationFilter && statusFilter && locationFilterInput && statusFilterInput && filterForm) {
-                locationFilter.addEventListener('change', function () {
-                    locationFilterInput.value = this.value;
-                    filterForm.submit();
-                });
+                    // View news function
+                    function viewNews(newsId) {
+                        // Find the news item in the newsList array
+                        const newsItem = newsListItems.find(news => news._id === newsId);
 
-                statusFilter.addEventListener('change', function () {
-                    statusFilterInput.value = this.value;
-                    filterForm.submit();
-                });
-            }
-        });
-
-        // Add ripple effect to elements with "ripple" class
-        function addRippleEffect() {
-            const rippleElements = document.querySelectorAll('.ripple');
-            rippleElements.forEach(element => {
-                element.addEventListener('click', function (e) {
-                    // Remove any existing ripple
-                    const existingRipple = this.querySelector('.ripple-effect');
-                    if (existingRipple) {
-                        existingRipple.remove();
-                    }
-
-                    // Create ripple
-                    const ripple = document.createElement('span');
-                    ripple.classList.add('ripple-effect');
-
-                    // Position ripple
-                    const rect = this.getBoundingClientRect();
-                    const size = Math.max(rect.width, rect.height);
-                    const x = e.clientX - rect.left - size / 2;
-                    const y = e.clientY - rect.top - size / 2;
-
-                    ripple.style.width = ripple.style.height = size + 'px';
-                    ripple.style.left = x + 'px';
-                    ripple.style.top = y + 'px';
-
-                    this.appendChild(ripple);
-
-                    // Remove ripple after animation
-                    setTimeout(() => {
-                        ripple.remove();
-                    }, 600);
-                });
-            });
-        }
-
-        // View news function
-        function viewNews(newsId) {
-            // Find the news item in the newsList array
-            const newsItem = newsList.find(news => news._id === newsId);
-
-            if (newsItem) {
-                // Populate modal with news details
-                const mediaElement = document.getElementById('newsDetailImage');
-                if (newsItem.mediaType === 'video') {
-                    document.getElementById('newsDetailMediaContainer').innerHTML = `
+                        if (newsItem) {
+                            // Populate modal with news details
+                            const mediaElement = document.getElementById('newsDetailImage');
+                            if (newsItem.mediaType === 'video') {
+                                document.getElementById('newsDetailMediaContainer').innerHTML = `
                         <video id="newsDetailImage" src="${newsItem.mediaUrl}" class="img-fluid rounded" controls style="width: 100%; max-height: 400px;"></video>
                     `;
-                } else {
-                    document.getElementById('newsDetailMediaContainer').innerHTML = `
+                            } else {
+                                document.getElementById('newsDetailMediaContainer').innerHTML = `
                         <img id="newsDetailImage" src="${newsItem.mediaUrl || newsItem.imageUrl}" class="img-fluid rounded" alt="News Image" style="width: 100%; max-height: 400px; object-fit: cover;">
                     `;
-                }
-                document.getElementById('newsDetailTitle').textContent = newsItem.title;
-                document.getElementById('newsDetailContent').textContent = newsItem.content;
-                document.getElementById('newsDetailCategory').textContent = newsItem.category;
-                document.getElementById('newsDetailAuthor').textContent = newsItem.author;
-                document.getElementById('newsDetailAuthorId').textContent = `ID: ${newsItem.authorId}`;
-                document.getElementById('newsDetailDate').textContent = new Date(newsItem.publishedAt).toLocaleString();
-                document.getElementById('newsDetailStatus').textContent = newsItem.isActive ? 'Active' : 'Inactive';
-                document.getElementById('newsDetailStatus').className = `badge ${newsItem.isActive ? 'bg-success' : 'bg-secondary'}`;
-                document.getElementById('newsDetailLikes').textContent = newsItem.likes || 0;
-                document.getElementById('newsDetailDislikes').textContent = newsItem.dislikes || 0;
-                document.getElementById('newsDetailCommentsCount').textContent = newsItem.comments || 0;
-                document.getElementById('newsDetailViews').textContent = newsItem.views || 0;
+                            }
+                            document.getElementById('newsDetailTitle').textContent = newsItem.title;
+                            document.getElementById('newsDetailContent').textContent = newsItem.content;
+                            document.getElementById('newsDetailCategory').textContent = newsItem.category;
+                            document.getElementById('newsDetailAuthor').textContent = newsItem.author;
+                            document.getElementById('newsDetailAuthorId').textContent = `ID: ${newsItem.authorId}`;
+                            document.getElementById('newsDetailDate').textContent = new Date(newsItem.publishedAt).toLocaleString();
+                            document.getElementById('newsDetailStatus').textContent = newsItem.isActive ? 'Active' : 'Inactive';
+                            document.getElementById('newsDetailStatus').className = `badge ${newsItem.isActive ? 'bg-success' : 'bg-secondary'}`;
+                            document.getElementById('newsDetailLikes').textContent = newsItem.likes || 0;
+                            document.getElementById('newsDetailDislikes').textContent = newsItem.dislikes || 0;
+                            document.getElementById('newsDetailCommentsCount').textContent = newsItem.comments || 0;
+                            document.getElementById('newsDetailViews').textContent = newsItem.views || 0;
 
-                // Show location if available
-                const locationElement = document.getElementById('newsDetailLocation');
-                if (newsItem.location) {
-                    const locationText = newsItem.locationCode ?
-                        `${newsItem.location} (${newsItem.locationCode})` :
-                        newsItem.location;
-                    locationElement.textContent = locationText;
-                    locationElement.style.display = 'inline-block';
-                } else {
-                    locationElement.style.display = 'none';
-                }
+                            // Show location if available
+                            const locationElement = document.getElementById('newsDetailLocation');
+                            if (newsItem.location) {
+                                const locationText = newsItem.locationCode ?
+                                    `${newsItem.location} (${newsItem.locationCode})` :
+                                    newsItem.location;
+                                locationElement.textContent = locationText;
+                                locationElement.style.display = 'inline-block';
+                            } else {
+                                locationElement.style.display = 'none';
+                            }
 
-                // Populate likes section
-                const likesList = document.getElementById('likesList');
-                const likesCount = document.getElementById('likesCount');
-                if (newsItem.userInteractions && newsItem.userInteractions.likes && newsItem.userInteractions.likes.length > 0) {
-                    likesCount.textContent = newsItem.userInteractions.likes.length;
-                    likesList.innerHTML = newsItem.userInteractions.likes.map(like => `
+                            // Populate likes section
+                            const likesList = document.getElementById('likesList');
+                            const likesCount = document.getElementById('likesCount');
+                            if (newsItem.userInteractions && newsItem.userInteractions.likes && newsItem.userInteractions.likes.length > 0) {
+                                likesCount.textContent = newsItem.userInteractions.likes.length;
+                                likesList.innerHTML = newsItem.userInteractions.likes.map(like => `
                         <div class="list-group-item">
                             <div class="d-flex justify-content-between">
                                 <div>
@@ -626,17 +528,17 @@
                             </div>
                         </div>
                     `).join('');
-                } else {
-                    likesCount.textContent = '0';
-                    likesList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No likes yet</small></div>';
-                }
+                            } else {
+                                likesCount.textContent = '0';
+                                likesList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No likes yet</small></div>';
+                            }
 
-                // Populate dislikes section
-                const dislikesList = document.getElementById('dislikesList');
-                const dislikesCount = document.getElementById('dislikesCount');
-                if (newsItem.userInteractions && newsItem.userInteractions.dislikes && newsItem.userInteractions.dislikes.length > 0) {
-                    dislikesCount.textContent = newsItem.userInteractions.dislikes.length;
-                    dislikesList.innerHTML = newsItem.userInteractions.dislikes.map(dislike => `
+                            // Populate dislikes section
+                            const dislikesList = document.getElementById('dislikesList');
+                            const dislikesCount = document.getElementById('dislikesCount');
+                            if (newsItem.userInteractions && newsItem.userInteractions.dislikes && newsItem.userInteractions.dislikes.length > 0) {
+                                dislikesCount.textContent = newsItem.userInteractions.dislikes.length;
+                                dislikesList.innerHTML = newsItem.userInteractions.dislikes.map(dislike => `
                         <div class="list-group-item">
                             <div class="d-flex justify-content-between">
                                 <div>
@@ -647,17 +549,17 @@
                             </div>
                         </div>
                     `).join('');
-                } else {
-                    dislikesCount.textContent = '0';
-                    dislikesList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No dislikes yet</small></div>';
-                }
+                            } else {
+                                dislikesCount.textContent = '0';
+                                dislikesList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No dislikes yet</small></div>';
+                            }
 
-                // Populate comments section
-                const commentsList = document.getElementById('commentsList');
-                const commentsCount = document.getElementById('commentsCount');
-                if (newsItem.userInteractions && newsItem.userInteractions.comments && newsItem.userInteractions.comments.length > 0) {
-                    commentsCount.textContent = newsItem.userInteractions.comments.length;
-                    commentsList.innerHTML = newsItem.userInteractions.comments.map(comment => `
+                            // Populate comments section
+                            const commentsList = document.getElementById('commentsList');
+                            const commentsCount = document.getElementById('commentsCount');
+                            if (newsItem.userInteractions && newsItem.userInteractions.comments && newsItem.userInteractions.comments.length > 0) {
+                                commentsCount.textContent = newsItem.userInteractions.comments.length;
+                                commentsList.innerHTML = newsItem.userInteractions.comments.map(comment => `
                         <div class="border-bottom pb-3 mb-3">
                             <div class="d-flex justify-content-between mb-2">
                                 <div>
@@ -669,148 +571,175 @@
                             <p class="mb-0">${comment.comment}</p>
                         </div>
                     `).join('');
-                } else {
-                    commentsCount.textContent = '0';
-                    commentsList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No comments yet</small></div>';
-                }
+                            } else {
+                                commentsCount.textContent = '0';
+                                commentsList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No comments yet</small></div>';
+                            }
 
-                // Show modal
-                const modal = new bootstrap.Modal(document.getElementById('newsDetailModal'));
-                modal.show();
-            }
-        }
+                            // Show modal
+                            const modal = new bootstrap.Modal(document.getElementById('newsDetailModal'));
+                            modal.show();
+                        }
+                    }
 
-        // Edit news function
-        function editNews(newsId) {
-            // Redirect to edit page
-            window.location.href = `/edit-news/${newsId}`;
-        }
+                    // Edit news function
+                    function editNews(newsId) {
+                        // Redirect to edit page
+                        window.location.href = `/edit-news/${newsId}`;
+                    }
 
-        // Delete news function
-        function deleteNews(newsId) {
-            if (confirm('Are you sure you want to delete this news article?')) {
-                // Make API call to delete the news
-                fetch(`/news/api/news/${newsId}`, {
-                    method: 'DELETE'
-                })
-                    .then(response => {
-                        if (response.ok) {
-                            // Reload the page to reflect the changes
-                            location.reload();
+                    // Delete news function
+                    function deleteNews(newsId) {
+                        if (confirm('Are you sure you want to delete this news article?')) {
+                            // Make API call to delete the news
+                            fetch(`/news/api/news/${newsId}`, {
+                                method: 'DELETE'
+                            })
+                                .then(response => {
+                                    if (response.ok) {
+                                        // Reload the page to reflect the changes
+                                        location.reload();
+                                    } else {
+                                        // Try to get error message from response
+                                        return response.json().then(errorData => {
+                                            throw new Error(errorData.error || 'Failed to delete news article');
+                                        }).catch(() => {
+                                            throw new Error('Failed to delete news article');
+                                        });
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error:', error);
+                                    alert('Error: ' + error.message);
+                                });
+                        }
+                    }
+
+                    // Toggle news active status function
+                    function toggleNewsStatus(newsId) {
+                        // Find the news item in the newsListItems array
+                        const newsItem = newsListItems.find(news => news._id === newsId);
+
+                        if (newsItem) {
+                            // Make API call to toggle the news status
+                            fetch(`/news/api/news/${newsId}/toggle-status`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    isActive: !newsItem.isActive
+                                })
+                            })
+                                .then(async response => {
+                                    if (response.ok) {
+                                        // Reload the page to reflect the changes
+                                        location.reload();
+                                    } else {
+                                        const errorData = await response.json().catch(() => ({}));
+                                        const errorMessage = errorData.error || 'Failed to toggle news status';
+                                        alert('Error: ' + errorMessage);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Network error:', error);
+                                    alert('Network error occurred while toggling the news status: ' + error.message);
+                                });
                         } else {
-                            // Try to get error message from response
-                            return response.json().then(errorData => {
-                                throw new Error(errorData.error || 'Failed to delete news article');
-                            }).catch(() => {
-                                throw new Error('Failed to delete news article');
+                            alert('News item not found');
+                        }
+                    }
+
+                    // Send notification for news function
+                    function sendNotificationForNews(newsId) {
+                        // Find the news item in the newsListItems array
+                        const newsItem = newsListItems.find(news => news._id === newsId);
+
+                        if (newsItem) {
+                            // Prepare notification data
+                            const notificationData = {
+                                title: `New News: ${newsItem.title}`,
+                                message: newsItem.content.substring(0, 100) + (newsItem.content.length > 100 ? '...' : ''),
+                                newsId: newsItem._id,
+                                imageUrl: newsItem.mediaUrl || newsItem.imageUrl,
+                                launchUrl: null, // We'll set this to point to the news detail page
+                                platformSettings: {},
+                                priority: 'normal'
+                            };
+
+                            // Show confirmation dialog
+                            if (confirm(`Send notification for news: "${newsItem.title}"?`)) {
+                                // Make API call to send the notification
+                                fetch('/admin/api/send-notification', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify(notificationData)
+                                })
+                                    .then(response => {
+                                        if (response.ok) {
+                                            return response.json();
+                                        } else {
+                                            return response.json().then(errorData => {
+                                                throw new Error(errorData.error || 'Failed to send notification');
+                                            });
+                                        }
+                                    })
+                                    .then(data => {
+                                        alert('Notification sent successfully!');
+                                        console.log('Notification sent:', data);
+                                    })
+                                    .catch(error => {
+                                        console.error('Error:', error);
+                                        alert('Error sending notification: ' + error.message);
+                                    });
+                            }
+                        } else {
+                            alert('News item not found');
+                        }
+                    }
+
+                    // Mobile menu setup
+                    function setupMobileMenu() {
+                        const menuToggle = document.getElementById('menuToggle');
+                        const sidebar = document.getElementById('sidebar');
+                        const mainContent = document.getElementById('mainContent');
+
+                        if (menuToggle && sidebar) {
+                            menuToggle.addEventListener('click', function (e) {
+                                e.stopPropagation();
+                                sidebar.classList.toggle('active');
+                                mainContent.classList.toggle('sidebar-active');
                             });
                         }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Error: ' + error.message);
-                    });
-            }
-        }
 
-        // Toggle news active status function
-        function toggleNewsStatus(newsId) {
-            console.log('Toggle news status called with ID:', newsId); // Debug log
-
-            // Find the news item in the newsList array
-            const newsItem = newsList.find(news => news._id === newsId);
-
-            if (newsItem) {
-                console.log('Found news item:', newsItem); // Debug log
-
-                // Make API call to toggle the news status
-                fetch(`/news/api/news/${newsId}/toggle-status`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        isActive: !newsItem.isActive
-                    })
-                })
-                    .then(async response => {
-                        console.log('Toggle API response:', response.status, response.statusText); // Debug log
-
-                        if (response.ok) {
-                            console.log('Toggle successful, reloading page'); // Debug log
-                            // Reload the page to reflect the changes
-                            location.reload();
-                        } else {
-                            const errorData = await response.json().catch(() => ({}));
-                            const errorMessage = errorData.error || 'Failed to toggle news status';
-                            alert('Error: ' + errorMessage);
-                            console.error('Toggle error response:', response.status, errorData);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Network error:', error);
-                        alert('Network error occurred while toggling the news status: ' + error.message);
-                    });
-            } else {
-                console.error('News item not found for ID:', newsId); // Debug log
-                alert('News item not found');
-            }
-        }
-
-        // Send notification for news function
-        function sendNotificationForNews(newsId) {
-            // Find the news item in the newsList array
-            const newsItem = newsList.find(news => news._id === newsId);
-
-            if (newsItem) {
-                // Prepare notification data
-                const notificationData = {
-                    title: `New News: ${newsItem.title}`,
-                    message: newsItem.content.substring(0, 100) + (newsItem.content.length > 100 ? '...' : ''),
-                    newsId: newsItem._id,
-                    imageUrl: newsItem.mediaUrl || newsItem.imageUrl,
-                    launchUrl: null, // We'll set this to point to the news detail page
-                    platformSettings: {},
-                    priority: 'normal'
-                };
-
-                // Show confirmation dialog
-                if (confirm(`Send notification for news: "${newsItem.title}"?`)) {
-                    // Make API call to send the notification
-                    fetch('/admin/api/send-notification', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(notificationData)
-                    })
-                        .then(response => {
-                            if (response.ok) {
-                                return response.json();
-                            } else {
-                                return response.json().then(errorData => {
-                                    throw new Error(errorData.error || 'Failed to send notification');
-                                });
+                        document.addEventListener('click', function (event) {
+                            if (window.innerWidth < 768 &&
+                                sidebar && sidebar.classList.contains('active') &&
+                                !sidebar.contains(event.target) &&
+                                event.target !== menuToggle &&
+                                !menuToggle.contains(event.target)) {
+                                sidebar.classList.remove('active');
+                                if (mainContent) {
+                                    mainContent.classList.remove('sidebar-active');
+                                }
                             }
-                        })
-                        .then(data => {
-                            alert('Notification sent successfully!');
-                            console.log('Notification sent:', data);
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            alert('Error: ' + error.message);
                         });
-                }
-            } else {
-                alert('News item not found');
-            }
-        }
-    </script>
 
-    <!-- Global Admin Notifications -->
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/admin-notifications.js"></script>
-</body>
+                        const sidebarLinks = document.querySelectorAll('.sidebar a');
+                        sidebarLinks.forEach(link => {
+                            link.addEventListener('click', function () {
+                                if (window.innerWidth < 768 && sidebar) {
+                                    sidebar.classList.remove('active');
+                                    if (mainContent) {
+                                        mainContent.classList.remove('sidebar-active');
+                                    }
+                                }
+                            });
+                        });
+                    }
+                </script>
+    </body>
 
 </html>

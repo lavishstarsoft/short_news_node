@@ -17,6 +17,9 @@ const oneSignalService = require('../services/oneSignalService');
 // Import cache middleware for cache invalidation
 const { clearCache } = require('../middleware/cache');
 
+// Import Cloudflare R2 deletion utility
+const { deleteFromR2 } = require('../config/cloudflare');
+
 // Render dashboard page
 async function renderDashboard(req, res) {
   try {
@@ -509,6 +512,14 @@ async function updateNews(req, res) {
       newsData.thumbnailUrl = req.body.imageUrl;
     }
 
+    // If media is being updated, delete the old media from Cloudflare R2
+    if (req.body.mediaUrl && existingNews.mediaUrl && req.body.mediaUrl !== existingNews.mediaUrl) {
+      await deleteFromR2(existingNews.mediaUrl);
+      if (existingNews.mediaType === 'video' && existingNews.thumbnailUrl && existingNews.thumbnailUrl !== existingNews.mediaUrl) {
+        await deleteFromR2(existingNews.thumbnailUrl);
+      }
+    }
+
     const news = await News.findByIdAndUpdate(req.params.id, newsData, { new: true });
 
     // 🔄 Clear news cache after updating
@@ -536,6 +547,14 @@ async function deleteNews(req, res) {
     }
 
     const news = await News.findByIdAndDelete(req.params.id);
+
+    // Delete media from Cloudflare R2
+    if (existingNews.mediaUrl) {
+      await deleteFromR2(existingNews.mediaUrl);
+      if (existingNews.mediaType === 'video' && existingNews.thumbnailUrl && existingNews.thumbnailUrl !== existingNews.mediaUrl) {
+        await deleteFromR2(existingNews.thumbnailUrl);
+      }
+    }
 
     // 🔄 Clear news cache after deleting
     await clearCache('cache:/api/public/news*');

@@ -1,14 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Categories - Short News Admin Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/style.css">
+<%- include('partials/header', { title: 'Categories' }) %>
+
     <style>
         .category-table {
             border: 1px solid #dee2e6;
@@ -185,403 +179,379 @@
             }
         }
     </style>
-</head>
+    </head>
 
-<body>
-    <!-- Mobile Top Navigation -->
-    <div class="top-nav d-md-none">
-        <button class="menu-toggle ripple" id="menuToggle">
-            <i class="fas fa-bars"></i>
-        </button>
-        <h1 class="page-title">Categories</h1>
-        <div class="mobile-header-icons">
-            <button class="menu-toggle ripple" onclick="window.location.href='/profile'">
-                <i class="fas fa-user"></i>
-            </button>
-            <button class="menu-toggle ripple" onclick="openAddCategoryModal()">
-                <i class="fas fa-plus"></i>
-            </button>
-        </div>
-    </div>
+    <body>
+        <%- include('partials/top-nav', { pageTitle: 'Categories Management' , backButton: true, backUrl: '/' }) %>
 
-    <!-- Desktop Navigation -->
-    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
-        <h1 class="page-title mb-0">Categories</h1>
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-primary ripple" onclick="window.location.href='/profile'">
-                <i class="fas fa-user me-1"></i> Profile
-            </button>
-            <button class="btn btn-primary ripple" onclick="openAddCategoryModal()">
-                <i class="fas fa-plus me-1"></i> Add Category
-            </button>
-        </div>
-    </div>
+            <div class="container-fluid">
+                <div class="row">
+                    <!-- Sidebar -->
+                    <%- include('partials/sidebar', { activePage: 'categories' }) %>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <%- include('partials/sidebar', { activePage: 'categories' }) %>
-
-                <!-- Main Content -->
-                <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                    <div class="content-area">
-                        <!-- Stats Cards -->
-                        <div class="row mb-4">
-                            <div class="col-md-3">
-                                <div class="stats-card">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h5 class="mb-1">Total Categories</h5>
-                                            <h2 id="totalCategories">0</h2>
-                                        </div>
-                                        <i class="fas fa-tags fa-2x opacity-75"></i>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="stats-card">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h5 class="mb-1">Active</h5>
-                                            <h2 id="activeCategories">0</h2>
-                                        </div>
-                                        <i class="fas fa-check-circle fa-2x opacity-75"></i>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="stats-card">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h5 class="mb-1">Inactive</h5>
-                                            <h2 id="inactiveCategories">0</h2>
-                                        </div>
-                                        <i class="fas fa-times-circle fa-2x opacity-75"></i>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="stats-card">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h5 class="mb-1">Total News</h5>
-                                            <h2 id="totalNews">0</h2>
-                                        </div>
-                                        <i class="fas fa-newspaper fa-2x opacity-75"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Header with Add Button -->
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h3 class="mb-0">Categories Management</h3>
-                            <button type="button" class="btn add-category-btn ripple d-md-none"
-                                onclick="openAddCategoryModal()">
-                                <i class="fas fa-plus me-2"></i>Add Category
-                            </button>
-                        </div>
-
-                        <!-- Categories Table -->
-                        <div class="table-responsive">
-                            <table class="table category-table align-middle">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">Category</th>
-                                        <th scope="col">Description</th>
-                                        <th scope="col">Status</th>
-                                        <th scope="col">News Count</th>
-                                        <th scope="col">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="categoriesTableBody">
-                                    <tr>
-                                        <td colspan="5" class="text-center">
-                                            <div class="loading">
-                                                <div class="spinner-border text-primary" role="status">
-                                                    <span class="visually-hidden">Loading...</span>
+                        <!-- Main Content -->
+                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                            <div class="content-area">
+                                <!-- Stats Cards -->
+                                <div class="row mb-4">
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h5 class="mb-1">Total Categories</h5>
+                                                    <h2 id="totalCategories">0</h2>
                                                 </div>
-                                                <p class="mt-2">Loading categories...</p>
+                                                <i class="fas fa-tags fa-2x opacity-75"></i>
                                             </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h5 class="mb-1">Active</h5>
+                                                    <h2 id="activeCategories">0</h2>
+                                                </div>
+                                                <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h5 class="mb-1">Inactive</h5>
+                                                    <h2 id="inactiveCategories">0</h2>
+                                                </div>
+                                                <i class="fas fa-times-circle fa-2x opacity-75"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h5 class="mb-1">Total News</h5>
+                                                    <h2 id="totalNews">0</h2>
+                                                </div>
+                                                <i class="fas fa-newspaper fa-2x opacity-75"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                        <!-- Empty state for no categories -->
-                        <div id="emptyState" class="col-12 text-center py-5 d-none">
-                            <i class="fas fa-tags fa-3x text-muted mb-3"></i>
-                            <h4 class="text-muted">No categories found</h4>
-                            <p class="text-muted">Create your first category to get started</p>
-                            <button class="btn btn-primary" onclick="openAddCategoryModal()">
-                                <i class="fas fa-plus me-2"></i>Add Category
+                                <!-- Header with Add Button -->
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h3 class="mb-0">Categories Management</h3>
+                                    <button type="button" class="btn add-category-btn ripple d-md-none"
+                                        onclick="openAddCategoryModal()">
+                                        <i class="fas fa-plus me-2"></i>Add Category
+                                    </button>
+                                </div>
+
+                                <!-- Categories Table -->
+                                <div class="table-responsive">
+                                    <table class="table category-table align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Category</th>
+                                                <th scope="col">Description</th>
+                                                <th scope="col">Status</th>
+                                                <th scope="col">News Count</th>
+                                                <th scope="col">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="categoriesTableBody">
+                                            <tr>
+                                                <td colspan="5" class="text-center">
+                                                    <div class="loading">
+                                                        <div class="spinner-border text-primary" role="status">
+                                                            <span class="visually-hidden">Loading...</span>
+                                                        </div>
+                                                        <p class="mt-2">Loading categories...</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Empty state for no categories -->
+                                <div id="emptyState" class="col-12 text-center py-5 d-none">
+                                    <i class="fas fa-tags fa-3x text-muted mb-3"></i>
+                                    <h4 class="text-muted">No categories found</h4>
+                                    <p class="text-muted">Create your first category to get started</p>
+                                    <button class="btn btn-primary" onclick="openAddCategoryModal()">
+                                        <i class="fas fa-plus me-2"></i>Add Category
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                </div>
+            </div>
+
+            <!-- Add/Edit Category Modal -->
+            <div class="modal fade" id="categoryModal" tabindex="-1" aria-labelledby="categoryModalLabel"
+                aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="categoryModalLabel">Add New Category</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="categoryForm" enctype="multipart/form-data">
+                                <input type="hidden" id="categoryId" name="id">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="categoryName" class="form-label">Category Name *</label>
+                                        <input type="text" class="form-control" id="categoryName" name="name" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="categoryColor" class="form-label">Color</label>
+                                        <input type="color" class="form-control" id="categoryColor" name="color"
+                                            value="#007bff">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="categoryIcon" class="form-label">Icon</label>
+                                        <select class="form-select" id="categoryIcon" name="icon">
+                                            <option value="fas fa-folder">📁 Folder</option>
+                                            <option value="fas fa-newspaper">📰 News</option>
+                                            <option value="fas fa-globe">🌍 World</option>
+                                            <option value="fas fa-heart">❤️ Health</option>
+                                            <option value="fas fa-futbol">⚽ Sports</option>
+                                            <option value="fas fa-laptop">💻 Technology</option>
+                                            <option value="fas fa-music">🎵 Entertainment</option>
+                                            <option value="fas fa-car">🚗 Auto</option>
+                                            <option value="fas fa-graduation-cap">🎓 Education</option>
+                                            <option value="fas fa-briefcase">💼 Business</option>
+                                            <option value="fas fa-home">🏠 Lifestyle</option>
+                                            <option value="fas fa-utensils">🍽️ Food</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="categoryStatus" class="form-label">Status</label>
+                                        <select class="form-select" id="categoryStatus" name="isActive">
+                                            <option value="true">Active</option>
+                                            <option value="false">Inactive</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="categoryImage" class="form-label">Category Image</label>
+                                    <input type="file" class="form-control" id="categoryImage" name="image"
+                                        accept="image/*">
+                                    <div id="imagePreviewContainer" class="mt-2" style="display: none;">
+                                        <img id="imagePreview" class="image-preview" src="" alt="Preview">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="categoryDescription" class="form-label">Description *</label>
+                                    <textarea class="form-control" id="categoryDescription" name="description" rows="3"
+                                        required></textarea>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" onclick="saveCategory()">
+                                <span class="loading-text">Save Category</span>
+                                <span class="loading d-none">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    Saving...
+                                </span>
                             </button>
                         </div>
                     </div>
                 </div>
-        </div>
-    </div>
+            </div>
 
-    <!-- Add/Edit Category Modal -->
-    <div class="modal fade" id="categoryModal" tabindex="-1" aria-labelledby="categoryModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="categoryModalLabel">Add New Category</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="categoryForm" enctype="multipart/form-data">
-                        <input type="hidden" id="categoryId" name="id">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="categoryName" class="form-label">Category Name *</label>
-                                <input type="text" class="form-control" id="categoryName" name="name" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="categoryColor" class="form-label">Color</label>
-                                <input type="color" class="form-control" id="categoryColor" name="color"
-                                    value="#007bff">
-                            </div>
+            <!-- Delete Confirmation Modal -->
+            <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel"
+                aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="categoryIcon" class="form-label">Icon</label>
-                                <select class="form-select" id="categoryIcon" name="icon">
-                                    <option value="fas fa-folder">📁 Folder</option>
-                                    <option value="fas fa-newspaper">📰 News</option>
-                                    <option value="fas fa-globe">🌍 World</option>
-                                    <option value="fas fa-heart">❤️ Health</option>
-                                    <option value="fas fa-futbol">⚽ Sports</option>
-                                    <option value="fas fa-laptop">💻 Technology</option>
-                                    <option value="fas fa-music">🎵 Entertainment</option>
-                                    <option value="fas fa-car">🚗 Auto</option>
-                                    <option value="fas fa-graduation-cap">🎓 Education</option>
-                                    <option value="fas fa-briefcase">💼 Business</option>
-                                    <option value="fas fa-home">🏠 Lifestyle</option>
-                                    <option value="fas fa-utensils">🍽️ Food</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="categoryStatus" class="form-label">Status</label>
-                                <select class="form-select" id="categoryStatus" name="isActive">
-                                    <option value="true">Active</option>
-                                    <option value="false">Inactive</option>
-                                </select>
-                            </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to delete this category?</p>
+                            <p class="text-danger"><strong>This action cannot be undone.</strong></p>
                         </div>
-                        <div class="mb-3">
-                            <label for="categoryImage" class="form-label">Category Image</label>
-                            <input type="file" class="form-control" id="categoryImage" name="image" accept="image/*">
-                            <div id="imagePreviewContainer" class="mt-2" style="display: none;">
-                                <img id="imagePreview" class="image-preview" src="" alt="Preview">
-                            </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                                <span class="loading-text">Delete</span>
+                                <span class="loading d-none">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    Deleting...
+                                </span>
+                            </button>
                         </div>
-                        <div class="mb-3">
-                            <label for="categoryDescription" class="form-label">Description *</label>
-                            <textarea class="form-control" id="categoryDescription" name="description" rows="3"
-                                required></textarea>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="saveCategory()">
-                        <span class="loading-text">Save Category</span>
-                        <span class="loading d-none">
-                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                            Saving...
-                        </span>
-                    </button>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Delete Confirmation Modal -->
-    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Are you sure you want to delete this category?</p>
-                    <p class="text-danger"><strong>This action cannot be undone.</strong></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" onclick="confirmDelete()">
-                        <span class="loading-text">Delete</span>
-                        <span class="loading d-none">
-                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                            Deleting...
-                        </span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+            <%- include('partials/footer') %>
+                <script src="/js/main.js"></script>
+                <script>
+                    // Server-side data
+                    const serverCategories = JSON.parse(document.getElementById('serverData').textContent);
+                </script>
+                <script id="serverData" type="application/json"><%- JSON.stringify(categories || []) %></script>
+                <script>
+                    let categories = [];
+                    let currentCategoryId = null;
+                    let deleteCategoryId = null;
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/main.js"></script>
-    <script>
-        // Server-side data
-        const serverCategories = JSON.parse(document.getElementById('serverData').textContent);
-    </script>
-    <script id="serverData" type="application/json"><%- JSON.stringify(categories || []) %></script>
-    <script>
-        let categories = [];
-        let currentCategoryId = null;
-        let deleteCategoryId = null;
+                    // Initialize page
+                    document.addEventListener('DOMContentLoaded', function () {
+                        console.log('DOM Content Loaded - Initializing categories page');
+                        // Load categories from API since server-side data might not be working
+                        loadCategoriesFromAPI();
+                        setupMobileMenu();
 
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', function () {
-            console.log('DOM Content Loaded - Initializing categories page');
-            // Load categories from API since server-side data might not be working
-            loadCategoriesFromAPI();
-            setupMobileMenu();
+                        // Add event listener for image preview
+                        document.getElementById('categoryImage').addEventListener('change', function (e) {
+                            const file = e.target.files[0];
+                            if (file) {
+                                const reader = new FileReader();
+                                reader.onload = function (e) {
+                                    const preview = document.getElementById('imagePreview');
+                                    preview.src = e.target.result;
+                                    document.getElementById('imagePreviewContainer').style.display = 'block';
+                                }
+                                reader.readAsDataURL(file);
+                            } else {
+                                document.getElementById('imagePreviewContainer').style.display = 'none';
+                            }
+                        });
 
-            // Add event listener for image preview
-            document.getElementById('categoryImage').addEventListener('change', function (e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        const preview = document.getElementById('imagePreview');
-                        preview.src = e.target.result;
-                        document.getElementById('imagePreviewContainer').style.display = 'block';
+                        // Fallback timeout to force load categories if nothing happens
+                        setTimeout(() => {
+                            if (categories.length === 0) {
+                                console.log('Timeout fallback - forcing category load');
+                                forceLoadCategories();
+                            }
+                        }, 2000);
+                    });
+
+                    // Load categories from API
+                    async function loadCategoriesFromAPI() {
+                        try {
+                            console.log('Loading categories from API...');
+                            const response = await fetch('/categories/api/categories');
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            const data = await response.json();
+                            categories = data;
+                            console.log('Categories loaded from API:', categories);
+                            renderCategories();
+                            loadStats();
+                        } catch (error) {
+                            console.error('Error loading categories from API:', error);
+                            // Fallback to server-side data
+                            categories = serverCategories || [];
+                            console.log('Using server-side categories:', categories);
+                            renderCategories();
+                            loadStats();
+                        }
                     }
-                    reader.readAsDataURL(file);
-                } else {
-                    document.getElementById('imagePreviewContainer').style.display = 'none';
-                }
-            });
 
-            // Fallback timeout to force load categories if nothing happens
-            setTimeout(() => {
-                if (categories.length === 0) {
-                    console.log('Timeout fallback - forcing category load');
-                    forceLoadCategories();
-                }
-            }, 2000);
-        });
+                    // Force load categories if API fails
+                    function forceLoadCategories() {
+                        console.log('Force loading categories...');
+                        categories = serverCategories || [];
+                        console.log('Force loaded categories:', categories);
+                        renderCategories();
+                        loadStats();
+                    }
 
-        // Load categories from API
-        async function loadCategoriesFromAPI() {
-            try {
-                console.log('Loading categories from API...');
-                const response = await fetch('/categories/api/categories');
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                const data = await response.json();
-                categories = data;
-                console.log('Categories loaded from API:', categories);
-                renderCategories();
-                loadStats();
-            } catch (error) {
-                console.error('Error loading categories from API:', error);
-                // Fallback to server-side data
-                categories = serverCategories || [];
-                console.log('Using server-side categories:', categories);
-                renderCategories();
-                loadStats();
-            }
-        }
+                    // Load categories (wrapper function)
+                    function loadCategories() {
+                        loadCategoriesFromAPI();
+                    }
 
-        // Force load categories if API fails
-        function forceLoadCategories() {
-            console.log('Force loading categories...');
-            categories = serverCategories || [];
-            console.log('Force loaded categories:', categories);
-            renderCategories();
-            loadStats();
-        }
+                    // Load statistics
+                    function loadStats() {
+                        console.log('loadStats called with categories:', categories);
 
-        // Load categories (wrapper function)
-        function loadCategories() {
-            loadCategoriesFromAPI();
-        }
+                        // Ensure categories is an array
+                        if (!Array.isArray(categories)) {
+                            console.log('Categories is not an array, setting to empty array');
+                            categories = [];
+                        }
 
-        // Load statistics
-        function loadStats() {
-            console.log('loadStats called with categories:', categories);
+                        // Calculate stats directly from categories data
+                        const totalCategories = categories.length;
+                        const activeCategories = categories.filter(cat => cat && cat.isActive).length;
+                        const inactiveCategories = totalCategories - activeCategories;
+                        const totalNews = categories.reduce((sum, cat) => sum + (cat && cat.newsCount ? cat.newsCount : 0), 0);
 
-            // Ensure categories is an array
-            if (!Array.isArray(categories)) {
-                console.log('Categories is not an array, setting to empty array');
-                categories = [];
-            }
+                        console.log('Calculated stats:', { totalCategories, activeCategories, inactiveCategories, totalNews });
 
-            // Calculate stats directly from categories data
-            const totalCategories = categories.length;
-            const activeCategories = categories.filter(cat => cat && cat.isActive).length;
-            const inactiveCategories = totalCategories - activeCategories;
-            const totalNews = categories.reduce((sum, cat) => sum + (cat && cat.newsCount ? cat.newsCount : 0), 0);
+                        // Update the DOM elements
+                        const totalCategoriesEl = document.getElementById('totalCategories');
+                        const activeCategoriesEl = document.getElementById('activeCategories');
+                        const inactiveCategoriesEl = document.getElementById('inactiveCategories');
+                        const totalNewsEl = document.getElementById('totalNews');
 
-            console.log('Calculated stats:', { totalCategories, activeCategories, inactiveCategories, totalNews });
+                        console.log('DOM elements found:', {
+                            totalCategoriesEl: !!totalCategoriesEl,
+                            activeCategoriesEl: !!activeCategoriesEl,
+                            inactiveCategoriesEl: !!inactiveCategoriesEl,
+                            totalNewsEl: !!totalNewsEl
+                        });
 
-            // Update the DOM elements
-            const totalCategoriesEl = document.getElementById('totalCategories');
-            const activeCategoriesEl = document.getElementById('activeCategories');
-            const inactiveCategoriesEl = document.getElementById('inactiveCategories');
-            const totalNewsEl = document.getElementById('totalNews');
+                        if (totalCategoriesEl) {
+                            totalCategoriesEl.textContent = totalCategories;
+                            console.log('Updated totalCategories element:', totalCategoriesEl.textContent);
+                        } else {
+                            console.error('totalCategories element not found!');
+                        }
 
-            console.log('DOM elements found:', {
-                totalCategoriesEl: !!totalCategoriesEl,
-                activeCategoriesEl: !!activeCategoriesEl,
-                inactiveCategoriesEl: !!inactiveCategoriesEl,
-                totalNewsEl: !!totalNewsEl
-            });
+                        if (activeCategoriesEl) {
+                            activeCategoriesEl.textContent = activeCategories;
+                            console.log('Updated activeCategories element:', activeCategoriesEl.textContent);
+                        } else {
+                            console.error('activeCategories element not found!');
+                        }
 
-            if (totalCategoriesEl) {
-                totalCategoriesEl.textContent = totalCategories;
-                console.log('Updated totalCategories element:', totalCategoriesEl.textContent);
-            } else {
-                console.error('totalCategories element not found!');
-            }
+                        if (inactiveCategoriesEl) {
+                            inactiveCategoriesEl.textContent = inactiveCategories;
+                            console.log('Updated inactiveCategories element:', inactiveCategoriesEl.textContent);
+                        } else {
+                            console.error('inactiveCategories element not found!');
+                        }
 
-            if (activeCategoriesEl) {
-                activeCategoriesEl.textContent = activeCategories;
-                console.log('Updated activeCategories element:', activeCategoriesEl.textContent);
-            } else {
-                console.error('activeCategories element not found!');
-            }
+                        if (totalNewsEl) {
+                            totalNewsEl.textContent = totalNews;
+                            console.log('Updated totalNews element:', totalNewsEl.textContent);
+                        } else {
+                            console.error('totalNews element not found!');
+                        }
 
-            if (inactiveCategoriesEl) {
-                inactiveCategoriesEl.textContent = inactiveCategories;
-                console.log('Updated inactiveCategories element:', inactiveCategoriesEl.textContent);
-            } else {
-                console.error('inactiveCategories element not found!');
-            }
+                        console.log('Stats update completed');
+                    }
 
-            if (totalNewsEl) {
-                totalNewsEl.textContent = totalNews;
-                console.log('Updated totalNews element:', totalNewsEl.textContent);
-            } else {
-                console.error('totalNews element not found!');
-            }
+                    // Render categories in table format
+                    function renderCategories() {
+                        const tableBody = document.getElementById('categoriesTableBody');
+                        const emptyState = document.getElementById('emptyState');
 
-            console.log('Stats update completed');
-        }
+                        if (categories.length === 0) {
+                            tableBody.innerHTML = '<tr><td colspan="5" class="text-center">No categories found</td></tr>';
+                            emptyState.classList.remove('d-none');
+                            return;
+                        }
 
-        // Render categories in table format
-        function renderCategories() {
-            const tableBody = document.getElementById('categoriesTableBody');
-            const emptyState = document.getElementById('emptyState');
+                        emptyState.classList.add('d-none');
 
-            if (categories.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="5" class="text-center">No categories found</td></tr>';
-                emptyState.classList.remove('d-none');
-                return;
-            }
-
-            emptyState.classList.add('d-none');
-
-            tableBody.innerHTML = categories.map(category => `
+                        tableBody.innerHTML = categories.map(category => `
                 <tr>
                     <td class="text-left">
                         <div class="d-flex align-items-center">
@@ -618,213 +588,213 @@
                     </td>
                 </tr>
             `).join('');
-        }
+                    }
 
-        // Open add category modal
-        function openAddCategoryModal() {
-            currentCategoryId = null;
-            document.getElementById('categoryModalLabel').textContent = 'Add New Category';
-            document.getElementById('categoryForm').reset();
-            document.getElementById('categoryColor').value = '#007bff';
-            document.getElementById('categoryIcon').value = 'fas fa-folder';
-            document.getElementById('categoryStatus').value = 'true';
-            document.getElementById('imagePreviewContainer').style.display = 'none';
-            new bootstrap.Modal(document.getElementById('categoryModal')).show();
-        }
+                    // Open add category modal
+                    function openAddCategoryModal() {
+                        currentCategoryId = null;
+                        document.getElementById('categoryModalLabel').textContent = 'Add New Category';
+                        document.getElementById('categoryForm').reset();
+                        document.getElementById('categoryColor').value = '#007bff';
+                        document.getElementById('categoryIcon').value = 'fas fa-folder';
+                        document.getElementById('categoryStatus').value = 'true';
+                        document.getElementById('imagePreviewContainer').style.display = 'none';
+                        new bootstrap.Modal(document.getElementById('categoryModal')).show();
+                    }
 
-        // Edit category
-        function editCategory(id) {
-            const category = categories.find(cat => cat._id === id);
-            if (!category) return;
+                    // Edit category
+                    function editCategory(id) {
+                        const category = categories.find(cat => cat._id === id);
+                        if (!category) return;
 
-            currentCategoryId = id;
-            document.getElementById('categoryModalLabel').textContent = 'Edit Category';
-            document.getElementById('categoryId').value = category._id;
-            document.getElementById('categoryName').value = category.name;
-            document.getElementById('categoryDescription').value = category.description;
-            document.getElementById('categoryColor').value = category.color;
-            document.getElementById('categoryIcon').value = category.icon;
-            document.getElementById('categoryStatus').value = category.isActive.toString();
+                        currentCategoryId = id;
+                        document.getElementById('categoryModalLabel').textContent = 'Edit Category';
+                        document.getElementById('categoryId').value = category._id;
+                        document.getElementById('categoryName').value = category.name;
+                        document.getElementById('categoryDescription').value = category.description;
+                        document.getElementById('categoryColor').value = category.color;
+                        document.getElementById('categoryIcon').value = category.icon;
+                        document.getElementById('categoryStatus').value = category.isActive.toString();
 
-            // Handle image preview
-            if (category.imageUrl && category.imageUrl !== '/uploads/default-category.png') {
-                document.getElementById('imagePreview').src = category.imageUrl;
-                document.getElementById('imagePreviewContainer').style.display = 'block';
-            } else {
-                document.getElementById('imagePreviewContainer').style.display = 'none';
-            }
+                        // Handle image preview
+                        if (category.imageUrl && category.imageUrl !== '/uploads/default-category.png') {
+                            document.getElementById('imagePreview').src = category.imageUrl;
+                            document.getElementById('imagePreviewContainer').style.display = 'block';
+                        } else {
+                            document.getElementById('imagePreviewContainer').style.display = 'none';
+                        }
 
-            new bootstrap.Modal(document.getElementById('categoryModal')).show();
-        }
+                        new bootstrap.Modal(document.getElementById('categoryModal')).show();
+                    }
 
-        // Save category
-        async function saveCategory() {
-            const form = document.getElementById('categoryForm');
-            const formData = new FormData(form);
+                    // Save category
+                    async function saveCategory() {
+                        const form = document.getElementById('categoryForm');
+                        const formData = new FormData(form);
 
-            // Convert isActive to boolean
-            const isActive = formData.get('isActive') === 'true';
-            formData.set('isActive', isActive);
+                        // Convert isActive to boolean
+                        const isActive = formData.get('isActive') === 'true';
+                        formData.set('isActive', isActive);
 
-            const saveBtn = document.querySelector('#categoryModal .btn-primary');
-            const loadingText = saveBtn.querySelector('.loading-text');
-            const loading = saveBtn.querySelector('.loading');
+                        const saveBtn = document.querySelector('#categoryModal .btn-primary');
+                        const loadingText = saveBtn.querySelector('.loading-text');
+                        const loading = saveBtn.querySelector('.loading');
 
-            try {
-                loadingText.classList.add('d-none');
-                loading.classList.remove('d-none');
+                        try {
+                            loadingText.classList.add('d-none');
+                            loading.classList.remove('d-none');
 
-                const url = currentCategoryId ? `/categories/api/categories/${currentCategoryId}` : '/categories/api/categories';
-                const method = currentCategoryId ? 'PUT' : 'POST';
+                            const url = currentCategoryId ? `/categories/api/categories/${currentCategoryId}` : '/categories/api/categories';
+                            const method = currentCategoryId ? 'PUT' : 'POST';
 
-                const response = await fetch(url, {
-                    method: method,
-                    body: formData
-                });
+                            const response = await fetch(url, {
+                                method: method,
+                                body: formData
+                            });
 
-                const result = await response.json();
+                            const result = await response.json();
 
-                if (response.ok) {
-                    showAlert(currentCategoryId ? 'Category updated successfully!' : 'Category created successfully!', 'success');
-                    bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
-                    loadCategories();
-                    loadStats();
-                } else {
-                    showAlert(result.error || 'Error saving category', 'danger');
-                }
-            } catch (error) {
-                console.error('Error saving category:', error);
-                showAlert('Error saving category', 'danger');
-            } finally {
-                loadingText.classList.remove('d-none');
-                loading.classList.add('d-none');
-            }
-        }
+                            if (response.ok) {
+                                showAlert(currentCategoryId ? 'Category updated successfully!' : 'Category created successfully!', 'success');
+                                bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
+                                loadCategories();
+                                loadStats();
+                            } else {
+                                showAlert(result.error || 'Error saving category', 'danger');
+                            }
+                        } catch (error) {
+                            console.error('Error saving category:', error);
+                            showAlert('Error saving category', 'danger');
+                        } finally {
+                            loadingText.classList.remove('d-none');
+                            loading.classList.add('d-none');
+                        }
+                    }
 
-        // Toggle category status
-        async function toggleCategoryStatus(id) {
-            try {
-                const response = await fetch(`/categories/api/categories/${id}/toggle`, {
-                    method: 'PATCH'
-                });
-                const result = await response.json();
+                    // Toggle category status
+                    async function toggleCategoryStatus(id) {
+                        try {
+                            const response = await fetch(`/categories/api/categories/${id}/toggle`, {
+                                method: 'PATCH'
+                            });
+                            const result = await response.json();
 
-                if (response.ok) {
-                    showAlert(result.message, 'success');
-                    loadCategories();
-                    loadStats();
-                } else {
-                    showAlert(result.error || 'Error toggling category status', 'danger');
-                }
-            } catch (error) {
-                console.error('Error toggling category status:', error);
-                showAlert('Error toggling category status', 'danger');
-            }
-        }
+                            if (response.ok) {
+                                showAlert(result.message, 'success');
+                                loadCategories();
+                                loadStats();
+                            } else {
+                                showAlert(result.error || 'Error toggling category status', 'danger');
+                            }
+                        } catch (error) {
+                            console.error('Error toggling category status:', error);
+                            showAlert('Error toggling category status', 'danger');
+                        }
+                    }
 
-        // Delete category
-        function deleteCategory(id) {
-            deleteCategoryId = id;
-            new bootstrap.Modal(document.getElementById('deleteModal')).show();
-        }
+                    // Delete category
+                    function deleteCategory(id) {
+                        deleteCategoryId = id;
+                        new bootstrap.Modal(document.getElementById('deleteModal')).show();
+                    }
 
-        // Confirm delete
-        async function confirmDelete() {
-            if (!deleteCategoryId) return;
+                    // Confirm delete
+                    async function confirmDelete() {
+                        if (!deleteCategoryId) return;
 
-            const deleteBtn = document.querySelector('#deleteModal .btn-danger');
-            const loadingText = deleteBtn.querySelector('.loading-text');
-            const loading = deleteBtn.querySelector('.loading');
+                        const deleteBtn = document.querySelector('#deleteModal .btn-danger');
+                        const loadingText = deleteBtn.querySelector('.loading-text');
+                        const loading = deleteBtn.querySelector('.loading');
 
-            try {
-                loadingText.classList.add('d-none');
-                loading.classList.remove('d-none');
+                        try {
+                            loadingText.classList.add('d-none');
+                            loading.classList.remove('d-none');
 
-                const response = await fetch(`/categories/api/categories/${deleteCategoryId}`, {
-                    method: 'DELETE'
-                });
-                const result = await response.json();
+                            const response = await fetch(`/categories/api/categories/${deleteCategoryId}`, {
+                                method: 'DELETE'
+                            });
+                            const result = await response.json();
 
-                if (response.ok) {
-                    showAlert('Category deleted successfully!', 'success');
-                    bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
-                    loadCategories();
-                    loadStats();
-                } else {
-                    showAlert(result.error || 'Error deleting category', 'danger');
-                }
-            } catch (error) {
-                console.error('Error deleting category:', error);
-                showAlert('Error deleting category', 'danger');
-            } finally {
-                loadingText.classList.remove('d-none');
-                loading.classList.add('d-none');
-                deleteCategoryId = null;
-            }
-        }
+                            if (response.ok) {
+                                showAlert('Category deleted successfully!', 'success');
+                                bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+                                loadCategories();
+                                loadStats();
+                            } else {
+                                showAlert(result.error || 'Error deleting category', 'danger');
+                            }
+                        } catch (error) {
+                            console.error('Error deleting category:', error);
+                            showAlert('Error deleting category', 'danger');
+                        } finally {
+                            loadingText.classList.remove('d-none');
+                            loading.classList.add('d-none');
+                            deleteCategoryId = null;
+                        }
+                    }
 
-        // Show alert
-        function showAlert(message, type) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-            alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-            alertDiv.innerHTML = `
+                    // Show alert
+                    function showAlert(message, type) {
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+                        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+                        alertDiv.innerHTML = `
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
-            document.body.appendChild(alertDiv);
+                        document.body.appendChild(alertDiv);
 
-            setTimeout(() => {
-                if (alertDiv.parentNode) {
-                    alertDiv.parentNode.removeChild(alertDiv);
-                }
-            }, 5000);
-        }
-
-        // Mobile menu setup
-        function setupMobileMenu() {
-            const menuToggle = document.getElementById('menuToggle');
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-
-            if (menuToggle && sidebar) {
-                menuToggle.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    sidebar.classList.toggle('active');
-                    mainContent.classList.toggle('sidebar-active');
-                });
-            }
-
-            document.addEventListener('click', function (event) {
-                if (window.innerWidth < 768 &&
-                    sidebar && sidebar.classList.contains('active') &&
-                    !sidebar.contains(event.target) &&
-                    event.target !== menuToggle &&
-                    !menuToggle.contains(event.target)) {
-                    sidebar.classList.remove('active');
-                    if (mainContent) {
-                        mainContent.classList.remove('sidebar-active');
+                        setTimeout(() => {
+                            if (alertDiv.parentNode) {
+                                alertDiv.parentNode.removeChild(alertDiv);
+                            }
+                        }, 5000);
                     }
-                }
-            });
 
-            const sidebarLinks = document.querySelectorAll('.sidebar a');
-            sidebarLinks.forEach(link => {
-                link.addEventListener('click', function () {
-                    if (window.innerWidth < 768 && sidebar) {
-                        sidebar.classList.remove('active');
-                        if (mainContent) {
-                            mainContent.classList.remove('sidebar-active');
+                    // Mobile menu setup
+                    function setupMobileMenu() {
+                        const menuToggle = document.getElementById('menuToggle');
+                        const sidebar = document.getElementById('sidebar');
+                        const mainContent = document.getElementById('mainContent');
+
+                        if (menuToggle && sidebar) {
+                            menuToggle.addEventListener('click', function (e) {
+                                e.stopPropagation();
+                                sidebar.classList.toggle('active');
+                                mainContent.classList.toggle('sidebar-active');
+                            });
                         }
-                    }
-                });
-            });
-        }
-    </script>
 
-    <!-- Global Admin Notifications -->
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/admin-notifications.js"></script>
-</body>
+                        document.addEventListener('click', function (event) {
+                            if (window.innerWidth < 768 &&
+                                sidebar && sidebar.classList.contains('active') &&
+                                !sidebar.contains(event.target) &&
+                                event.target !== menuToggle &&
+                                !menuToggle.contains(event.target)) {
+                                sidebar.classList.remove('active');
+                                if (mainContent) {
+                                    mainContent.classList.remove('sidebar-active');
+                                }
+                            }
+                        });
+
+                        const sidebarLinks = document.querySelectorAll('.sidebar a');
+                        sidebarLinks.forEach(link => {
+                            link.addEventListener('click', function () {
+                                if (window.innerWidth < 768 && sidebar) {
+                                    sidebar.classList.remove('active');
+                                    if (mainContent) {
+                                        mainContent.classList.remove('sidebar-active');
+                                    }
+                                }
+                            });
+                        });
+                    }
+                </script>
+
+                <!-- Global Admin Notifications -->
+                <script src="/socket.io/socket.io.js"></script>
+                <script src="/js/admin-notifications.js"></script>
+    </body>
 
 </html>

@@ -1,25 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>
-        <%= typeof news !=='undefined' ? 'Edit News - Short News Admin Dashboard'
-            : 'Add News - Short News Admin Dashboard' %>
-    </title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<%- include('partials/header', { title: (typeof news !=='undefined' ? 'Edit News' : 'Add News' ) + ' - Short News Admin'
+    }) %>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
-    <link rel="stylesheet" href="/css/style.css">
     <style>
-        /* Mobile header icons */
-        .mobile-header-icons {
-            display: flex;
-            gap: 10px;
-        }
-
         /* Video thumbnail selection */
         .thumbnail-option {
             cursor: pointer;
@@ -51,737 +36,507 @@
             border-radius: 4px;
         }
     </style>
-</head>
+    </head>
 
-<body>
-    <!-- Mobile Top Navigation - Android Material Design -->
-    <div class="top-nav d-md-none">
-        <div class="d-flex align-items-center">
-            <button class="menu-toggle ripple me-2" onclick="window.location.href='/'">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-        </div>
-        <div class="mobile-header-icons">
-            <button class="menu-toggle ripple" id="saveNewsBtn">
-                <i class="fas fa-check"></i>
-            </button>
-        </div>
-    </div>
+    <body>
+        <%- include('partials/top-nav', { pageTitle: typeof news !=='undefined' ? 'Edit News' : 'Add News' , backButton:
+            true, backUrl: '/' , actions: [ { id: 'saveNewsButtonDesktop' , icon: 'fas fa-save' , text: (typeof news
+            !=='undefined' ? 'Update News' : 'Save News' ), class: 'btn-primary' } ] }) %>
 
-    <!-- Desktop Navigation -->
-    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center">
-            <button class="menu-toggle ripple me-2" onclick="window.location.href='/'">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-            <h1 class="page-title mb-0">
-                <%= typeof news !=='undefined' ? 'Edit News' : 'Add News' %>
-            </h1>
-        </div>
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-primary ripple" onclick="window.location.href='/profile'">
-                <i class="fas fa-user me-1"></i> Profile
-            </button>
-            <button class="btn btn-primary ripple" id="saveNewsButtonDesktop">
-                <i class="fas fa-save me-1"></i>
-                <%= typeof news !=='undefined' ? 'Update News' : 'Save News' %>
-            </button>
-        </div>
-    </div>
+            <div class="container-fluid">
+                <div class="row">
+                    <!-- Sidebar -->
+                    <%- include('partials/sidebar', { activePage: 'add-news' }) %>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <%- include('partials/sidebar', { activePage: 'add-news' }) %>
+                        <!-- Main Content -->
+                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                            <div class="content-area">
+                                <div class="row justify-content-center">
+                                    <div class="col-lg-8">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h3 class="card-title mb-4">
+                                                    <%= typeof news !=='undefined' ? 'Edit News Article'
+                                                        : 'Create New News Article' %>
+                                                </h3>
+                                                <form id="addNewsForm">
+                                                    <input type="hidden" id="newsId"
+                                                        value="<%= typeof news !== 'undefined' ? news._id : '' %>">
+                                                    <div class="mb-3">
+                                                        <label for="title" class="form-label">Title</label>
+                                                        <input type="text" class="form-control" id="title"
+                                                            placeholder="Enter news title"
+                                                            value="<%= typeof news !== 'undefined' ? news.title : '' %>"
+                                                            required>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label for="content" class="form-label">Content</label>
+                                                        <textarea class="form-control" id="content" rows="6"
+                                                            placeholder="Enter news content"
+                                                            required><%= typeof news !== 'undefined' ? news.content : '' %></textarea>
+                                                    </div>
 
-                <!-- Main Content -->
-                <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                    <div class="content-area">
-                        <div class="row justify-content-center">
-                            <div class="col-lg-8">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h3 class="card-title mb-4">
-                                            <%= typeof news !=='undefined' ? 'Edit News Article'
-                                                : 'Create New News Article' %>
-                                        </h3>
-                                        <form id="addNewsForm">
-                                            <input type="hidden" id="newsId"
-                                                value="<%= typeof news !== 'undefined' ? news._id : '' %>">
-                                            <div class="mb-3">
-                                                <label for="title" class="form-label">Title</label>
-                                                <input type="text" class="form-control" id="title"
-                                                    placeholder="Enter news title"
-                                                    value="<%= typeof news !== 'undefined' ? news.title : '' %>"
-                                                    required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="content" class="form-label">Content</label>
-                                                <textarea class="form-control" id="content" rows="6"
-                                                    placeholder="Enter news content"
-                                                    required><%= typeof news !== 'undefined' ? news.content : '' %></textarea>
-                                            </div>
+                                                    <!-- Media Upload Section -->
+                                                    <div class="mb-3">
+                                                        <label class="form-label">News Media (Image or Video)</label>
+                                                        <div class="border rounded p-3 mb-3">
+                                                            <div class="d-flex flex-column align-items-center">
+                                                                <div id="mediaPreviewContainer" class="mb-3"
+                                                                    style="width: 100%; max-width: 300px;">
+                                                                    <img id="imagePreview"
+                                                                        src="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '/images/placeholder.png' %>"
+                                                                        onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmZmZmYiPkltYWdlIFVwbG9hZDwvdGV4dD48L3N2Zz4='"
+                                                                        class="img-fluid rounded" alt="Media Preview"
+                                                                        style="display: block;">
+                                                                    <video id="videoPreview" src="" controls
+                                                                        class="img-fluid rounded" alt="Video Preview"
+                                                                        style="display: none; max-height: 300px;"></video>
+                                                                </div>
+                                                                <button type="button"
+                                                                    class="btn btn-outline-primary ripple"
+                                                                    id="uploadMediaButton">
+                                                                    <i class="fas fa-upload me-1"></i> Upload Media
+                                                                </button>
+                                                                <input type="file" id="mediaUpload"
+                                                                    accept="image/*,video/*" class="d-none">
+                                                                <input type="hidden" id="mediaUrl"
+                                                                    value="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '' %>">
+                                                                <input type="hidden" id="mediaType"
+                                                                    value="<%= typeof news !== 'undefined' ? (news.mediaType || 'image') : '' %>">
+                                                                <input type="hidden" id="thumbnailUrl"
+                                                                    value="<%= typeof news !== 'undefined' ? (news.thumbnailUrl || news.mediaUrl || news.imageUrl) : '' %>">
+                                                            </div>
 
-                                            <!-- Media Upload Section -->
-                                            <div class="mb-3">
-                                                <label class="form-label">News Media (Image or Video)</label>
-                                                <div class="border rounded p-3 mb-3">
-                                                    <div class="d-flex flex-column align-items-center">
-                                                        <div id="mediaPreviewContainer" class="mb-3"
-                                                            style="width: 100%; max-width: 300px;">
-                                                            <img id="imagePreview"
-                                                                src="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '/images/placeholder.png' %>"
-                                                                onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmZmZmYiPkltYWdlIFVwbG9hZDwvdGV4dD48L3N2Zz4='"
-                                                                class="img-fluid rounded" alt="Media Preview"
-                                                                style="display: block;">
-                                                            <video id="videoPreview" src="" controls
-                                                                class="img-fluid rounded" alt="Video Preview"
-                                                                style="display: none; max-height: 300px;"></video>
+                                                            <!-- Video Thumbnail Selection (hidden by default) -->
+                                                            <div id="thumbnailSelection" class="mt-3"
+                                                                style="display: none;">
+                                                                <label class="form-label">Select Thumbnail</label>
+                                                                <div class="thumbnail-grid" id="thumbnailGrid">
+                                                                    <!-- Thumbnails will be populated here -->
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        <button type="button" class="btn btn-outline-primary ripple"
-                                                            id="uploadMediaButton">
-                                                            <i class="fas fa-upload me-1"></i> Upload Media
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="category" class="form-label">Category</label>
+                                                        <select class="form-control" id="category" required>
+                                                            <option value="">Loading categories...</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label for="location" class="form-label">Location</label>
+                                                        <select class="form-control" id="location">
+                                                            <option value="">Loading locations...</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="readFullLink" class="form-label">Read Full Article
+                                                            Link
+                                                            (Optional)</label>
+                                                        <input type="url" class="form-control" id="readFullLink"
+                                                            placeholder="https://example.com/full-article"
+                                                            value="<%= typeof news !== 'undefined' ? (news.readFullLink || '') : '' %>">
+                                                        <small class="form-text text-muted">Leave empty to use default
+                                                            link</small>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="ePaperLink" class="form-label">ePaper Link
+                                                            (Optional)</label>
+                                                        <input type="url" class="form-control" id="ePaperLink"
+                                                            placeholder="https://epaper.example.com"
+                                                            value="<%= typeof news !== 'undefined' ? (news.ePaperLink || '') : '' %>">
+                                                        <small class="form-text text-muted">Leave empty to use default
+                                                            link</small>
+                                                    </div>
+
+                                                    <div class="d-grid gap-2 d-md-none">
+                                                        <button type="button" class="btn btn-primary ripple"
+                                                            id="saveNewsButtonMobile">
+                                                            <i class="fas fa-save me-1"></i>
+                                                            <%= typeof news !=='undefined' ? 'Update News' : 'Save News'
+                                                                %>
                                                         </button>
-                                                        <input type="file" id="mediaUpload" accept="image/*,video/*"
-                                                            class="d-none">
-                                                        <input type="hidden" id="mediaUrl"
-                                                            value="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '' %>">
-                                                        <input type="hidden" id="mediaType"
-                                                            value="<%= typeof news !== 'undefined' ? (news.mediaType || 'image') : '' %>">
-                                                        <input type="hidden" id="thumbnailUrl"
-                                                            value="<%= typeof news !== 'undefined' ? (news.thumbnailUrl || news.mediaUrl || news.imageUrl) : '' %>">
+                                                        <button type="button" class="btn btn-secondary ripple"
+                                                            onclick="window.location.href='/'">
+                                                            <i class="fas fa-times me-1"></i> Cancel
+                                                        </button>
                                                     </div>
-
-                                                    <!-- Video Thumbnail Selection (hidden by default) -->
-                                                    <div id="thumbnailSelection" class="mt-3" style="display: none;">
-                                                        <label class="form-label">Select Thumbnail</label>
-                                                        <div class="thumbnail-grid" id="thumbnailGrid">
-                                                            <!-- Thumbnails will be populated here -->
-                                                        </div>
+                                                    <div class="d-none d-md-flex justify-content-end gap-2 mt-4">
+                                                        <button type="button" class="btn btn-secondary ripple"
+                                                            onclick="window.location.href='/'">
+                                                            <i class="fas fa-times me-1"></i> Cancel
+                                                        </button>
+                                                        <button type="button" class="btn btn-primary ripple"
+                                                            id="saveNewsButton">
+                                                            <i class="fas fa-save me-1"></i>
+                                                            <%= typeof news !=='undefined' ? 'Update News' : 'Save News'
+                                                                %>
+                                                        </button>
                                                     </div>
-                                                </div>
+                                                </form>
                                             </div>
-
-                                            <div class="mb-3">
-                                                <label for="category" class="form-label">Category</label>
-                                                <select class="form-control" id="category" required>
-                                                    <option value="">Loading categories...</option>
-                                                </select>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="location" class="form-label">Location</label>
-                                                <select class="form-control" id="location">
-                                                    <option value="">Loading locations...</option>
-                                                </select>
-                                            </div>
-
-                                            <div class="mb-3">
-                                                <label for="readFullLink" class="form-label">Read Full Article Link
-                                                    (Optional)</label>
-                                                <input type="url" class="form-control" id="readFullLink"
-                                                    placeholder="https://example.com/full-article"
-                                                    value="<%= typeof news !== 'undefined' ? (news.readFullLink || '') : '' %>">
-                                                <small class="form-text text-muted">Leave empty to use default
-                                                    link</small>
-                                            </div>
-
-                                            <div class="mb-3">
-                                                <label for="ePaperLink" class="form-label">ePaper Link
-                                                    (Optional)</label>
-                                                <input type="url" class="form-control" id="ePaperLink"
-                                                    placeholder="https://epaper.example.com"
-                                                    value="<%= typeof news !== 'undefined' ? (news.ePaperLink || '') : '' %>">
-                                                <small class="form-text text-muted">Leave empty to use default
-                                                    link</small>
-                                            </div>
-
-                                            <div class="d-grid gap-2 d-md-none">
-                                                <button type="button" class="btn btn-primary ripple"
-                                                    id="saveNewsButtonMobile">
-                                                    <i class="fas fa-save me-1"></i>
-                                                    <%= typeof news !=='undefined' ? 'Update News' : 'Save News' %>
-                                                </button>
-                                                <button type="button" class="btn btn-secondary ripple"
-                                                    onclick="window.location.href='/'">
-                                                    <i class="fas fa-times me-1"></i> Cancel
-                                                </button>
-                                            </div>
-                                            <div class="d-none d-md-flex justify-content-end gap-2 mt-4">
-                                                <button type="button" class="btn btn-secondary ripple"
-                                                    onclick="window.location.href='/'">
-                                                    <i class="fas fa-times me-1"></i> Cancel
-                                                </button>
-                                                <button type="button" class="btn btn-primary ripple"
-                                                    id="saveNewsButton">
-                                                    <i class="fas fa-save me-1"></i>
-                                                    <%= typeof news !=='undefined' ? 'Update News' : 'Save News' %>
-                                                </button>
-                                            </div>
-                                        </form>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-        </div>
-    </div>
-
-    <!-- Image Cropping Modal -->
-    <div class="modal fade" id="imageCropModal" tabindex="-1" aria-labelledby="imageCropModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="imageCropModalLabel">Crop Image to 9:13 (Flutter Display)</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="img-container">
-                        <img id="imageToCrop" src="" alt="Image to crop">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="cropButton">Crop & Save</button>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
-    <script>
-        // Add News Function
-        async function addNews() {
-            const newsId = document.getElementById('newsId').value;
-            const title = document.getElementById('title').value;
-            const content = document.getElementById('content').value;
-            const mediaUrl = document.getElementById('mediaUrl').value;
-            const mediaType = document.getElementById('mediaType').value;
-            const thumbnailUrl = document.getElementById('thumbnailUrl').value;
-            const category = document.getElementById('category').value;
-            const location = document.getElementById('location').value;
-            // Removed author field as it's automatically populated from the logged-in user
+            <!-- Image Cropping Modal -->
+            <div class="modal fade" id="imageCropModal" tabindex="-1" aria-labelledby="imageCropModalLabel"
+                aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="imageCropModalLabel">Crop Image to 9:13 (Flutter Display)</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="img-container">
+                                <img id="imageToCrop" src="" alt="Image to crop">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="cropButton">Crop & Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            // Validation
-            if (!title || !content || !mediaUrl || !category) {
-                showFeedback('Please fill in all required fields', 'error');
-                return;
-            }
+            <%- include('partials/footer') %>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+                <script>
+                    // Add News Function
+                    async function saveNews() {
+                        const newsId = document.getElementById('newsId').value;
+                        const title = document.getElementById('title').value;
+                        const content = document.getElementById('content').value;
+                        const mediaUrl = document.getElementById('mediaUrl').value;
+                        const mediaType = document.getElementById('mediaType').value;
+                        const thumbnailUrl = document.getElementById('thumbnailUrl').value;
+                        const category = document.getElementById('category').value;
+                        const location = document.getElementById('location').value;
 
-            // Author is automatically set by the backend, no need to validate
+                        // Validation
+                        if (!title || !content || !mediaUrl || !category) {
+                            showFeedback('Please fill in all required fields', 'error');
+                            return;
+                        }
 
-            const newsData = {
-                title,
-                content,
-                mediaUrl,
-                mediaType,
-                thumbnailUrl, // Add thumbnail URL to news data
-                category
-            };
-
-            // Add location if selected
-            if (location) {
-                newsData.location = location;
-            }
-
-            // Add custom links if provided
-            const readFullLink = document.getElementById('readFullLink').value;
-            const ePaperLink = document.getElementById('ePaperLink').value;
-            if (readFullLink) {
-                newsData.readFullLink = readFullLink;
-            }
-            if (ePaperLink) {
-                newsData.ePaperLink = ePaperLink;
-            }
-
-            try {
-                let response;
-                if (newsId) {
-                    // Update existing news
-                    response = await fetch(`/news/api/news/${newsId}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(newsData)
-                    });
-                } else {
-                    // Create new news
-                    response = await fetch('/news/api/news', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(newsData)
-                    });
-                }
-
-                if (response.ok) {
-                    // Show success feedback
-                    const successMessage = newsId ? 'News updated successfully!' : 'News added successfully!';
-                    showFeedback(successMessage, 'success');
-
-                    if (!newsId) {
-                        // Reset form only when adding new news
-                        document.getElementById('addNewsForm').reset();
-                        // Reset media preview
-                        document.getElementById('imagePreview').src = '/images/placeholder.png';
-                        document.getElementById('videoPreview').src = '';
-                        document.getElementById('videoPreview').style.display = 'none';
-                        document.getElementById('imagePreview').style.display = 'block';
-                        document.getElementById('mediaUrl').value = '';
-                        document.getElementById('mediaType').value = '';
-                        document.getElementById('thumbnailUrl').value = '';
-                        // Hide thumbnail selection
-                        document.getElementById('thumbnailSelection').style.display = 'none';
-                    }
-
-                    // Redirect to dashboard after a short delay
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 1500);
-                } else {
-                    const errorText = await response.text();
-                    try {
-                        const error = JSON.parse(errorText);
-                        showFeedback('Error saving news: ' + error.error, 'error');
-                    } catch (e) {
-                        showFeedback('Error saving news: ' + errorText, 'error');
-                    }
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showFeedback('Error saving news: ' + error.message, 'error');
-            }
-        }
-
-        // Wait for DOM to be fully loaded
-        document.addEventListener('DOMContentLoaded', function () {
-            // Add ripple effect to buttons
-            addRippleEffect();
-
-            // Load categories dynamically
-            loadCategories();
-
-            // Load locations dynamically
-            loadLocations();
-
-            // Set up event listeners for save buttons
-            document.getElementById('saveNewsButton').addEventListener('click', addNews);
-            document.getElementById('saveNewsButtonMobile').addEventListener('click', addNews);
-            document.getElementById('saveNewsButtonDesktop').addEventListener('click', addNews);
-            document.getElementById('saveNewsBtn').addEventListener('click', addNews);
-
-            // Set initial values for dropdowns if editing
-            const newsId = document.getElementById('newsId').value;
-            if (newsId) {
-                // This will be handled by server-side rendering
-                // The form fields are already pre-populated by EJS
-                // Show the correct media preview based on media type
-                const mediaType = document.getElementById('mediaType').value;
-                const mediaUrl = document.getElementById('mediaUrl').value;
-                if (mediaType === 'video' && mediaUrl) {
-                    document.getElementById('imagePreview').style.display = 'none';
-                    document.getElementById('videoPreview').src = mediaUrl;
-                    document.getElementById('videoPreview').style.display = 'block';
-                }
-            }
-
-            // Media upload functionality
-            const mediaUpload = document.getElementById('mediaUpload');
-            const uploadMediaButton = document.getElementById('uploadMediaButton');
-            const imagePreview = document.getElementById('imagePreview');
-            const videoPreview = document.getElementById('videoPreview');
-            const mediaUrlInput = document.getElementById('mediaUrl');
-            const mediaTypeInput = document.getElementById('mediaType');
-            const thumbnailUrlInput = document.getElementById('thumbnailUrl');
-            const thumbnailSelection = document.getElementById('thumbnailSelection');
-            const thumbnailGrid = document.getElementById('thumbnailGrid');
-
-            // Open file dialog when upload button is clicked
-            uploadMediaButton.addEventListener('click', function () {
-                mediaUpload.click();
-            });
-
-            // Handle media selection
-            mediaUpload.addEventListener('change', function (e) {
-                const file = e.target.files[0];
-                if (file) {
-                    // Check if it's a video file
-                    if (file.type.startsWith('video/')) {
-                        // For videos, we don't need cropping, just upload directly
-                        uploadMediaFile(file);
-                    } else {
-                        // For images, show the cropping modal
-                        const reader = new FileReader();
-                        reader.onload = function (event) {
-                            // Show image cropping modal (existing functionality)
-                            const imageToCrop = document.getElementById('imageToCrop');
-                            const imageCropModalElement = document.getElementById('imageCropModal');
-                            const imageCropModal = new bootstrap.Modal(imageCropModalElement);
-
-                            imageToCrop.src = event.target.result;
-
-                            // Show modal after a short delay to ensure image is loaded
-                            setTimeout(function () {
-                                imageCropModal.show();
-                            }, 100);
+                        const newsData = {
+                            title,
+                            content,
+                            mediaUrl,
+                            mediaType,
+                            thumbnailUrl,
+                            category
                         };
-                        reader.readAsDataURL(file);
-                    }
-                }
-            });
 
-            // Handle image cropping (existing functionality)
-            const imageToCrop = document.getElementById('imageToCrop');
-            const imageCropModalElement = document.getElementById('imageCropModal');
-            const imageCropModal = new bootstrap.Modal(imageCropModalElement);
-            let cropper;
+                        if (location) {
+                            newsData.location = location;
+                        }
 
-            // Initialize cropper when modal is shown
-            imageCropModalElement.addEventListener('shown.bs.modal', function () {
-                if (cropper) {
-                    cropper.destroy();
-                }
-                cropper = new Cropper(imageToCrop, {
-                    aspectRatio: 9 / 13, // Match backend 9:13 processing
-                    viewMode: 1,
-                    autoCropArea: 1,
-                    responsive: true,
-                    guides: true,
-                    movable: true,
-                    zoomable: true,
-                    rotatable: false,
-                    scalable: false
-                });
-            });
+                        const readFullLink = document.getElementById('readFullLink').value;
+                        const ePaperLink = document.getElementById('ePaperLink').value;
+                        if (readFullLink) {
+                            newsData.readFullLink = readFullLink;
+                        }
+                        if (ePaperLink) {
+                            newsData.ePaperLink = ePaperLink;
+                        }
 
-            // Destroy cropper when modal is hidden
-            imageCropModalElement.addEventListener('hidden.bs.modal', function () {
-                if (cropper) {
-                    cropper.destroy();
-                    cropper = null;
-                }
-                imageToCrop.src = '';
-            });
-
-            // Handle image cropping
-            document.getElementById('cropButton').addEventListener('click', function () {
-                if (cropper) {
-                    const canvas = cropper.getCroppedCanvas({
-                        width: 600,
-                        height: 488,
-                        fillColor: '#fff',
-                        imageSmoothingEnabled: false,
-                        imageSmoothingQuality: 'low'
-                    });
-
-                    // Convert canvas to blob with very low quality for heavy compression
-                    canvas.toBlob(function (blob) {
-                        // Upload the cropped image
-                        uploadMediaFile(blob, 'image');
-                    }, 'image/jpeg', 0.15); // Very low quality (15%) for maximum compression to ~15KB
-                }
-            });
-
-            // Function to upload media file (new)
-            async function uploadMediaFile(file, type = null) {
-                const formData = new FormData();
-                formData.append('media', file);
-
-                try {
-                    const response = await fetch('/news/upload-media', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    // Check if response is OK
-                    if (!response.ok) {
-                        let errorMessage = 'Upload failed';
                         try {
-                            const errorData = await response.json();
-                            errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
-                        } catch (jsonError) {
-                            // If JSON parsing fails, it might be HTML (like a redirect to login)
-                            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-                        }
-                        throw new Error(errorMessage);
-                    }
-
-                    const data = await response.json();
-
-                    // Update preview and hidden inputs
-                    if (data.fileType === 'video' || type === 'video') {
-                        imagePreview.style.display = 'none';
-                        videoPreview.src = data.mediaUrl;
-                        videoPreview.style.display = 'block';
-                        mediaTypeInput.value = 'video';
-
-                        // Show thumbnail selection for videos
-                        thumbnailSelection.style.display = 'block';
-                        generateVideoThumbnails(data.mediaUrl, data.thumbnailUrl);
-                    } else {
-                        videoPreview.style.display = 'none';
-                        imagePreview.src = data.mediaUrl;
-                        imagePreview.style.display = 'block';
-                        mediaTypeInput.value = 'image';
-                        // Hide thumbnail selection for images
-                        thumbnailSelection.style.display = 'none';
-                    }
-
-                    mediaUrlInput.value = data.mediaUrl;
-                    thumbnailUrlInput.value = data.thumbnailUrl || data.mediaUrl;
-
-                    // Show success feedback
-                    showFeedback('Media uploaded successfully!', 'success');
-
-                    // Close the image crop modal after successful upload
-                    // Add a small delay so the user can see the success message
-                    setTimeout(() => {
-                        const imageCropModalElement = document.getElementById('imageCropModal');
-                        if (imageCropModalElement) {
-                            // Use Bootstrap's modal hide method
-                            const modal = bootstrap.Modal.getInstance(imageCropModalElement);
-                            if (modal) {
-                                modal.hide();
+                            let response;
+                            if (newsId) {
+                                response = await fetch(`/news/api/news/${newsId}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify(newsData)
+                                });
+                            } else {
+                                response = await fetch('/news/api/news', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify(newsData)
+                                });
                             }
+
+                            if (response.ok) {
+                                const successMessage = newsId ? 'News updated successfully!' : 'News added successfully!';
+                                showFeedback(successMessage, 'success');
+
+                                setTimeout(() => {
+                                    window.location.href = '/news-list';
+                                }, 1500);
+                            } else {
+                                const errorText = await response.text();
+                                try {
+                                    const error = JSON.parse(errorText);
+                                    showFeedback('Error saving news: ' + error.error, 'error');
+                                } catch (e) {
+                                    showFeedback('Error saving news: ' + errorText, 'error');
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                            showFeedback('Error saving news: ' + error.message, 'error');
                         }
-                    }, 1000);
-                } catch (error) {
-                    console.error('Upload error:', error);
-                    showFeedback('Error uploading media: ' + error.message, 'error');
-                }
-            }
+                    }
 
-            // Function to generate video thumbnails
-            function generateVideoThumbnails(videoUrl, defaultThumbnail) {
-                // Clear existing thumbnails
-                thumbnailGrid.innerHTML = '';
+                    // Wait for DOM to be fully loaded
+                    document.addEventListener('DOMContentLoaded', function () {
+                        // Load categories and locations
+                        loadCategories();
+                        loadLocations();
 
-                // Add default thumbnail option
-                const defaultThumbElement = document.createElement('div');
-                defaultThumbElement.className = 'thumbnail-option selected';
-                defaultThumbElement.innerHTML = `
-                    <img src="${defaultThumbnail}" class="thumbnail-img" alt="Default thumbnail">
-                    <small class="text-center d-block mt-1">Default</small>
-                `;
-                defaultThumbElement.addEventListener('click', function () {
-                    // Remove selected class from all thumbnails
-                    document.querySelectorAll('.thumbnail-option').forEach(el => {
-                        el.classList.remove('selected');
-                    });
-                    // Add selected class to this thumbnail
-                    this.classList.add('selected');
-                    // Update thumbnail URL input
-                    thumbnailUrlInput.value = defaultThumbnail;
-                });
-                thumbnailGrid.appendChild(defaultThumbElement);
-
-                // Add more thumbnail options (in a real implementation, these would be extracted from the video)
-                for (let i = 1; i <= 5; i++) {
-                    const thumbElement = document.createElement('div');
-                    thumbElement.className = 'thumbnail-option';
-                    thumbElement.innerHTML = `
-                        <img src="https://via.placeholder.com/160x120/007bff/ffffff?text=Frame+${i}" class="thumbnail-img" alt="Thumbnail ${i}">
-                        <small class="text-center d-block mt-1">Frame ${i}</small>
-                    `;
-                    thumbElement.addEventListener('click', function () {
-                        // Remove selected class from all thumbnails
-                        document.querySelectorAll('.thumbnail-option').forEach(el => {
-                            el.classList.remove('selected');
+                        // Set up event listeners for save buttons
+                        const saveBtnIds = ['saveNewsButton', 'saveNewsButtonMobile', 'saveNewsButtonDesktop', 'saveNewsBtn'];
+                        saveBtnIds.forEach(id => {
+                            const btn = document.getElementById(id);
+                            if (btn) btn.addEventListener('click', saveNews);
                         });
-                        // Add selected class to this thumbnail
-                        this.classList.add('selected');
-                        // Update thumbnail URL input (in a real implementation, this would be the actual thumbnail URL)
-                        thumbnailUrlInput.value = `https://via.placeholder.com/160x120/007bff/ffffff?text=Frame+${i}`;
+
+                        // Initial media preview
+                        const mediaType = document.getElementById('mediaType').value;
+                        const mediaUrl = document.getElementById('mediaUrl').value;
+                        if (mediaType === 'video' && mediaUrl) {
+                            document.getElementById('imagePreview').style.display = 'none';
+                            document.getElementById('videoPreview').src = mediaUrl;
+                            document.getElementById('videoPreview').style.display = 'block';
+                        }
+
+                        // Media upload selection
+                        const mediaUpload = document.getElementById('mediaUpload');
+                        const uploadMediaButton = document.getElementById('uploadMediaButton');
+
+                        if (uploadMediaButton) {
+                            uploadMediaButton.addEventListener('click', () => mediaUpload.click());
+                        }
+
+                        if (mediaUpload) {
+                            mediaUpload.addEventListener('change', function (e) {
+                                const file = e.target.files[0];
+                                if (file) {
+                                    if (file.type.startsWith('video/')) {
+                                        uploadMediaFile(file);
+                                    } else {
+                                        const reader = new FileReader();
+                                        reader.onload = function (event) {
+                                            const imageToCrop = document.getElementById('imageToCrop');
+                                            const imageCropModalElement = document.getElementById('imageCropModal');
+                                            const imageCropModal = new bootstrap.Modal(imageCropModalElement);
+                                            imageToCrop.src = event.target.result;
+                                            setTimeout(() => imageCropModal.show(), 100);
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }
+                            });
+                        }
+
+                        // Cropper setup
+                        const imageToCrop = document.getElementById('imageToCrop');
+                        const imageCropModalElement = document.getElementById('imageCropModal');
+                        let cropper;
+
+                        if (imageCropModalElement) {
+                            imageCropModalElement.addEventListener('shown.bs.modal', function () {
+                                if (cropper) cropper.destroy();
+                                cropper = new Cropper(imageToCrop, {
+                                    aspectRatio: 9 / 13,
+                                    viewMode: 1,
+                                    autoCropArea: 1
+                                });
+                            });
+
+                            imageCropModalElement.addEventListener('hidden.bs.modal', function () {
+                                if (cropper) {
+                                    cropper.destroy();
+                                    cropper = null;
+                                }
+                                imageToCrop.src = '';
+                            });
+
+                            document.getElementById('cropButton').addEventListener('click', function () {
+                                if (cropper) {
+                                    const canvas = cropper.getCroppedCanvas({ width: 600, height: 866 });
+                                    canvas.toBlob(blob => uploadMediaFile(blob, 'image'), 'image/jpeg', 0.85);
+                                }
+                            });
+                        }
+
+                        setupMobileMenu();
                     });
-                    thumbnailGrid.appendChild(thumbElement);
-                }
-            }
-        });
 
-        // Load categories dynamically
-        async function loadCategories() {
-            try {
-                const response = await fetch('/categories/api/categories');
-                const categories = await response.json();
+                    // Upload media file
+                    async function uploadMediaFile(file, type = null) {
+                        const formData = new FormData();
+                        formData.append('media', file);
 
-                const categorySelect = document.getElementById('category');
-                categorySelect.innerHTML = '<option value="">Select Category</option>';
+                        try {
+                            const response = await fetch('/news/upload-media', {
+                                method: 'POST',
+                                body: formData
+                            });
 
-                categories.forEach(category => {
-                    if (category.isActive) {
-                        const option = document.createElement('option');
-                        option.value = category.name;
-                        option.textContent = category.name;
-                        option.style.color = category.color;
-                        categorySelect.appendChild(option);
-                    }
-                });
+                            if (!response.ok) throw new Error('Upload failed');
 
-                if (categories.length === 0) {
-                    categorySelect.innerHTML = '<option value="">No categories available</option>';
-                }
+                            const data = await response.json();
+                            console.log('Upload response:', data);
+                            const imagePreview = document.getElementById('imagePreview');
+                            const videoPreview = document.getElementById('videoPreview');
+                            const mediaUrlInput = document.getElementById('mediaUrl');
+                            const mediaTypeInput = document.getElementById('mediaType');
+                            const thumbnailUrlInput = document.getElementById('thumbnailUrl');
+                            const thumbnailSelection = document.getElementById('thumbnailSelection');
 
-                // Set default value if editing news
-                const newsId = document.getElementById('newsId').value;
-                if (newsId) {
-                    // Get the current news category from the server-rendered value
-                    const currentCategory = '<%= typeof news !== "undefined" ? news.category : "" %>';
-                    if (currentCategory) {
-                        categorySelect.value = currentCategory;
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading categories:', error);
-                const categorySelect = document.getElementById('category');
-                categorySelect.innerHTML = '<option value="">Error loading categories</option>';
-                showFeedback('Error loading categories', 'error');
-            }
-        }
+                            if (data.fileType === 'video' || type === 'video') {
+                                imagePreview.style.display = 'none';
+                                videoPreview.src = data.mediaUrl;
+                                videoPreview.style.display = 'block';
+                                mediaTypeInput.value = 'video';
+                                thumbnailSelection.style.display = 'block';
+                                generateVideoThumbnails(data.mediaUrl, data.thumbnailUrl);
+                            } else {
+                                videoPreview.style.display = 'none';
+                                imagePreview.src = data.mediaUrl;
+                                imagePreview.style.display = 'block';
+                                mediaTypeInput.value = 'image';
+                                thumbnailSelection.style.display = 'none';
+                            }
 
-        // Load locations dynamically
-        async function loadLocations() {
-            try {
-                const response = await fetch('/locations/api/locations');
-                const locations = await response.json();
+                            mediaUrlInput.value = data.mediaUrl;
+                            thumbnailUrlInput.value = data.thumbnailUrl || data.mediaUrl;
+                            showFeedback('Media uploaded successfully!', 'success');
 
-                const locationSelect = document.getElementById('location');
-                locationSelect.innerHTML = '<option value="">Select Location (Optional)</option>';
+                            const cropBtn = document.getElementById('cropButton');
+                            if (cropBtn) cropBtn.blur();
 
-                locations.forEach(location => {
-                    if (location.isActive) {
-                        const option = document.createElement('option');
-                        option.value = location.name;
-                        option.textContent = location.name;
-                        locationSelect.appendChild(option);
-                    }
-                });
-
-                if (locations.length === 0) {
-                    locationSelect.innerHTML = '<option value="">No locations available</option>';
-                }
-
-                // Set default value if editing news
-                const newsId = document.getElementById('newsId').value;
-                if (newsId) {
-                    // Get the current news location from the server-rendered value
-                    const currentLocation = '<%= typeof news !== "undefined" ? news.location : "" %>';
-                    if (currentLocation) {
-                        locationSelect.value = currentLocation;
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading locations:', error);
-                const locationSelect = document.getElementById('location');
-                locationSelect.innerHTML = '<option value="">Error loading locations</option>';
-                showFeedback('Error loading locations', 'error');
-            }
-        }
-
-        // Show feedback message (Android-like snackbar)
-        function showFeedback(message, type) {
-            // Remove any existing feedback
-            const existingFeedback = document.getElementById('feedback-toast');
-            if (existingFeedback) {
-                existingFeedback.remove();
-            }
-
-            // Create feedback element
-            const feedback = document.createElement('div');
-            feedback.id = 'feedback-toast';
-            feedback.textContent = message;
-
-            // Style based on type
-            feedback.style.position = 'fixed';
-            feedback.style.bottom = '20px';
-            feedback.style.left = '50%';
-            feedback.style.transform = 'translateX(-50%)';
-            feedback.style.padding = '14px 24px';
-            feedback.style.borderRadius = '4px';
-            feedback.style.color = 'white';
-            feedback.style.fontSize = '14px';
-            feedback.style.fontWeight = '500';
-            feedback.style.zIndex = '9999';
-            feedback.style.boxShadow = '0 3px 5px -1px rgba(0,0,0,0.2), 0 6px 10px 0 rgba(0,0,0,0.14), 0 1px 18px 0 rgba(0,0,0,0.12)';
-            feedback.style.maxWidth = '90%';
-            feedback.style.width = 'auto';
-            feedback.style.textAlign = 'center';
-            feedback.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-
-            switch (type) {
-                case 'success':
-                    feedback.style.backgroundColor = '#4CAF50';
-                    break;
-                case 'error':
-                    feedback.style.backgroundColor = '#F44336';
-                    break;
-                case 'info':
-                    feedback.style.backgroundColor = '#2196F3';
-                    break;
-                default:
-                    feedback.style.backgroundColor = '#323232';
-            }
-
-            // Add to document
-            document.body.appendChild(feedback);
-
-            // Animate in
-            feedback.style.opacity = '0';
-            feedback.style.transform = 'translateX(-50%) translateY(20px)';
-            setTimeout(() => {
-                feedback.style.opacity = '1';
-                feedback.style.transform = 'translateX(-50%) translateY(0)';
-            }, 10);
-
-            // Remove after delay with animation
-            setTimeout(() => {
-                feedback.style.opacity = '0';
-                feedback.style.transform = 'translateX(-50%) translateY(20px)';
-                setTimeout(() => {
-                    if (feedback.parentNode) {
-                        feedback.parentNode.removeChild(feedback);
-                    }
-                }, 300);
-            }, 3000);
-        }
-
-        // Add ripple effect to elements with "ripple" class
-        function addRippleEffect() {
-            const rippleElements = document.querySelectorAll('.ripple');
-            rippleElements.forEach(element => {
-                element.addEventListener('click', function (e) {
-                    // Remove any existing ripple
-                    const existingRipple = this.querySelector('.ripple-effect');
-                    if (existingRipple) {
-                        existingRipple.remove();
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('imageCropModal'));
+                            if (modal) modal.hide();
+                        } catch (error) {
+                            console.error('Upload error:', error);
+                            showFeedback('Error uploading media: ' + error.message, 'error');
+                        }
                     }
 
-                    // Create ripple
-                    const ripple = document.createElement('span');
-                    ripple.classList.add('ripple-effect');
+                    // Generate video thumbnails
+                    function generateVideoThumbnails(videoUrl, defaultThumbnail) {
+                        const thumbnailGrid = document.getElementById('thumbnailGrid');
+                        const thumbnailUrlInput = document.getElementById('thumbnailUrl');
+                        thumbnailGrid.innerHTML = '';
 
-                    // Position ripple
-                    const rect = this.getBoundingClientRect();
-                    const size = Math.max(rect.width, rect.height);
-                    const x = e.clientX - rect.left - size / 2;
-                    const y = e.clientY - rect.top - size / 2;
+                        const createThumb = (src, label, isSelected) => {
+                            const div = document.createElement('div');
+                            div.className = `thumbnail-option ${isSelected ? 'selected' : ''}`;
+                            div.innerHTML = `<img src="${src}" class="thumbnail-img"><small class="text-center d-block mt-1">${label}</small>`;
+                            div.addEventListener('click', () => {
+                                document.querySelectorAll('.thumbnail-option').forEach(el => el.classList.remove('selected'));
+                                div.classList.add('selected');
+                                thumbnailUrlInput.value = src;
+                            });
+                            return div;
+                        };
 
-                    ripple.style.width = ripple.style.height = size + 'px';
-                    ripple.style.left = x + 'px';
-                    ripple.style.top = y + 'px';
+                        thumbnailGrid.appendChild(createThumb(defaultThumbnail, 'Default', true));
+                        for (let i = 1; i <= 3; i++) {
+                            thumbnailGrid.appendChild(createThumb(`https://via.placeholder.com/160x120/007bff/ffffff?text=Frame+${i}`, `Frame ${i}`, false));
+                        }
+                    }
 
-                    this.appendChild(ripple);
+                    // Load categories
+                    async function loadCategories() {
+                        try {
+                            const response = await fetch('/categories/api/categories');
+                            const categories = await response.json();
+                            const select = document.getElementById('category');
+                            select.innerHTML = '<option value="">Select Category</option>';
+                            categories.filter(c => c.isActive).forEach(c => {
+                                const opt = document.createElement('option');
+                                opt.value = c.name;
+                                opt.textContent = c.name;
+                                select.appendChild(opt);
+                            });
+                            const current = '<%= typeof news !== "undefined" ? news.category : "" %>';
+                            if (current) select.value = current;
+                        } catch (e) { console.error(e); }
+                    }
 
-                    // Remove ripple after animation
-                    setTimeout(() => {
-                        ripple.remove();
-                    }, 600);
-                });
-            });
-        }
-    </script>
+                    // Load locations
+                    async function loadLocations() {
+                        try {
+                            const response = await fetch('/locations/api/locations');
+                            const locations = await response.json();
+                            const select = document.getElementById('location');
+                            select.innerHTML = '<option value="">Select Location (Optional)</option>';
+                            locations.filter(l => l.isActive).forEach(l => {
+                                const opt = document.createElement('option');
+                                opt.value = l.name;
+                                opt.textContent = l.name;
+                                select.appendChild(opt);
+                            });
+                            const current = '<%= typeof news !== "undefined" ? news.location : "" %>';
+                            if (current) select.value = current;
+                        } catch (e) { console.error(e); }
+                    }
+
+                    // Mobile menu setup
+                    function setupMobileMenu() {
+                        const menuToggle = document.getElementById('menuToggle');
+                        const sidebar = document.getElementById('sidebar');
+                        const mainContent = document.getElementById('mainContent');
+
+                        if (menuToggle && sidebar) {
+                            menuToggle.addEventListener('click', function (e) {
+                                e.stopPropagation();
+                                sidebar.classList.toggle('active');
+                                mainContent.classList.toggle('sidebar-active');
+                            });
+                        }
+
+                        document.addEventListener('click', function (event) {
+                            if (window.innerWidth < 768 &&
+                                sidebar && sidebar.classList.contains('active') &&
+                                !sidebar.contains(event.target) &&
+                                event.target !== menuToggle &&
+                                !menuToggle.contains(event.target)) {
+                                sidebar.classList.remove('active');
+                                if (mainContent) mainContent.classList.remove('sidebar-active');
+                            }
+                        });
+                    }
+
+                    // Show feedback (Android-like snackbar)
+                    function showFeedback(message, type) {
+                        const existing = document.getElementById('feedback-toast');
+                        if (existing) existing.remove();
+
+                        const toast = document.createElement('div');
+                        toast.id = 'feedback-toast';
+                        toast.textContent = message;
+                        Object.assign(toast.style, {
+                            position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
+                            padding: '12px 24px', borderRadius: '4px', color: 'white', zIndex: '9999',
+                            backgroundColor: type === 'success' ? '#4CAF50' : (type === 'error' ? '#F44336' : '#2196F3'),
+                            transition: 'all 0.3s'
+                        });
+
+                        document.body.appendChild(toast);
+                        setTimeout(() => toast.remove(), 3000);
+                    }
+                </script>
+    </body>
+
+</html>
 </body>
 
 </html>

@@ -1,21 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title><%= typeof ad !== 'undefined' ? 'Edit Ad - Short News Admin Dashboard' : 'Add Ad - Short News Admin Dashboard' %></title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<%- include('partials/header', { title: (typeof ad !=='undefined' ? 'Edit Ad' : 'Add Ad' ) + ' - Short News Admin' }) %>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
-    <link rel="stylesheet" href="/css/style.css">
     <style>
-        /* Mobile header icons */
-        .mobile-header-icons {
-            display: flex;
-            gap: 10px;
-        }
-        
         /* Image preview carousel */
         .image-preview-container {
             position: relative;
@@ -23,15 +10,15 @@
             max-width: 300px;
             margin: 0 auto;
         }
-        
+
         .image-preview-item {
             display: none;
         }
-        
+
         .image-preview-item.active {
             display: block;
         }
-        
+
         .carousel-controls {
             position: absolute;
             top: 50%;
@@ -44,22 +31,22 @@
             border-radius: 50%;
             cursor: pointer;
         }
-        
+
         .carousel-prev {
             left: 10px;
         }
-        
+
         .carousel-next {
             right: 10px;
         }
-        
+
         .image-indicators {
             display: flex;
             justify-content: center;
             margin-top: 10px;
             gap: 5px;
         }
-        
+
         .indicator {
             width: 10px;
             height: 10px;
@@ -67,11 +54,11 @@
             background: #ccc;
             cursor: pointer;
         }
-        
+
         .indicator.active {
             background: #007bff;
         }
-        
+
         .remove-image-btn {
             position: absolute;
             top: 5px;
@@ -84,7 +71,7 @@
             border-radius: 50%;
             cursor: pointer;
         }
-        
+
         /* Settings section */
         .settings-section {
             background: #f8f9fa;
@@ -92,7 +79,7 @@
             padding: 1.5rem;
             margin-bottom: 1.5rem;
         }
-        
+
         /* Crop Modal Styles */
         .crop-modal {
             display: none;
@@ -104,13 +91,13 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.9);
         }
-        
+
         .crop-modal.active {
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        
+
         .crop-container {
             background: white;
             border-radius: 10px;
@@ -119,25 +106,25 @@
             max-height: 90vh;
             overflow: auto;
         }
-        
+
         .crop-image-container {
             max-width: 100%;
             max-height: 60vh;
             margin: 20px 0;
         }
-        
+
         .crop-image-container img {
             max-width: 100%;
             display: block;
         }
-        
+
         .crop-controls {
             display: flex;
             gap: 10px;
             justify-content: center;
             margin-top: 20px;
         }
-        
+
         .aspect-ratio-info {
             background: #e3f2fd;
             padding: 10px;
@@ -146,658 +133,601 @@
             text-align: center;
         }
     </style>
-</head>
-<body>
-    <!-- Mobile Top Navigation - Android Material Design -->
-    <div class="top-nav d-md-none">
-        <div class="d-flex align-items-center">
-            <button class="menu-toggle ripple me-2" onclick="window.location.href='/ads'">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-        </div>
-        <div class="mobile-header-icons">
-            <button class="menu-toggle ripple" id="saveAdBtn">
-                <i class="fas fa-check"></i>
-            </button>
-        </div>
-    </div>
+    </head>
 
-    <!-- Desktop Navigation -->
-    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center">
-            <button class="menu-toggle ripple me-2" onclick="window.location.href='/ads'">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-            <h1 class="page-title mb-0"><%= typeof ad !== 'undefined' ? 'Edit Ad' : 'Add Ad' %></h1>
-        </div>
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-primary ripple" onclick="window.location.href='/profile'">
-                <i class="fas fa-user me-1"></i> Profile
-            </button>
-            <button class="btn btn-primary ripple" id="saveAdButtonDesktop">
-                <i class="fas fa-save me-1"></i> <%= typeof ad !== 'undefined' ? 'Update Ad' : 'Save Ad' %>
-            </button>
-        </div>
-    </div>
+    <body>
+        <%- include('partials/top-nav', { pageTitle: typeof ad !=='undefined' ? 'Edit Ad' : 'Add Ad' , backButton: true,
+            backUrl: '/ads' , actions: [ { id: 'saveAdButtonDesktop' , icon: 'fas fa-save' , text: (typeof ad
+            !=='undefined' ? 'Update Ad' : 'Save Ad' ), class: 'btn-primary' } ] }) %>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <%- include('partials/sidebar', { activePage: 'ads' }) %>
+            <div class="container-fluid">
+                <div class="row">
+                    <!-- Sidebar -->
+                    <%- include('partials/sidebar', { activePage: 'ads' }) %>
 
-            <!-- Main Content -->
-            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                <div class="content-area">
-                    <div class="row justify-content-center">
-                        <div class="col-lg-8">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h3 class="card-title mb-4"><%= typeof ad !== 'undefined' ? 'Edit Ad' : 'Create New Ad' %></h3>
-                                    <form id="addAdForm">
-                                        <input type="hidden" id="adId" value="<%= typeof ad !== 'undefined' ? ad._id : '' %>">
-                                        <div class="mb-3">
-                                            <label for="title" class="form-label">Ad Title</label>
-                                            <input type="text" class="form-control" id="title" placeholder="Enter ad title" value="<%= typeof ad !== 'undefined' ? ad.title : '' %>" required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label for="content" class="form-label">Ad Content (Optional)</label>
-                                            <textarea class="form-control" id="content" rows="4" placeholder="Enter ad content"><%= typeof ad !== 'undefined' ? ad.content : '' %></textarea>
-                                        </div>
-                                        
-                                        <!-- Multiple Image Upload Section -->
-                                        <div class="mb-3">
-                                            <label class="form-label">Ad Images</label>
-                                            <div class="border rounded p-3 mb-3">
-                                                <div class="d-flex flex-column align-items-center">
-                                                    <!-- Hidden input to store all image URLs -->
-                                                    <input type="hidden" id="imageUrls" value="<%= typeof ad !== 'undefined' && ad.imageUrls ? ad.imageUrls.join(',') : (typeof ad !== 'undefined' && ad.imageUrl ? ad.imageUrl : '') %>">
-                                                    
-                                                    <!-- Image preview carousel -->
-                                                    <div class="image-preview-container mb-3">
-                                                        <div id="imagePreviewCarousel"></div>
-                                                        <div class="image-indicators" id="imageIndicators"></div>
+                        <!-- Main Content -->
+                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                            <div class="content-area">
+                                <div class="row justify-content-center">
+                                    <div class="col-lg-8">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h3 class="card-title mb-4">
+                                                    <%= typeof ad !=='undefined' ? 'Edit Ad' : 'Create New Ad' %>
+                                                </h3>
+                                                <form id="addAdForm">
+                                                    <input type="hidden" id="adId"
+                                                        value="<%= typeof ad !== 'undefined' ? ad._id : '' %>">
+                                                    <div class="mb-3">
+                                                        <label for="title" class="form-label">Ad Title</label>
+                                                        <input type="text" class="form-control" id="title"
+                                                            placeholder="Enter ad title"
+                                                            value="<%= typeof ad !== 'undefined' ? ad.title : '' %>"
+                                                            required>
                                                     </div>
-                                                    
-                                                    <button type="button" class="btn btn-outline-primary ripple" id="uploadImageButton">
-                                                        <i class="fas fa-upload me-1"></i> Upload Images
-                                                    </button>
-                                                    <input type="file" id="imageUpload" accept="image/*" multiple class="d-none">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mb-3">
-                                            <label for="linkUrl" class="form-label">Link URL (Optional)</label>
-                                            <input type="url" class="form-control" id="linkUrl" placeholder="https://example.com" value="<%= typeof ad !== 'undefined' ? ad.linkUrl : '' %>">
-                                        </div>
-                                        
-                                        <div class="mb-3">
-                                            <label for="positionInterval" class="form-label">Position Interval</label>
-                                            <select class="form-control" id="positionInterval">
-                                                <option value="3" <%= (typeof ad !== 'undefined' && ad.positionInterval == 3) ? 'selected' : '' %>>Every 3rd news item</option>
-                                                <option value="5" <%= (typeof ad !== 'undefined' && ad.positionInterval == 5) ? 'selected' : '' %>>Every 5th news item</option>
-                                                <option value="10" <%= (typeof ad !== 'undefined' && ad.positionInterval == 10) ? 'selected' : '' %>>Every 10th news item</option>
-                                            </select>
-                                            <div class="form-text">Position where the ad should appear in the news feed</div>
-                                        </div>
-                                        
-                                        <!-- Intelligent Ad Settings -->
-                                        <div class="settings-section">
-                                            <h5 class="mb-3"><i class="fas fa-brain me-2"></i>Intelligent Ad Settings</h5>
-                                            
-                                            <div class="row">
-                                                <div class="col-md-6 mb-3">
-                                                    <label for="maxViewsPerDay" class="form-label">Max Views Per Day</label>
-                                                    <input type="number" class="form-control" id="maxViewsPerDay" min="1" max="10" value="<%= typeof ad !== 'undefined' ? ad.maxViewsPerDay : 3 %>">
-                                                    <div class="form-text">Maximum number of times this ad can be shown to a user per day</div>
-                                                </div>
-                                                <div class="col-md-6 mb-3">
-                                                    <label for="cooldownPeriodHours" class="form-label">Cooldown Period (Hours)</label>
-                                                    <input type="number" class="form-control" id="cooldownPeriodHours" min="1" max="168" value="<%= typeof ad !== 'undefined' ? ad.cooldownPeriodHours : 24 %>">
-                                                    <div class="form-text">Minimum hours between showing this ad to the same user</div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="row">
-                                                <div class="col-md-6 mb-3">
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input" type="checkbox" id="frequencyControlEnabled" <%= (typeof ad !== 'undefined' && ad.frequencyControlEnabled !== false) ? 'checked' : '' %>>
-                                                        <label class="form-check-label" for="frequencyControlEnabled">Enable Frequency Control</label>
+                                                    <div class="mb-3">
+                                                        <label for="content" class="form-label">Ad Content
+                                                            (Optional)</label>
+                                                        <textarea class="form-control" id="content" rows="4"
+                                                            placeholder="Enter ad content"><%= typeof ad !== 'undefined' ? ad.content : '' %></textarea>
                                                     </div>
-                                                </div>
-                                                <div class="col-md-6 mb-3">
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input" type="checkbox" id="userBehaviorTrackingEnabled" <%= (typeof ad !== 'undefined' && ad.userBehaviorTrackingEnabled !== false) ? 'checked' : '' %>>
-                                                        <label class="form-check-label" for="userBehaviorTrackingEnabled">Enable User Behavior Tracking</label>
+
+                                                    <!-- Multiple Image Upload Section -->
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Ad Images</label>
+                                                        <div class="border rounded p-3 mb-3">
+                                                            <div class="d-flex flex-column align-items-center">
+                                                                <!-- Hidden input to store all image URLs -->
+                                                                <input type="hidden" id="imageUrls"
+                                                                    value="<%= typeof ad !== 'undefined' && ad.imageUrls ? ad.imageUrls.join(',') : (typeof ad !== 'undefined' && ad.imageUrl ? ad.imageUrl : '') %>">
+
+                                                                <!-- Image preview carousel -->
+                                                                <div class="image-preview-container mb-3">
+                                                                    <div id="imagePreviewCarousel"></div>
+                                                                    <div class="image-indicators" id="imageIndicators">
+                                                                    </div>
+                                                                </div>
+
+                                                                <button type="button"
+                                                                    class="btn btn-outline-primary ripple"
+                                                                    id="uploadImageButton">
+                                                                    <i class="fas fa-upload me-1"></i> Upload Images
+                                                                </button>
+                                                                <input type="file" id="imageUpload" accept="image/*"
+                                                                    multiple class="d-none">
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="linkUrl" class="form-label">Link URL
+                                                            (Optional)</label>
+                                                        <input type="url" class="form-control" id="linkUrl"
+                                                            placeholder="https://example.com"
+                                                            value="<%= typeof ad !== 'undefined' ? ad.linkUrl : '' %>">
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="positionInterval" class="form-label">Position
+                                                            Interval</label>
+                                                        <select class="form-control" id="positionInterval">
+                                                            <option value="3" <%=(typeof ad !=='undefined' &&
+                                                                ad.positionInterval==3) ? 'selected' : '' %>>Every 3rd
+                                                                news item</option>
+                                                            <option value="5" <%=(typeof ad !=='undefined' &&
+                                                                ad.positionInterval==5) ? 'selected' : '' %>>Every 5th
+                                                                news item</option>
+                                                            <option value="10" <%=(typeof ad !=='undefined' &&
+                                                                ad.positionInterval==10) ? 'selected' : '' %>>Every 10th
+                                                                news item</option>
+                                                        </select>
+                                                        <div class="form-text">Position where the ad should appear in
+                                                            the news feed</div>
+                                                    </div>
+
+                                                    <!-- Intelligent Ad Settings -->
+                                                    <div class="settings-section">
+                                                        <h5 class="mb-3"><i class="fas fa-brain me-2"></i>Intelligent Ad
+                                                            Settings</h5>
+
+                                                        <div class="row">
+                                                            <div class="col-md-6 mb-3">
+                                                                <label for="maxViewsPerDay" class="form-label">Max Views
+                                                                    Per Day</label>
+                                                                <input type="number" class="form-control"
+                                                                    id="maxViewsPerDay" min="1" max="10"
+                                                                    value="<%= typeof ad !== 'undefined' ? ad.maxViewsPerDay : 3 %>">
+                                                                <div class="form-text">Maximum number of times this ad
+                                                                    can be shown to a user per day</div>
+                                                            </div>
+                                                            <div class="col-md-6 mb-3">
+                                                                <label for="cooldownPeriodHours"
+                                                                    class="form-label">Cooldown Period (Hours)</label>
+                                                                <input type="number" class="form-control"
+                                                                    id="cooldownPeriodHours" min="1" max="168"
+                                                                    value="<%= typeof ad !== 'undefined' ? ad.cooldownPeriodHours : 24 %>">
+                                                                <div class="form-text">Minimum hours between showing
+                                                                    this ad to the same user</div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="row">
+                                                            <div class="col-md-6 mb-3">
+                                                                <div class="form-check form-switch">
+                                                                    <input class="form-check-input" type="checkbox"
+                                                                        id="frequencyControlEnabled" <%=(typeof ad
+                                                                        !=='undefined' && ad.frequencyControlEnabled
+                                                                        !==false) ? 'checked' : '' %>>
+                                                                    <label class="form-check-label"
+                                                                        for="frequencyControlEnabled">Enable Frequency
+                                                                        Control</label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-6 mb-3">
+                                                                <div class="form-check form-switch">
+                                                                    <input class="form-check-input" type="checkbox"
+                                                                        id="userBehaviorTrackingEnabled" <%=(typeof ad
+                                                                        !=='undefined' && ad.userBehaviorTrackingEnabled
+                                                                        !==false) ? 'checked' : '' %>>
+                                                                    <label class="form-check-label"
+                                                                        for="userBehaviorTrackingEnabled">Enable User
+                                                                        Behavior Tracking</label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- AdMob Integration Settings -->
+                                                    <div class="settings-section">
+                                                        <h5 class="mb-3"><i class="fas fa-ad me-2"></i>AdMob Integration
+                                                        </h5>
+
+                                                        <div class="form-check form-switch mb-3">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                id="useAdMob" <%=(typeof ad !=='undefined' &&
+                                                                ad.useAdMob===true) ? 'checked' : '' %>>
+                                                            <label class="form-check-label" for="useAdMob">Use AdMob for
+                                                                this ad</label>
+                                                        </div>
+
+                                                        <div class="row">
+                                                            <div class="col-md-6 mb-3">
+                                                                <label for="adMobAppId" class="form-label">AdMob App
+                                                                    ID</label>
+                                                                <input type="text" class="form-control" id="adMobAppId"
+                                                                    placeholder="ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy"
+                                                                    value="<%= typeof ad !== 'undefined' ? ad.adMobAppId : '' %>">
+                                                                <div class="form-text">AdMob App ID for this ad
+                                                                    (overrides default)</div>
+                                                            </div>
+                                                            <div class="col-md-6 mb-3">
+                                                                <label for="adMobUnitId" class="form-label">AdMob Unit
+                                                                    ID</label>
+                                                                <input type="text" class="form-control" id="adMobUnitId"
+                                                                    placeholder="ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy"
+                                                                    value="<%= typeof ad !== 'undefined' ? ad.adMobUnitId : '' %>">
+                                                                <div class="form-text">AdMob Unit ID for this ad
+                                                                    (overrides default)</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="d-grid gap-2 d-md-none">
+                                                        <button type="button" class="btn btn-primary ripple"
+                                                            id="saveAdButtonMobile">
+                                                            <i class="fas fa-save me-1"></i>
+                                                            <%= typeof ad !=='undefined' ? 'Update Ad' : 'Save Ad' %>
+                                                        </button>
+                                                        <button type="button" class="btn btn-secondary ripple"
+                                                            onclick="window.location.href='/ads'">
+                                                            <i class="fas fa-times me-1"></i> Cancel
+                                                        </button>
+                                                    </div>
+                                                    <div class="d-none d-md-flex justify-content-end gap-2 mt-4">
+                                                        <button type="button" class="btn btn-secondary ripple"
+                                                            onclick="window.location.href='/ads'">
+                                                            <i class="fas fa-times me-1"></i> Cancel
+                                                        </button>
+                                                        <button type="button" class="btn btn-primary ripple"
+                                                            id="saveAdButton">
+                                                            <i class="fas fa-save me-1"></i>
+                                                            <%= typeof ad !=='undefined' ? 'Update Ad' : 'Save Ad' %>
+                                                        </button>
+                                                    </div>
+                                                </form>
                                             </div>
                                         </div>
-                                        
-                                        <!-- AdMob Integration Settings -->
-                                        <div class="settings-section">
-                                            <h5 class="mb-3"><i class="fas fa-ad me-2"></i>AdMob Integration</h5>
-                                            
-                                            <div class="form-check form-switch mb-3">
-                                                <input class="form-check-input" type="checkbox" id="useAdMob" <%= (typeof ad !== 'undefined' && ad.useAdMob === true) ? 'checked' : '' %>>
-                                                <label class="form-check-label" for="useAdMob">Use AdMob for this ad</label>
-                                            </div>
-                                            
-                                            <div class="row">
-                                                <div class="col-md-6 mb-3">
-                                                    <label for="adMobAppId" class="form-label">AdMob App ID</label>
-                                                    <input type="text" class="form-control" id="adMobAppId" placeholder="ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy" value="<%= typeof ad !== 'undefined' ? ad.adMobAppId : '' %>">
-                                                    <div class="form-text">AdMob App ID for this ad (overrides default)</div>
-                                                </div>
-                                                <div class="col-md-6 mb-3">
-                                                    <label for="adMobUnitId" class="form-label">AdMob Unit ID</label>
-                                                    <input type="text" class="form-control" id="adMobUnitId" placeholder="ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy" value="<%= typeof ad !== 'undefined' ? ad.adMobUnitId : '' %>">
-                                                    <div class="form-text">AdMob Unit ID for this ad (overrides default)</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="d-grid gap-2 d-md-none">
-                                            <button type="button" class="btn btn-primary ripple" id="saveAdButtonMobile">
-                                                <i class="fas fa-save me-1"></i> <%= typeof ad !== 'undefined' ? 'Update Ad' : 'Save Ad' %>
-                                            </button>
-                                            <button type="button" class="btn btn-secondary ripple" onclick="window.location.href='/ads'">
-                                                <i class="fas fa-times me-1"></i> Cancel
-                                            </button>
-                                        </div>
-                                        <div class="d-none d-md-flex justify-content-end gap-2 mt-4">
-                                            <button type="button" class="btn btn-secondary ripple" onclick="window.location.href='/ads'">
-                                                <i class="fas fa-times me-1"></i> Cancel
-                                            </button>
-                                            <button type="button" class="btn btn-primary ripple" id="saveAdButton">
-                                                <i class="fas fa-save me-1"></i> <%= typeof ad !== 'undefined' ? 'Update Ad' : 'Save Ad' %>
-                                            </button>
-                                        </div>
-                                    </form>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                </div>
+            </div>
+
+            <!-- Crop Modal -->
+            <div class="crop-modal" id="cropModal">
+                <div class="crop-container">
+                    <div class="aspect-ratio-info">
+                        <h5><i class="fas fa-crop me-2"></i>Image Crop - 9:16 Ratio</h5>
+                    </div>
+                    <div class="crop-image-container">
+                        <img id="cropImage" src="" alt="Crop preview">
+                    </div>
+                    <div class="crop-controls">
+                        <button type="button" class="btn btn-secondary" id="cancelCrop">
+                            <i class="fas fa-times me-1"></i> Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary" id="applyCrop">
+                            <i class="fas fa-check me-1"></i> Crop & Upload
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Crop Modal -->
-    <div class="crop-modal" id="cropModal">
-        <div class="crop-container">
-            <div class="aspect-ratio-info">
-                <h5><i class="fas fa-crop me-2"></i>Image Crop - 9:16 Ratio</h5>
-            </div>
-            <div class="crop-image-container">
-                <img id="cropImage" src="" alt="Crop preview">
-            </div>
-            <div class="crop-controls">
-                <button type="button" class="btn btn-secondary" id="cancelCrop">
-                    <i class="fas fa-times me-1"></i> Cancel
-                </button>
-                <button type="button" class="btn btn-primary" id="applyCrop">
-                    <i class="fas fa-check me-1"></i> Crop & Upload
-                </button>
-            </div>
-        </div>
-    </div>
+            <%- include('partials/footer') %>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+                <script>
+                    // Current image index for carousel
+                    let currentImageIndex = 0;
+                    // Array to store all image URLs
+                    let imageUrls = [];
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
-    <script>
-        // Current image index for carousel
-        let currentImageIndex = 0;
-        // Array to store all image URLs
-        let imageUrls = [];
-        
-        // Initialize image URLs from hidden input
-        document.addEventListener('DOMContentLoaded', function() {
-            const imageUrlsInput = document.getElementById('imageUrls');
-            if (imageUrlsInput && imageUrlsInput.value) {
-                imageUrls = imageUrlsInput.value.split(',').filter(url => url.trim() !== '');
-            }
-            
-            // Update carousel if we have images
-            updateCarousel();
-        });
-        
-        // Add Ad Function
-        async function addAd() {
-            const adId = document.getElementById('adId').value;
-            const title = document.getElementById('title').value;
-            const content = document.getElementById('content').value;
-            const linkUrl = document.getElementById('linkUrl').value;
-            const positionInterval = document.getElementById('positionInterval').value;
-            const maxViewsPerDay = document.getElementById('maxViewsPerDay').value;
-            const cooldownPeriodHours = document.getElementById('cooldownPeriodHours').value;
-            const frequencyControlEnabled = document.getElementById('frequencyControlEnabled').checked;
-            const userBehaviorTrackingEnabled = document.getElementById('userBehaviorTrackingEnabled').checked;
-            
-            // AdMob fields
-            const useAdMob = document.getElementById('useAdMob').checked;
-            const adMobAppId = document.getElementById('adMobAppId').value;
-            const adMobUnitId = document.getElementById('adMobUnitId').value;
-            
-            // Validate required fields
-            if (!title) {
-                alert('Please enter a title');
-                return;
-            }
-            
-            // Get image URLs from the array
-            const imageUrl = imageUrls.length > 0 ? imageUrls[0] : '';
-            
-            const adData = {
-                title,
-                content,
-                imageUrl, // Keep for backward compatibility
-                imageUrls, // New field for multiple images
-                linkUrl,
-                positionInterval: parseInt(positionInterval),
-                maxViewsPerDay: parseInt(maxViewsPerDay),
-                cooldownPeriodHours: parseInt(cooldownPeriodHours),
-                frequencyControlEnabled,
-                userBehaviorTrackingEnabled,
-                // AdMob fields
-                useAdMob,
-                adMobAppId,
-                adMobUnitId
-            };
-            
-            try {
-                let response;
-                if (adId) {
-                    // Update existing ad
-                    response = await fetch(`/ads/ads/${adId}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(adData)
-                    });
-                } else {
-                    // Create new ad
-                    response = await fetch('/ads/ads', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(adData)
-                    });
-                }
-                
-                if (response.ok) {
-                    alert(adId ? 'Ad updated successfully!' : 'Ad created successfully!');
-                    window.location.href = '/ads';
-                } else {
-                    const errorData = await response.json();
-                    alert('Error: ' + (errorData.error || 'Failed to save ad'));
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Network error occurred while saving the ad');
-            }
-        }
-        
-        // Cropper instance
-        let cropper = null;
-        let currentFile = null;
-        let currentFileIndex = 0;
-        let filesToProcess = [];
-        
-        // Upload Images Function
-        document.getElementById('uploadImageButton').addEventListener('click', function() {
-            document.getElementById('imageUpload').click();
-        });
-        
-        document.getElementById('imageUpload').addEventListener('change', async function(event) {
-            const files = event.target.files;
-            if (!files || files.length === 0) return;
-            
-            // Store files to process
-            filesToProcess = Array.from(files);
-            currentFileIndex = 0;
-            
-            // Start processing first file
-            processNextFile();
-        });
-        
-        // Process next file in queue
-        function processNextFile() {
-            if (currentFileIndex >= filesToProcess.length) {
-                // All files processed
-                filesToProcess = [];
-                currentFileIndex = 0;
-                document.getElementById('imageUpload').value = ''; // Reset input
-                return;
-            }
-            
-            currentFile = filesToProcess[currentFileIndex];
-            
-            // Check if file is an image
-            if (!currentFile.type.startsWith('image/')) {
-                alert('Please select image files only');
-                currentFileIndex++;
-                processNextFile();
-                return;
-            }
-            
-            // Show crop modal
-            openCropModal(currentFile);
-        }
-        
-        // Open crop modal
-        function openCropModal(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const cropImage = document.getElementById('cropImage');
-                cropImage.src = e.target.result;
-                
-                // Show modal
-                document.getElementById('cropModal').classList.add('active');
-                
-                // Destroy existing cropper if any
-                if (cropper) {
-                    cropper.destroy();
-                }
-                
-                // Initialize cropper with 9:16 aspect ratio for YouTube Shorts/Instagram style
-                cropper = new Cropper(cropImage, {
-                    aspectRatio: 9 / 16, // Portrait 9:16 ratio for full screen display
-                    viewMode: 1,
-                    dragMode: 'move',
-                    autoCropArea: 1,
-                    restore: false,
-                    guides: true,
-                    center: true,
-                    highlight: false,
-                    cropBoxMovable: true,
-                    cropBoxResizable: true,
-                    toggleDragModeOnDblclick: false,
-                });
-            };
-            reader.readAsDataURL(file);
-        }
-        
-        // Cancel crop
-        document.getElementById('cancelCrop').addEventListener('click', function() {
-            closeCropModal();
-            // Skip to next file
-            currentFileIndex++;
-            processNextFile();
-        });
-        
-        // Apply crop and upload
-        document.getElementById('applyCrop').addEventListener('click', async function() {
-            if (!cropper) return;
-            
-            // Get cropped canvas with user's selected crop area (no forced dimensions)
-            const canvas = cropper.getCroppedCanvas({
-                imageSmoothingEnabled: true,
-                imageSmoothingQuality: 'high',
-            });
-            
-            // Convert canvas to blob
-            canvas.toBlob(async function(blob) {
-                // Create FormData for upload
-                const formData = new FormData();
-                formData.append('media', blob, currentFile.name);
-                
-                try {
-                    const response = await fetch('/news/upload-ad-media', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        // Add the new image URL to our array
-                        imageUrls.push(data.mediaUrl);
-                        // Update the hidden input
-                        document.getElementById('imageUrls').value = imageUrls.join(',');
-                        // Update the carousel
+                    // Initialize image URLs from hidden input
+                    document.addEventListener('DOMContentLoaded', function () {
+                        const imageUrlsInput = document.getElementById('imageUrls');
+                        if (imageUrlsInput && imageUrlsInput.value) {
+                            imageUrls = imageUrlsInput.value.split(',').filter(url => url.trim() !== '');
+                        }
+
+                        // Update carousel if we have images
                         updateCarousel();
-                        
-                        // Close modal
-                        closeCropModal();
-                        
-                        // Process next file
-                        currentFileIndex++;
-                        processNextFile();
-                    } else {
-                        const errorData = await response.json();
-                        alert('Error: ' + (errorData.error || 'Failed to upload image'));
-                        closeCropModal();
+                        setupMobileMenu();
+                    });
+
+                    // Add Ad Function
+                    async function saveAd() {
+                        const adId = document.getElementById('adId').value;
+                        const title = document.getElementById('title').value;
+                        const content = document.getElementById('content').value;
+                        const linkUrl = document.getElementById('linkUrl').value;
+                        const positionInterval = document.getElementById('positionInterval').value;
+                        const maxViewsPerDay = document.getElementById('maxViewsPerDay').value;
+                        const cooldownPeriodHours = document.getElementById('cooldownPeriodHours').value;
+                        const frequencyControlEnabled = document.getElementById('frequencyControlEnabled').checked;
+                        const userBehaviorTrackingEnabled = document.getElementById('userBehaviorTrackingEnabled').checked;
+
+                        // AdMob fields
+                        const useAdMob = document.getElementById('useAdMob').checked;
+                        const adMobAppId = document.getElementById('adMobAppId').value;
+                        const adMobUnitId = document.getElementById('adMobUnitId').value;
+
+                        // Validate required fields
+                        if (!title) {
+                            showFeedback('Please enter a title', 'error');
+                            return;
+                        }
+
+                        // Get image URLs from the array
+                        const imageUrl = imageUrls.length > 0 ? imageUrls[0] : '';
+
+                        const adData = {
+                            title,
+                            content,
+                            imageUrl, // Keep for backward compatibility
+                            imageUrls, // New field for multiple images
+                            linkUrl,
+                            positionInterval: parseInt(positionInterval),
+                            maxViewsPerDay: parseInt(maxViewsPerDay),
+                            cooldownPeriodHours: parseInt(cooldownPeriodHours),
+                            frequencyControlEnabled,
+                            userBehaviorTrackingEnabled,
+                            // AdMob fields
+                            useAdMob,
+                            adMobAppId,
+                            adMobUnitId
+                        };
+
+                        try {
+                            let response;
+                            if (adId) {
+                                response = await fetch(`/ads/ads/${adId}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify(adData)
+                                });
+                            } else {
+                                response = await fetch('/ads/ads', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify(adData)
+                                });
+                            }
+
+                            if (response.ok) {
+                                showFeedback(adId ? 'Ad updated successfully!' : 'Ad created successfully!', 'success');
+                                setTimeout(() => {
+                                    window.location.href = '/ads';
+                                }, 1500);
+                            } else {
+                                const errorData = await response.json();
+                                showFeedback('Error: ' + (errorData.error || 'Failed to save ad'), 'error');
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                            showFeedback('Network error occurred while saving the ad', 'error');
+                        }
                     }
-                } catch (error) {
-                    console.error('Upload error:', error);
-                    alert('Network error occurred while uploading the image');
-                    closeCropModal();
-                }
-            }, 'image/jpeg', 0.95); // High quality JPEG
-        });
-        
-        // Close crop modal
-        function closeCropModal() {
-            document.getElementById('cropModal').classList.remove('active');
-            if (cropper) {
-                cropper.destroy();
-                cropper = null;
-            }
-        }
-        
-        // Update carousel display
-        function updateCarousel() {
-            const carousel = document.getElementById('imagePreviewCarousel');
-            const indicatorsContainer = document.getElementById('imageIndicators');
-            
-            if (!carousel) return;
-            
-            // Clear existing content
-            carousel.innerHTML = '';
-            if (indicatorsContainer) {
-                indicatorsContainer.innerHTML = '';
-            }
-            
-            if (imageUrls.length === 0) {
-                // Show placeholder if no images
-                carousel.innerHTML = `
+
+                    // Cropper instance
+                    let cropper = null;
+                    let currentFile = null;
+                    let currentFileIndex = 0;
+                    let filesToProcess = [];
+
+                    // Upload Images Function
+                    const uploadImageButton = document.getElementById('uploadImageButton');
+                    if (uploadImageButton) {
+                        uploadImageButton.addEventListener('click', function () {
+                            document.getElementById('imageUpload').click();
+                        });
+                    }
+
+                    const imageUpload = document.getElementById('imageUpload');
+                    if (imageUpload) {
+                        imageUpload.addEventListener('change', async function (event) {
+                            const files = event.target.files;
+                            if (!files || files.length === 0) return;
+
+                            // Store files to process
+                            filesToProcess = Array.from(files);
+                            currentFileIndex = 0;
+
+                            // Start processing first file
+                            processNextFile();
+                        });
+                    }
+
+                    // Process next file in queue
+                    function processNextFile() {
+                        if (currentFileIndex >= filesToProcess.length) {
+                            filesToProcess = [];
+                            currentFileIndex = 0;
+                            const upload = document.getElementById('imageUpload');
+                            if (upload) upload.value = '';
+                            return;
+                        }
+
+                        currentFile = filesToProcess[currentFileIndex];
+                        if (!currentFile.type.startsWith('image/')) {
+                            showFeedback('Please select image files only', 'error');
+                            currentFileIndex++;
+                            processNextFile();
+                            return;
+                        }
+                        openCropModal(currentFile);
+                    }
+
+                    // Open crop modal
+                    function openCropModal(file) {
+                        const reader = new FileReader();
+                        reader.onload = function (e) {
+                            const cropImage = document.getElementById('cropImage');
+                            cropImage.src = e.target.result;
+                            document.getElementById('cropModal').classList.add('active');
+                            if (cropper) cropper.destroy();
+                            cropper = new Cropper(cropImage, {
+                                aspectRatio: 9 / 16,
+                                viewMode: 1,
+                                dragMode: 'move',
+                                autoCropArea: 1
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    }
+
+                    // Cancel crop
+                    const cancelCrop = document.getElementById('cancelCrop');
+                    if (cancelCrop) {
+                        cancelCrop.addEventListener('click', function () {
+                            closeCropModal();
+                            currentFileIndex++;
+                            processNextFile();
+                        });
+                    }
+
+                    // Apply crop and upload
+                    const applyCrop = document.getElementById('applyCrop');
+                    if (applyCrop) {
+                        applyCrop.addEventListener('click', async function () {
+                            if (!cropper) return;
+                            const canvas = cropper.getCroppedCanvas({
+                                imageSmoothingEnabled: true,
+                                imageSmoothingQuality: 'high',
+                            });
+                            canvas.toBlob(async function (blob) {
+                                const formData = new FormData();
+                                formData.append('media', blob, currentFile.name);
+                                try {
+                                    const response = await fetch('/news/upload-ad-media', {
+                                        method: 'POST',
+                                        body: formData
+                                    });
+                                    if (response.ok) {
+                                        const data = await response.json();
+                                        imageUrls.push(data.mediaUrl);
+                                        document.getElementById('imageUrls').value = imageUrls.join(',');
+                                        updateCarousel();
+                                        closeCropModal();
+                                        currentFileIndex++;
+                                        processNextFile();
+                                    } else {
+                                        const errorData = await response.json();
+                                        showFeedback('Error: ' + (errorData.error || 'Failed to upload image'), 'error');
+                                        closeCropModal();
+                                    }
+                                } catch (error) {
+                                    console.error('Upload error:', error);
+                                    showFeedback('Network error occurred while uploading the image', 'error');
+                                    closeCropModal();
+                                }
+                            }, 'image/jpeg', 0.95);
+                        });
+                    }
+
+                    // Close crop modal
+                    function closeCropModal() {
+                        document.getElementById('cropModal').classList.remove('active');
+                        if (cropper) {
+                            cropper.destroy();
+                            cropper = null;
+                        }
+                    }
+
+                    // Update carousel display
+                    function updateCarousel() {
+                        const carousel = document.getElementById('imagePreviewCarousel');
+                        const indicatorsContainer = document.getElementById('imageIndicators');
+                        if (!carousel) return;
+                        carousel.innerHTML = '';
+                        if (indicatorsContainer) indicatorsContainer.innerHTML = '';
+
+                        if (imageUrls.length === 0) {
+                            carousel.innerHTML = `
                     <div class="image-preview-item active" data-index="0">
-                        <img src="/images/placeholder.png" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmZmZmYiPkltYWdlIFVwbG9hZDwvdGV4dD48L3N2Zz4='" class="img-fluid rounded" alt="Image Preview">
+                        <img src="/images/placeholder.png" class="img-fluid rounded" alt="Image Preview">
                     </div>
                 `;
-                return;
-            }
-            
-            // Create image preview items
-            imageUrls.forEach(function(url, index) {
-                const isActive = index === 0 ? 'active' : '';
-                const item = document.createElement('div');
-                item.className = `image-preview-item ${isActive}`;
-                item.dataset.index = index;
-                item.innerHTML = `
+                            return;
+                        }
+
+                        imageUrls.forEach(function (url, index) {
+                            const isActive = index === 0 ? 'active' : '';
+                            const item = document.createElement('div');
+                            item.className = `image-preview-item ${isActive}`;
+                            item.dataset.index = index;
+                            item.innerHTML = `
                     <button type="button" class="remove-image-btn" onclick="removeImage(${index})">
                         <i class="fas fa-times"></i>
                     </button>
-                    <img src="${url}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmZmZmYiPkltYWdlIFVwbG9hZDwvdGV4dD48L3N2Zz4='" class="img-fluid rounded" alt="Image Preview">
+                    <img src="${url}" class="img-fluid rounded" alt="Image Preview">
                 `;
-                carousel.appendChild(item);
-                
-                // Create indicator
-                if (indicatorsContainer) {
-                    const indicator = document.createElement('div');
-                    indicator.className = `indicator ${isActive}`;
-                    indicator.dataset.index = index;
-                    indicator.onclick = function() { showImage(index); };
-                    indicatorsContainer.appendChild(indicator);
-                }
-            });
-            
-            // Add carousel controls if we have more than one image
-            if (imageUrls.length > 1) {
-                const prevBtn = document.createElement('button');
-                prevBtn.type = 'button';
-                prevBtn.className = 'carousel-controls carousel-prev';
-                prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
-                prevBtn.onclick = function() { changeImage(-1); };
-                carousel.appendChild(prevBtn);
-                
-                const nextBtn = document.createElement('button');
-                nextBtn.type = 'button';
-                nextBtn.className = 'carousel-controls carousel-next';
-                nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
-                nextBtn.onclick = function() { changeImage(1); };
-                carousel.appendChild(nextBtn);
-            }
-            
-            currentImageIndex = 0;
-        }
-        
-        // Change image in carousel
-        function changeImage(direction) {
-            if (imageUrls.length <= 1) return;
-            
-            // Update current index
-            currentImageIndex += direction;
-            if (currentImageIndex >= imageUrls.length) {
-                currentImageIndex = 0;
-            } else if (currentImageIndex < 0) {
-                currentImageIndex = imageUrls.length - 1;
-            }
-            
-            // Update display
-            showImage(currentImageIndex);
-        }
-        
-        // Show specific image
-        function showImage(index) {
-            const items = document.querySelectorAll('.image-preview-item');
-            const indicators = document.querySelectorAll('.indicator');
-            
-            // Hide all items and remove active class
-            items.forEach(item => item.classList.remove('active'));
-            indicators.forEach(indicator => indicator.classList.remove('active'));
-            
-            // Show selected item and add active class to indicator
-            if (items[index]) {
-                items[index].classList.add('active');
-            }
-            if (indicators[index]) {
-                indicators[index].classList.add('active');
-            }
-            
-            currentImageIndex = index;
-        }
-        
-        // Remove image
-        function removeImage(index) {
-            if (imageUrls.length <= 1) {
-                // If this is the last image, just clear the array
-                imageUrls = [];
-            } else {
-                // Remove the image at the specified index
-                imageUrls.splice(index, 1);
-                
-                // Adjust current index if needed
-                if (currentImageIndex >= imageUrls.length) {
-                    currentImageIndex = imageUrls.length - 1;
-                }
-            }
-            
-            // Update the hidden input
-            document.getElementById('imageUrls').value = imageUrls.join(',');
-            
-            // Update the carousel
-            updateCarousel();
-        }
-        
-        // Save button event listeners
-        document.getElementById('saveAdButton').addEventListener('click', addAd);
-        document.getElementById('saveAdButtonDesktop').addEventListener('click', addAd);
-        document.getElementById('saveAdButtonMobile').addEventListener('click', addAd);
-        document.getElementById('saveAdBtn').addEventListener('click', addAd);
-        
-        // Wait for DOM to be fully loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add ripple effect to buttons
-            addRippleEffect();
-            
-            // Mobile menu toggle
-            const menuToggle = document.getElementById('menuToggle');
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-            
-            if (menuToggle && sidebar) {
-                menuToggle.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    sidebar.classList.toggle('active');
-                    mainContent.classList.toggle('sidebar-active');
-                });
-            }
-            
-            // Close sidebar when clicking outside on mobile
-            document.addEventListener('click', function(event) {
-                if (window.innerWidth < 768 && 
-                    sidebar && sidebar.classList.contains('active') && 
-                    !sidebar.contains(event.target) && 
-                    event.target !== menuToggle && 
-                    !menuToggle.contains(event.target)) {
-                    sidebar.classList.remove('active');
-                    if (mainContent) {
-                        mainContent.classList.remove('sidebar-active');
-                    }
-                }
-            });
-            
-            // Close sidebar when clicking on sidebar links on mobile
-            const sidebarLinks = document.querySelectorAll('.sidebar a');
-            sidebarLinks.forEach(link => {
-                link.addEventListener('click', function() {
-                    if (window.innerWidth < 768 && sidebar) {
-                        sidebar.classList.remove('active');
-                        if (mainContent) {
-                            mainContent.classList.remove('sidebar-active');
+                            carousel.appendChild(item);
+                            if (indicatorsContainer) {
+                                const indicator = document.createElement('div');
+                                indicator.className = `indicator ${isActive}`;
+                                indicator.dataset.index = index;
+                                indicator.onclick = function () { showImage(index); };
+                                indicatorsContainer.appendChild(indicator);
+                            }
+                        });
+
+                        if (imageUrls.length > 1) {
+                            const prevBtn = document.createElement('button');
+                            prevBtn.type = 'button';
+                            prevBtn.className = 'carousel-controls carousel-prev';
+                            prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+                            prevBtn.onclick = function () { changeImage(-1); };
+                            carousel.appendChild(prevBtn);
+                            const nextBtn = document.createElement('button');
+                            nextBtn.type = 'button';
+                            nextBtn.className = 'carousel-controls carousel-next';
+                            nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+                            nextBtn.onclick = function () { changeImage(1); };
+                            carousel.appendChild(nextBtn);
                         }
+                        currentImageIndex = 0;
                     }
-                });
-            });
-        });
-        
-        // Add ripple effect to elements with "ripple" class
-        function addRippleEffect() {
-            const rippleElements = document.querySelectorAll('.ripple');
-            rippleElements.forEach(element => {
-                element.addEventListener('click', function(e) {
-                    // Remove any existing ripple
-                    const existingRipple = this.querySelector('.ripple-effect');
-                    if (existingRipple) {
-                        existingRipple.remove();
+
+                    // Change image in carousel
+                    function changeImage(direction) {
+                        if (imageUrls.length <= 1) return;
+                        currentImageIndex += direction;
+                        if (currentImageIndex >= imageUrls.length) currentImageIndex = 0;
+                        else if (currentImageIndex < 0) currentImageIndex = imageUrls.length - 1;
+                        showImage(currentImageIndex);
                     }
-                    
-                    // Create ripple
-                    const ripple = document.createElement('span');
-                    ripple.classList.add('ripple-effect');
-                    
-                    // Position ripple
-                    const rect = this.getBoundingClientRect();
-                    const size = Math.max(rect.width, rect.height);
-                    const x = e.clientX - rect.left - size / 2;
-                    const y = e.clientY - rect.top - size / 2;
-                    
-                    ripple.style.width = ripple.style.height = size + 'px';
-                    ripple.style.left = x + 'px';
-                    ripple.style.top = y + 'px';
-                    
-                    this.appendChild(ripple);
-                    
-                    // Remove ripple after animation
-                    setTimeout(() => {
-                        ripple.remove();
-                    }, 600);
-                });
-            });
-        }
-    </script>
+
+                    // Show specific image
+                    function showImage(index) {
+                        const items = document.querySelectorAll('.image-preview-item');
+                        const indicators = document.querySelectorAll('.indicator');
+                        items.forEach(item => item.classList.remove('active'));
+                        indicators.forEach(indicator => indicator.classList.remove('active'));
+                        if (items[index]) items[index].classList.add('active');
+                        if (indicators[index]) indicators[index].classList.add('active');
+                        currentImageIndex = index;
+                    }
+
+                    // Remove image
+                    window.removeImage = function (index) {
+                        if (imageUrls.length <= 1) imageUrls = [];
+                        else {
+                            imageUrls.splice(index, 1);
+                            if (currentImageIndex >= imageUrls.length) currentImageIndex = imageUrls.length - 1;
+                        }
+                        document.getElementById('imageUrls').value = imageUrls.join(',');
+                        updateCarousel();
+                    }
+
+                    // Save button event listeners
+                    const saveBtnIds = ['saveAdButton', 'saveAdButtonDesktop', 'saveAdButtonMobile', 'saveAdBtn'];
+                    saveBtnIds.forEach(id => {
+                        const btn = document.getElementById(id);
+                        if (btn) btn.addEventListener('click', saveAd);
+                    });
+
+                    // Mobile menu setup
+                    function setupMobileMenu() {
+                        const menuToggle = document.getElementById('menuToggle');
+                        const sidebar = document.getElementById('sidebar');
+                        const mainContent = document.getElementById('mainContent');
+
+                        if (menuToggle && sidebar) {
+                            menuToggle.addEventListener('click', function (e) {
+                                e.stopPropagation();
+                                sidebar.classList.toggle('active');
+                                mainContent.classList.toggle('sidebar-active');
+                            });
+                        }
+
+                        document.addEventListener('click', function (event) {
+                            if (window.innerWidth < 768 &&
+                                sidebar && sidebar.classList.contains('active') &&
+                                !sidebar.contains(event.target) &&
+                                event.target !== menuToggle &&
+                                !menuToggle.contains(event.target)) {
+                                sidebar.classList.remove('active');
+                                if (mainContent) mainContent.classList.remove('sidebar-active');
+                            }
+                        });
+                    }
+
+                    // Show feedback (Android-like snackbar)
+                    function showFeedback(message, type) {
+                        const existing = document.getElementById('feedback-toast');
+                        if (existing) existing.remove();
+
+                        const toast = document.createElement('div');
+                        toast.id = 'feedback-toast';
+                        toast.textContent = message;
+                        Object.assign(toast.style, {
+                            position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
+                            padding: '12px 24px', borderRadius: '4px', color: 'white', zIndex: '9999',
+                            backgroundColor: type === 'success' ? '#4CAF50' : (type === 'error' ? '#F44336' : '#2196F3'),
+                            transition: 'all 0.3s'
+                        });
+
+                        document.body.appendChild(toast);
+                        setTimeout(() => toast.remove(), 3000);
+                    }
+                </script>
+    </body>
+
+</html>
 </body>
+
 </html>

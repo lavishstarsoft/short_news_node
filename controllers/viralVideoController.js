@@ -1,4 +1,5 @@
 const ViralVideo = require('../models/ViralVideo');
+const { deleteFromR2 } = require('../config/cloudflare');
 
 // Get all viral videos
 exports.getAllViralVideos = async (req, res) => {
@@ -37,6 +38,14 @@ exports.createViralVideo = async (req, res) => {
 // Update viral video
 exports.updateViralVideo = async (req, res) => {
     try {
+        const existingVideo = await ViralVideo.findById(req.params.id);
+        if (existingVideo && req.body.videoUrl && req.body.videoUrl !== existingVideo.videoUrl) {
+            await deleteFromR2(existingVideo.videoUrl);
+            if (existingVideo.thumbnailUrl && existingVideo.thumbnailUrl !== existingVideo.videoUrl) {
+                await deleteFromR2(existingVideo.thumbnailUrl);
+            }
+        }
+
         const video = await ViralVideo.findByIdAndUpdate(
             req.params.id,
             req.body,
@@ -61,6 +70,14 @@ exports.deleteViralVideo = async (req, res) => {
 
         if (!video) {
             return res.status(404).json({ error: 'Video not found' });
+        }
+
+        // Delete from Cloudflare R2
+        if (video.videoUrl) {
+            await deleteFromR2(video.videoUrl);
+            if (video.thumbnailUrl && video.thumbnailUrl !== video.videoUrl) {
+                await deleteFromR2(video.thumbnailUrl);
+            }
         }
 
         res.json({ message: 'Video deleted successfully' });

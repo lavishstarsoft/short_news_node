@@ -1,14 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Register Editor - Short News Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/style.css">
+<%- include('partials/header', { title: 'Register Editor' }) %>
+
     <style>
         .register-container {
             max-width: 1200px;
@@ -106,135 +100,77 @@
             }
         }
     </style>
-</head>
+    </head>
 
-<body>
-    <!-- Mobile Top Navigation -->
-    <div class="top-nav d-md-none">
-        <button class="menu-toggle ripple" onclick="window.location.href='/'">
-            <i class="fas fa-arrow-left"></i>
-        </button>
-        <h1 class="page-title">Register Editor</h1>
-        <button class="menu-toggle ripple" onclick="window.location.href='/logout'">
-            <i class="fas fa-sign-out-alt"></i>
-        </button>
-    </div>
+    <body>
+        <%- include('partials/top-nav', { pageTitle: 'Register Editor' , backButton: true, backUrl: '/editors' }) %>
+            </div>
 
-    <!-- Desktop Navigation -->
-    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
-        <h1 class="page-title mb-0">Register Editor</h1>
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-light ripple" onclick="window.location.href='/'">
-                <i class="fas fa-tachometer-alt me-1"></i> Dashboard
-            </button>
-            <button class="btn btn-logout ripple" onclick="window.location.href='/logout'">
-                <i class="fas fa-sign-out-alt me-1"></i> Logout
-            </button>
-        </div>
-    </div>
+            <div class="container-fluid">
+                <div class="row">
+                    <!-- Sidebar - Hidden on mobile, visible on desktop -->
+                    <%- include('partials/sidebar', { activePage: 'register-editor' }) %>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar - Hidden on mobile, visible on desktop -->
-            <%- include('partials/sidebar', { activePage: 'register-editor' }) %>
-
-                <!-- Main Content -->
-                <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-                    <div class="content-area">
-                        <div class="card register-card">
-                            <div class="card-header register-header">
-                                <div class="text-center">
-                                    <h2><i class="fas fa-user-plus me-2"></i>Register New Editor</h2>
-                                    <p class="mb-0">Create a new editor account to contribute news articles</p>
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                <% if (typeof error !=='undefined' && error) { %>
-                                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                        <i class="fas fa-exclamation-circle me-2"></i>
-                                        <%= error %>
-                                            <button type="button" class="btn-close" data-bs-dismiss="alert"
-                                                aria-label="Close"></button>
+                        <!-- Main Content -->
+                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                            <div class="content-area">
+                                <div class="card register-card">
+                                    <div class="card-header register-header">
+                                        <div class="text-center">
+                                            <h2><i class="fas fa-user-plus me-2"></i>Register New Editor</h2>
+                                            <p class="mb-0">Create a new editor account to contribute news articles</p>
+                                        </div>
                                     </div>
-                                    <% } %>
-
-                                        <% if (typeof success !=='undefined' && success) { %>
-                                            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                                <i class="fas fa-check-circle me-2"></i>
-                                                <%= success %>
+                                    <div class="card-body">
+                                        <% if (typeof error !=='undefined' && error) { %>
+                                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                                <i class="fas fa-exclamation-circle me-2"></i>
+                                                <%= error %>
                                                     <button type="button" class="btn-close" data-bs-dismiss="alert"
                                                         aria-label="Close"></button>
                                             </div>
                                             <% } %>
 
-                                                <form id="registerEditorForm" action="/register-editor" method="POST">
-                                                    <div class="row">
-                                                        <div class="col-md-6 mb-3">
-                                                            <label for="username" class="form-label">Username</label>
-                                                            <input type="text" class="form-control" id="username"
-                                                                name="username" required>
-                                                        </div>
-                                                        <div class="col-md-6 mb-3">
-                                                            <label for="email" class="form-label">Email</label>
-                                                            <input type="email" class="form-control" id="email"
-                                                                name="email" required>
-                                                        </div>
+                                                <% if (typeof success !=='undefined' && success) { %>
+                                                    <div class="alert alert-success alert-dismissible fade show"
+                                                        role="alert">
+                                                        <i class="fas fa-check-circle me-2"></i>
+                                                        <%= success %>
+                                                            <button type="button" class="btn-close"
+                                                                data-bs-dismiss="alert" aria-label="Close"></button>
                                                     </div>
+                                                    <% } %>
 
-                                                        </button>
-                                                        <button type="submit" class="btn btn-register">
-                                                            <i class="fas fa-user-plus me-1"></i>Register Editor
-                                                        </button>
-                                                    </div>
-                                                </form>
+                                                        <form id="registerEditorForm" action="/register-editor"
+                                                            method="POST">
+                                                            <div class="row">
+                                                                <div class="col-md-6 mb-3">
+                                                                    <label for="username"
+                                                                        class="form-label">Username</label>
+                                                                    <input type="text" class="form-control"
+                                                                        id="username" name="username" required>
+                                                                </div>
+                                                                <div class="col-md-6 mb-3">
+                                                                    <label for="email" class="form-label">Email</label>
+                                                                    <input type="email" class="form-control" id="email"
+                                                                        name="email" required>
+                                                                </div>
+                                                            </div>
+
+                                                            </button>
+                                                            <button type="submit" class="btn btn-register">
+                                                                <i class="fas fa-user-plus me-1"></i>Register Editor
+                                                            </button>
+                                    </div>
+                                    </form>
+                                </div>
                             </div>
                         </div>
-                    </div>
                 </div>
-        </div>
-    </div>
+            </div>
+            </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Add ripple effect to elements with "ripple" class
-        document.addEventListener('DOMContentLoaded', function () {
-            const rippleElements = document.querySelectorAll('.ripple');
-            rippleElements.forEach(element => {
-                element.addEventListener('click', function (e) {
-                    // Remove any existing ripple
-                    const existingRipple = this.querySelector('.ripple-effect');
-                    if (existingRipple) {
-                        existingRipple.remove();
-                    }
-
-                    // Create ripple
-                    const ripple = document.createElement('span');
-                    ripple.classList.add('ripple-effect');
-
-                    // Position ripple
-                    const rect = this.getBoundingClientRect();
-                    const size = Math.max(rect.width, rect.height);
-                    const x = e.clientX - rect.left - size / 2;
-                    const y = e.clientY - rect.top - size / 2;
-
-                    ripple.style.width = ripple.style.height = size + 'px';
-                    ripple.style.left = x + 'px';
-                    ripple.style.top = y + 'px';
-
-                    this.appendChild(ripple);
-
-                    // Remove ripple after animation
-                    setTimeout(() => {
-                        ripple.remove();
-                    }, 600);
-                });
-            });
-        });
-    </script>
-
-    <!-- Global Admin Notifications -->
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/admin-notifications.js"></script>
-</body>
+            <%- include('partials/footer') %>
+    </body>
 
 </html>

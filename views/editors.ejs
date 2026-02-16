@@ -1,14 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Editors List - Short News Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/style.css">
+<%- include('partials/header', { title: 'Editors List' }) %>
+
     <style>
         .editors-container {
             max-width: 1200px;
@@ -107,278 +101,260 @@
             }
         }
     </style>
-</head>
+    </head>
 
-<body>
-    <!-- Mobile Top Navigation -->
-    <div class="top-nav d-md-none">
-        <button class="menu-toggle ripple" onclick="window.location.href='/'">
-            <i class="fas fa-arrow-left"></i>
-        </button>
-        <h1 class="page-title">Editors</h1>
-        <button class="menu-toggle ripple" onclick="window.location.href='/logout'">
-            <i class="fas fa-sign-out-alt"></i>
-        </button>
-    </div>
+    <body>
+        <%- include('partials/top-nav', { pageTitle: 'Editors Management' , backButton: true, backUrl: '/' }) %>
 
-    <!-- Desktop Navigation -->
-    <div class="top-nav d-none d-md-flex justify-content-between align-items-center">
-        <h1 class="page-title mb-0">Editors List</h1>
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-light ripple" onclick="window.location.href='/'">
-                <i class="fas fa-tachometer-alt me-1"></i> Dashboard
-            </button>
-            <button class="btn btn-logout ripple" onclick="window.location.href='/logout'">
-                <i class="fas fa-sign-out-alt me-1"></i> Logout
-            </button>
-        </div>
-    </div>
+            <div class="container-fluid">
+                <div class="row">
+                    <!-- Sidebar -->
+                    <%- include('partials/sidebar', { activePage: 'editors' }) %>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <%- include('partials/sidebar', { activePage: 'editors' }) %>
-
-                <!-- Main Content -->
-                <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-                    <div class="content-area mt-4">
-                        <div class="card editors-card">
-                            <div class="card-header editors-header">
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                    <div>
-                                        <h2 class="mb-0"><i class="fas fa-users-cog me-2"></i>Editors Management</h2>
-                                        <p class="mb-0 opacity-75">Manage reporter accounts and permissions</p>
+                        <!-- Main Content -->
+                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                            <div class="content-area mt-4">
+                                <div class="card editors-card">
+                                    <div class="card-header editors-header">
+                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                            <div>
+                                                <h2 class="mb-0"><i class="fas fa-users-cog me-2"></i>Editors Management
+                                                </h2>
+                                                <p class="mb-0 opacity-75">Manage reporter accounts and permissions</p>
+                                            </div>
+                                            <button class="btn btn-light ripple"
+                                                onclick="window.location.href='/register-editor'">
+                                                <i class="fas fa-user-plus me-1"></i>Register Editor
+                                            </button>
+                                        </div>
                                     </div>
-                                    <button class="btn btn-light ripple"
-                                        onclick="window.location.href='/register-editor'">
-                                        <i class="fas fa-user-plus me-1"></i>Register Editor
-                                    </button>
+                                    <div class="card-body">
+                                        <% if (editors && editors.length> 0) { %>
+                                            <div class="table-responsive">
+                                                <table class="table table-hover align-middle">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Reporter</th>
+                                                            <th>Contact</th>
+                                                            <th>Location</th>
+                                                            <th>Status</th>
+                                                            <th>Joined</th>
+                                                            <th class="text-end">Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <% editors.forEach(function(editor) { %>
+                                                            <tr id="editor-row-<%= editor._id %>">
+                                                                <td>
+                                                                    <div class="fw-bold">
+                                                                        <%= editor.name || editor.username %>
+                                                                    </div>
+                                                                    <div class="text-muted small">@<%= editor.username
+                                                                            %>
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <div>
+                                                                        <%= editor.email %>
+                                                                    </div>
+                                                                    <div class="small">
+                                                                        <%= editor.mobileNumber || '-' %>
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <div>
+                                                                        <%= editor.location || '-' %>
+                                                                    </div>
+                                                                    <div class="text-muted small">
+                                                                        <%= editor.constituency || '-' %>
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <span
+                                                                        class="badge <%= editor.isActive ? 'badge-active' : 'badge-inactive' %>">
+                                                                        <%= editor.isActive ? 'Active' : 'Inactive' %>
+                                                                    </span>
+                                                                </td>
+                                                                <td class="small">
+                                                                    <%= new Date(editor.createdAt).toLocaleDateString()
+                                                                        %>
+                                                                </td>
+                                                                <td class="text-end">
+                                                                    <div class="d-flex justify-content-end gap-1">
+                                                                        <button class="btn btn-sm btn-outline-primary"
+                                                                            onclick="openEditEditorModal('<%= editor._id %>')">
+                                                                            <i class="fas fa-edit"></i>
+                                                                        </button>
+                                                                        <button class="btn btn-sm btn-outline-danger"
+                                                                            onclick="deleteEditor('<%= editor._id %>')">
+                                                                            <i class="fas fa-trash"></i>
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                            <% }); %>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <script id="editorsData"
+                                                type="application/json"><%- JSON.stringify(editors) %></script>
+                                            <% } else { %>
+                                                <div class="text-center py-5">
+                                                    <i class="fas fa-users text-muted fa-3x mb-3"></i>
+                                                    <p class="text-muted">No editors registered yet.</p>
+                                                    <a href="/register-editor" class="btn btn-primary">Add First
+                                                        Editor</a>
+                                                </div>
+                                                <% } %>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="card-body">
-                                <% if (editors && editors.length> 0) { %>
-                                    <div class="table-responsive">
-                                        <table class="table table-hover align-middle">
-                                            <thead>
-                                                <tr>
-                                                    <th>Reporter</th>
-                                                    <th>Contact</th>
-                                                    <th>Location</th>
-                                                    <th>Status</th>
-                                                    <th>Joined</th>
-                                                    <th class="text-end">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <% editors.forEach(function(editor) { %>
-                                                    <tr id="editor-row-<%= editor._id %>">
-                                                        <td>
-                                                            <div class="fw-bold">
-                                                                <%= editor.name || editor.username %>
-                                                            </div>
-                                                            <div class="text-muted small">@<%= editor.username %>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <div>
-                                                                <%= editor.email %>
-                                                            </div>
-                                                            <div class="small">
-                                                                <%= editor.mobileNumber || '-' %>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <div>
-                                                                <%= editor.location || '-' %>
-                                                            </div>
-                                                            <div class="text-muted small">
-                                                                <%= editor.constituency || '-' %>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <span
-                                                                class="badge <%= editor.isActive ? 'badge-active' : 'badge-inactive' %>">
-                                                                <%= editor.isActive ? 'Active' : 'Inactive' %>
-                                                            </span>
-                                                        </td>
-                                                        <td class="small">
-                                                            <%= new Date(editor.createdAt).toLocaleDateString() %>
-                                                        </td>
-                                                        <td class="text-end">
-                                                            <div class="d-flex justify-content-end gap-1">
-                                                                <button class="btn btn-sm btn-outline-primary"
-                                                                    onclick="openEditEditorModal('<%= editor._id %>')">
-                                                                    <i class="fas fa-edit"></i>
-                                                                </button>
-                                                                <button class="btn btn-sm btn-outline-danger"
-                                                                    onclick="deleteEditor('<%= editor._id %>')">
-                                                                    <i class="fas fa-trash"></i>
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                    <% }); %>
-                                            </tbody>
-                                        </table>
+                        </div>
+                </div>
+            </div>
+
+            <!-- Edit Editor Modal -->
+            <div class="modal fade" id="editEditorModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-user-edit me-2"></i>Edit Editor Details</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="editEditorForm">
+                                <input type="hidden" id="editEditorId">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Full Name</label>
+                                        <input type="text" class="form-control" id="editName">
                                     </div>
-                                    <script id="editorsData"
-                                        type="application/json"><%- JSON.stringify(editors) %></script>
-                                    <% } else { %>
-                                        <div class="text-center py-5">
-                                            <i class="fas fa-users text-muted fa-3x mb-3"></i>
-                                            <p class="text-muted">No editors registered yet.</p>
-                                            <a href="/register-editor" class="btn btn-primary">Add First Editor</a>
-                                        </div>
-                                        <% } %>
-                            </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Display Role</label>
+                                        <input type="text" class="form-control" id="editDisplayRole"
+                                            placeholder="e.g. Senior Reporter">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Location</label>
+                                        <select class="form-select" id="editLocation">
+                                            <option value="">Select Location</option>
+                                            <% locations.forEach(function(loc) { %>
+                                                <option value="<%= loc.name %>">
+                                                    <%= loc.name %>
+                                                </option>
+                                                <% }); %>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Constituency</label>
+                                        <input type="text" class="form-control" id="editConstituency">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Mobile Number</label>
+                                        <input type="text" class="form-control" id="editMobile">
+                                    </div>
+                                </div>
+                                <div class="d-grid mt-3">
+                                    <button type="submit" class="btn btn-primary text-white">Save Changes</button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
-        </div>
-    </div>
-
-    <!-- Edit Editor Modal -->
-    <div class="modal fade" id="editEditorModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-user-edit me-2"></i>Edit Editor Details</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="editEditorForm">
-                        <input type="hidden" id="editEditorId">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Full Name</label>
-                                <input type="text" class="form-control" id="editName">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Display Role</label>
-                                <input type="text" class="form-control" id="editDisplayRole"
-                                    placeholder="e.g. Senior Reporter">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Location</label>
-                                <select class="form-select" id="editLocation">
-                                    <option value="">Select Location</option>
-                                    <% locations.forEach(function(loc) { %>
-                                        <option value="<%= loc.name %>">
-                                            <%= loc.name %>
-                                        </option>
-                                        <% }); %>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Constituency</label>
-                                <input type="text" class="form-control" id="editConstituency">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Mobile Number</label>
-                                <input type="text" class="form-control" id="editMobile">
-                            </div>
-                        </div>
-                        <div class="d-grid mt-3">
-                            <button type="submit" class="btn btn-primary text-white">Save Changes</button>
-                        </div>
-                    </form>
-                </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Feedback Message -->
-    <div id="feedbackMessage" class="feedback-message"></div>
+            <!-- Feedback Message -->
+            <div id="feedbackMessage" class="feedback-message"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        let editors = [];
+            <%- include('partials/footer') %>
+                <script>
+                    let editors = [];
 
-        document.addEventListener('DOMContentLoaded', function () {
-            const dataScript = document.getElementById('editorsData');
-            if (dataScript) {
-                try {
-                    editors = JSON.parse(dataScript.textContent);
-                } catch (e) {
-                    console.error('Error parsing editors data:', e);
-                }
-            }
-        });
-
-        // Open Edit Modal
-        function openEditEditorModal(editorId) {
-            const editor = editors.find(e => e._id === editorId);
-            if (!editor) {
-                showFeedback('Editor data not found', 'error');
-                return;
-            }
-
-            document.getElementById('editEditorId').value = editor._id;
-            document.getElementById('editName').value = editor.name || '';
-            document.getElementById('editDisplayRole').value = editor.displayRole || '';
-            document.getElementById('editLocation').value = editor.location || '';
-            document.getElementById('editConstituency').value = editor.constituency || '';
-            document.getElementById('editMobile').value = editor.mobileNumber || '';
-
-            const modal = new bootstrap.Modal(document.getElementById('editEditorModal'));
-            modal.show();
-        }
-
-        // Handle Edit Form Submit
-        document.getElementById('editEditorForm').addEventListener('submit', function (e) {
-            e.preventDefault();
-            const id = document.getElementById('editEditorId').value;
-            const data = {
-                name: document.getElementById('editName').value,
-                displayRole: document.getElementById('editDisplayRole').value,
-                location: document.getElementById('editLocation').value,
-                constituency: document.getElementById('editConstituency').value,
-                mobileNumber: document.getElementById('editMobile').value
-            };
-
-            fetch(`/editors/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            })
-                .then(res => res.json())
-                .then(result => {
-                    if (result.error) {
-                        showFeedback(result.error, 'error');
-                    } else {
-                        showFeedback(result.message, 'success');
-                        bootstrap.Modal.getInstance(document.getElementById('editEditorModal')).hide();
-                        setTimeout(() => location.reload(), 1000);
-                    }
-                })
-                .catch(err => showFeedback('Update failed', 'error'));
-        });
-
-        // Delete Editor
-        function deleteEditor(id) {
-            if (confirm('Are you sure you want to delete this editor?')) {
-                fetch(`/editors/${id}`, { method: 'DELETE' })
-                    .then(res => res.json())
-                    .then(result => {
-                        if (result.error) {
-                            showFeedback(result.error, 'error');
-                        } else {
-                            showFeedback('Editor deleted', 'success');
-                            document.getElementById(`editor-row-${id}`).remove();
+                    document.addEventListener('DOMContentLoaded', function () {
+                        const dataScript = document.getElementById('editorsData');
+                        if (dataScript) {
+                            try {
+                                editors = JSON.parse(dataScript.textContent);
+                            } catch (e) {
+                                console.error('Error parsing editors data:', e);
+                            }
                         }
-                    })
-                    .catch(err => showFeedback('Delete failed', 'error'));
-            }
-        }
+                    });
 
-        function showFeedback(message, type) {
-            const feedback = document.getElementById('feedbackMessage');
-            feedback.textContent = message;
-            feedback.className = 'feedback-message ' + type + ' show';
-            setTimeout(() => feedback.classList.remove('show'), 3000);
-        }
-    </script>
-</body>
+                    // Open Edit Modal
+                    function openEditEditorModal(editorId) {
+                        const editor = editors.find(e => e._id === editorId);
+                        if (!editor) {
+                            showFeedback('Editor data not found', 'error');
+                            return;
+                        }
+
+                        document.getElementById('editEditorId').value = editor._id;
+                        document.getElementById('editName').value = editor.name || '';
+                        document.getElementById('editDisplayRole').value = editor.displayRole || '';
+                        document.getElementById('editLocation').value = editor.location || '';
+                        document.getElementById('editConstituency').value = editor.constituency || '';
+                        document.getElementById('editMobile').value = editor.mobileNumber || '';
+
+                        const modal = new bootstrap.Modal(document.getElementById('editEditorModal'));
+                        modal.show();
+                    }
+
+                    // Handle Edit Form Submit
+                    document.getElementById('editEditorForm').addEventListener('submit', function (e) {
+                        e.preventDefault();
+                        const id = document.getElementById('editEditorId').value;
+                        const data = {
+                            name: document.getElementById('editName').value,
+                            displayRole: document.getElementById('editDisplayRole').value,
+                            location: document.getElementById('editLocation').value,
+                            constituency: document.getElementById('editConstituency').value,
+                            mobileNumber: document.getElementById('editMobile').value
+                        };
+
+                        fetch(`/editors/${id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        })
+                            .then(res => res.json())
+                            .then(result => {
+                                if (result.error) {
+                                    showFeedback(result.error, 'error');
+                                } else {
+                                    showFeedback(result.message, 'success');
+                                    bootstrap.Modal.getInstance(document.getElementById('editEditorModal')).hide();
+                                    setTimeout(() => location.reload(), 1000);
+                                }
+                            })
+                            .catch(err => showFeedback('Update failed', 'error'));
+                    });
+
+                    // Delete Editor
+                    function deleteEditor(id) {
+                        if (confirm('Are you sure you want to delete this editor?')) {
+                            fetch(`/editors/${id}`, { method: 'DELETE' })
+                                .then(res => res.json())
+                                .then(result => {
+                                    if (result.error) {
+                                        showFeedback(result.error, 'error');
+                                    } else {
+                                        showFeedback('Editor deleted', 'success');
+                                        document.getElementById(`editor-row-${id}`).remove();
+                                    }
+                                })
+                                .catch(err => showFeedback('Delete failed', 'error'));
+                        }
+                    }
+
+                    function showFeedback(message, type) {
+                        const feedback = document.getElementById('feedbackMessage');
+                        feedback.textContent = message;
+                        feedback.className = 'feedback-message ' + type + ' show';
+                        setTimeout(() => feedback.classList.remove('show'), 3000);
+                    }
+                </script>
+    </body>
 
 </html>

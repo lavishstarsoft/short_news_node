@@ -2,6 +2,7 @@ const Category = require('../models/Category');
 const News = require('../models/News');
 const path = require('path');
 const fs = require('fs');
+const { deleteFromR2 } = require('../config/cloudflare');
 
 // Get all categories
 exports.getAllCategories = async (req, res) => {
@@ -185,6 +186,10 @@ exports.updateCategory = async (req, res) => {
 
       // Handle image upload if provided
       if (req.file) {
+        // Delete old image from Cloudflare R2 if it exists and is different
+        if (category.imageUrl && category.imageUrl !== req.file.path && !category.imageUrl.includes('default-category.png')) {
+          await deleteFromR2(category.imageUrl);
+        }
         console.log('Category Update (MongoDB) - File path:', req.file.path);
         category.imageUrl = req.file.path;
       }
@@ -256,6 +261,11 @@ exports.deleteCategory = async (req, res) => {
         return res.status(400).json({
           error: `Cannot delete category. It has ${newsCount} associated news articles. Please reassign or delete the news first.`
         });
+      }
+
+      // Delete media from Cloudflare R2
+      if (category.imageUrl && !category.imageUrl.includes('default-category.png')) {
+        await deleteFromR2(category.imageUrl);
       }
 
       await Category.findByIdAndDelete(req.params.id);

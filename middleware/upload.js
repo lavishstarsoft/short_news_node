@@ -1,156 +1,137 @@
 const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('../config/cloudinary');
+const sharp = require('sharp');
+const { PutObjectCommand } = require('@aws-sdk/client-s3');
+const { Upload } = require('@aws-sdk/lib-storage');
+const { s3Client, bucketName, publicUrl } = require('../config/cloudflare');
+const path = require('path');
+const crypto = require('crypto');
 
-// Image upload storage configuration
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'short_news_images',
-        allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-        transformation: [
-            { width: 1080, height: 1560, crop: 'fill', gravity: 'auto' }, // 9:13 aspect ratio
-            { quality: 'auto', fetch_format: 'auto' } // Optimization
-        ]
+// Use memory storage to process files before uploading to R2
+const memoryStorage = multer.memoryStorage();
+
+/**
+ * Helper function to upload buffer to Cloudflare R2
+ */
+const uploadToR2 = async (buffer, folder, originalName, mimetype) => {
+    let fileExtension = path.extname(originalName) || `.${mimetype.split('/')[1]}`;
+
+    // Force .webp if we processed it to webp
+    if (mimetype === 'image/webp' && fileExtension !== '.webp') {
+        fileExtension = '.webp';
     }
-});
 
-// Category-specific media storage (Square crop for circular icons)
-const categoryMediaStorageConfig = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'short_news_categories',
-        resource_type: 'image',
-        allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-        transformation: [
-            { width: 500, height: 500, crop: 'fill', gravity: 'auto' }, // 1:1 Square aspect ratio
-            { quality: 'auto', fetch_format: 'auto' }
-        ]
+    const fileName = `${crypto.randomBytes(16).toString('hex')}${fileExtension}`;
+    const key = `${folder}/${fileName}`;
+
+    try {
+        const upload = new Upload({
+            client: s3Client,
+            params: {
+                Bucket: bucketName,
+                Key: key,
+                Body: buffer,
+                ContentType: mimetype,
+            },
+        });
+
+        await upload.done();
+        return `${publicUrl}/${key}`;
+    } catch (error) {
+        console.error('Error uploading to Cloudflare R2:', error);
+        throw new Error('Failed to upload file to storage');
     }
-});
+};
 
-// Video upload storage configuration
-const videoStorage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'short_news_videos',
-        resource_type: 'video',
-        allowed_formats: ['mp4', 'mov', 'avi', 'mkv'],
-    }
-});
+/**
+ * Creates a middleware factory that mimics multer's interface but adds Sharp and R2 processing
+ */
+const createMulterR2Interface = (options = {}) => {
+    const {
+        folder = 'general',
+        width,
+        height,
+        resize = false,
+        limitSize = 10 * 1024 * 1024
+    } = options;
 
-// General media storage (can handle both conceptually, but CloudinaryStorage params are specific)
-// We'll create a smart middleware that decides based on file type if possible, 
-// OR we just declare two separate multer instances.
-// Since CloudinaryStorage forces resource_type in params (default image), 
-// we likely need separate uploaders or a hybrid approach if using the same route.
-// However, the CloudinaryStorage `params` can be a function.
+    const multerInstance = multer({
+        storage: memoryStorage,
+        limits: { fileSize: limitSize }
+    });
 
-const mediaStorageConfig = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: async (req, file) => {
-        if (file.mimetype.startsWith('video/')) {
-            return {
-                folder: 'short_news_videos',
-                resource_type: 'video',
-                allowed_formats: ['mp4', 'mov', 'avi', 'mkv'],
-                // NO synchronous transformation - upload raw video first
-                // All transformations happen in background to avoid timeout
-                eager: [
-                    { width: 480, crop: 'limit', video_codec: 'h264', quality: 'auto:low', format: 'mp4' },   // 480p
-                    { width: 720, crop: 'limit', video_codec: 'h264', quality: 'auto:good', format: 'mp4' },  // 720p
-                ],
-                eager_async: true,  // Generate in background (prevents 502 timeout)
-                format: 'mp4'       // Standard MP4 format
+    return {
+        single: (fieldName) => {
+            const middleware = multerInstance.single(fieldName);
+            return (req, res, next) => {
+                middleware(req, res, async (err) => {
+                    if (err) return res.status(400).json({ error: err.message });
+                    if (!req.file) return next();
+
+                    try {
+                        let buffer = req.file.buffer;
+                        let mimetype = req.file.mimetype;
+                        let folderName = folder;
+
+                        // Image processing with Sharp
+                        if (mimetype.startsWith('image/')) {
+                            let sharpInstance = sharp(buffer);
+                            if (resize && width && height) {
+                                sharpInstance = sharpInstance.resize(width, height, { fit: 'cover' });
+                            }
+                            buffer = await sharpInstance.webp({ quality: 80 }).toBuffer();
+                            mimetype = 'image/webp';
+                        } else if (mimetype.startsWith('video/')) {
+                            // Automatically switch to video folder if it's a video and we were in images
+                            folderName = folder === 'short_news_images' ? 'short_news_videos' : folder;
+                        }
+
+                        req.file.path = await uploadToR2(buffer, folderName, req.file.originalname, mimetype);
+                        next();
+                    } catch (error) {
+                        console.error('Processing/Upload error:', error);
+                        res.status(500).json({ error: error.message });
+                    }
+                });
             };
-        } else {
-            return {
-                folder: 'short_news_images',
-                resource_type: 'image',
-                allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-                transformation: [
-                    { width: 1080, height: 1560, crop: 'fill', gravity: 'auto' },
-                    { quality: 'auto', fetch_format: 'auto' }
-                ]
-            };
-        }
-    }
+        },
+        // Add array, fields, etc. if ever used in the project
+        array: (fieldName, maxCount) => multerInstance.array(fieldName, maxCount),
+        fields: (fields) => multerInstance.fields(fields)
+    };
+};
+
+// Exported interfaces that match the project's usage
+const upload = createMulterR2Interface({
+    folder: 'short_news_images',
+    width: 1080,
+    height: 1560,
+    resize: true
 });
 
-
-// Middleware for single image upload
-const upload = multer({
-    storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+const uploadMedia = createMulterR2Interface({
+    folder: 'short_news_images', // Will auto-switch for videos in logic above
+    width: 1080,
+    height: 1560,
+    resize: true,
+    limitSize: 50 * 1024 * 1024
 });
 
-// Middleware for media upload (image or video)
-const uploadMedia = multer({
-    storage: mediaStorageConfig,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB (increased for videos)
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only image and video files are allowed!'), false);
-        }
-    }
+const uploadAdMedia = createMulterR2Interface({
+    folder: 'short_news_ads',
+    resize: false, // Optimization only
+    limitSize: 50 * 1024 * 1024
 });
 
-// Ad-specific media storage (NO transformation - preserves exact crop from admin)
-const adMediaStorageConfig = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: async (req, file) => {
-        if (file.mimetype.startsWith('video/')) {
-            return {
-                folder: 'short_news_ads',
-                resource_type: 'video',
-                allowed_formats: ['mp4', 'mov', 'avi', 'mkv']
-            };
-        } else {
-            return {
-                folder: 'short_news_ads',
-                resource_type: 'image',
-                allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-                // NO transformation - preserves exact crop from admin (9:16 ratio)
-                transformation: [
-                    { quality: 'auto', fetch_format: 'auto' } // Only optimization, no resizing
-                ]
-            };
-        }
-    }
-});
-
-// Middleware for ad media upload (preserves exact dimensions from admin crop)
-const uploadAdMedia = multer({
-    storage: adMediaStorageConfig,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only image and video files are allowed!'), false);
-        }
-    }
-});
-
-
-// Middleware for category media upload (enforces square crop)
-const uploadCategoryMedia = multer({
-    storage: categoryMediaStorageConfig,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith('image/')) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only image files are allowed for categories!'), false);
-        }
-    }
+const uploadCategoryMedia = createMulterR2Interface({
+    folder: 'short_news_categories',
+    width: 500,
+    height: 500,
+    resize: true
 });
 
 module.exports = {
     upload,
     uploadMedia,
     uploadAdMedia,
-    uploadCategoryMedia // New: For categories - square crop
+    uploadCategoryMedia
 };
