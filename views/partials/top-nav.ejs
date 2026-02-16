@@ -14,12 +14,21 @@
                     <%= typeof pageTitle !=='undefined' ? pageTitle : 'Dashboard' %>
                 </h1>
                 <div class="mobile-header-icons">
-                    <button class="menu-toggle ripple" onclick="window.location.href='/admin/profile';">
-                        <i class="fas fa-user"></i>
-                    </button>
-                    <button class="menu-toggle ripple" onclick="window.location.href='/add-news';">
-                        <i class="fas fa-plus"></i>
-                    </button>
+                    <% if (typeof actions !=='undefined' && actions && actions.length> 0) { %>
+                        <% actions.forEach(function(action) { %>
+                            <button class="menu-toggle ripple" id="<%= action.id %>Mobile"
+                                onclick="window.location.href='<%= action.url %>';">
+                                <i class="<%= action.icon %>"></i>
+                            </button>
+                            <% }); %>
+                                <% } else { %>
+                                    <button class="menu-toggle ripple" onclick="window.location.href='/admin/profile';">
+                                        <i class="fas fa-user"></i>
+                                    </button>
+                                    <button class="menu-toggle ripple" onclick="window.location.href='/add-news';">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <% } %>
                 </div>
 </div>
 
@@ -29,11 +38,22 @@
         <%= typeof pageTitle !=='undefined' ? pageTitle : 'Dashboard' %>
     </h1>
     <div class="d-flex gap-2">
-        <button class="btn btn-outline-primary ripple" onclick="window.location.href='/admin/profile';">
-            <i class="fas fa-user me-1"></i> Profile
-        </button>
-        <button class="btn btn-primary ripple" onclick="window.location.href='/add-news';">
-            <i class="fas fa-plus me-1"></i> Add News
-        </button>
+        <% if (typeof actions !=='undefined' && actions && actions.length> 0) { %>
+            <% actions.forEach(function(action) { %>
+                <button class="btn <%= action.class || 'btn-primary' %> ripple" id="<%= action.id %>"
+                    onclick="window.location.href='<%= action.url %>';">
+                    <% if (action.icon) { %><i class="<%= action.icon %> me-1"></i>
+                        <% } %>
+                            <%= action.text %>
+                </button>
+                <% }); %>
+                    <% } else { %>
+                        <button class="btn btn-outline-primary ripple" onclick="window.location.href='/admin/profile';">
+                            <i class="fas fa-user me-1"></i> Profile
+                        </button>
+                        <button class="btn btn-primary ripple" onclick="window.location.href='/add-news';">
+                            <i class="fas fa-plus me-1"></i> Add News
+                        </button>
+                        <% } %>
     </div>
 </div>

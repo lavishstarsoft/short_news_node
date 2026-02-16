@@ -15,5 +15,6 @@ router.put('/ads/:id/toggle-status', requireAuth, adController.toggleAdStatus);
 
 // Public API route for fetching active ads
 router.get('/api/public/ads', adController.getActiveAds);
+router.post('/record-interaction', adController.recordAdInteraction);
 
 module.exports = router;

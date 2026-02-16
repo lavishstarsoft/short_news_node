@@ -347,6 +347,14 @@ async function renderEditNewsPage(req, res) {
 // Create new news (include author information)
 async function createNews(req, res) {
   try {
+    // Validation
+    if (req.body.title && req.body.title.length > 55) {
+      return res.status(400).json({ error: 'Title cannot exceed 55 characters' });
+    }
+    if (req.body.content && req.body.content.length > 220) {
+      return res.status(400).json({ error: 'Content cannot exceed 220 characters' });
+    }
+
     // Add author information and explicit timestamp to the news
     const newsData = {
       ...req.body,
@@ -481,6 +489,14 @@ async function updateNews(req, res) {
     // Check if editor is trying to update someone else's news
     if (req.admin.role === 'editor' && existingNews.authorId !== req.admin.id) {
       return res.status(403).json({ error: 'Access denied. You can only update your own news.' });
+    }
+
+    // Validation
+    if (req.body.title && req.body.title.length > 55) {
+      return res.status(400).json({ error: 'Title cannot exceed 55 characters' });
+    }
+    if (req.body.content && req.body.content.length > 220) {
+      return res.status(400).json({ error: 'Content cannot exceed 220 characters' });
     }
 
     // Add author information to the update (in case it's missing)

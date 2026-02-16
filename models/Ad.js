@@ -22,6 +22,7 @@ const adSchema = new mongoose.Schema({
   useAdMob: { type: Boolean, default: false }, // Enable AdMob for this ad
   adMobAppId: { type: String }, // AdMob App ID
   adMobUnitId: { type: String }, // AdMob Unit ID
+  priority: { type: String, enum: ['high', 'medium', 'low'], default: 'medium' }, // Ad priority
 });
 
 module.exports = mongoose.model('Ad', adSchema);

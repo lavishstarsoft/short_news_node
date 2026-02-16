@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 const newsSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  content: { type: String, required: true },
+  title: { type: String, required: true, maxlength: 55 },
+  content: { type: String, required: true, maxlength: 220 },
   imageUrl: { type: String }, // Keep for backward compatibility
   mediaUrl: { type: String }, // New field for both images and videos
   mediaType: { type: String, enum: ['image', 'video'] }, // New field to specify media type

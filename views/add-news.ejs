@@ -67,13 +67,20 @@
                                                         <input type="text" class="form-control" id="title"
                                                             placeholder="Enter news title"
                                                             value="<%= typeof news !== 'undefined' ? news.title : '' %>"
-                                                            required>
+                                                            maxlength="55" oninput="updateCount('title', 55)" required>
+                                                        <div class="form-text text-end">
+                                                            <span id="titleCount">0</span>/55 characters
+                                                        </div>
                                                     </div>
                                                     <div class="mb-3">
                                                         <label for="content" class="form-label">Content</label>
                                                         <textarea class="form-control" id="content" rows="6"
-                                                            placeholder="Enter news content"
+                                                            placeholder="Enter news content" maxlength="220"
+                                                            oninput="updateCount('content', 220)"
                                                             required><%= typeof news !== 'undefined' ? news.content : '' %></textarea>
+                                                        <div class="form-text text-end">
+                                                            <span id="contentCount">0</span>/220 characters
+                                                        </div>
                                                     </div>
 
                                                     <!-- Media Upload Section -->
@@ -228,6 +235,16 @@
                             return;
                         }
 
+                        if (title.length > 55) {
+                            showFeedback('Title cannot exceed 55 characters', 'error');
+                            return;
+                        }
+
+                        if (content.length > 220) {
+                            showFeedback('Content cannot exceed 220 characters', 'error');
+                            return;
+                        }
+
                         const newsData = {
                             title,
                             content,
@@ -304,6 +321,10 @@
                             const btn = document.getElementById(id);
                             if (btn) btn.addEventListener('click', saveNews);
                         });
+
+                        // Initialize character counts
+                        updateCount('title', 55);
+                        updateCount('content', 220);
 
                         // Initial media preview
                         const mediaType = document.getElementById('mediaType').value;
@@ -532,6 +553,23 @@
 
                         document.body.appendChild(toast);
                         setTimeout(() => toast.remove(), 3000);
+                    }
+
+                    // Update character count
+                    function updateCount(id, max) {
+                        const input = document.getElementById(id);
+                        const countSpan = document.getElementById(id + 'Count');
+                        if (input && countSpan) {
+                            const current = input.value.length;
+                            countSpan.textContent = current;
+                            if (current >= max) {
+                                countSpan.style.color = '#F44336';
+                                countSpan.style.fontWeight = 'bold';
+                            } else {
+                                countSpan.style.color = '';
+                                countSpan.style.fontWeight = '';
+                            }
+                        }
                     }
                 </script>
     </body>

@@ -132,6 +132,34 @@
             margin-bottom: 15px;
             text-align: center;
         }
+
+        /* Safe Area Indicator */
+        .cropper-container {
+            position: relative;
+        }
+
+        .safe-area-box {
+            position: absolute;
+            top: 5%;
+            left: 5%;
+            width: 90%;
+            height: 90%;
+            border: 2px dashed rgba(255, 255, 255, 0.6);
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .safe-area-box::after {
+            content: 'Safe Area';
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
     </style>
     </head>
 
@@ -210,19 +238,27 @@
                                                     <div class="mb-3">
                                                         <label for="positionInterval" class="form-label">Position
                                                             Interval</label>
-                                                        <select class="form-control" id="positionInterval">
-                                                            <option value="3" <%=(typeof ad !=='undefined' &&
-                                                                ad.positionInterval==3) ? 'selected' : '' %>>Every 3rd
-                                                                news item</option>
-                                                            <option value="5" <%=(typeof ad !=='undefined' &&
-                                                                ad.positionInterval==5) ? 'selected' : '' %>>Every 5th
-                                                                news item</option>
-                                                            <option value="10" <%=(typeof ad !=='undefined' &&
-                                                                ad.positionInterval==10) ? 'selected' : '' %>>Every 10th
-                                                                news item</option>
-                                                        </select>
+                                                        <input type="number" class="form-control" id="positionInterval"
+                                                            min="1" max="100" placeholder="e.g., 3"
+                                                            value="<%= typeof ad !== 'undefined' ? ad.positionInterval : 3 %>">
                                                         <div class="form-text">Position where the ad should appear in
-                                                            the news feed</div>
+                                                            the news feed (e.g., every 5th news item)</div>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="priority" class="form-label">Ad Priority</label>
+                                                        <select class="form-select" id="priority">
+                                                            <option value="high" <%=(typeof ad !=='undefined' &&
+                                                                ad.priority==='high' ) ? 'selected' : '' %>>High (Shown
+                                                                first)</option>
+                                                            <option value="medium" <%=(typeof ad !=='undefined' &&
+                                                                (ad.priority==='medium' || !ad.priority)) ? 'selected'
+                                                                : '' %>>Medium</option>
+                                                            <option value="low" <%=(typeof ad !=='undefined' &&
+                                                                ad.priority==='low' ) ? 'selected' : '' %>>Low</option>
+                                                        </select>
+                                                        <div class="form-text">If multiple ads are due at the same
+                                                            position, high priority ads are shown first.</div>
                                                     </div>
 
                                                     <!-- Intelligent Ad Settings -->
@@ -353,6 +389,10 @@
                     <div class="crop-image-container">
                         <img id="cropImage" src="" alt="Crop preview">
                     </div>
+                    <div class="text-center mt-2">
+                        <small class="text-muted">Important content should stay inside the "Safe Area" dashed
+                            lines.</small>
+                    </div>
                     <div class="crop-controls">
                         <button type="button" class="btn btn-secondary" id="cancelCrop">
                             <i class="fas fa-times me-1"></i> Cancel
@@ -395,6 +435,7 @@
                         const cooldownPeriodHours = document.getElementById('cooldownPeriodHours').value;
                         const frequencyControlEnabled = document.getElementById('frequencyControlEnabled').checked;
                         const userBehaviorTrackingEnabled = document.getElementById('userBehaviorTrackingEnabled').checked;
+                        const priority = document.getElementById('priority').value;
 
                         // AdMob fields
                         const useAdMob = document.getElementById('useAdMob').checked;
@@ -421,6 +462,7 @@
                             cooldownPeriodHours: parseInt(cooldownPeriodHours),
                             frequencyControlEnabled,
                             userBehaviorTrackingEnabled,
+                            priority,
                             // AdMob fields
                             useAdMob,
                             adMobAppId,
@@ -523,7 +565,16 @@
                                 aspectRatio: 9 / 16,
                                 viewMode: 1,
                                 dragMode: 'move',
-                                autoCropArea: 1
+                                autoCropArea: 1,
+                                ready() {
+                                    // Add safe area box to cropper
+                                    const cropperBox = document.querySelector('.cropper-crop-box');
+                                    if (cropperBox && !document.querySelector('.safe-area-box')) {
+                                        const safeArea = document.createElement('div');
+                                        safeArea.className = 'safe-area-box';
+                                        cropperBox.appendChild(safeArea);
+                                    }
+                                }
                             });
                         };
                         reader.readAsDataURL(file);
@@ -545,6 +596,8 @@
                         applyCrop.addEventListener('click', async function () {
                             if (!cropper) return;
                             const canvas = cropper.getCroppedCanvas({
+                                width: 1080,
+                                height: 1920,
                                 imageSmoothingEnabled: true,
                                 imageSmoothingQuality: 'high',
                             });

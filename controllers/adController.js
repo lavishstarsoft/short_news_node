@@ -128,6 +128,21 @@ async function createAd(req, res) {
 // Update ad
 async function updateAd(req, res) {
   try {
+    const { id } = req.params;
+    let ad;
+
+    // Fetch existing ad first
+    if (req.app.locals.isConnectedToMongoDB) {
+      ad = await Ad.findById(id);
+    } else {
+      const adsData = req.app.locals.adsData || [];
+      ad = adsData.find(a => a._id === id);
+    }
+
+    if (!ad) {
+      return res.status(404).json({ error: 'Ad not found' });
+    }
+
     // Handle multiple images
     const updateData = {
       ...req.body,
@@ -140,42 +155,43 @@ async function updateAd(req, res) {
     updateData.frequencyControlEnabled = updateData.frequencyControlEnabled !== undefined ? updateData.frequencyControlEnabled : true;
     updateData.userBehaviorTrackingEnabled = updateData.userBehaviorTrackingEnabled !== undefined ? updateData.userBehaviorTrackingEnabled : true;
 
+    // If we have imageUrls array, ensure imageUrl field is set to first image
+    if (updateData.imageUrls && updateData.imageUrls.length > 0) {
+      updateData.imageUrl = updateData.imageUrls[0];
+    }
+
     // If image is being updated, delete the old image from Cloudflare R2
     if (updateData.imageUrl && ad.imageUrl && updateData.imageUrl !== ad.imageUrl) {
-      await deleteFromR2(ad.imageUrl);
+      // Check if the old image is used in the new imageUrls list before deleting
+      const isStillUsed = updateData.imageUrls && updateData.imageUrls.includes(ad.imageUrl);
+      if (!isStillUsed) {
+        await deleteFromR2(ad.imageUrl);
+      }
     }
 
     // Also handle imageUrls array if provided (delete elements not in new list)
     if (updateData.imageUrls && ad.imageUrls) {
-      const oldImages = ad.imageUrls.filter(img => !updateData.imageUrls.includes(img));
+      const oldImages = ad.imageUrls.filter(img => !updateData.imageUrls.includes(img) && img !== updateData.imageUrl);
       for (const img of oldImages) {
         await deleteFromR2(img);
       }
     }
 
     if (req.app.locals.isConnectedToMongoDB) {
-      ad = await Ad.findByIdAndUpdate(req.params.id, updateData, { new: true });
+      ad = await Ad.findByIdAndUpdate(id, updateData, { new: true });
     } else {
       // Use in-memory storage
       const adsData = req.app.locals.adsData || [];
-      const adIndex = adsData.findIndex(a => a._id === req.params.id);
-
-      if (adIndex === -1) {
-        return res.status(404).json({ error: 'Ad not found' });
-      }
-
+      const adIndex = adsData.findIndex(a => a._id === id);
       adsData[adIndex] = { ...adsData[adIndex], ...updateData };
       req.app.locals.adsData = adsData;
       ad = adsData[adIndex];
     }
 
-    if (!ad) {
-      return res.status(404).json({ error: 'Ad not found' });
-    }
-
     res.json(ad);
   } catch (error) {
-    res.status(400).json({ error: 'Error updating ad' });
+    console.error('Error updating ad:', error);
+    res.status(400).json({ error: 'Error updating ad: ' + error.message });
   }
 }
 
@@ -276,6 +292,32 @@ async function getActiveAds(req, res) {
   }
 }
 
+// Record ad interaction (view or click)
+async function recordAdInteraction(req, res) {
+  try {
+    const { adId, adTitle, interactionType, viewDurationSeconds, platform } = req.body;
+
+    if (!adId || !interactionType) {
+      return res.status(400).json({ error: 'adId and interactionType are required' });
+    }
+
+    const interaction = new AdInteraction({
+      adId,
+      adTitle,
+      interactionType,
+      viewDurationSeconds: viewDurationSeconds || 0,
+      platform,
+      timestamp: new Date()
+    });
+
+    await interaction.save();
+    res.status(201).json({ message: 'Interaction recorded successfully' });
+  } catch (error) {
+    console.error('Error recording ad interaction:', error);
+    res.status(500).json({ error: 'Error recording ad interaction' });
+  }
+}
+
 // Export all functions
 module.exports = {
   renderAdsListPage,
@@ -285,5 +327,6 @@ module.exports = {
   updateAd,
   deleteAd,
   toggleAdStatus,
-  getActiveAds
+  getActiveAds,
+  recordAdInteraction
 };
