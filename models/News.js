@@ -21,6 +21,7 @@ const newsSchema = new mongoose.Schema({
   readFullLink: { type: String }, // Custom link for "Read Full Article" button
   ePaperLink: { type: String }, // Custom link for "ePaper" button
   videoUrl: { type: String }, // External video URL (YouTube, Instagram, Vimeo, etc.)
+  shortId: { type: String, unique: true }, // Short ID for Fact Check (cbnys.co/XXXXXX)
 
   // New fields for storing user interaction details
   userInteractions: {
@@ -55,6 +56,15 @@ const newsSchema = new mongoose.Schema({
       timestamp: { type: Date, default: Date.now }
     }]
   }
+});
+
+// Pre-save hook to generate shortId if not provided
+newsSchema.pre('save', function (next) {
+  if (!this.shortId) {
+    const idStr = this._id.toString();
+    this.shortId = idStr.length > 6 ? idStr.substring(idStr.length - 6) : idStr;
+  }
+  next();
 });
 
 module.exports = mongoose.model('News', newsSchema);

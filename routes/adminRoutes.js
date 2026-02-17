@@ -49,4 +49,7 @@ router.post('/api/notifications/received', adminController.requireAuth, adminCon
 // OneSignal analytics route
 router.get('/api/onesignal/analytics', adminController.requireAuth, adminController.getOneSignalAnalytics);
 
+// Cloudflare R2 Usage route
+router.get('/r2-usage', adminController.requireAuth, adminController.renderR2UsagePage);
+
 module.exports = router;

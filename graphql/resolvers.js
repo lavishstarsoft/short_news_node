@@ -67,6 +67,38 @@ const resolvers = {
             }
         },
 
+        newsByShortId: async (_, { shortId }) => {
+            try {
+                const news = await News.findOne({ shortId });
+                if (!news) return null;
+
+                return {
+                    id: news._id.toString(),
+                    title: news.title,
+                    content: news.content,
+                    category: news.category,
+                    location: news.location,
+                    imageUrl: news.mediaUrl || news.imageUrl || '/images/placeholder.png',
+                    mediaUrl: news.mediaUrl || news.imageUrl,
+                    mediaType: news.mediaType || 'image',
+                    thumbnailUrl: news.thumbnailUrl || news.mediaUrl || news.imageUrl,
+                    isActive: news.isActive !== false,
+                    publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
+                    views: news.userInteractions?.views?.length || news.views || 0,
+                    likes: news.userInteractions?.likes?.length || news.likes || 0,
+                    dislikes: news.userInteractions?.dislikes?.length || news.dislikes || 0,
+                    author: news.author,
+                    authorId: news.authorId,
+                    shortId: news.shortId,
+                    userInteractions: news.userInteractions,
+                    comments: news.userInteractions?.comments?.length || 0
+                };
+            } catch (error) {
+                console.error('Error fetching news by shortId:', error);
+                throw new Error('Failed to fetch news');
+            }
+        },
+
         // Category queries (with Redis caching - 30 minutes TTL)
         categories: async () => {
             try {
@@ -243,7 +275,8 @@ const resolvers = {
                     views: news.views || 0,
                     likes: news.likes || 0,
                     author: news.author,
-                    authorId: news.authorId
+                    authorId: news.authorId,
+                    shortId: news.shortId || (news._id.toString().length > 6 ? news._id.toString().substring(news._id.toString().length - 6) : news._id.toString())
                 }));
             } catch (error) {
                 console.error('Error fetching news by editor:', error);
@@ -275,6 +308,7 @@ const resolvers = {
                     dislikes: news.userInteractions?.dislikes?.length || news.dislikes || 0,
                     author: news.author,
                     authorId: news.authorId,
+                    shortId: news.shortId || (news._id.toString().length > 6 ? news._id.toString().substring(news._id.toString().length - 6) : news._id.toString()),
                     userInteractions: news.userInteractions,
                     comments: news.userInteractions?.comments?.length || 0
                 };

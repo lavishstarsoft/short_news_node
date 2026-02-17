@@ -194,6 +194,14 @@
                                                                                         <% } %>
                                                                             </div>
                                                                             <% } %>
+                                                                                <!-- Short ID badge -->
+                                                                                <div
+                                                                                    style="position: absolute; bottom: 10px; right: 10px; background: rgba(255, 255, 255, 0.9); color: #333; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; border: 1px solid #ddd;">
+                                                                                    cbnys.co/<%= news.shortId ||
+                                                                                        (news._id.toString().length> 6 ?
+                                                                                        news._id.toString().substring(news._id.toString().length
+                                                                                        - 6) : news._id.toString()) %>
+                                                                                </div>
                                                                                 <!-- Active status indicator -->
                                                                                 <div
                                                                                     style="position: absolute; top: 10px; right: 10px;">
@@ -321,6 +329,7 @@
                                             <span id="newsDetailLocation" class="badge bg-success"></span>
                                             <span id="newsDetailDate" class="badge bg-secondary"></span>
                                             <span id="newsDetailStatus" class="badge bg-info"></span>
+                                            <span id="newsDetailShortId" class="badge bg-dark"></span>
                                         </div>
                                         <p id="newsDetailContent" class="mb-4"></p>
                                     </div>
@@ -495,6 +504,10 @@
                             document.getElementById('newsDetailDate').textContent = new Date(newsItem.publishedAt).toLocaleString();
                             document.getElementById('newsDetailStatus').textContent = newsItem.isActive ? 'Active' : 'Inactive';
                             document.getElementById('newsDetailStatus').className = `badge ${newsItem.isActive ? 'bg-success' : 'bg-secondary'}`;
+
+                            // Short ID
+                            const shortId = newsItem.shortId || (newsItem._id.toString().length > 6 ? newsItem._id.toString().substring(newsItem._id.toString().length - 6) : newsItem._id.toString());
+                            document.getElementById('newsDetailShortId').textContent = `Fact Check ID: cbnys.co/${shortId}`;
                             document.getElementById('newsDetailLikes').textContent = newsItem.likes || 0;
                             document.getElementById('newsDetailDislikes').textContent = newsItem.dislikes || 0;
                             document.getElementById('newsDetailCommentsCount').textContent = newsItem.comments || 0;

@@ -1445,6 +1445,164 @@ async function getUserById(req, res) {
   }
 }
 
+// Render R2 Usage Page
+async function renderR2UsagePage(req, res) {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) {
+      return res.redirect('/login');
+    }
+
+    const axios = require('axios');
+    const moment = require('moment');
+
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+
+    if (!accountId || !apiToken) {
+      return res.render('r2-usage', {
+        admin,
+        error: 'Cloudflare credentials not configured',
+        usageData: null,
+        activePage: 'r2-usage',
+        currentStorage: 0,
+        classAOps: 0,
+        classBOps: 0,
+        estimatedCost: 0,
+        dailyOps: {},
+        dailyStorage: {}
+      });
+    }
+
+    // Prepare GraphQL query for R2 usage
+    const query = `
+      query GetR2Usage($accountId: String!, $filter: R2UsageGroupsFilter_InputObject!) {
+        viewer {
+          accounts(filter: { accountTag: $accountId }) {
+            r2OperationsAdaptiveGroups(
+              limit: 1000
+              filter: $filter
+              orderBy: [datetime_ASC]
+            ) {
+              dimensions {
+                datetime
+                actionType
+              }
+              sum {
+                requests
+              }
+            }
+            r2StorageAdaptiveGroups(
+              limit: 1000
+              filter: $filter
+              orderBy: [datetime_ASC]
+            ) {
+              dimensions {
+                datetime
+              }
+              payloadSize
+            }
+          }
+        }
+      }
+    `;
+
+    const now = moment();
+    const startDate = moment().subtract(30, 'days').format('YYYY-MM-DDTHH:mm:ssZ');
+    const endDate = now.format('YYYY-MM-DDTHH:mm:ssZ');
+
+    const variables = {
+      accountId: accountId,
+      filter: {
+        datetime_geq: startDate,
+        datetime_leq: endDate
+      }
+    };
+
+    const response = await axios({
+      url: 'https://api.cloudflare.com/client/v4/graphql',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiToken}`,
+        'Content-Type': 'application/json'
+      },
+      data: {
+        query,
+        variables
+      }
+    });
+
+    if (response.data.errors) {
+      console.error('Cloudflare GraphQL Errors:', response.data.errors);
+      throw new Error('Cloudflare API error');
+    }
+
+    const account = response.data.data.viewer.accounts[0];
+    const opsData = account.r2OperationsAdaptiveGroups || [];
+    const storageData = account.r2StorageAdaptiveGroups || [];
+
+    // Process Operations
+    let classAOps = 0;
+    let classBOps = 0;
+    const dailyOps = {};
+
+    opsData.forEach(group => {
+      const date = moment(group.dimensions.datetime).format('YYYY-MM-DD');
+      const action = (group.dimensions.actionType || '').toLowerCase();
+      const requests = group.sum.requests || 0;
+
+      if (!dailyOps[date]) dailyOps[date] = { a: 0, b: 0 };
+
+      if (['putobject', 'copyobject', 'listobjects', 'completeMultipartUpload', 'createMultipartUpload', 'uploadpart'].some(a => action.includes(a.toLowerCase()))) {
+        classAOps += requests;
+        dailyOps[date].a += requests;
+      } else {
+        classBOps += requests;
+        dailyOps[date].b += requests;
+      }
+    });
+
+    // Process Storage
+    const dailyStorage = {};
+    let currentStorage = 0;
+    storageData.forEach(group => {
+      const date = moment(group.dimensions.datetime).format('YYYY-MM-DD');
+      const sizeGB = (group.payloadSize || 0) / (1024 * 1024 * 1024);
+      dailyStorage[date] = sizeGB;
+      currentStorage = sizeGB;
+    });
+
+    // Cost Estimation
+    const freeStorage = 10;
+    const freeClassA = 1000000;
+    const freeClassB = 10000000;
+
+    const billableStorage = Math.max(0, currentStorage - freeStorage);
+    const billableClassA = Math.max(0, classAOps - freeClassA);
+    const billableClassB = Math.max(0, classBOps - freeClassB);
+
+    const estimatedCost = (billableStorage * 0.015) +
+      (billableClassA / 1000000 * 4.50) +
+      (billableClassB / 1000000 * 0.36);
+
+    res.render('r2-usage', {
+      admin,
+      activePage: 'r2-usage',
+      currentStorage: currentStorage.toFixed(4),
+      classAOps,
+      classBOps,
+      estimatedCost: estimatedCost.toFixed(2),
+      dailyOps,
+      dailyStorage,
+      error: null
+    });
+
+  } catch (error) {
+    console.error('R2 Usage render error:', error);
+    res.status(500).send('Error loading R2 usage dashboard: ' + error.message);
+  }
+}
+
 module.exports = {
   renderLoginPage,
   login,
@@ -1476,5 +1634,6 @@ module.exports = {
   markNotificationReceived,
   renderOneSignalAnalyticsPage,
   getOneSignalAnalytics,
-  updateProfileImage
+  updateProfileImage,
+  renderR2UsagePage
 };

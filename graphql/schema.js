@@ -53,6 +53,7 @@ const typeDefs = gql`
     authorConstituency: String
     readFullLink: String
     ePaperLink: String
+    shortId: String
     createdAt: String
     updatedAt: String
   }
@@ -106,6 +107,7 @@ const typeDefs = gql`
     # News queries
     news(limit: Int, offset: Int, category: String, location: String): [News!]!
     newsById(id: ID!): News
+    newsByShortId(shortId: String!): News
     
     # Category queries
     categories: [Category!]!

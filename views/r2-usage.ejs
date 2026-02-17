@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<%- include('partials/header', { title: 'R2 Usage Dashboard' }) %>
+
+    <style>
+        .stats-card {
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            border: none;
+            transition: transform 0.3s ease;
+        }
+
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+
+        .bg-soft-primary {
+            background-color: rgba(13, 110, 253, 0.1);
+            color: #0d6efd;
+        }
+
+        .bg-soft-success {
+            background-color: rgba(25, 135, 84, 0.1);
+            color: #198754;
+        }
+
+        .bg-soft-warning {
+            background-color: rgba(255, 193, 7, 0.1);
+            color: #ffc107;
+        }
+
+        .bg-soft-info {
+            background-color: rgba(13, 202, 240, 0.1);
+            color: #0dcaf0;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+    </style>
+
+    <body>
+        <%- include('partials/top-nav', { pageTitle: 'R2 Usage Dashboard' }) %>
+
+            <div class="container-fluid">
+                <div class="row">
+                    <!-- Sidebar -->
+                    <%- include('partials/sidebar', { activePage: 'r2-usage' }) %>
+
+                        <!-- Main Content -->
+                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                            <div
+                                class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                                <h1 class="h2">Cloudflare R2 Usage & Cost</h1>
+                                <div class="btn-toolbar mb-2 mb-md-0">
+                                    <div class="btn-group me-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            onclick="location.reload()">
+                                            <i class="fas fa-sync-alt me-1"></i> Refresh
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <% if (error) { %>
+                                <div class="alert alert-danger" role="alert">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <%= error %>
+                                </div>
+                                <% } %>
+
+                                    <!-- Stats Overview -->
+                                    <div class="row mb-4">
+                                        <div class="col-md-3">
+                                            <div class="card stats-card p-3">
+                                                <div class="card-icon bg-soft-primary">
+                                                    <i class="fas fa-database"></i>
+                                                </div>
+                                                <h6 class="text-muted mb-1">Current Storage</h6>
+                                                <h3 class="fw-bold mb-0">
+                                                    <%= currentStorage %> <small class="fs-6 text-muted">GB</small>
+                                                </h3>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card stats-card p-3">
+                                                <div class="card-icon bg-soft-success">
+                                                    <i class="fas fa-upload"></i>
+                                                </div>
+                                                <h6 class="text-muted mb-1">Class A Operations</h6>
+                                                <h3 class="fw-bold mb-0">
+                                                    <%= classAOps.toLocaleString() %>
+                                                </h3>
+                                                <small class="text-muted">Writes, Lists, etc.</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card stats-card p-3">
+                                                <div class="card-icon bg-soft-info">
+                                                    <i class="fas fa-download"></i>
+                                                </div>
+                                                <h6 class="text-muted mb-1">Class B Operations</h6>
+                                                <h3 class="fw-bold mb-0">
+                                                    <%= classBOps.toLocaleString() %>
+                                                </h3>
+                                                <small class="text-muted">Reads, Heads, etc.</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card stats-card p-3"
+                                                style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); color: white;">
+                                                <div class="card-icon"
+                                                    style="background: rgba(255,255,255,0.2); color: white;">
+                                                    <i class="fas fa-dollar-sign"></i>
+                                                </div>
+                                                <h6 class="mb-1 opacity-75">Estimated Monthly Cost</h6>
+                                                <h3 class="fw-bold mb-0">$<%= estimatedCost %>
+                                                </h3>
+                                                <small class="opacity-75">Based on R2 Pricing</small>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Charts -->
+                                    <div class="row">
+                                        <div class="col-lg-8">
+                                            <div class="card stats-card mb-4">
+                                                <div class="card-header bg-white py-3">
+                                                    <h5 class="card-title mb-0">Operations Trend (30 Days)</h5>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="chart-container">
+                                                        <canvas id="opsChart"></canvas>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <div class="card stats-card mb-4">
+                                                <div class="card-header bg-white py-3">
+                                                    <h5 class="card-title mb-0">Storage Growth</h5>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="chart-container">
+                                                        <canvas id="storageChart"></canvas>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Pricing Information Footer -->
+                                    <div class="alert alert-info border-0 shadow-sm mt-3" role="alert">
+                                        <h5 class="alert-heading"><i class="fas fa-info-circle me-2"></i>R2 Free Tier
+                                            (Monthly)</h5>
+                                        <ul class="mb-0">
+                                            <li><strong>Storage:</strong> First 10 GB/month FREE ($0.015/GB thereafter)
+                                            </li>
+                                            <li><strong>Class A Operations:</strong> First 1,000,000 requests/month FREE
+                                                ($4.50/million thereafter)</li>
+                                            <li><strong>Class B Operations:</strong> First 10,000,000 requests/month
+                                                FREE ($0.36/million thereafter)</li>
+                                            <li><strong>Egress:</strong> $0 - R2 has NO egress fees!</li>
+                                        </ul>
+                                    </div>
+                        </div>
+                </div>
+            </div>
+
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/moment"></script>
+
+            <script>
+                // Data from server
+                const dailyOps = <% - JSON.stringify(dailyOps) %>;
+                const dailyStorage = <% - JSON.stringify(dailyStorage) %>;
+
+                const labels = Object.keys(dailyOps).sort();
+                const classAData = labels.map(date => dailyOps[date].a);
+                const classBData = labels.map(date => dailyOps[date].b);
+
+                const storageLabels = Object.keys(dailyStorage).sort();
+                const storageData = storageLabels.map(date => dailyStorage[date]);
+
+                // Operations Chart
+                const opsCtx = document.getElementById('opsChart').getContext('2d');
+                new Chart(opsCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Class A Operations',
+                                data: classAData,
+                                backgroundColor: '#0d6efd',
+                                borderRadius: 4
+                            },
+                            {
+                                label: 'Class B Operations',
+                                data: classBData,
+                                backgroundColor: '#0dcaf0',
+                                borderRadius: 4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true, beginAtZero: true }
+                        },
+                        plugins: {
+                            legend: { position: 'top' }
+                        }
+                    }
+                });
+
+                // Storage Chart
+                const storageCtx = document.getElementById('storageChart').getContext('2d');
+                new Chart(storageCtx, {
+                    type: 'line',
+                    data: {
+                        labels: storageLabels,
+                        datasets: [{
+                            label: 'Storage (GB)',
+                            data: storageData,
+                            borderColor: '#198754',
+                            backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            </script>
+
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+
+</html>
