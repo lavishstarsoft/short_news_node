@@ -12,6 +12,16 @@ const LiveStream = require('../models/LiveStream');
 // Import GraphQL cache utility
 const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = require('./cache');
 
+/**
+ * Helper to ensure media URLs are absolute
+ */
+const getAbsoluteUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    const baseUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://cbnyellowsingam.in';
+    return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
 const resolvers = {
     Query: {
         // News queries (with Redis caching - 5 minutes TTL)
@@ -92,10 +102,10 @@ const resolvers = {
                     content: news.content,
                     category: news.category,
                     location: news.location,
-                    imageUrl: news.mediaUrl || news.imageUrl || '/images/placeholder.png',
-                    mediaUrl: news.mediaUrl || news.imageUrl,
+                    imageUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl) || '/images/placeholder.png',
+                    mediaUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl),
                     mediaType: news.mediaType || 'image',
-                    thumbnailUrl: news.thumbnailUrl || news.mediaUrl || news.imageUrl,
+                    thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
                     isActive: news.isActive !== false,
                     publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
                     views: news.userInteractions?.views?.length || news.views || 0,
@@ -280,10 +290,10 @@ const resolvers = {
                     content: news.content,
                     category: news.category,
                     location: news.location,
-                    imageUrl: news.mediaUrl || news.imageUrl || '/images/placeholder.png',
-                    mediaUrl: news.mediaUrl || news.imageUrl,
+                    imageUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl) || '/images/placeholder.png',
+                    mediaUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl),
                     mediaType: news.mediaType || 'image',
-                    thumbnailUrl: news.thumbnailUrl || news.mediaUrl || news.imageUrl,
+                    thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
                     isActive: news.isActive !== false,
                     publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
                     views: news.views || 0,
@@ -311,10 +321,10 @@ const resolvers = {
                     content: news.content,
                     category: news.category,
                     location: news.location,
-                    imageUrl: news.mediaUrl || news.imageUrl || '/images/placeholder.png',
-                    mediaUrl: news.mediaUrl || news.imageUrl,
+                    imageUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl) || '/images/placeholder.png',
+                    mediaUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl),
                     mediaType: news.mediaType || 'image',
-                    thumbnailUrl: news.thumbnailUrl || news.mediaUrl || news.imageUrl,
+                    thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
                     isActive: news.isActive !== false,
                     publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
                     views: news.userInteractions?.views?.length || news.views || 0,
