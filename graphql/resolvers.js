@@ -69,7 +69,21 @@ const resolvers = {
 
         newsByShortId: async (_, { shortId }) => {
             try {
-                const news = await News.findOne({ shortId });
+                // Try direct match first (fastest)
+                let news = await News.findOne({ shortId });
+
+                // Fallback for legacy articles that haven't been re-saved
+                if (!news) {
+                    news = await News.findOne({
+                        $expr: {
+                            $eq: [
+                                { $substrCP: [{ $toString: "$_id" }, 18, 6] },
+                                shortId
+                            ]
+                        }
+                    });
+                }
+
                 if (!news) return null;
 
                 return {
@@ -89,7 +103,7 @@ const resolvers = {
                     dislikes: news.userInteractions?.dislikes?.length || news.dislikes || 0,
                     author: news.author,
                     authorId: news.authorId,
-                    shortId: news.shortId,
+                    shortId: news.shortId || (news._id.toString().substring(news._id.toString().length - 6)),
                     userInteractions: news.userInteractions,
                     comments: news.userInteractions?.comments?.length || 0
                 };
