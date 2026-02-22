@@ -15,6 +15,28 @@ const { cacheMiddleware } = require('../middleware/cache');
 
 // Import upload middleware for profile image upload
 const { uploadMedia } = require('../middleware/upload');
+const path = require('path');
+const fs = require('fs');
+
+// Dedicated route for Android App Links (Digital Asset Links)
+router.get('/.well-known/assetlinks.json', (req, res) => {
+  const filePath = path.join(__dirname, '../public/.well-known/assetlinks.json');
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'application/json');
+    return res.sendFile(filePath);
+  } else {
+    // Fallback inline if file not found locally
+    console.log('⚠️ assetlinks.json not found at path, providing inline fallback');
+    return res.json([{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.lavish.yellowsingam",
+        "sha256_cert_fingerprints": ["6B:59:74:F3:D5:8C:36:BC:85:47:89:C4:02:99:93:D8:0C:02:85:DE:9F:80:ED:C9:83:19:D8:17:81:42:01:A2"]
+      }
+    }]);
+  }
+});
 
 // Public API endpoint for Flutter app with category filter (no authentication required)
 // Cached for 10 minutes (600 seconds)
