@@ -195,29 +195,32 @@ app.use(cookieParser()); // Add cookie parser middleware
 
 // 🚀 Explicit route for Android Digital Asset Links (MUST be an Array)
 app.get('/.well-known/assetlinks.json', (req, res) => {
-  // Always return as an array, even if file on disk is corrupted/object
   const filePath = path.join(__dirname, 'public/.well-known/assetlinks.json');
+  let data;
+
   if (fs.existsSync(filePath)) {
-    // If file exists, we read it and ensure it's an array
     try {
-      const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      res.setHeader('Content-Type', 'application/json');
-      return res.json(Array.isArray(content) ? content : [content]);
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      data = JSON.parse(fileContent);
     } catch (e) {
-      console.error('Error reading assetlinks.json:', e);
+      console.error('Error parsing assetlinks.json:', e);
     }
   }
 
-  // Fallback inline data (Hardcoded safety)
+  if (!data) {
+    data = [{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.lavish.yellowsingam",
+        "sha256_cert_fingerprints": ["F3:26:02:62:64:0E:2D:F1:EA:6D:12:C5:5B:B0:B6:7C:E1:98:24:E7:9F:95:F9:77:28:37:51:EE:21:CD:45:FA"]
+      }
+    }];
+  }
+
+  const finalArray = Array.isArray(data) ? data : [data];
   res.setHeader('Content-Type', 'application/json');
-  return res.json([{
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "com.lavish.yellowsingam",
-      "sha256_cert_fingerprints": ["F3:26:02:62:64:0E:2D:F1:EA:6D:12:C5:5B:B0:B6:7C:E1:98:24:E7:9F:95:F9:77:28:37:51:EE:21:CD:45:FA"]
-    }
-  }]);
+  return res.status(200).send(JSON.stringify(finalArray));
 });
 
 app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
