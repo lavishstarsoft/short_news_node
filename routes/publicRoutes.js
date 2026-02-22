@@ -32,7 +32,7 @@ router.get('/.well-known/assetlinks.json', (req, res) => {
       "target": {
         "namespace": "android_app",
         "package_name": "com.lavish.yellowsingam",
-        "sha256_cert_fingerprints": ["6B:59:74:F3:D5:8C:36:BC:85:47:89:C4:02:99:93:D8:0C:02:85:DE:9F:80:ED:C9:83:19:D8:17:81:42:01:A2"]
+        "sha256_cert_fingerprints": ["F3:26:02:62:64:0E:2D:F1:EA:6D:12:C5:5B:B0:B6:7C:E1:98:24:E7:9F:95:F9:77:28:37:51:EE:21:CD:45:FA"]
       }
     }]);
   }
