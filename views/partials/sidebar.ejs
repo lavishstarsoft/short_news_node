@@ -112,26 +112,36 @@
                             <span class="nav-text">OneSignal Analytics</span>
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link ripple <%= activePage === 'r2-usage' ? 'active' : '' %>"
-                            href="/admin/r2-usage">
-                            <i class="fas fa-cloud me-3"></i>
-                            <span class="nav-text">R2 Usage</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link ripple <%= activePage === 'profile' ? 'active' : '' %>"
-                            href="/admin/profile">
-                            <i class="fas fa-user me-3"></i>
-                            <span class="nav-text">Profile</span>
-                        </a>
-                    </li>
-                    <li class="nav-item mt-3">
-                        <a class="nav-link ripple" href="/logout">
-                            <i class="fas fa-sign-out-alt me-3"></i>
-                            <span class="nav-text">Logout</span>
-                        </a>
-                    </li>
+                    <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
+                        admin.role==='superadmin' )) { %>
+                        <li class="nav-item">
+                            <a class="nav-link ripple <%= activePage === 'app-settings' ? 'active' : '' %>"
+                                href="/admin/app-settings">
+                                <i class="fas fa-mobile-alt me-3"></i>
+                                <span class="nav-text">App Settings</span>
+                            </a>
+                        </li>
+                        <% } %>
+                            <li class="nav-item">
+                                <a class="nav-link ripple <%= activePage === 'r2-usage' ? 'active' : '' %>"
+                                    href="/admin/r2-usage">
+                                    <i class="fas fa-cloud me-3"></i>
+                                    <span class="nav-text">R2 Usage</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link ripple <%= activePage === 'profile' ? 'active' : '' %>"
+                                    href="/admin/profile">
+                                    <i class="fas fa-user me-3"></i>
+                                    <span class="nav-text">Profile</span>
+                                </a>
+                            </li>
+                            <li class="nav-item mt-3">
+                                <a class="nav-link ripple" href="/logout">
+                                    <i class="fas fa-sign-out-alt me-3"></i>
+                                    <span class="nav-text">Logout</span>
+                                </a>
+                            </li>
         </ul>
         <div class="sidebar-footer text-center py-3 mt-3">
             <small class="text-white">© 2025 Short News</small>

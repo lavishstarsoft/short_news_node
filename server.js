@@ -165,6 +165,7 @@ const publicRoutes = require('./routes/publicRoutes');
 const adRoutes = require('./routes/adRoutes'); // Add this line for ads routes
 const intelligentAdRoutes = require('./routes/intelligentAdRoutes'); // Add this line for intelligent ads routes
 const cacheRoutes = require('./routes/cacheRoutes'); // Cache management routes
+const appSettingsRoutes = require('./routes/appSettingsRoutes'); // App Settings route
 
 // Import admin controller for middleware
 const { requireAuth, requireAdmin, requireEditor } = require('./controllers/adminController');
@@ -618,6 +619,7 @@ app.use('/locations', locationRoutes);
 app.use('/ads', adRoutes); // Add this line for ads routes
 app.use('/intelligent-ads', intelligentAdRoutes); // Add this line for intelligent ads routes
 app.use('/cache', cacheRoutes); // Cache management routes
+app.use('/', appSettingsRoutes); // Ensure it catches /api/admin/app-settings and /api/public/app-settings
 
 // Log all registered routes for debugging
 console.log('Registered routes:');

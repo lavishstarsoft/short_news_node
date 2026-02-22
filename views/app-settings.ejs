@@ -1,0 +1,139 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
+        <h1 class="h2">App Settings & Updates</h1>
+    </div>
+
+    <!-- Alert for Success/Error -->
+    <div id="alertBox" class="alert d-none" role="alert"></div>
+
+    <div class="row">
+        <div class="col-md-8 col-lg-6 mx-auto">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 text-primary"><i class="fas fa-mobile-alt me-2"></i> Version Control</h5>
+                </div>
+                <div class="card-body">
+                    <form id="appSettingsForm">
+                        <!-- Android Details -->
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2 mb-3 text-success"><i class="fab fa-android me-2"></i>Android</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted">Version (e.g., 1.0.5)</label>
+                                    <input type="text" class="form-control" id="androidVersion" name="androidVersion" value="<%= settings.androidVersion %>" required>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label text-muted">Play Store URL</label>
+                                    <input type="url" class="form-control" id="androidUpdateUrl" name="androidUpdateUrl" value="<%= settings.androidUpdateUrl %>">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- iOS Details -->
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2 mb-3 text-secondary"><i class="fab fa-apple me-2"></i>iOS</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted">Version (e.g., 1.0.5)</label>
+                                    <input type="text" class="form-control" id="iosVersion" name="iosVersion" value="<%= settings.iosVersion %>" required>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label text-muted">App Store URL</label>
+                                    <input type="url" class="form-control" id="iosUpdateUrl" name="iosUpdateUrl" value="<%= settings.iosUpdateUrl %>">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Global Settings -->
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2 mb-3 text-warning"><i class="fas fa-cog me-2"></i>Update Behavior</h6>
+                            
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Update Message</label>
+                                <textarea class="form-control" id="updateMessage" name="updateMessage" rows="3" required><%= settings.updateMessage %></textarea>
+                                <small class="text-muted">This message will be shown to users when an update is available.</small>
+                            </div>
+
+                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" id="forceUpdate" name="forceUpdate" <%= settings.forceUpdate ? 'checked' : '' %>>
+                                <label class="form-check-label fw-bold" for="forceUpdate">Force Update Required</label>
+                            </div>
+                            <small class="text-danger d-block mt-1">
+                                <i class="fas fa-exclamation-triangle me-1"></i> If enabled, users cannot bypass the update popup until they update the app.
+                            </small>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg" id="saveBtn">
+                                <i class="fas fa-save me-2"></i>Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    document.getElementById('appSettingsForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const saveBtn = document.getElementById('saveBtn');
+        const alertBox = document.getElementById('alertBox');
+        
+        // UI states
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Saving...';
+        
+        // Collect data
+        const payload = {
+            androidVersion: document.getElementById('androidVersion').value,
+            iosVersion: document.getElementById('iosVersion').value,
+            androidUpdateUrl: document.getElementById('androidUpdateUrl').value,
+            iosUpdateUrl: document.getElementById('iosUpdateUrl').value,
+            updateMessage: document.getElementById('updateMessage').value,
+            forceUpdate: document.getElementById('forceUpdate').checked
+        };
+
+        try {
+            const response = await fetch('/api/admin/app-settings', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                alertBox.className = 'alert alert-success';
+                alertBox.innerHTML = '<i class="fas fa-check-circle me-2"></i> App settings updated successfully!';
+            } else {
+                const data = await response.json();
+                alertBox.className = 'alert alert-danger';
+                alertBox.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i> ${data.error || 'Failed to update settings'}`;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alertBox.className = 'alert alert-danger';
+            alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i> Connection error. Please try again.';
+        } finally {
+            // Restore button state
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save me-2"></i>Save Settings';
+            
+            // Show alert box
+            alertBox.classList.remove('d-none');
+            
+            // Hide alert after 3 seconds
+            setTimeout(() => {
+                alertBox.classList.add('d-none');
+            }, 3000);
+        }
+    });
+</script>
+
+<%- include('partials/footer') %>
