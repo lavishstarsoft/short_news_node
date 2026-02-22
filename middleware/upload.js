@@ -71,21 +71,35 @@ const createMulterR2Interface = (options = {}) => {
                         let buffer = req.file.buffer;
                         let mimetype = req.file.mimetype;
                         let folderName = folder;
+                        let thumbnailPath = null;
 
                         // Image processing with Sharp
                         if (mimetype.startsWith('image/')) {
+                            // 1. Generate Main Image (1080px or original)
                             let sharpInstance = sharp(buffer);
                             if (resize && width && height) {
                                 sharpInstance = sharpInstance.resize(width, height, { fit: 'cover' });
                             }
-                            buffer = await sharpInstance.webp({ quality: 80 }).toBuffer();
-                            mimetype = 'image/webp';
+                            const mainBuffer = await sharpInstance.webp({ quality: 80 }).toBuffer();
+                            const mainMimetype = 'image/webp';
+
+                            // Upload Main
+                            req.file.path = await uploadToR2(mainBuffer, folderName, req.file.originalname, mainMimetype);
+
+                            // 2. Generate Thumbnail (400px width)
+                            const thumbBuffer = await sharp(buffer)
+                                .resize(400) // Small width for thumbnails
+                                .webp({ quality: 60 })
+                                .toBuffer();
+
+                            thumbnailPath = await uploadToR2(thumbBuffer, folderName, `thumb_${req.file.originalname}`, 'image/webp');
+                            req.file.thumbnailPath = thumbnailPath;
                         } else if (mimetype.startsWith('video/')) {
                             // Automatically switch to video folder if it's a video and we were in images
                             folderName = folder === 'short_news_images' ? 'short_news_videos' : folder;
+                            req.file.path = await uploadToR2(buffer, folderName, req.file.originalname, mimetype);
                         }
 
-                        req.file.path = await uploadToR2(buffer, folderName, req.file.originalname, mimetype);
                         next();
                     } catch (error) {
                         console.error('Processing/Upload error:', error);

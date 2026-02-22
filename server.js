@@ -12,6 +12,7 @@ const fs = require('fs');
 // const multer = require('multer');
 // const ffmpeg = require('fluent-ffmpeg');
 const cookieParser = require('cookie-parser');
+const compression = require('compression'); // For response compression
 const { OAuth2Client } = require('google-auth-library');
 
 // WebSocket implementation
@@ -180,6 +181,7 @@ const newsController = require('./controllers/newsController');
 // Middleware - ORDER MATTERS!
 // Middleware - ORDER MATTERS!
 // CORS must be first to handle preflight requests
+app.use(compression()); // Compress all responses
 app.use(cors({
   origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://10.0.2.2:3001', 'https://news.lavishstar.in', 'http://192.168.0.127:3001', 'http://192.168.29.205:3000', 'http://192.168.29.205:3001', 'http://192.168.29.8:3000', 'http://192.168.29.8:3001', 'https://short-news-next-reporters.vercel.app'],
   credentials: true,
@@ -196,7 +198,7 @@ app.use(cookieParser()); // Add cookie parser middleware
 // Line 186 was: app.use(express.static(path.join(__dirname, 'public')));
 // My EndLine is 185. So 186 remains.
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
 
 // Google authentication verification middleware
 const verifyGoogleToken = async (req, res, next) => {

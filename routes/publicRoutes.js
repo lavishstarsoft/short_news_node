@@ -1516,4 +1516,98 @@ router.post('/api/public/upload-profile-image', uploadMedia.single('media'), asy
   }
 });
 
+// --- URL Shortener Endpoints ---
+const ShortLink = require('../models/ShortLink');
+
+// 1. Generate a short link for a given newsId
+router.post('/api/public/shorten', async (req, res) => {
+  try {
+    const { newsId } = req.body;
+    if (!newsId) {
+      return res.status(400).json({ error: 'newsId is required' });
+    }
+
+    // Check if a short link already exists for this newsId
+    let shortLink = await ShortLink.findOne({ newsId });
+
+    if (!shortLink) {
+      // Create a new one
+      shortLink = new ShortLink({ newsId });
+      await shortLink.save();
+    }
+
+    // In the future, this domain could be ynews.in or anynews.link
+    // For now we use the current host dynamically or fallback to www.news.cbnyellowsingam.in
+    const host = req.get('host') || 'www.news.cbnyellowsingam.in';
+    const protocol = req.protocol === 'https' || host.includes('cbnyellowsingam') ? 'https' : 'http';
+
+    // We construct the short link URL.
+    const shortUrl = `${protocol}://${host}/${shortLink.shortCode}`;
+
+    return res.json({
+      success: true,
+      shortCode: shortLink.shortCode,
+      shortUrl: shortUrl,
+      newsId: newsId
+    });
+  } catch (error) {
+    console.error('Error generating short link:', error);
+    res.status(500).json({ error: 'Server error generating short link' });
+  }
+});
+
+// 1.5 Expand a short code back into a newsId for the mobile app
+router.get('/api/public/expand/:shortCode', async (req, res) => {
+  try {
+    const { shortCode } = req.params;
+    const shortLink = await ShortLink.findOne({ shortCode });
+    if (!shortLink) {
+      return res.status(404).json({ error: 'Short link not found' });
+    }
+    return res.json({
+      success: true,
+      newsId: shortLink.newsId
+    });
+  } catch (error) {
+    console.error('Error expanding short link:', error);
+    res.status(500).json({ error: 'Server error expanding short link' });
+  }
+});
+
+// 2. Handle hitting the short link
+// Matches exactly 6 alphanumeric characters to prevent conflicting with other routes like /admin
+router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
+  try {
+    const { shortCode } = req.params;
+    const shortLink = await ShortLink.findOne({ shortCode });
+
+    if (!shortLink) {
+      return next(); // Pass to next middleware/404 if not a valid short code
+    }
+
+    // Increment clicks asynchronously
+    shortLink.clicks += 1;
+    shortLink.save().catch(err => console.error('Error updating clicks:', err));
+
+    const userAgent = req.headers['user-agent'] || '';
+    const isAndroid = /android/i.test(userAgent);
+    const isIOS = /ipad|iphone|ipod/i.test(userAgent);
+
+    // If it's a mobile device, redirect to App Store / Play Store
+    // App Links / Universal Links should have already intercepted this if the app is installed
+    if (isAndroid) {
+      return res.redirect('https://play.google.com/store/apps/details?id=com.lavish.yellowsingam');
+    } else if (isIOS) {
+      // Replace with your actual iOS App ID when available
+      return res.redirect('https://apps.apple.com/app/idYOUR_APP_ID');
+    }
+
+    // If it's desktop (or fallback), redirect to the full web URL
+    return res.redirect(`https://www.cbnyellowsingam.in/news/${shortLink.newsId}`);
+  } catch (error) {
+    console.error('Error handling short link:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 module.exports = router;

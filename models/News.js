@@ -21,6 +21,8 @@ const newsSchema = new mongoose.Schema({
   readFullLink: { type: String }, // Custom link for "Read Full Article" button
   ePaperLink: { type: String }, // Custom link for "ePaper" button
   videoUrl: { type: String }, // External video URL (YouTube, Instagram, Vimeo, etc.)
+  authorProfileImage: { type: String }, // Denormalized for performance
+  authorConstituency: { type: String }, // Denormalized for performance
   shortId: { type: String, unique: true }, // Short ID for Fact Check (cbnys.co/XXXXXX)
 
   // New fields for storing user interaction details

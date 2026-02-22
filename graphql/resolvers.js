@@ -419,8 +419,9 @@ const resolvers = {
             }
             return [];
         },
-        // Fetch reporter profile image from Admin model
+        // Fetch reporter profile image from Admin model (Use denormalized if available)
         authorProfileImage: async (parent) => {
+            if (parent.authorProfileImage) return parent.authorProfileImage;
             try {
                 if (parent.authorId) {
                     const editor = await Admin.findById(parent.authorId);
@@ -434,8 +435,9 @@ const resolvers = {
                 return null;
             }
         },
-        // Fetch reporter constituency from Admin model
+        // Fetch reporter constituency from Admin model (Use denormalized if available)
         authorConstituency: async (parent) => {
+            if (parent.authorConstituency) return parent.authorConstituency;
             try {
                 if (parent.authorId) {
                     const editor = await Admin.findById(parent.authorId);

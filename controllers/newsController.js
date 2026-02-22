@@ -1,6 +1,7 @@
 const News = require('../models/News');
 const Location = require('../models/Location');
 const Category = require('../models/Category');
+const Admin = require('../models/Admin'); // Add Admin model for denormalization
 
 const path = require('path');
 const fs = require('fs');
@@ -355,11 +356,16 @@ async function createNews(req, res) {
       return res.status(400).json({ error: 'Content cannot exceed 220 characters' });
     }
 
+    // Fetch author details for denormalization
+    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency');
+
     // Add author information and explicit timestamp to the news
     const newsData = {
       ...req.body,
       author: req.admin.username,
       authorId: req.admin.id,
+      authorProfileImage: authorDetails?.profileImage || null,
+      authorConstituency: authorDetails?.constituency || null,
       publishedAt: new Date() // Explicitly set the timestamp
     };
 
@@ -499,12 +505,17 @@ async function updateNews(req, res) {
       return res.status(400).json({ error: 'Content cannot exceed 220 characters' });
     }
 
+    // Fetch author details for denormalization
+    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency');
+
     // Add author information to the update (in case it's missing)
     // Note: We don't update the publishedAt timestamp when editing news
     const newsData = {
       ...req.body,
       author: req.admin.username,
-      authorId: req.admin.id
+      authorId: req.admin.id,
+      authorProfileImage: authorDetails?.profileImage || null,
+      authorConstituency: authorDetails?.constituency || null,
     };
 
     // Handle media fields for backward compatibility
@@ -680,10 +691,10 @@ async function uploadMedia(req, res) {
         fileType: fileType
       });
     } else {
-      // For images, use the uploaded file as both media and thumbnail
+      // For images, use the generated thumbnail if available
       return res.json({
         mediaUrl: fileUrl,
-        thumbnailUrl: fileUrl,
+        thumbnailUrl: req.file.thumbnailPath || fileUrl,
         fileType: fileType
       });
     }
