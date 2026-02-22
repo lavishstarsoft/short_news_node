@@ -200,6 +200,25 @@ app.use(cookieParser()); // Add cookie parser middleware
 
 app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
 
+// 🚀 Explicit route for Android Digital Asset Links (must be highly accessible)
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  const filePath = path.join(__dirname, 'public/.well-known/assetlinks.json');
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'application/json');
+    return res.sendFile(filePath);
+  } else {
+    // Fallback inline data
+    return res.json([{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.lavish.yellowsingam",
+        "sha256_cert_fingerprints": ["F3:26:02:62:64:0E:2D:F1:EA:6D:12:C5:5B:B0:B6:7C:E1:98:24:E7:9F:95:F9:77:28:37:51:EE:21:CD:45:FA"]
+      }
+    }]);
+  }
+});
+
 // Google authentication verification middleware
 const verifyGoogleToken = async (req, res, next) => {
   try {
