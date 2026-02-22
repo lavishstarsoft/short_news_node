@@ -193,31 +193,34 @@ app.use(express.json({ limit: '10mb' })); // Increase payload limit
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Increase payload limit
 app.use(cookieParser()); // Add cookie parser middleware
 
-// Static files
-// app.use(express.static(path.join(__dirname, 'public'))); -> This was in original line 186, I should keep it?
-// Line 186 was: app.use(express.static(path.join(__dirname, 'public')));
-// My EndLine is 185. So 186 remains.
-
-app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
-
-// 🚀 Explicit route for Android Digital Asset Links (must be highly accessible)
+// 🚀 Explicit route for Android Digital Asset Links (MUST be an Array)
 app.get('/.well-known/assetlinks.json', (req, res) => {
+  // Always return as an array, even if file on disk is corrupted/object
   const filePath = path.join(__dirname, 'public/.well-known/assetlinks.json');
   if (fs.existsSync(filePath)) {
-    res.setHeader('Content-Type', 'application/json');
-    return res.sendFile(filePath);
-  } else {
-    // Fallback inline data
-    return res.json([{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.lavish.yellowsingam",
-        "sha256_cert_fingerprints": ["F3:26:02:62:64:0E:2D:F1:EA:6D:12:C5:5B:B0:B6:7C:E1:98:24:E7:9F:95:F9:77:28:37:51:EE:21:CD:45:FA"]
-      }
-    }]);
+    // If file exists, we read it and ensure it's an array
+    try {
+      const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      res.setHeader('Content-Type', 'application/json');
+      return res.json(Array.isArray(content) ? content : [content]);
+    } catch (e) {
+      console.error('Error reading assetlinks.json:', e);
+    }
   }
+
+  // Fallback inline data (Hardcoded safety)
+  res.setHeader('Content-Type', 'application/json');
+  return res.json([{
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.lavish.yellowsingam",
+      "sha256_cert_fingerprints": ["F3:26:02:62:64:0E:2D:F1:EA:6D:12:C5:5B:B0:B6:7C:E1:98:24:E7:9F:95:F9:77:28:37:51:EE:21:CD:45:FA"]
+    }
+  }]);
 });
+
+app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
 
 // Google authentication verification middleware
 const verifyGoogleToken = async (req, res, next) => {
