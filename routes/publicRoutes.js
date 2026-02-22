@@ -1605,8 +1605,9 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
       return res.redirect('https://apps.apple.com/app/idYOUR_APP_ID');
     }
 
-    // If it's desktop (or fallback), redirect to the full web URL
-    return res.redirect(`https://www.cbnyellowsingam.in/news/${shortLink.newsId}`);
+    // If it's desktop (or fallback), redirect to the full web URL (Matching App Link domain)
+    const baseUrl = 'https://www.news.cbnyellowsingam.in';
+    return res.redirect(`${baseUrl}/news/${shortLink.newsId}`);
   } catch (error) {
     console.error('Error handling short link:', error);
     res.status(500).send('Internal Server Error');
