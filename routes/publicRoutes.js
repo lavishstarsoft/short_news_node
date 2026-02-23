@@ -1596,16 +1596,17 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
     const isAndroid = /android/i.test(userAgent);
     const isIOS = /ipad|iphone|ipod/i.test(userAgent);
 
-    // If it's a mobile device, redirect to App Store / Play Store
-    // App Links / Universal Links should have already intercepted this if the app is installed
+    // For Android: Use Intent URL to let the app handle the link if installed.
+    // If the app is NOT installed, Android will fall back to the Play Store.
     if (isAndroid) {
-      return res.redirect('https://play.google.com/store/apps/details?id=com.lavish.yellowsingam');
+      const intentUrl = `intent://www.news.cbnyellowsingam.in/news/${shortLink.newsId}#Intent;scheme=https;package=com.lavish.yellowsingam;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.lavish.yellowsingam;end`;
+      return res.redirect(intentUrl);
     } else if (isIOS) {
       // Replace with your actual iOS App ID when available
       return res.redirect('https://apps.apple.com/app/idYOUR_APP_ID');
     }
 
-    // If it's desktop (or fallback), redirect to the full web URL (Matching App Link domain)
+    // If it's desktop (or fallback), redirect to the full web URL
     const baseUrl = 'https://www.news.cbnyellowsingam.in';
     return res.redirect(`${baseUrl}/news/${shortLink.newsId}`);
   } catch (error) {
