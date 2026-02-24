@@ -226,6 +226,116 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
   return res.status(200).send(JSON.stringify(finalArray));
 });
 
+// ✅ OTT-STYLE: /news/:id — Direct Deep Link + Social Preview (like Firebase Dynamic Links)
+// - Android/iOS with app installed: Android App Links opens app directly
+// - Social crawlers (WhatsApp, Facebook): Returns OG meta tags for rich preview
+// - PC/Desktop or app not installed: Shows branded page with Play Store button
+app.get('/news/:id', async (req, res) => {
+  const newsId = req.params.id;
+  const userAgent = req.headers['user-agent'] || '';
+  const appPackage = 'com.lavish.yellowsingam';
+  const playStoreUrl = `https://play.google.com/store/apps/details?id=${appPackage}`;
+  const deepLinkUrl = `https://news.cbnyellowsingam.in/news/${newsId}`;
+
+  // Check if it's a social media crawler (for OG preview)
+  const isSocialCrawler = /facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|LinkedInBot|Slackbot|bot|crawler|spider|curl/i.test(userAgent);
+
+  try {
+    // Fetch the news data for OG meta tags
+    const News = require('./models/News');
+    const news = await News.findById(newsId).lean();
+
+    if (!news) {
+      return res.status(404).send('News not found');
+    }
+
+    const title = (news.title || 'Yellow Singam News').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    const description = (news.description || news.content || 'Read this news on Yellow Singam').replace(/"/g, '&quot;').replace(/</g, '&lt;').substring(0, 200);
+    const imageUrl = news.imageUrl
+      ? (news.imageUrl.startsWith('http') ? news.imageUrl : `https://www.news.cbnyellowsingam.in${news.imageUrl}`)
+      : 'https://www.news.cbnyellowsingam.in/uploads/logo.png';
+
+    if (isSocialCrawler) {
+      // Social crawlers: Return ONLY OG meta tags (fast, lightweight)
+      return res.send(`<!DOCTYPE html>
+<html><head>
+  <meta charset="UTF-8">
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${imageUrl}" />
+  <meta property="og:url" content="${deepLinkUrl}" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Yellow Singam" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${description}" />
+  <meta name="twitter:image" content="${imageUrl}" />
+  <title>${title} - Yellow Singam</title>
+</head><body></body></html>`);
+    }
+
+    // Regular users: Smart redirect page (same as short code handler)
+    const intentUrl = `intent://news.cbnyellowsingam.in/news/${newsId}#Intent;scheme=https;package=${appPackage};S.browser_fallback_url=${playStoreUrl};end`;
+    const isAndroid = /android/i.test(userAgent);
+    const isIOS = /ipad|iphone|ipod/i.test(userAgent);
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} - Yellow Singam</title>
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${imageUrl}" />
+  <meta property="og:url" content="${deepLinkUrl}" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Yellow Singam" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
+    .container { padding: 2rem; max-width: 400px; }
+    .logo { width: 120px; height: 120px; margin-bottom: 1.5rem; border-radius: 24px; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #FFD700; }
+    p { font-size: 0.95rem; color: #999; margin-bottom: 1.5rem; }
+    .news-title { color: #fff; font-size: 1.1rem; margin-bottom: 1rem; }
+    .spinner { width: 40px; height: 40px; margin: 0 auto 1.5rem; border: 3px solid rgba(255,215,0,0.2); border-top-color: #FFD700; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn { display: inline-block; background: #FFD700; color: #000; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 1rem; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="https://www.news.cbnyellowsingam.in/uploads/logo.png" alt="Yellow Singam" class="logo" onerror="this.style.display='none'" />
+    <h1>Yellow Singam</h1>
+    <p class="news-title">${title}</p>
+    <div id="loading"><div class="spinner"></div><p>Opening in app...</p></div>
+    <div id="fallback" class="hidden">
+      <p>Get Yellow Singam app:</p>
+      <a href="${playStoreUrl}" class="btn">📲 Install App</a>
+    </div>
+  </div>
+  <script>
+    (function() {
+      var ua = navigator.userAgent || '';
+      ${isAndroid ? `window.location.href = '${intentUrl}';` : ''}
+      ${isIOS ? `window.location.href = 'https://apps.apple.com/app/idYOUR_APP_ID';` : ''}
+      ${!isAndroid && !isIOS ? `document.getElementById('loading').classList.add('hidden'); document.getElementById('fallback').classList.remove('hidden');` : ''}
+      setTimeout(function() {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('fallback').classList.remove('hidden');
+      }, 2500);
+    })();
+  </script>
+</body>
+</html>`);
+  } catch (error) {
+    console.error('Error in /news/:id route:', error);
+    res.redirect(playStoreUrl);
+  }
+});
+
 app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
 
 // Google authentication verification middleware
