@@ -1577,7 +1577,7 @@ router.get('/api/public/expand/:shortCode', async (req, res) => {
   }
 });
 
-// 2. Handle hitting the short link
+// 2. Handle hitting the short link — Smart Redirect (Firebase Dynamic Links style)
 // Matches exactly 6 alphanumeric characters to prevent conflicting with other routes like /admin
 router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
   try {
@@ -1592,23 +1592,119 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
     shortLink.clicks += 1;
     shortLink.save().catch(err => console.error('Error updating clicks:', err));
 
-    const userAgent = req.headers['user-agent'] || '';
-    const isAndroid = /android/i.test(userAgent);
-    const isIOS = /ipad|iphone|ipod/i.test(userAgent);
+    const newsId = shortLink.newsId;
+    const appPackage = 'com.lavish.yellowsingam';
+    const playStoreUrl = `https://play.google.com/store/apps/details?id=${appPackage}`;
+    const deepLinkUrl = `https://www.news.cbnyellowsingam.in/news/${newsId}`;
+    const intentUrl = `intent://www.news.cbnyellowsingam.in/news/${newsId}#Intent;scheme=https;package=${appPackage};S.browser_fallback_url=${playStoreUrl};end`;
 
-    // For Android: Use Intent URL to let the app handle the link if installed.
-    // If the app is NOT installed, Android will fall back to the Play Store.
-    if (isAndroid) {
-      const intentUrl = `intent://www.news.cbnyellowsingam.in/news/${shortLink.newsId}#Intent;scheme=https;package=com.lavish.yellowsingam;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.lavish.yellowsingam;end`;
-      return res.redirect(intentUrl);
-    } else if (isIOS) {
-      // Replace with your actual iOS App ID when available
-      return res.redirect('https://apps.apple.com/app/idYOUR_APP_ID');
+    // Serve a smart HTML page that handles all platforms
+    // This works exactly like Firebase Dynamic Links:
+    // - Android: Instant app open via intent, Play Store fallback
+    // - iOS: App Store redirect
+    // - PC/Desktop: Play Store redirect
+    res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yellow Singam - Opening News...</title>
+  <meta property="og:title" content="Yellow Singam News" />
+  <meta property="og:description" content="Read this news on Yellow Singam app" />
+  <meta property="og:url" content="${deepLinkUrl}" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      text-align: center;
     }
+    .container { padding: 2rem; max-width: 400px; }
+    .logo { width: 120px; height: 120px; margin-bottom: 1.5rem; border-radius: 24px; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #FFD700; }
+    p { font-size: 0.95rem; color: #999; margin-bottom: 1.5rem; }
+    .spinner {
+      width: 40px; height: 40px; margin: 0 auto 1.5rem;
+      border: 3px solid rgba(255,215,0,0.2);
+      border-top-color: #FFD700;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn {
+      display: inline-block;
+      background: #FFD700;
+      color: #000;
+      padding: 12px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="https://www.news.cbnyellowsingam.in/uploads/logo.png" alt="Yellow Singam" class="logo" 
+         onerror="this.style.display='none'" />
+    <h1>Yellow Singam</h1>
+    <div id="loading">
+      <div class="spinner"></div>
+      <p>Opening in app...</p>
+    </div>
+    <div id="fallback" class="hidden">
+      <p>App not found. Get it from Play Store:</p>
+      <a href="${playStoreUrl}" class="btn">📲 Install App</a>
+    </div>
+  </div>
 
-    // If it's desktop (or fallback), redirect to the full web URL
-    const baseUrl = 'https://www.news.cbnyellowsingam.in';
-    return res.redirect(`${baseUrl}/news/${shortLink.newsId}`);
+  <script>
+    (function() {
+      var userAgent = navigator.userAgent || '';
+      var isAndroid = /android/i.test(userAgent);
+      var isIOS = /ipad|iphone|ipod/i.test(userAgent);
+
+      if (isAndroid) {
+        // Try opening the app via intent URL (instant, no visible browser)
+        window.location.href = '${intentUrl}';
+        
+        // If app is not installed, intent fallback goes to Play Store automatically
+        // But also show manual button after 2.5 seconds as backup
+        setTimeout(function() {
+          document.getElementById('loading').classList.add('hidden');
+          document.getElementById('fallback').classList.remove('hidden');
+        }, 2500);
+
+      } else if (isIOS) {
+        // iOS: redirect to App Store (update with real App ID when available)
+        window.location.href = 'https://apps.apple.com/app/idYOUR_APP_ID';
+        setTimeout(function() {
+          document.getElementById('loading').classList.add('hidden');
+          document.getElementById('fallback').classList.remove('hidden');
+          document.querySelector('.btn').href = 'https://apps.apple.com/app/idYOUR_APP_ID';
+          document.querySelector('.btn').textContent = '📲 Install from App Store';
+        }, 2500);
+
+      } else {
+        // PC/Desktop: Direct to Play Store
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('fallback').classList.remove('hidden');
+        document.querySelector('#fallback p').textContent = 'Download Yellow Singam app:';
+      }
+    })();
+  </script>
+</body>
+</html>
+    `);
   } catch (error) {
     console.error('Error handling short link:', error);
     res.status(500).send('Internal Server Error');
