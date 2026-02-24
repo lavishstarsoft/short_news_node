@@ -6,19 +6,19 @@ class OneSignalService {
     this.client = null;
     this.appId = process.env.ONESIGNAL_APP_ID;
     this.apiKey = process.env.ONESIGNAL_API_KEY;
-    
+
     console.log('OneSignal config:', {
       appId: this.appId ? 'SET' : 'NOT SET',
       apiKey: this.apiKey ? 'SET' : 'NOT SET'
     });
-    
+
     if (this.appId && this.apiKey) {
       this.initializeClient();
     } else {
       console.log('OneSignal not initialized - missing configuration');
     }
   }
-  
+
   initializeClient() {
     try {
       // Configure the client with the correct authentication method
@@ -26,14 +26,14 @@ class OneSignalService {
         restApiKey: process.env.ONESIGNAL_API_KEY, // App REST API key required for most endpoints
         basePath: 'https://api.onesignal.com'
       });
-      
+
       this.client = new OneSignal.DefaultApi(configuration);
       console.log('OneSignal client initialized successfully');
     } catch (error) {
       console.error('Error initializing OneSignal client:', error);
     }
   }
-  
+
   /**
    * Get app details
    * @returns {Promise<Object>} - App details
@@ -42,7 +42,7 @@ class OneSignalService {
     if (!this.client) {
       throw new Error('OneSignal client not initialized. Check your configuration.');
     }
-    
+
     try {
       const app = await this.client.getApp(this.appId);
       return app;
@@ -51,7 +51,7 @@ class OneSignalService {
       throw error;
     }
   }
-  
+
   /**
    * Get notification details
    * @param {string} notificationId - Notification ID
@@ -61,7 +61,7 @@ class OneSignalService {
     if (!this.client) {
       throw new Error('OneSignal client not initialized. Check your configuration.');
     }
-    
+
     try {
       const notification = await this.client.getNotification(this.appId, notificationId);
       return notification;
@@ -70,7 +70,7 @@ class OneSignalService {
       throw error;
     }
   }
-  
+
   /**
    * Get notifications
    * @param {number} limit - Number of notifications to retrieve
@@ -81,7 +81,7 @@ class OneSignalService {
     if (!this.client) {
       throw new Error('OneSignal client not initialized. Check your configuration.');
     }
-    
+
     try {
       const notifications = await this.client.getNotifications(this.appId, limit.toString(), offset);
       return notifications;
@@ -90,7 +90,7 @@ class OneSignalService {
       throw error;
     }
   }
-  
+
   /**
    * Send notification to all users
    * @param {string} title - Notification title
@@ -102,7 +102,7 @@ class OneSignalService {
     if (!this.client) {
       throw new Error('OneSignal client not initialized. Check your configuration.');
     }
-    
+
     try {
       const notification = new OneSignal.Notification();
       notification.app_id = this.appId;
@@ -110,14 +110,14 @@ class OneSignalService {
       notification.headings = { en: title };
       notification.data = data;
       notification.included_segments = ['All'];
-      
+
       console.log('Sending notification with data:', {
         app_id: notification.app_id,
         contents: notification.contents,
         headings: notification.headings,
         included_segments: notification.included_segments
       });
-      
+
       const response = await this.client.createNotification(notification);
       console.log('OneSignal notification sent successfully:', response);
       return response;
@@ -127,7 +127,7 @@ class OneSignalService {
         code: error.code,
         stack: error.stack
       });
-      
+
       // Log the error body if available
       if (error.body) {
         error.body.text().then(text => {
@@ -136,11 +136,68 @@ class OneSignalService {
           console.error('Error reading error body:', err);
         });
       }
-      
+
       throw error;
     }
   }
-  
+
+  /**
+   * Send notification to all users with a launch URL
+   * When user taps the notification, the app opens this URL as a deep link
+   * @param {string} title - Notification title
+   * @param {string} message - Notification message
+   * @param {Object} data - Additional data to send with notification
+   * @param {string} url - Launch URL for deep linking
+   * @returns {Promise<Object>} - Notification response
+   */
+  async sendNotificationToAllWithUrl(title, message, data = {}, url = null) {
+    if (!this.client) {
+      throw new Error('OneSignal client not initialized. Check your configuration.');
+    }
+
+    try {
+      const notification = new OneSignal.Notification();
+      notification.app_id = this.appId;
+      notification.contents = { en: message };
+      notification.headings = { en: title };
+      notification.data = data;
+      notification.included_segments = ['All'];
+
+      // Set launch URL for deep linking — this makes notification tap open the specific news
+      if (url) {
+        notification.url = url;
+      }
+
+      console.log('Sending notification with URL:', {
+        app_id: notification.app_id,
+        contents: notification.contents,
+        headings: notification.headings,
+        url: notification.url,
+        included_segments: notification.included_segments
+      });
+
+      const response = await this.client.createNotification(notification);
+      console.log('OneSignal notification with URL sent successfully:', response);
+      return response;
+    } catch (error) {
+      console.error('Error sending OneSignal notification with URL:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+
+      if (error.body) {
+        error.body.text().then(text => {
+          console.error('Error body:', text);
+        }).catch(err => {
+          console.error('Error reading error body:', err);
+        });
+      }
+
+      throw error;
+    }
+  }
+
   /**
    * Send notification to specific users
    * @param {Array<string>} playerIds - Array of OneSignal player IDs
@@ -153,11 +210,11 @@ class OneSignalService {
     if (!this.client) {
       throw new Error('OneSignal client not initialized. Check your configuration.');
     }
-    
+
     if (!playerIds || playerIds.length === 0) {
       throw new Error('Player IDs are required');
     }
-    
+
     try {
       const notification = new OneSignal.Notification();
       notification.app_id = this.appId;
@@ -165,13 +222,13 @@ class OneSignalService {
       notification.headings = { en: title };
       notification.data = data;
       notification.include_player_ids = playerIds;
-      
+
       const response = await this.client.createNotification(notification);
       console.log('OneSignal notification sent to users:', response);
       return response;
     } catch (error) {
       console.error('Error sending OneSignal notification to users:', error);
-      
+
       // Log the error body if available
       if (error.body) {
         error.body.text().then(text => {
@@ -180,11 +237,11 @@ class OneSignalService {
           console.error('Error reading error body:', err);
         });
       }
-      
+
       throw error;
     }
   }
-  
+
   /**
    * Send notification related to a news item
    * @param {Object} news - News object
@@ -194,26 +251,38 @@ class OneSignalService {
     if (!this.client) {
       throw new Error('OneSignal client not initialized. Check your configuration.');
     }
-    
+
     try {
       const title = `New News: ${news.title}`;
       const message = news.content.substring(0, 100) + (news.content.length > 100 ? '...' : '');
+
+      // 🔧 FIX: Use relative path for launchUrl. 
+      // This tells the Flutter app to handle the routing internally instead of forcing a browser open.
+      const newsUrl = `/news/${news._id}`;
+
       const data = {
         type: 'news',
-        newsId: news._id,
+        newsId: news._id.toString(),
         title: news.title,
         content: news.content,
         mediaUrl: news.mediaUrl,
-        mediaType: news.mediaType
+        mediaType: news.mediaType,
+        // 🔧 FIX: Send URL in 'data' instead of notification.url
+        // This forces the app to open instead of the browser
+        launchUrl: newsUrl
       };
-      
+
+      // 🔧 FIX: Call sendNotificationToAll instead of sendNotificationToAllWithUrl
+      // This prevents OneSignal from setting the "Launch URL" property which
+      // causes Android to open the browser if deep link verification fails.
+      // Instead, we handle the navigation completely inside the Flutter app.
       return await this.sendNotificationToAll(title, message, data);
     } catch (error) {
       console.error('Error sending news notification:', error);
       throw error;
     }
   }
-  
+
   /**
    * Send admin notification
    * @param {string} title - Notification title
@@ -225,17 +294,17 @@ class OneSignalService {
     if (!this.client) {
       throw new Error('OneSignal client not initialized. Check your configuration.');
     }
-    
+
     try {
       // Extract image URL, launch URL, title color and platform settings from data if provided
       const { imageUrl, launchUrl, titleColor, platformSettings, ...otherData } = data;
-      
+
       const notificationData = {
         type: 'admin',
         titleColor: titleColor || null, // Include title color in the data sent to the app
         ...otherData
       };
-      
+
       // Create notification object
       const notification = new OneSignal.Notification();
       notification.app_id = this.appId;
@@ -243,12 +312,14 @@ class OneSignalService {
       notification.headings = { en: title };
       notification.data = notificationData;
       notification.included_segments = ['All'];
-      
-      // Add URL if provided (this is the launch URL)
+
+      // Add URL to data payload instead of native url (prevents browser launch)
       if (launchUrl) {
-        notification.url = launchUrl;
+        // We do NOT set notification.url = launchUrl; here anymore.
+        // Doing so forces the OS to open the browser if deep link verification fails.
+        // It's already included in notificationData from line 301.
       }
-      
+
       // Add title color if provided (Android only)
       if (titleColor) {
         // Convert hex color to the format expected by OneSignal
@@ -259,7 +330,7 @@ class OneSignalService {
           notification.android_accent_color = `FF${hexColor}`;
         }
       }
-      
+
       // Add image if provided
       if (imageUrl) {
         // For Android, use big_picture for large image
@@ -267,7 +338,7 @@ class OneSignalService {
         // For iOS, use ios_attachments
         notification.ios_attachments = { id1: imageUrl };
       }
-      
+
       // Apply platform-specific settings if provided
       if (platformSettings) {
         // Android settings
@@ -300,7 +371,7 @@ class OneSignalService {
             notification.big_picture = platformSettings.android.bigPicture;
           }
         }
-        
+
         // iOS settings
         if (platformSettings.ios) {
           if (platformSettings.ios.sound !== undefined) {
@@ -317,7 +388,7 @@ class OneSignalService {
             notification.ios_category = platformSettings.ios.category;
           }
         }
-        
+
         // Web settings
         if (platformSettings.web) {
           if (platformSettings.web.sound !== undefined) {
@@ -331,13 +402,13 @@ class OneSignalService {
           }
         }
       }
-      
+
       const response = await this.client.createNotification(notification);
       console.log('OneSignal admin notification sent:', response);
       return response;
     } catch (error) {
       console.error('Error sending admin notification:', error);
-      
+
       // Log the error body if available
       if (error.body) {
         error.body.text().then(text => {
@@ -346,7 +417,7 @@ class OneSignalService {
           console.error('Error reading error body:', err);
         });
       }
-      
+
       throw error;
     }
   }
