@@ -213,7 +213,10 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
       "target": {
         "namespace": "android_app",
         "package_name": "com.lavish.yellowsingam",
-        "sha256_cert_fingerprints": ["B4:73:06:65:32:34:97:03:39:DB:B7:CA:13:57:4C:E7:19:A3:22:F4:08:F9:14:E5:14:26:67:51:76:C5:C1:74"]
+        "sha256_cert_fingerprints": [
+          "B4:73:06:65:32:34:97:03:39:DB:B7:CA:13:57:4C:E7:19:A3:22:F4:08:F9:14:E5:14:26:67:51:76:C5:C1:74",
+          "F3:26:02:62:64:0E:2D:F1:EA:6D:12:C5:5B:B0:B6:7C:E1:98:24:E7:9F:95:F9:77:28:37:51:EE:21:CD:45:FA"
+        ]
       }
     }];
   }
