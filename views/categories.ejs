@@ -182,7 +182,9 @@
     </head>
 
     <body>
-        <%- include('partials/top-nav', { pageTitle: 'Categories Management' , backButton: true, backUrl: '/' }) %>
+        <%- include('partials/top-nav', { pageTitle: 'Categories Management' , backButton: true, backUrl: '/' , actions:
+            [ { id: 'addCategoryBtn' , icon: 'fas fa-plus' , text: 'Add Category' , onClick: 'openAddCategoryModal()' ,
+            class: 'btn-primary' } ] }) %>
 
             <div class="container-fluid">
                 <div class="row">
@@ -240,13 +242,9 @@
                                     </div>
                                 </div>
 
-                                <!-- Header with Add Button -->
+                                <!-- Header -->
                                 <div class="d-flex justify-content-between align-items-center mb-4">
                                     <h3 class="mb-0">Categories Management</h3>
-                                    <button type="button" class="btn add-category-btn ripple d-md-none"
-                                        onclick="openAddCategoryModal()">
-                                        <i class="fas fa-plus me-2"></i>Add Category
-                                    </button>
                                 </div>
 
                                 <!-- Categories Table -->

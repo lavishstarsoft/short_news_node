@@ -1519,22 +1519,53 @@ async function renderR2UsagePage(req, res) {
       }
     };
 
-    const response = await axios({
-      url: 'https://api.cloudflare.com/client/v4/graphql',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiToken}`,
-        'Content-Type': 'application/json'
-      },
-      data: {
-        query,
-        variables
-      }
-    });
+    let response;
+    try {
+      response = await axios({
+        url: 'https://api.cloudflare.com/client/v4/graphql',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiToken}`,
+          'Content-Type': 'application/json'
+        },
+        data: {
+          query,
+          variables
+        }
+      });
 
-    if (response.data.errors) {
-      console.error('Cloudflare GraphQL Errors:', response.data.errors);
-      throw new Error('Cloudflare API error');
+      if (response.data.errors) {
+        console.error('Cloudflare GraphQL Errors:', response.data.errors);
+        // Check if it's an authorization error
+        const isAuthError = response.data.errors.some(err => err.message.toLowerCase().includes('not authorized') || err.extensions?.code === 'authz');
+
+        return res.render('r2-usage', {
+          admin,
+          error: isAuthError ? 'Cloudflare API Token lacks "Account Analytics" permissions. Please update your token.' : 'Cloudflare API error',
+          usageData: null,
+          activePage: 'r2-usage',
+          currentStorage: 0,
+          classAOps: 0,
+          classBOps: 0,
+          estimatedCost: 0,
+          dailyOps: {},
+          dailyStorage: {}
+        });
+      }
+    } catch (apiError) {
+      console.error('Cloudflare API Request Failed:', apiError.message);
+      return res.render('r2-usage', {
+        admin,
+        error: `Cloudflare connection failed: ${apiError.message}`,
+        usageData: null,
+        activePage: 'r2-usage',
+        currentStorage: 0,
+        classAOps: 0,
+        classBOps: 0,
+        estimatedCost: 0,
+        dailyOps: {},
+        dailyStorage: {}
+      });
     }
 
     const account = response.data.data.viewer.accounts[0];

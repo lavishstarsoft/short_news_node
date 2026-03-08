@@ -110,34 +110,8 @@
                                     <textarea class="form-control" id="videoDescription" rows="3"></textarea>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Video Source</label>
-                                    <div class="btn-group w-100 mb-2" role="group">
-                                        <input type="radio" class="btn-check" name="videoSource" id="sourceUpload"
-                                            value="upload" checked>
-                                        <label class="btn btn-outline-primary" for="sourceUpload">
-                                            <i class="fas fa-upload me-1"></i> Upload Video
-                                        </label>
-                                        <input type="radio" class="btn-check" name="videoSource" id="sourceUrl"
-                                            value="url">
-                                        <label class="btn btn-outline-primary" for="sourceUrl">
-                                            <i class="fas fa-link me-1"></i> Video URL
-                                        </label>
-                                    </div>
-                                </div>
-                                <div id="uploadSection">
-                                    <div class="mb-3">
-                                        <label class="form-label">Upload Video File</label>
-                                        <input type="file" class="form-control" id="videoFile" accept="video/*">
-                                    </div>
-                                </div>
-                                <div id="urlSection" style="display: none;">
-                                    <div class="mb-3">
-                                        <label class="form-label">Video URL *</label>
-                                        <input type="url" class="form-control" id="videoUrlInput"
-                                            placeholder="https://youtube.com/shorts/... or Instagram/Vimeo URL">
-                                        <small class="text-muted">Paste YouTube Shorts, Instagram Reels, or Vimeo
-                                            URL</small>
-                                    </div>
+                                    <label class="form-label">Upload Video File</label>
+                                    <input type="file" class="form-control" id="videoFile" accept="video/*">
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Category</label>
@@ -164,27 +138,12 @@
                     document.addEventListener('DOMContentLoaded', function () {
                         setupMobileMenu();
                         loadVideos();
-
-                        // Toggle between upload and URL
-                        document.querySelectorAll('input[name="videoSource"]').forEach(radio => {
-                            radio.addEventListener('change', function () {
-                                if (this.value === 'upload') {
-                                    document.getElementById('uploadSection').style.display = 'block';
-                                    document.getElementById('urlSection').style.display = 'none';
-                                } else {
-                                    document.getElementById('uploadSection').style.display = 'none';
-                                    document.getElementById('urlSection').style.display = 'block';
-                                }
-                            });
-                        });
                     });
 
                     window.openAddVideoModal = function () {
                         currentVideoId = null;
                         document.getElementById('videoForm').reset();
                         document.querySelector('.modal-title').textContent = 'Add Viral Video';
-                        document.getElementById('sourceUpload').checked = true;
-                        document.getElementById('sourceUpload').dispatchEvent(new Event('change'));
                         new bootstrap.Modal(document.getElementById('addVideoModal')).show();
                     };
 
@@ -196,15 +155,6 @@
                         document.getElementById('videoDescription').value = video.content || '';
                         document.getElementById('videoCategory').value = video.category;
 
-                        if (video.videoUrl) {
-                            document.getElementById('sourceUrl').checked = true;
-                            document.getElementById('videoUrlInput').value = video.videoUrl;
-                            document.getElementById('sourceUrl').dispatchEvent(new Event('change'));
-                        } else {
-                            document.getElementById('sourceUpload').checked = true;
-                            document.getElementById('sourceUpload').dispatchEvent(new Event('change'));
-                        }
-
                         new bootstrap.Modal(document.getElementById('addVideoModal')).show();
                     };
 
@@ -212,7 +162,6 @@
                         const title = document.getElementById('videoTitle').value;
                         const description = document.getElementById('videoDescription').value;
                         const category = document.getElementById('videoCategory').value;
-                        const source = document.querySelector('input[name="videoSource"]:checked').value;
 
                         if (!title) {
                             alert('Please enter a title');
@@ -221,34 +170,25 @@
 
                         try {
                             let mediaUrl = '';
-                            let videoUrl = '';
 
-                            if (source === 'url') {
-                                videoUrl = document.getElementById('videoUrlInput').value;
-                                if (!videoUrl) {
-                                    alert('Please enter a video URL');
-                                    return;
-                                }
-                            } else {
-                                const fileInput = document.getElementById('videoFile');
-                                if (!currentVideoId && !fileInput.files.length) {
-                                    alert('Please select a video file');
-                                    return;
-                                }
+                            const fileInput = document.getElementById('videoFile');
+                            if (!currentVideoId && !fileInput.files.length) {
+                                alert('Please select a video file');
+                                return;
+                            }
 
-                                if (fileInput.files.length > 0) {
-                                    const formData = new FormData();
-                                    formData.append('media', fileInput.files[0]);
+                            if (fileInput.files.length > 0) {
+                                const formData = new FormData();
+                                formData.append('media', fileInput.files[0]);
 
-                                    const uploadResponse = await fetch('/news/upload-media', {
-                                        method: 'POST',
-                                        body: formData
-                                    });
+                                const uploadResponse = await fetch('/news/upload-media', {
+                                    method: 'POST',
+                                    body: formData
+                                });
 
-                                    if (!uploadResponse.ok) throw new Error('Failed to upload video');
-                                    const uploadData = await uploadResponse.json();
-                                    mediaUrl = uploadData.mediaUrl;
-                                }
+                                if (!uploadResponse.ok) throw new Error('Failed to upload video');
+                                const uploadData = await uploadResponse.json();
+                                mediaUrl = uploadData.mediaUrl;
                             }
 
                             const newsData = {
@@ -256,12 +196,8 @@
                                 content: description,
                                 category,
                                 mediaType: 'video',
-                                ...(mediaUrl && { mediaUrl }),
-                                ...(videoUrl && { videoUrl })
+                                ...(mediaUrl && { mediaUrl })
                             };
-
-                            if (source === 'url') newsData.mediaUrl = '';
-                            else newsData.videoUrl = '';
 
                             let url = '/viral-videos/api/videos';
                             let method = 'POST';

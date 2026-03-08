@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-  googleId: { type: String, unique: true, required: true }, // Make Google ID required
+  googleId: { type: String, sparse: true, unique: true }, // Make optional but unique if provided
+  email: { type: String, sparse: true, unique: true }, // Optional email
+  mobileNumber: { type: String, sparse: true, unique: true }, // Optional mobile
   displayName: { type: String, required: true },
-  email: { type: String, unique: true, required: true }, // Make email required for Google users
   photoUrl: { type: String },
   createdAt: { type: Date, default: Date.now },
   lastLogin: { type: Date, default: Date.now },

@@ -2,7 +2,7 @@
 <div class="top-nav d-md-none">
     <% if (typeof backButton !=='undefined' && backButton) { %>
         <button class="menu-toggle ripple"
-            onclick="window.location.href='<%= typeof backUrl !== 'undefined' ? backUrl : '/' %>';">
+            onclick="<%= typeof backUrl !== 'undefined' ? `window.location.href='${backUrl}'` : `window.location.href='/'` %>">
             <i class="fas fa-arrow-left"></i>
         </button>
         <% } else { %>
@@ -16,8 +16,9 @@
                 <div class="mobile-header-icons">
                     <% if (typeof actions !=='undefined' && actions && actions.length> 0) { %>
                         <% actions.forEach(function(action) { %>
-                            <button class="menu-toggle ripple" id="<%= action.id %>Mobile"
-                                onclick="window.location.href='<%= action.url %>';">
+                            <button class="menu-toggle ripple" id="<%= action.id %>Mobile" <%- (action &&
+                                action.onClick) ? `onclick="${action.onClick}" ` : (action && action.url ?
+                                `onclick="window.location.href='${action.url}'" ` : '' ) %>>
                                 <i class="<%= action.icon %>"></i>
                             </button>
                             <% }); %>
@@ -40,8 +41,9 @@
     <div class="d-flex gap-2">
         <% if (typeof actions !=='undefined' && actions && actions.length> 0) { %>
             <% actions.forEach(function(action) { %>
-                <button class="btn <%= action.class || 'btn-primary' %> ripple" id="<%= action.id %>"
-                    onclick="window.location.href='<%= action.url %>';">
+                <button class="btn <%= action.class || 'btn-primary' %> ripple" id="<%= action.id %>" <%- (action &&
+                    action.onClick) ? `onclick="${action.onClick}" ` : (action && action.url ?
+                    `onclick="window.location.href='${action.url}'" ` : '' ) %>>
                     <% if (action.icon) { %><i class="<%= action.icon %> me-1"></i>
                         <% } %>
                             <%= action.text %>

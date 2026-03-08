@@ -583,24 +583,38 @@ router.post('/api/public/user/profile', async (req, res) => {
       try {
         const User = require('../models/User');
 
-        // Try to find existing user by Google ID (userId is Google ID for Google users)
-        user = await User.findOne({ googleId: userId });
+        // Try to find existing user by various ID types
+        const query = { $or: [] };
+        if (userId) query.$or.push({ googleId: userId });
+        if (userEmail) query.$or.push({ email: userEmail });
+        if (req.body.mobileNumber) query.$or.push({ mobileNumber: req.body.mobileNumber });
 
-        if (!user && userName && userEmail) {
+        // Ensure query is valid
+        if (query.$or.length > 0) {
+          user = await User.findOne(query);
+        }
+
+        if (!user) {
           // Create new user if doesn't exist
           user = new User({
-            googleId: userId,
             displayName: userName || 'User',
-            email: userEmail,
-            photoUrl: req.body.photoUrl || null,
-            lastLogin: new Date()
+            lastLogin: new Date(),
+            photoUrl: req.body.photoUrl || null
           });
+
+          if (userId && !userEmail && !req.body.mobileNumber) user.googleId = userId; // Google login
+          else if (userId) user.googleId = userId; // Could be from Google
+
+          if (userEmail) user.email = userEmail;
+          if (req.body.mobileNumber) user.mobileNumber = req.body.mobileNumber;
+
           await user.save();
           console.log('Created new user:', user);
-        } else if (user) {
+        } else {
           // Update existing user info
           user.displayName = userName || user.displayName;
-          user.email = userEmail || user.email;
+          if (userEmail) user.email = userEmail;
+          if (req.body.mobileNumber) user.mobileNumber = req.body.mobileNumber;
           user.lastLogin = new Date();
           if (req.body.photoUrl) {
             user.photoUrl = req.body.photoUrl;
