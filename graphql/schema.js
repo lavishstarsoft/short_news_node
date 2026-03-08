@@ -88,7 +88,7 @@ const typeDefs = gql`
     title: String!
     description: String
     content: String
-    videoUrl: String!
+    videoUrl: String
     mediaUrl: String
     thumbnailUrl: String
     category: String

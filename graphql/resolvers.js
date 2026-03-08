@@ -1425,6 +1425,7 @@ const resolvers = {
         id: (parent) => parent.id || parent._id.toString(),
         mediaUrl: (parent) => getAbsoluteUrl(parent.mediaUrl || parent.videoUrl),
         thumbnailUrl: (parent) => getAbsoluteUrl(parent.thumbnailUrl || parent.mediaUrl || parent.videoUrl) || '/images/placeholder.png',
+        videoUrl: (parent) => parent.videoUrl || '',
         publishedAt: (parent) => {
             if (parent.publishedAt) {
                 return parent.publishedAt.toISOString ? parent.publishedAt.toISOString() : parent.publishedAt;
