@@ -191,11 +191,11 @@ const login = async (req, res) => {
 
     if (isConnectedToMongoDB) {
       // Find admin by username in MongoDB
-      admin = await Admin.findOne({ username: finalUsername });
+      admin = await Admin.findOne({ username: username });
     } else {
       // Use in-memory storage for admins
       const admins = req.app.locals.adminData || [];
-      admin = admins.find(a => a.username === finalUsername);
+      admin = admins.find(a => a.username === username);
     }
 
     // Check if admin exists
@@ -211,10 +211,10 @@ const login = async (req, res) => {
     // Compare password
     let isMatch;
     if (isConnectedToMongoDB) {
-      isMatch = await admin.comparePassword(finalPassword);
+      isMatch = await admin.comparePassword(password);
     } else {
       // For in-memory storage, compare plain text (in a real app, you'd want to hash these too)
-      isMatch = admin.password === finalPassword;
+      isMatch = admin.password === password;
     }
 
     if (!isMatch) {
@@ -363,8 +363,8 @@ const updateProfileImage = async (req, res) => {
 
     // Find admin by ID
   } catch (error) {
-    console.error('Editor registration error:', error);
-    res.render('register-editor', { admin, error: 'An error occurred during registration' });
+    console.error('Profile image update error:', error);
+    res.status(500).json({ error: 'An error occurred while updating profile image' });
   }
 };
 
