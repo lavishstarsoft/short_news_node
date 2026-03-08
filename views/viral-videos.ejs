@@ -178,6 +178,7 @@
                             }
 
                             if (fileInput.files.length > 0) {
+                                showLoader('Uploading video...');
                                 const formData = new FormData();
                                 formData.append('media', fileInput.files[0]);
 
@@ -191,6 +192,7 @@
                                 mediaUrl = uploadData.mediaUrl;
                             }
 
+                            showLoader(currentVideoId ? 'Updating video...' : 'Saving video...');
                             const newsData = {
                                 title,
                                 content: description,
@@ -213,6 +215,7 @@
                                 body: JSON.stringify(newsData)
                             });
 
+                            hideLoader();
                             if (response.ok) {
                                 alert(currentVideoId ? 'Video updated successfully!' : 'Video added successfully!');
                                 bootstrap.Modal.getInstance(document.getElementById('addVideoModal')).hide();
@@ -223,6 +226,7 @@
                                 alert('Error saving video: ' + (error.error || 'Unknown error'));
                             }
                         } catch (error) {
+                            hideLoader();
                             console.error('Error:', error);
                             alert('Error: ' + error.message);
                         }
@@ -231,13 +235,16 @@
                     window.deleteVideo = async function (id) {
                         if (!confirm('Are you sure you want to delete this video?')) return;
                         try {
+                            showLoader('Deleting video...');
                             const response = await fetch(`/viral-videos/api/videos/${id}`, { method: 'DELETE' });
+                            hideLoader();
                             if (response.ok) loadVideos();
                             else {
                                 const error = await response.json();
                                 alert('Error: ' + (error.error || 'Unknown error'));
                             }
                         } catch (error) {
+                            hideLoader();
                             console.error('Error:', error);
                             alert('Error deleting video');
                         }
@@ -245,13 +252,16 @@
 
                     window.toggleVideoStatus = async function (id) {
                         try {
+                            showLoader('Updating status...');
                             const response = await fetch(`/viral-videos/api/videos/${id}/toggle-status`, { method: 'PUT' });
+                            hideLoader();
                             if (response.ok) loadVideos();
                             else {
                                 const error = await response.json();
                                 alert('Error: ' + (error.error || 'Unknown error'));
                             }
                         } catch (error) {
+                            hideLoader();
                             console.error('Error:', error);
                             alert('Error toggling status');
                         }

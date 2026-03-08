@@ -268,6 +268,7 @@
                         }
 
                         try {
+                            showLoader(newsId ? 'Updating news...' : 'Saving news...');
                             let response;
                             if (newsId) {
                                 response = await fetch(`/news/api/news/${newsId}`, {
@@ -287,6 +288,7 @@
                                 });
                             }
 
+                            hideLoader();
                             if (response.ok) {
                                 const successMessage = newsId ? 'News updated successfully!' : 'News added successfully!';
                                 showFeedback(successMessage, 'success');
@@ -304,6 +306,7 @@
                                 }
                             }
                         } catch (error) {
+                            hideLoader();
                             console.error('Error:', error);
                             showFeedback('Error saving news: ' + error.message, 'error');
                         }
@@ -404,6 +407,7 @@
                         formData.append('media', file);
 
                         try {
+                            showLoader('Uploading media...');
                             const response = await fetch('/news/upload-media', {
                                 method: 'POST',
                                 body: formData
@@ -412,6 +416,7 @@
                             if (!response.ok) throw new Error('Upload failed');
 
                             const data = await response.json();
+                            hideLoader();
                             console.log('Upload response:', data);
                             const imagePreview = document.getElementById('imagePreview');
                             const videoPreview = document.getElementById('videoPreview');
@@ -445,6 +450,7 @@
                             const modal = bootstrap.Modal.getInstance(document.getElementById('imageCropModal'));
                             if (modal) modal.hide();
                         } catch (error) {
+                            hideLoader();
                             console.error('Upload error:', error);
                             showFeedback('Error uploading media: ' + error.message, 'error');
                         }
