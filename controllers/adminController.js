@@ -191,11 +191,11 @@ const login = async (req, res) => {
 
     if (isConnectedToMongoDB) {
       // Find admin by username in MongoDB
-      admin = await Admin.findOne({ username });
+      admin = await Admin.findOne({ username: finalUsername });
     } else {
       // Use in-memory storage for admins
       const admins = req.app.locals.adminData || [];
-      admin = admins.find(a => a.username === username);
+      admin = admins.find(a => a.username === finalUsername);
     }
 
     // Check if admin exists
@@ -211,10 +211,10 @@ const login = async (req, res) => {
     // Compare password
     let isMatch;
     if (isConnectedToMongoDB) {
-      isMatch = await admin.comparePassword(password);
+      isMatch = await admin.comparePassword(finalPassword);
     } else {
       // For in-memory storage, compare plain text (in a real app, you'd want to hash these too)
-      isMatch = admin.password === password;
+      isMatch = admin.password === finalPassword;
     }
 
     if (!isMatch) {
