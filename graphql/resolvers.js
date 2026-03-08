@@ -203,8 +203,8 @@ const resolvers = {
                 if (cached) return cached;
 
                 // Cache miss - fetch from DB
-                const videos = await ViralVideo.find()
-                    .sort({ createdAt: -1 })
+                const videos = await ViralVideo.find({ isActive: true })
+                    .sort({ publishedAt: -1 })
                     .skip(offset)
                     .limit(limit);
 
@@ -1466,6 +1466,56 @@ const resolvers = {
                     timestamp: new Date(like.timestamp || Date.now()).toISOString()
                 }))
             }));
+        },
+    },
+
+    ViralVideo: {
+        id: (parent) => parent.id || parent._id.toString(),
+        videoUrl: (parent) => parent.videoUrl || '',
+        mediaUrl: (parent) => getAbsoluteUrl(parent.mediaUrl),
+        thumbnailUrl: (parent) => getAbsoluteUrl(parent.thumbnailUrl || parent.mediaUrl),
+        publishedAt: (parent) => parent.publishedAt ? parent.publishedAt.toISOString() : (parent.createdAt ? parent.createdAt.toISOString() : new Date().toISOString()),
+        isActive: (parent) => parent.isActive !== false,
+        userLikes: (parent) => {
+            if (parent.userInteractions && parent.userInteractions.likes) {
+                return parent.userInteractions.likes.map(like => ({
+                    userId: like.userId,
+                    userName: like.userName,
+                    userEmail: like.userEmail || '',
+                    timestamp: new Date(like.timestamp || Date.now()).toISOString(),
+                    likes: []
+                }));
+            }
+            return [];
+        },
+        userDislikes: (parent) => {
+            if (parent.userInteractions && parent.userInteractions.dislikes) {
+                return parent.userInteractions.dislikes.map(dislike => ({
+                    userId: dislike.userId,
+                    userName: dislike.userName,
+                    userEmail: dislike.userEmail || '',
+                    timestamp: new Date(dislike.timestamp || Date.now()).toISOString(),
+                    likes: []
+                }));
+            }
+            return [];
+        },
+        userComments: (parent) => {
+            if (parent.userInteractions && parent.userInteractions.comments) {
+                return parent.userInteractions.comments.map(comment => ({
+                    userId: comment.userId,
+                    userName: comment.userName,
+                    userEmail: comment.userEmail || '',
+                    comment: comment.comment,
+                    timestamp: new Date(comment.timestamp || Date.now()).toISOString(),
+                    likes: (comment.likes || []).map(like => ({
+                        userId: like.userId,
+                        userName: like.userName,
+                        timestamp: new Date(like.timestamp || Date.now()).toISOString(),
+                    })),
+                }));
+            }
+            return [];
         },
     },
 
