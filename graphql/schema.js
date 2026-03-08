@@ -88,7 +88,7 @@ const typeDefs = gql`
     title: String!
     description: String
     content: String
-    videoUrl: String
+    videoUrl: String!
     mediaUrl: String
     thumbnailUrl: String
     category: String
@@ -99,7 +99,6 @@ const typeDefs = gql`
     comments: Int!
     publishedAt: String!
     createdAt: String!
-    isActive: Boolean!
     userLikes: [UserInteraction!]!
     userDislikes: [UserInteraction!]!
     userComments: [UserInteraction!]!
