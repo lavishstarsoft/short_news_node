@@ -1476,12 +1476,12 @@ async function renderR2UsagePage(req, res) {
 
     // Prepare GraphQL query for R2 usage
     const query = `
-      query GetR2Usage($accountId: String!, $filter: R2UsageGroupsFilter_InputObject!) {
+      query GetR2Usage($accountId: String!, $opsFilter: AccountR2OperationsAdaptiveGroupsFilter_InputObject!, $storageFilter: AccountR2StorageAdaptiveGroupsFilter_InputObject!) {
         viewer {
           accounts(filter: { accountTag: $accountId }) {
             r2OperationsAdaptiveGroups(
               limit: 1000
-              filter: $filter
+              filter: $opsFilter
               orderBy: [datetime_ASC]
             ) {
               dimensions {
@@ -1494,13 +1494,15 @@ async function renderR2UsagePage(req, res) {
             }
             r2StorageAdaptiveGroups(
               limit: 1000
-              filter: $filter
+              filter: $storageFilter
               orderBy: [datetime_ASC]
             ) {
               dimensions {
                 datetime
               }
-              payloadSize
+              max {
+                payloadSize
+              }
             }
           }
         }
@@ -1508,12 +1510,16 @@ async function renderR2UsagePage(req, res) {
     `;
 
     const now = moment();
-    const startDate = moment().subtract(30, 'days').format('YYYY-MM-DDTHH:mm:ssZ');
+    const startDate = moment().subtract(28, 'days').format('YYYY-MM-DDTHH:mm:ssZ'); // Max 4 weeks allowed by Cloudflare
     const endDate = now.format('YYYY-MM-DDTHH:mm:ssZ');
 
     const variables = {
       accountId: accountId,
-      filter: {
+      opsFilter: {
+        datetime_geq: startDate,
+        datetime_leq: endDate
+      },
+      storageFilter: {
         datetime_geq: startDate,
         datetime_leq: endDate
       }
@@ -1598,7 +1604,7 @@ async function renderR2UsagePage(req, res) {
     let currentStorage = 0;
     storageData.forEach(group => {
       const date = moment(group.dimensions.datetime).format('YYYY-MM-DD');
-      const sizeGB = (group.payloadSize || 0) / (1024 * 1024 * 1024);
+      const sizeGB = ((group.max && group.max.payloadSize) || 0) / (1024 * 1024 * 1024);
       dailyStorage[date] = sizeGB;
       currentStorage = sizeGB;
     });

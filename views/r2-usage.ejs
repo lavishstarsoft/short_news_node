@@ -91,7 +91,7 @@
                                                     <i class="fas fa-database"></i>
                                                 </div>
                                                 <h6 class="text-muted mb-1">Current Storage</h6>
-                                                <h3 class="fw-bold mb-0">
+                                                <h3 class="fw-bold mb-0 text-dark">
                                                     <%= currentStorage %> <small class="fs-6 text-muted">GB</small>
                                                 </h3>
                                             </div>
@@ -102,7 +102,7 @@
                                                     <i class="fas fa-upload"></i>
                                                 </div>
                                                 <h6 class="text-muted mb-1">Class A Operations</h6>
-                                                <h3 class="fw-bold mb-0">
+                                                <h3 class="fw-bold mb-0 text-dark">
                                                     <%= classAOps.toLocaleString() %>
                                                 </h3>
                                                 <small class="text-muted">Writes, Lists, etc.</small>
@@ -114,7 +114,7 @@
                                                     <i class="fas fa-download"></i>
                                                 </div>
                                                 <h6 class="text-muted mb-1">Class B Operations</h6>
-                                                <h3 class="fw-bold mb-0">
+                                                <h3 class="fw-bold mb-0 text-dark">
                                                     <%= classBOps.toLocaleString() %>
                                                 </h3>
                                                 <small class="text-muted">Reads, Heads, etc.</small>
@@ -140,7 +140,7 @@
                                         <div class="col-lg-8">
                                             <div class="card stats-card mb-4">
                                                 <div class="card-header bg-white py-3">
-                                                    <h5 class="card-title mb-0">Operations Trend (30 Days)</h5>
+                                                    <h5 class="card-title mb-0">Operations Trend (28 Days)</h5>
                                                 </div>
                                                 <div class="card-body">
                                                     <div class="chart-container">
@@ -186,8 +186,8 @@
 
             <script>
                 // Data from server
-                const dailyOps = <% - JSON.stringify(dailyOps) %>;
-                const dailyStorage = <% - JSON.stringify(dailyStorage) %>;
+                const dailyOps = <%- JSON.stringify(dailyOps) %>;
+                const dailyStorage = <%- JSON.stringify(dailyStorage) %>;
 
                 const labels = Object.keys(dailyOps).sort();
                 const classAData = labels.map(date => dailyOps[date].a);

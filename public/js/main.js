@@ -54,8 +54,8 @@ async function addNews() {
 
 // Edit News Function
 function editNews(id) {
-    showFeedback('Edit functionality would be implemented here. News ID: ' + id, 'info');
-    // In a full implementation, this would open a modal with the news data pre-filled
+    // Redirect to edit page
+    window.location.href = `/edit-news/${id}`;
 }
 
 // Delete News Function

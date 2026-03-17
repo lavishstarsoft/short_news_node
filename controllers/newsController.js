@@ -150,6 +150,14 @@ async function renderDashboard(req, res) {
 async function renderNewsListPage(req, res) {
   console.log('renderNewsListPage called'); // Debug log
   try {
+    // Pagination settings
+    const page = parseInt(req.query.page) || 1;
+    const limit = 21; // 21 news per page for fast loading
+    const skip = (page - 1) * limit;
+    const searchQuery = req.query.search || '';
+    const fromDate = req.query.fromDate || '';
+    const toDate = req.query.toDate || '';
+
     if (req.app.locals.isConnectedToMongoDB) {
       console.log('Using MongoDB'); // Debug log
       let newsList;
@@ -159,6 +167,11 @@ async function renderNewsListPage(req, res) {
 
       // Build query based on filters
       const query = {};
+
+      // Search filter - search in title (case-insensitive)
+      if (searchQuery) {
+        query.title = { $regex: searchQuery, $options: 'i' };
+      }
 
       // Location filter
       if (selectedLocation) {
@@ -172,13 +185,35 @@ async function renderNewsListPage(req, res) {
         query.isActive = false;
       }
 
+      // Date range filter
+      if (fromDate || toDate) {
+        query.publishedAt = {};
+        if (fromDate) {
+          query.publishedAt.$gte = new Date(fromDate);
+        }
+        if (toDate) {
+          // Add 1 day to include the entire toDate
+          const endDate = new Date(toDate);
+          endDate.setDate(endDate.getDate() + 1);
+          query.publishedAt.$lt = endDate;
+        }
+      }
+
       // Check user role
       if (req.admin.role === 'editor') {
         // Editors only see their own news
         query.authorId = req.admin.id;
       }
 
-      newsList = await News.find(query).sort({ publishedAt: -1 });
+      // Get total count for pagination
+      const totalNews = await News.countDocuments(query);
+      const totalPages = Math.ceil(totalNews / limit);
+
+      // Fetch only the news for current page with pagination
+      newsList = await News.find(query)
+        .sort({ publishedAt: -1 })
+        .skip(skip)
+        .limit(limit);
 
       // Get all locations for the filter dropdown
       locations = await Location.find();
@@ -197,13 +232,24 @@ async function renderNewsListPage(req, res) {
         };
       });
 
-      console.log('Rendering news-list with', newsListWithCodes.length, 'news items'); // Debug log
+      console.log('Rendering news-list with', newsListWithCodes.length, 'news items, page', page, 'of', totalPages); // Debug log
       res.render('news-list', {
         newsList: newsListWithCodes,
         locations,
         selectedLocation,
         selectedStatus,
-        admin: req.admin
+        searchQuery,
+        fromDate,
+        toDate,
+        admin: req.admin,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalNews,
+          limit,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1
+        }
       });
     } else {
       console.log('Using in-memory storage'); // Debug log
@@ -214,7 +260,14 @@ async function renderNewsListPage(req, res) {
       const selectedStatus = req.query.status || '';
 
       // Filter news by location if specified
-      let filteredNewsData = newsData;
+      let filteredNewsData = [...newsData];
+
+      // Search filter - search in title (case-insensitive)
+      if (searchQuery) {
+        filteredNewsData = filteredNewsData.filter(news =>
+          news.title.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      }
 
       // Location filter
       if (selectedLocation) {
@@ -228,6 +281,17 @@ async function renderNewsListPage(req, res) {
         filteredNewsData = filteredNewsData.filter(news => news.isActive === false);
       }
 
+      // Date range filter
+      if (fromDate) {
+        const fromDateTime = new Date(fromDate);
+        filteredNewsData = filteredNewsData.filter(news => new Date(news.publishedAt) >= fromDateTime);
+      }
+      if (toDate) {
+        const toDateTime = new Date(toDate);
+        toDateTime.setDate(toDateTime.getDate() + 1); // Include entire toDate
+        filteredNewsData = filteredNewsData.filter(news => new Date(news.publishedAt) < toDateTime);
+      }
+
       // Check user role
       if (req.admin.role === 'editor') {
         // Editors only see their own news
@@ -237,6 +301,13 @@ async function renderNewsListPage(req, res) {
       // Sort by published date
       filteredNewsData.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 
+      // Get total count for pagination
+      const totalNews = filteredNewsData.length;
+      const totalPages = Math.ceil(totalNews / limit);
+
+      // Apply pagination
+      const paginatedNews = filteredNewsData.slice(skip, skip + limit);
+
       // Get all locations to create a map of name to code (for in-memory storage)
       const locationMap = {};
       locationData.forEach(location => {
@@ -244,20 +315,31 @@ async function renderNewsListPage(req, res) {
       });
 
       // Add location codes to news items (for in-memory storage)
-      const newsListWithCodes = filteredNewsData.map(news => {
+      const newsListWithCodes = paginatedNews.map(news => {
         return {
           ...news,
           locationCode: news.location ? locationMap[news.location] : null
         };
       });
 
-      console.log('Rendering news-list with', newsListWithCodes.length, 'news items'); // Debug log
+      console.log('Rendering news-list with', newsListWithCodes.length, 'news items, page', page, 'of', totalPages); // Debug log
       res.render('news-list', {
         newsList: newsListWithCodes,
         locations: locationData,
         selectedLocation,
         selectedStatus,
-        admin: req.admin
+        searchQuery,
+        fromDate,
+        toDate,
+        admin: req.admin,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalNews,
+          limit,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1
+        }
       });
     }
   } catch (error) {
@@ -462,13 +544,7 @@ async function createNews(req, res) {
         console.log('Saved news notification to database with ID:', notification._id);
       }
 
-      // Send OneSignal notification
-      try {
-        await oneSignalService.sendNewsNotification(news);
-        console.log('OneSignal notification sent for new news');
-      } catch (error) {
-        console.error('Error sending OneSignal notification:', error);
-      }
+      // Auto-notification removed - Admin will manually send notifications from news-list using bell button
     }
 
     // 🔄 Clear news cache after creating new news

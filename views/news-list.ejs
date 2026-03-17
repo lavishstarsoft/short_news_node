@@ -107,7 +107,12 @@
                                         </div>
                                     </div>
                                     <div class="row align-items-center mt-3">
-                                        <div class="col-md-4 mb-2 mb-md-0">
+                                        <div class="col-md-3 mb-2 mb-md-0">
+                                            <input type="text" class="form-control" id="searchFilter" name="search"
+                                                placeholder="Search by title..."
+                                                value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+                                        </div>
+                                        <div class="col-md-2 mb-2 mb-md-0">
                                             <select class="form-select" id="locationFilter" name="location">
                                                 <option value="">All Locations</option>
                                                 <% locations.forEach(function(location) { %>
@@ -119,7 +124,7 @@
                                                     <% }); %>
                                             </select>
                                         </div>
-                                        <div class="col-md-4 mb-2 mb-md-0">
+                                        <div class="col-md-2 mb-2 mb-md-0">
                                             <select class="form-select" id="statusFilter" name="status">
                                                 <option value="">All Status</option>
                                                 <option value="active" <%=(typeof selectedStatus !=='undefined' &&
@@ -128,11 +133,21 @@
                                                     selectedStatus==='inactive' ) ? 'selected' : '' %>>Inactive</option>
                                             </select>
                                         </div>
-                                        <div class="col-md-4">
+                                        <div class="col-md-2 mb-2 mb-md-0">
+                                            <input type="date" class="form-control" id="fromDateFilter" name="fromDate"
+                                                title="From Date"
+                                                value="<%= typeof fromDate !== 'undefined' ? fromDate : '' %>">
+                                        </div>
+                                        <div class="col-md-2 mb-2 mb-md-0">
+                                            <input type="date" class="form-control" id="toDateFilter" name="toDate"
+                                                title="To Date"
+                                                value="<%= typeof toDate !== 'undefined' ? toDate : '' %>">
+                                        </div>
+                                        <div class="col-md-1">
                                             <div class="d-flex gap-2">
                                                 <button type="submit" class="btn btn-primary" form="filterForm"
-                                                    title="Filter">
-                                                    <i class="fas fa-filter"></i>
+                                                    title="Search">
+                                                    <i class="fas fa-search"></i>
                                                 </button>
                                                 <a href="/news-list" class="btn btn-outline-secondary" title="Clear">
                                                     <i class="fas fa-times"></i>
@@ -143,10 +158,16 @@
                                 </div>
 
                                 <form id="filterForm" class="d-none" method="GET">
+                                    <input type="hidden" id="searchFilterInput" name="search"
+                                        value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
                                     <input type="hidden" id="locationFilterInput" name="location"
                                         value="<%= typeof selectedLocation !== 'undefined' ? selectedLocation : '' %>">
                                     <input type="hidden" id="statusFilterInput" name="status"
                                         value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : '' %>">
+                                    <input type="hidden" id="fromDateFilterInput" name="fromDate"
+                                        value="<%= typeof fromDate !== 'undefined' ? fromDate : '' %>">
+                                    <input type="hidden" id="toDateFilterInput" name="toDate"
+                                        value="<%= typeof toDate !== 'undefined' ? toDate : '' %>">
                                 </form>
 
                                 <!-- News List -->
@@ -300,6 +321,72 @@
                                                 </div>
                                                 <% }); %>
                                         </div>
+
+                                        <!-- Pagination -->
+                                        <% if (typeof pagination !== 'undefined' && pagination.totalPages > 1) { %>
+                                        <nav aria-label="News pagination" class="mt-4">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <small class="text-muted">
+                                                    Showing <%= ((pagination.currentPage - 1) * pagination.limit) + 1 %> -
+                                                    <%= Math.min(pagination.currentPage * pagination.limit, pagination.totalNews) %>
+                                                    of <%= pagination.totalNews %> news
+                                                </small>
+                                                <small class="text-muted">
+                                                    Page <%= pagination.currentPage %> of <%= pagination.totalPages %>
+                                                </small>
+                                            </div>
+                                            <ul class="pagination justify-content-center flex-wrap">
+                                                <!-- First Page -->
+                                                <li class="page-item <%= pagination.currentPage === 1 ? 'disabled' : '' %>">
+                                                    <a class="page-link" href="?page=1<%= searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '' %><%= selectedLocation ? '&location=' + selectedLocation : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %><%= fromDate ? '&fromDate=' + fromDate : '' %><%= toDate ? '&toDate=' + toDate : '' %>">
+                                                        <i class="fas fa-angle-double-left"></i>
+                                                    </a>
+                                                </li>
+                                                <!-- Previous Page -->
+                                                <li class="page-item <%= !pagination.hasPrevPage ? 'disabled' : '' %>">
+                                                    <a class="page-link" href="?page=<%= pagination.currentPage - 1 %><%= searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '' %><%= selectedLocation ? '&location=' + selectedLocation : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %><%= fromDate ? '&fromDate=' + fromDate : '' %><%= toDate ? '&toDate=' + toDate : '' %>">
+                                                        <i class="fas fa-angle-left"></i>
+                                                    </a>
+                                                </li>
+
+                                                <%
+                                                // Show page numbers
+                                                let startPage = Math.max(1, pagination.currentPage - 2);
+                                                let endPage = Math.min(pagination.totalPages, pagination.currentPage + 2);
+
+                                                // Ensure we show at least 5 pages if available
+                                                if (endPage - startPage < 4) {
+                                                    if (startPage === 1) {
+                                                        endPage = Math.min(pagination.totalPages, startPage + 4);
+                                                    } else {
+                                                        startPage = Math.max(1, endPage - 4);
+                                                    }
+                                                }
+
+                                                for (let i = startPage; i <= endPage; i++) { %>
+                                                    <li class="page-item <%= i === pagination.currentPage ? 'active' : '' %>">
+                                                        <a class="page-link" href="?page=<%= i %><%= searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '' %><%= selectedLocation ? '&location=' + selectedLocation : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %><%= fromDate ? '&fromDate=' + fromDate : '' %><%= toDate ? '&toDate=' + toDate : '' %>">
+                                                            <%= i %>
+                                                        </a>
+                                                    </li>
+                                                <% } %>
+
+                                                <!-- Next Page -->
+                                                <li class="page-item <%= !pagination.hasNextPage ? 'disabled' : '' %>">
+                                                    <a class="page-link" href="?page=<%= pagination.currentPage + 1 %><%= searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '' %><%= selectedLocation ? '&location=' + selectedLocation : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %><%= fromDate ? '&fromDate=' + fromDate : '' %><%= toDate ? '&toDate=' + toDate : '' %>">
+                                                        <i class="fas fa-angle-right"></i>
+                                                    </a>
+                                                </li>
+                                                <!-- Last Page -->
+                                                <li class="page-item <%= pagination.currentPage === pagination.totalPages ? 'disabled' : '' %>">
+                                                    <a class="page-link" href="?page=<%= pagination.totalPages %><%= searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '' %><%= selectedLocation ? '&location=' + selectedLocation : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %><%= fromDate ? '&fromDate=' + fromDate : '' %><%= toDate ? '&toDate=' + toDate : '' %>">
+                                                        <i class="fas fa-angle-double-right"></i>
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </nav>
+                                        <% } %>
+
                                         <% } %>
                             </div>
                         </div>
@@ -459,12 +546,32 @@
                     // Wait for DOM to be fully loaded
                     document.addEventListener('DOMContentLoaded', function () {
                         // Handle filter form submission
+                        const searchFilter = document.getElementById('searchFilter');
                         const locationFilter = document.getElementById('locationFilter');
                         const statusFilter = document.getElementById('statusFilter');
+                        const fromDateFilter = document.getElementById('fromDateFilter');
+                        const toDateFilter = document.getElementById('toDateFilter');
+                        const searchFilterInput = document.getElementById('searchFilterInput');
                         const locationFilterInput = document.getElementById('locationFilterInput');
                         const statusFilterInput = document.getElementById('statusFilterInput');
+                        const fromDateFilterInput = document.getElementById('fromDateFilterInput');
+                        const toDateFilterInput = document.getElementById('toDateFilterInput');
 
-                        if (locationFilter && statusFilter && locationFilterInput && statusFilterInput && filterForm) {
+                        if (searchFilter && locationFilter && statusFilter && fromDateFilter && toDateFilter && filterForm) {
+                            // Search on Enter key
+                            searchFilter.addEventListener('keypress', function (e) {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    searchFilterInput.value = this.value;
+                                    filterForm.submit();
+                                }
+                            });
+
+                            // Update hidden input when search field changes
+                            searchFilter.addEventListener('input', function () {
+                                searchFilterInput.value = this.value;
+                            });
+
                             locationFilter.addEventListener('change', function () {
                                 locationFilterInput.value = this.value;
                                 filterForm.submit();
@@ -472,6 +579,17 @@
 
                             statusFilter.addEventListener('change', function () {
                                 statusFilterInput.value = this.value;
+                                filterForm.submit();
+                            });
+
+                            // Date filters - submit on change
+                            fromDateFilter.addEventListener('change', function () {
+                                fromDateFilterInput.value = this.value;
+                                filterForm.submit();
+                            });
+
+                            toDateFilter.addEventListener('change', function () {
+                                toDateFilterInput.value = this.value;
                                 filterForm.submit();
                             });
                         }
