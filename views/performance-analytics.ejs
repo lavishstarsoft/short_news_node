@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<%- include('partials/header', { title: 'Team Performance Analytics' }) %>
+
+<style>
+    body {
+        background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+    }
+
+    .analytics-shell {
+        max-width: 1320px;
+        margin: 0 auto;
+    }
+
+    .hero-card {
+        border: none;
+        border-radius: 16px;
+        color: #fff;
+        background: linear-gradient(120deg, #0f172a 0%, #1d4ed8 50%, #0ea5e9 100%);
+        box-shadow: 0 16px 30px rgba(15, 23, 42, 0.25);
+    }
+
+    .hero-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+    }
+
+    .summary-item {
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 12px;
+        padding: 12px;
+        min-height: 95px;
+    }
+
+    .summary-item .label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        opacity: 0.9;
+    }
+
+    .summary-item .value {
+        font-size: 1.45rem;
+        font-weight: 700;
+        margin-top: 6px;
+    }
+
+    .panel {
+        border-radius: 14px;
+        border: none;
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .panel-title {
+        font-weight: 700;
+        margin: 0;
+        color: #0f172a;
+    }
+
+    .pill {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-weight: 600;
+        font-size: 0.76rem;
+    }
+
+    .pill-excellent {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .pill-good {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .pill-average {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .pill-poor {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .role-chip {
+        border-radius: 999px;
+        padding: 3px 9px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+
+    .role-sub {
+        background: #cffafe;
+        color: #155e75;
+    }
+
+    .role-reporter {
+        background: #ede9fe;
+        color: #5b21b6;
+    }
+
+    .ranking-item {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        background: #fff;
+    }
+
+    .ranking-name {
+        font-weight: 600;
+        color: #0f172a;
+    }
+
+    .score-badge {
+        border-radius: 8px;
+        padding: 4px 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: #0f172a;
+        color: #fff;
+    }
+
+    .table thead th {
+        background: #f8fafc;
+        color: #334155;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .rec-card {
+        border-radius: 12px;
+        border: 1px solid #dbeafe;
+        background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+        padding: 14px;
+        height: 100%;
+    }
+
+    .rec-title {
+        font-weight: 700;
+        color: #1e3a8a;
+    }
+
+    .rec-source {
+        font-size: 0.78rem;
+        color: #475569;
+        margin-top: 6px;
+    }
+
+    .form-select {
+        border-radius: 10px;
+    }
+
+    @media (max-width: 767px) {
+        .hero-title {
+            font-size: 1.45rem;
+        }
+
+        .table {
+            font-size: 0.84rem;
+        }
+    }
+</style>
+</head>
+
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Performance Analytics', backButton: true, backUrl: '/editors' }) %>
+
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar', { activePage: 'performance-analytics' }) %>
+
+            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="content-area mt-4 analytics-shell">
+                    <div class="card hero-card mb-4">
+                        <div class="card-body p-4">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                                <div>
+                                    <h1 class="hero-title">Sub Editor & Reporter Analytics</h1>
+                                    <p class="mb-0 opacity-75">Good/Poor performance tracking with role-wise scoring and editorial workflow insights.</p>
+                                </div>
+                                <form method="GET" action="/admin/performance-analytics" class="d-flex align-items-center gap-2">
+                                    <label for="period" class="small fw-semibold text-white-50 mb-0">Period</label>
+                                    <select id="period" name="period" class="form-select form-select-sm" onchange="this.form.submit()">
+                                        <option value="7" <%= period === '7' ? 'selected' : '' %>>Last 7 Days</option>
+                                        <option value="30" <%= period === '30' ? 'selected' : '' %>>Last 30 Days</option>
+                                        <option value="90" <%= period === '90' ? 'selected' : '' %>>Last 90 Days</option>
+                                        <option value="all" <%= period === 'all' ? 'selected' : '' %>>All Time</option>
+                                    </select>
+                                </form>
+                            </div>
+
+                            <div class="summary-grid">
+                                <div class="summary-item">
+                                    <div class="label">Team Members</div>
+                                    <div class="value"><%= summary.totalMembers %></div>
+                                </div>
+                                <div class="summary-item">
+                                    <div class="label">Sub Editors</div>
+                                    <div class="value"><%= summary.totalSubEditors %></div>
+                                </div>
+                                <div class="summary-item">
+                                    <div class="label">Reporters</div>
+                                    <div class="value"><%= summary.totalReporters %></div>
+                                </div>
+                                <div class="summary-item">
+                                    <div class="label">Average Score</div>
+                                    <div class="value"><%= summary.avgScore %></div>
+                                </div>
+                                <div class="summary-item">
+                                    <div class="label">Excellent</div>
+                                    <div class="value"><%= summary.excellentCount %></div>
+                                </div>
+                                <div class="summary-item">
+                                    <div class="label">Poor</div>
+                                    <div class="value"><%= summary.poorCount %></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-lg-6">
+                            <div class="card panel h-100">
+                                <div class="card-body">
+                                    <h5 class="panel-title mb-3"><i class="fas fa-trophy me-2 text-success"></i>Top Performers</h5>
+                                    <% if (topPerformers && topPerformers.length > 0) { %>
+                                        <% topPerformers.forEach(function(item) { %>
+                                            <div class="ranking-item">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <div class="ranking-name">#<%= item.rank %> <%= item.name %></div>
+                                                        <div class="small text-muted">
+                                                            @<%= item.username %> • <%= item.role %>
+                                                        </div>
+                                                    </div>
+                                                    <span class="score-badge"><%= item.performanceScore %></span>
+                                                </div>
+                                            </div>
+                                        <% }) %>
+                                    <% } else { %>
+                                        <div class="text-muted">No data available.</div>
+                                    <% } %>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6">
+                            <div class="card panel h-100">
+                                <div class="card-body">
+                                    <h5 class="panel-title mb-3"><i class="fas fa-triangle-exclamation me-2 text-danger"></i>Poor Performers (Needs Attention)</h5>
+                                    <% if (poorPerformers && poorPerformers.length > 0) { %>
+                                        <% poorPerformers.forEach(function(item) { %>
+                                            <div class="ranking-item">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <div class="ranking-name">#<%= item.rank %> <%= item.name %></div>
+                                                        <div class="small text-muted">
+                                                            Publish: <%= item.publishRate %>% • Reject: <%= item.rejectionRate %>%
+                                                        </div>
+                                                    </div>
+                                                    <span class="score-badge" style="background:#7f1d1d;"><%= item.performanceScore %></span>
+                                                </div>
+                                            </div>
+                                        <% }) %>
+                                    <% } else { %>
+                                        <div class="text-muted">No data available.</div>
+                                    <% } %>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card panel mb-3">
+                        <div class="card-body">
+                            <h5 class="panel-title mb-3"><i class="fas fa-table me-2 text-primary"></i>Detailed Performance Table</h5>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Rank</th>
+                                            <th>Member</th>
+                                            <th>Role</th>
+                                            <th>Score</th>
+                                            <th>Submitted</th>
+                                            <th>Published</th>
+                                            <th>Pending</th>
+                                            <th>Rejected</th>
+                                            <th>Publish %</th>
+                                            <th>Reject %</th>
+                                            <th>Avg Views</th>
+                                            <th>Moderation</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% if (analyticsRows && analyticsRows.length > 0) { %>
+                                            <% analyticsRows.forEach(function(row) { %>
+                                                <tr>
+                                                    <td class="fw-bold">#<%= row.rank %></td>
+                                                    <td>
+                                                        <div class="fw-semibold"><%= row.name %></div>
+                                                        <div class="small text-muted">@<%= row.username %></div>
+                                                    </td>
+                                                    <td>
+                                                        <span class="role-chip <%= row.role === 'Sub Editor' ? 'role-sub' : 'role-reporter' %>">
+                                                            <%= row.role %>
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <span class="pill pill-<%= row.performanceBand %>"><%= row.performanceBand.toUpperCase() %></span>
+                                                        <div class="small fw-semibold mt-1"><%= row.performanceScore %></div>
+                                                    </td>
+                                                    <td><%= row.submitted %></td>
+                                                    <td><%= row.published %></td>
+                                                    <td><%= row.pending %></td>
+                                                    <td><%= row.rejected %></td>
+                                                    <td><%= row.publishRate %>%</td>
+                                                    <td><%= row.rejectionRate %>%</td>
+                                                    <td><%= row.avgViews %></td>
+                                                    <td>
+                                                        <div class="small"><%= row.moderationLabel %> Approved: <%= row.moderationApproved %></div>
+                                                        <div class="small"><%= row.moderationLabel %> Rejected: <%= row.moderationRejected %></div>
+                                                    </td>
+                                                </tr>
+                                            <% }) %>
+                                        <% } else { %>
+                                            <tr>
+                                                <td colspan="12" class="text-center text-muted py-4">No performance data found for the selected period.</td>
+                                            </tr>
+                                        <% } %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card panel mb-4">
+                        <div class="card-body">
+                            <h5 class="panel-title mb-3"><i class="fas fa-lightbulb me-2 text-warning"></i>Advanced Features to Implement (Online Best Practices)</h5>
+                            <div class="row g-3">
+                                <% recommendations.forEach(function(rec) { %>
+                                    <div class="col-md-6 col-xl-4">
+                                        <div class="rec-card">
+                                            <div class="rec-title"><%= rec.title %></div>
+                                            <div class="small text-slate-600 mt-2"><%= rec.detail %></div>
+                                            <div class="rec-source">Source inspiration: <%= rec.source %></div>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

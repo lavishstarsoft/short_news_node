@@ -104,7 +104,6 @@
 
     <body>
         <%- include('partials/top-nav', { pageTitle: 'Register Editor' , backButton: true, backUrl: '/editors' }) %>
-            </div>
 
             <div class="container-fluid">
                 <div class="row">
@@ -156,21 +155,140 @@
                                                                         name="email" required>
                                                                 </div>
                                                             </div>
-
-                                                            </button>
-                                                            <button type="submit" class="btn btn-register">
+                                                            <div class="row">
+                                                                <div class="col-md-6 mb-3">
+                                                                    <label for="password" class="form-label">Password</label>
+                                                                    <input type="password" class="form-control"
+                                                                        id="password" name="password" required minlength="6">
+                                                                </div>
+                                                                <div class="col-md-6 mb-3">
+                                                                    <label for="name" class="form-label">Full Name</label>
+                                                                    <input type="text" class="form-control"
+                                                                        id="name" name="name">
+                                                                </div>
+                                                            </div>
+                                                            <div class="row">
+                                                                <div class="col-md-6 mb-3">
+                                                                    <label for="role" class="form-label">Role</label>
+                                                                    <select class="form-select" id="role" name="role" required>
+                                                                        <option value="editor">Reporter</option>
+                                                                        <option value="subeditor">Sub-Editor</option>
+                                                                    </select>
+                                                                    <small class="text-muted">
+                                                                        Reporter: Basic access | Sub-Editor: Extended access
+                                                                    </small>
+                                                                </div>
+                                                                <div class="col-md-6 mb-3">
+                                                                    <label for="displayRole" class="form-label">Display Role</label>
+                                                                    <input type="text" class="form-control"
+                                                                        id="displayRole" name="displayRole" placeholder="e.g., Sports Reporter, District Correspondent">
+                                                                </div>
+                                                            </div>
+                                                            <div class="row">
+                                                                <div class="col-md-6 mb-3">
+                                                                    <label for="location" class="form-label">Location</label>
+                                                                    <input type="text" class="form-control"
+                                                                        id="location" name="location">
+                                                                </div>
+                                                                <div class="col-md-6 mb-3">
+                                                                    <label for="constituency" class="form-label">Constituency</label>
+                                                                    <input type="text" class="form-control"
+                                                                        id="constituency" name="constituency">
+                                                                </div>
+                                                            </div>
+                                                            <div class="row">
+                                                                <div class="col-md-6 mb-3">
+                                                                    <label for="mobileNumber" class="form-label">Mobile Number</label>
+                                                                    <input type="tel" class="form-control"
+                                                                        id="mobileNumber" name="mobileNumber">
+                                                                </div>
+                                                            </div>
+                                                            <button type="submit" class="btn btn-register btn-lg w-100 text-white">
                                                                 <i class="fas fa-user-plus me-1"></i>Register Editor
                                                             </button>
+                                                        </form>
+
+                                                        <!-- Alert for messages -->
+                                                        <div id="alertContainer" class="mt-3"></div>
                                     </div>
-                                    </form>
                                 </div>
                             </div>
                         </div>
                 </div>
             </div>
-            </div>
 
             <%- include('partials/footer') %>
+
+            <script>
+                document.getElementById('registerEditorForm').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+
+                    const form = e.target;
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    const alertContainer = document.getElementById('alertContainer');
+
+                    // Disable button and show loading
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Registering...';
+
+                    // Get form data
+                    const formData = new FormData(form);
+                    const data = {};
+                    formData.forEach((value, key) => data[key] = value);
+
+                    try {
+                        const response = await fetch('/register-editor', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(data)
+                        });
+
+                        const result = await response.json();
+
+                        if (response.ok) {
+                            // Success
+                            alertContainer.innerHTML = `
+                                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    ${result.message} - ${result.editor.role === 'subeditor' ? 'Sub-Editor' : 'Reporter'} created!
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            `;
+
+                            // Clear form
+                            form.reset();
+
+                            // Redirect to editors page after 2 seconds
+                            setTimeout(() => {
+                                window.location.href = '/editors';
+                            }, 2000);
+                        } else {
+                            // Error
+                            alertContainer.innerHTML = `
+                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                    <i class="fas fa-exclamation-circle me-2"></i>
+                                    ${result.error}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            `;
+                        }
+                    } catch (error) {
+                        alertContainer.innerHTML = `
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                An error occurred. Please try again.
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        `;
+                    } finally {
+                        // Re-enable button
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fas fa-user-plus me-1"></i>Register Editor';
+                    }
+                });
+            </script>
     </body>
 
 </html>

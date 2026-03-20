@@ -19,6 +19,21 @@ const User = require('../models/User');
 // Import OneSignal service
 const oneSignalService = require('../services/oneSignalService');
 
+// Import Similarity Detector
+const { checkDuplicate, generateContentHash } = require('../utils/similarityDetector');
+
+function buildAdminNewsHistory(action, adminId, adminName, adminRole, details, metadata = {}) {
+  return {
+    action,
+    performedById: adminId || null,
+    performedByName: adminName || 'Editor',
+    performedByRole: adminRole || 'Editor',
+    details,
+    metadata,
+    performedAt: new Date()
+  };
+}
+
 // Render login page
 const renderLoginPage = (req, res) => {
   res.render('login', { error: null });
@@ -537,16 +552,480 @@ async function renderEditorsPage(req, res) {
       return res.status(403).send('Access denied. Admins only.');
     }
 
-    // Get all editors
-    const editors = await Admin.find({ role: 'editor' }).sort({ createdAt: -1 });
+    // Get all editors and subeditors
+    const editors = await Admin.find({ role: { $in: ['editor', 'subeditor'] } }).sort({ createdAt: -1 });
+
+    const editorIds = editors.map(editor => editor._id.toString());
+
+    const statsByEditor = {};
+    const latestRejectByEditor = {};
+
+    if (editorIds.length > 0) {
+      const lifecycleStats = await News.aggregate([
+        {
+          $match: {
+            authorId: { $in: editorIds }
+          }
+        },
+        {
+          $project: {
+            authorId: 1,
+            isActive: 1,
+            isRejected: '$rejectionStatus.isRejected'
+          }
+        },
+        {
+          $group: {
+            _id: '$authorId',
+            submitted: { $sum: 1 },
+            published: {
+              $sum: {
+                $cond: [{ $eq: ['$isActive', true] }, 1, 0]
+              }
+            },
+            rejected: {
+              $sum: {
+                $cond: [{ $eq: ['$isRejected', true] }, 1, 0]
+              }
+            },
+            pending: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ['$isActive', false] },
+                      { $ne: ['$isRejected', true] }
+                    ]
+                  },
+                  1,
+                  0
+                ]
+              }
+            }
+          }
+        }
+      ]);
+
+      lifecycleStats.forEach(item => {
+        statsByEditor[item._id] = {
+          submitted: item.submitted || 0,
+          published: item.published || 0,
+          pending: item.pending || 0,
+          rejected: item.rejected || 0
+        };
+      });
+
+      const latestRejectedNews = await News.aggregate([
+        {
+          $match: {
+            authorId: { $in: editorIds },
+            'rejectionStatus.isRejected': true
+          }
+        },
+        {
+          $sort: {
+            'rejectionStatus.rejectedAt': -1
+          }
+        },
+        {
+          $group: {
+            _id: '$authorId',
+            reason: { $first: '$rejectionStatus.reason' },
+            feedback: { $first: '$rejectionStatus.feedback' },
+            rejectedAt: { $first: '$rejectionStatus.rejectedAt' }
+          }
+        }
+      ]);
+
+      latestRejectedNews.forEach(item => {
+        latestRejectByEditor[item._id] = {
+          reason: item.reason || 'Not specified',
+          feedback: item.feedback || '',
+          rejectedAt: item.rejectedAt || null
+        };
+      });
+    }
+
+    const editorsWithStats = editors.map(editor => {
+      const editorObj = editor.toObject();
+      return {
+        ...editorObj,
+        newsStats: statsByEditor[editor._id.toString()] || {
+          submitted: 0,
+          published: 0,
+          pending: 0,
+          rejected: 0
+        },
+        latestRejection: latestRejectByEditor[editor._id.toString()] || null
+      };
+    });
 
     // Fetch locations for edit dropdown
     const locations = await Location.find().sort({ name: 1 });
 
-    res.render('editors', { admin, editors, locations });
+    res.render('editors', { admin, editors: editorsWithStats, locations });
   } catch (error) {
     console.error('Editors page error:', error);
     res.status(500).send('Error fetching editors');
+  }
+}
+
+const performanceRecommendations = [
+  {
+    title: 'Attention-Oriented Quality Tracking',
+    detail: 'Track average views and completion quality per published story to prioritize attention over raw output.',
+    source: 'Chartbeat Metrics (attention/time metrics)'
+  },
+  {
+    title: 'Engagement + Conversion Split',
+    detail: 'Separate engagement indicators (views/comments/likes) from workflow indicators (approval, rejection, pending age).',
+    source: 'Hootsuite KPI framework (engagement/reach/conversion grouping)'
+  },
+  {
+    title: 'Operational SLA Dashboard',
+    detail: 'Measure turnaround time from submission to decision, and flag items pending beyond SLA.',
+    source: 'Industry customer-response KPI patterns'
+  },
+  {
+    title: 'Weekly Benchmarking Leaderboard',
+    detail: 'Benchmark team members against role peers and show week-over-week movement (+/- rank).',
+    source: 'Common newsroom and social analytics benchmarking practice'
+  },
+  {
+    title: 'Quality Guardrails with Alerts',
+    detail: 'Auto-alert on rejection spikes, low publish ratio, or sudden drop in audience response.',
+    source: 'Data-driven editorial governance playbooks'
+  }
+];
+
+const clampScore = (value) => {
+  if (Number.isNaN(value) || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, value));
+};
+
+const classifyPerformanceBand = (score) => {
+  if (score >= 75) return 'excellent';
+  if (score >= 60) return 'good';
+  if (score >= 45) return 'average';
+  return 'poor';
+};
+
+const getSystemRoleLabel = (member) => {
+  if (member.role === 'subeditor') {
+    return 'Sub Editor';
+  }
+
+  const displayRole = (member.displayRole || '').toLowerCase();
+  if (displayRole.includes('sub') && displayRole.includes('editor')) {
+    return 'Sub Editor';
+  }
+
+  return 'Reporter';
+};
+
+async function renderPerformanceAnalyticsPage(req, res) {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) {
+      return res.redirect('/login');
+    }
+
+    if (admin.role !== 'admin' && admin.role !== 'superadmin') {
+      return res.status(403).send('Access denied. Admins only.');
+    }
+
+    const allowedPeriods = ['7', '30', '90', 'all'];
+    const period = allowedPeriods.includes(req.query.period) ? req.query.period : '30';
+
+    let sinceDate = null;
+    if (period !== 'all') {
+      sinceDate = new Date();
+      sinceDate.setDate(sinceDate.getDate() - Number(period));
+    }
+
+    const members = await Admin.find({ role: { $in: ['editor', 'subeditor'] } })
+      .select('_id username name email role displayRole isActive lastLogin location constituency')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const memberIds = members.map((member) => member._id.toString());
+
+    const newsMatch = {
+      authorId: { $in: memberIds }
+    };
+
+    if (sinceDate) {
+      newsMatch.publishedAt = { $gte: sinceDate };
+    }
+
+    const authorStats = await News.aggregate([
+      { $match: newsMatch },
+      {
+        $project: {
+          authorId: 1,
+          isActive: 1,
+          views: { $ifNull: ['$views', 0] },
+          likes: { $ifNull: ['$likes', 0] },
+          comments: { $ifNull: ['$comments', 0] },
+          isApproved: '$approvalStatus.isApproved',
+          isRejected: '$rejectionStatus.isRejected'
+        }
+      },
+      {
+        $group: {
+          _id: '$authorId',
+          submitted: { $sum: 1 },
+          published: {
+            $sum: {
+              $cond: [{ $eq: ['$isActive', true] }, 1, 0]
+            }
+          },
+          rejected: {
+            $sum: {
+              $cond: [{ $eq: ['$isRejected', true] }, 1, 0]
+            }
+          },
+          approved: {
+            $sum: {
+              $cond: [{ $eq: ['$isApproved', true] }, 1, 0]
+            }
+          },
+          pending: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$isActive', false] },
+                    { $ne: ['$isRejected', true] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          },
+          totalViews: { $sum: '$views' },
+          totalLikes: { $sum: '$likes' },
+          totalComments: { $sum: '$comments' }
+        }
+      }
+    ]);
+
+    const normalizeName = (value) => (value || '').toString().trim().toLowerCase();
+
+    const memberIdSet = new Set(memberIds);
+    const memberNameToId = {};
+    members.forEach((member) => {
+      const memberId = member._id.toString();
+      const usernameKey = normalizeName(member.username);
+      const nameKey = normalizeName(member.name);
+
+      if (usernameKey) {
+        memberNameToId[usernameKey] = memberId;
+      }
+      if (nameKey) {
+        memberNameToId[nameKey] = memberId;
+      }
+    });
+
+    const moderationDocs = await News.find({
+      $or: [
+        { 'actionHistory.action': { $in: ['approved', 'rejected'] } },
+        { 'approvalStatus.isApproved': true },
+        { 'rejectionStatus.isRejected': true }
+      ]
+    })
+      .select('actionHistory approvalStatus rejectionStatus')
+      .lean();
+
+    const moderationStatsMap = {};
+    memberIds.forEach((id) => {
+      moderationStatsMap[id] = {
+        approvalsGiven: 0,
+        rejectionsGiven: 0
+      };
+    });
+
+    const resolveMemberId = (performedById, performedByName) => {
+      const idCandidate = performedById ? performedById.toString() : '';
+      if (idCandidate && memberIdSet.has(idCandidate)) {
+        return idCandidate;
+      }
+
+      const nameCandidate = normalizeName(performedByName);
+      if (nameCandidate && memberNameToId[nameCandidate]) {
+        return memberNameToId[nameCandidate];
+      }
+
+      return null;
+    };
+
+    const isWithinPeriod = (dateValue) => {
+      if (!sinceDate) return true;
+      if (!dateValue) return false;
+      return new Date(dateValue) >= sinceDate;
+    };
+
+    moderationDocs.forEach((doc) => {
+      const history = Array.isArray(doc.actionHistory) ? doc.actionHistory : [];
+      let hasApprovedHistory = false;
+      let hasRejectedHistory = false;
+
+      history.forEach((entry) => {
+        if (!entry || !['approved', 'rejected'].includes(entry.action)) {
+          return;
+        }
+
+        if (!isWithinPeriod(entry.performedAt)) {
+          return;
+        }
+
+        const targetMemberId = resolveMemberId(entry.performedById, entry.performedByName);
+        if (!targetMemberId || !moderationStatsMap[targetMemberId]) {
+          return;
+        }
+
+        if (entry.action === 'approved') {
+          moderationStatsMap[targetMemberId].approvalsGiven += 1;
+          hasApprovedHistory = true;
+        }
+
+        if (entry.action === 'rejected') {
+          moderationStatsMap[targetMemberId].rejectionsGiven += 1;
+          hasRejectedHistory = true;
+        }
+      });
+
+      // Backward compatibility: old records may not have actionHistory entries.
+      if (!hasApprovedHistory && doc.approvalStatus?.isApproved && isWithinPeriod(doc.approvalStatus.approvedAt)) {
+        const approvedMemberId = resolveMemberId(null, doc.approvalStatus.approvedBy);
+        if (approvedMemberId && moderationStatsMap[approvedMemberId]) {
+          moderationStatsMap[approvedMemberId].approvalsGiven += 1;
+        }
+      }
+
+      if (!hasRejectedHistory && doc.rejectionStatus?.isRejected && isWithinPeriod(doc.rejectionStatus.rejectedAt)) {
+        const rejectedMemberId = resolveMemberId(null, doc.rejectionStatus.rejectedBy);
+        if (rejectedMemberId && moderationStatsMap[rejectedMemberId]) {
+          moderationStatsMap[rejectedMemberId].rejectionsGiven += 1;
+        }
+      }
+    });
+
+    const authorStatsMap = {};
+    authorStats.forEach((item) => {
+      authorStatsMap[item._id] = item;
+    });
+
+    // moderationStatsMap is already prepared above with strong fallback handling.
+
+    const analyticsRows = members.map((member) => {
+      const id = member._id.toString();
+      const stats = authorStatsMap[id] || {};
+      const moderation = moderationStatsMap[id] || {};
+
+      const submitted = stats.submitted || 0;
+      const published = stats.published || 0;
+      const pending = stats.pending || 0;
+      const rejected = stats.rejected || 0;
+      const approved = stats.approved || 0;
+      const totalViews = stats.totalViews || 0;
+      const totalLikes = stats.totalLikes || 0;
+      const totalComments = stats.totalComments || 0;
+      const approvalsGiven = moderation.approvalsGiven || 0;
+      const rejectionsGiven = moderation.rejectionsGiven || 0;
+
+      const publishRate = submitted > 0 ? (published / submitted) * 100 : 0;
+      const rejectionRate = submitted > 0 ? (rejected / submitted) * 100 : 0;
+      const avgViews = published > 0 ? totalViews / published : 0;
+      const avgEngagement = published > 0 ? (totalLikes + totalComments) / published : 0;
+      const moderationLoad = approvalsGiven + rejectionsGiven;
+
+      const qualityScore = clampScore(publishRate - (rejectionRate * 0.35));
+      const engagementScore = clampScore((avgViews / 200) * 100);
+      const outputScore = clampScore((submitted / 20) * 100);
+      const moderationScore = clampScore((moderationLoad / 40) * 100);
+
+      const systemRole = getSystemRoleLabel(member);
+      const isSubEditor = systemRole === 'Sub Editor';
+      const moderationApproved = isSubEditor ? approvalsGiven : approved;
+      const moderationRejected = isSubEditor ? rejectionsGiven : rejected;
+      const moderationLabel = isSubEditor ? 'Handled' : 'Received';
+
+      const performanceScore = isSubEditor
+        ? clampScore((qualityScore * 0.35) + (moderationScore * 0.35) + (engagementScore * 0.15) + (outputScore * 0.15))
+        : clampScore((qualityScore * 0.5) + (engagementScore * 0.3) + (outputScore * 0.2));
+
+      return {
+        id,
+        name: member.name || member.username,
+        username: member.username,
+        email: member.email,
+        isActive: member.isActive,
+        role: systemRole,
+        location: member.location || '-',
+        constituency: member.constituency || '-',
+        lastLogin: member.lastLogin || null,
+        submitted,
+        published,
+        pending,
+        rejected,
+        totalViews,
+        avgViews: Number(avgViews.toFixed(1)),
+        avgEngagement: Number(avgEngagement.toFixed(1)),
+        publishRate: Number(publishRate.toFixed(1)),
+        rejectionRate: Number(rejectionRate.toFixed(1)),
+        approvalsGiven,
+        rejectionsGiven,
+        moderationApproved,
+        moderationRejected,
+        moderationLabel,
+        moderationLoad,
+        performanceScore: Number(performanceScore.toFixed(1)),
+        performanceBand: classifyPerformanceBand(performanceScore)
+      };
+    });
+
+    analyticsRows.sort((a, b) => b.performanceScore - a.performanceScore);
+
+    const rowsWithRank = analyticsRows.map((row, index) => ({
+      ...row,
+      rank: index + 1
+    }));
+
+    const subEditors = rowsWithRank.filter((row) => row.role === 'Sub Editor');
+    const reporters = rowsWithRank.filter((row) => row.role === 'Reporter');
+
+    const topPerformers = rowsWithRank.slice(0, 5);
+    const poorPerformers = [...rowsWithRank].reverse().slice(0, 5).reverse();
+
+    const summary = {
+      totalMembers: rowsWithRank.length,
+      totalSubEditors: subEditors.length,
+      totalReporters: reporters.length,
+      excellentCount: rowsWithRank.filter((row) => row.performanceBand === 'excellent').length,
+      poorCount: rowsWithRank.filter((row) => row.performanceBand === 'poor').length,
+      avgScore: rowsWithRank.length > 0
+        ? Number((rowsWithRank.reduce((acc, row) => acc + row.performanceScore, 0) / rowsWithRank.length).toFixed(1))
+        : 0
+    };
+
+    return res.render('performance-analytics', {
+      admin,
+      title: 'Performance Analytics',
+      period,
+      sinceDate,
+      summary,
+      analyticsRows: rowsWithRank,
+      topPerformers,
+      poorPerformers,
+      recommendations: performanceRecommendations
+    });
+  } catch (error) {
+    console.error('Performance analytics page error:', error);
+    return res.status(500).send('Error loading performance analytics');
   }
 }
 
@@ -564,10 +1043,10 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, constituency, mobileNumber } = req.body;
+    const { name, displayRole, location, constituency, mobileNumber, role } = req.body;
 
     const editor = await Admin.findById(editorId);
-    if (!editor || editor.role !== 'editor') {
+    if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
       return res.status(404).json({ error: 'Editor not found' });
     }
 
@@ -578,6 +1057,11 @@ async function updateEditor(req, res) {
     if (constituency !== undefined) editor.constituency = constituency || null;
     if (mobileNumber !== undefined) editor.mobileNumber = mobileNumber || null;
 
+    // Update role if provided (only allow editor or subeditor)
+    if (role !== undefined && (role === 'editor' || role === 'subeditor')) {
+      editor.role = role;
+    }
+
     await editor.save();
 
     res.json({
@@ -586,6 +1070,7 @@ async function updateEditor(req, res) {
         _id: editor._id,
         username: editor.username,
         name: editor.name,
+        role: editor.role,
         displayRole: editor.displayRole,
         location: editor.location,
         constituency: editor.constituency,
@@ -595,6 +1080,86 @@ async function updateEditor(req, res) {
   } catch (error) {
     console.error('Update editor error:', error);
     res.status(500).json({ error: 'An error occurred while updating editor' });
+  }
+}
+
+// Toggle editor active status (PUT /editors/:id/status)
+async function toggleEditorStatus(req, res) {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (admin.role !== 'admin' && admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. Admins only.' });
+    }
+
+    const editorId = req.params.id;
+    const { isActive } = req.body;
+
+    const editor = await Admin.findById(editorId);
+    if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
+      return res.status(404).json({ error: 'Editor not found' });
+    }
+
+    const nextStatus = typeof isActive === 'boolean' ? isActive : !editor.isActive;
+
+    if (editorId === req.admin.id && nextStatus === false) {
+      return res.status(400).json({ error: 'You cannot deactivate your own account' });
+    }
+
+    editor.isActive = nextStatus;
+    await editor.save();
+
+    return res.json({
+      message: `Editor ${editor.isActive ? 'activated' : 'deactivated'} successfully`,
+      editor: {
+        _id: editor._id,
+        isActive: editor.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Toggle editor status error:', error);
+    return res.status(500).json({ error: 'An error occurred while updating status' });
+  }
+}
+
+// Change editor password (PUT /editors/:id/password)
+async function changeEditorPassword(req, res) {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (admin.role !== 'admin' && admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. Admins only.' });
+    }
+
+    const editorId = req.params.id;
+    const { newPassword } = req.body;
+
+    if (!newPassword || typeof newPassword !== 'string') {
+      return res.status(400).json({ error: 'New password is required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const editor = await Admin.findById(editorId);
+    if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
+      return res.status(404).json({ error: 'Editor not found' });
+    }
+
+    editor.password = newPassword;
+    await editor.save();
+
+    return res.json({ message: 'Editor password updated successfully' });
+  } catch (error) {
+    console.error('Change editor password error:', error);
+    return res.status(500).json({ error: 'An error occurred while updating password' });
   }
 }
 
@@ -619,7 +1184,7 @@ async function deleteEditor(req, res) {
     }
 
     const editor = await Admin.findById(editorId);
-    if (!editor || editor.role !== 'editor') {
+    if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
       return res.status(404).json({ error: 'Editor not found' });
     }
 
@@ -670,12 +1235,16 @@ async function registerEditor(req, res) {
       return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
 
-    const { username, email, password, name, displayRole, location, constituency, mobileNumber } = req.body;
+    const { username, email, password, name, displayRole, location, constituency, mobileNumber, role } = req.body;
 
     // Validate required fields
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Username, email, and password are required' });
     }
+
+    // Validate role - only allow editor or subeditor
+    const allowedRoles = ['editor', 'subeditor'];
+    const selectedRole = allowedRoles.includes(role) ? role : 'editor';
 
     // Check if username or email already exists
     const existingUser = await Admin.findOne({ $or: [{ username }, { email }] });
@@ -688,9 +1257,9 @@ async function registerEditor(req, res) {
       username,
       email,
       password, // Password will be hashed by pre-save hook
-      role: 'editor',
+      role: selectedRole,
       name: name || null,
-      displayRole: displayRole || 'Reporter', // Default display role
+      displayRole: displayRole || (selectedRole === 'subeditor' ? 'Sub-Editor' : 'Reporter'),
       location: location || null,
       constituency: constituency || null,
       mobileNumber: mobileNumber || null,
@@ -1260,6 +1829,7 @@ const requireAuth = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'short_news_secret_key');
     console.log('Token verified, admin:', decoded.username); // Debug log
     req.admin = decoded;
+    res.locals.admin = decoded;
     next();
   } catch (error) {
     console.log('Token verification failed:', error.message); // Debug log
@@ -1286,6 +1856,7 @@ const requireSuperAdmin = (req, res, next) => {
     }
 
     req.admin = decoded;
+    res.locals.admin = decoded;
     next();
   } catch (error) {
     res.redirect('/login');
@@ -1308,6 +1879,7 @@ const requireAdmin = (req, res, next) => {
     }
 
     req.admin = decoded;
+    res.locals.admin = decoded;
     next();
   } catch (error) {
     res.redirect('/login');
@@ -1330,6 +1902,7 @@ const requireEditor = (req, res, next) => {
     }
 
     req.admin = decoded;
+    res.locals.admin = decoded;
     next();
   } catch (error) {
     res.redirect('/login');
@@ -1640,6 +2213,556 @@ async function renderR2UsagePage(req, res) {
   }
 }
 
+// Reporter/Editor API Login (for mobile/Next.js apps)
+async function reporterLogin(req, res) {
+  try {
+    const { username, password } = req.body;
+
+    // Validate input
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+
+    // Find admin/editor by username or email
+    const admin = await Admin.findOne({
+      $or: [{ username: username }, { email: username }]
+    });
+
+    if (!admin) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Check if account is active
+    if (!admin.isActive) {
+      return res.status(401).json({ error: 'Account is deactivated' });
+    }
+
+    // Only allow editors and subeditors to login via reporter app
+    if (!['editor', 'subeditor', 'admin', 'superadmin'].includes(admin.role)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Compare password
+    const isMatch = await admin.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: admin._id,
+        username: admin.username,
+        role: admin.role
+      },
+      process.env.JWT_SECRET || 'short_news_secret_key',
+      { expiresIn: '7d' }
+    );
+
+    // Return user data and token
+    res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: admin._id,
+        username: admin.username,
+        email: admin.email,
+        role: admin.role,
+        name: admin.name,
+        displayRole: admin.displayRole,
+        location: admin.location,
+        profileImage: admin.profileImage
+      }
+    });
+  } catch (error) {
+    console.error('Reporter login error:', error);
+    res.status(500).json({ error: 'An error occurred during login' });
+  }
+}
+
+// Get reporter profile
+async function getReporterProfile(req, res) {
+  try {
+    const admin = await Admin.findById(req.admin.id).select('-password -loginHistory');
+    if (!admin) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      user: {
+        id: admin._id,
+        username: admin.username,
+        email: admin.email,
+        role: admin.role,
+        name: admin.name,
+        displayRole: admin.displayRole,
+        location: admin.location,
+        constituency: admin.constituency,
+        mobileNumber: admin.mobileNumber,
+        profileImage: admin.profileImage
+      }
+    });
+  } catch (error) {
+    console.error('Get reporter profile error:', error);
+    res.status(500).json({ error: 'An error occurred' });
+  }
+}
+
+// Render pending news page for editors to review
+async function renderPendingNewsPage(req, res) {
+  try {
+    // Fetch all pending news (isActive = false AND not rejected)
+    const pendingNews = await News.find({
+      isActive: false,
+      $or: [
+        { 'rejectionStatus.isRejected': { $ne: true } },
+        { rejectionStatus: { $exists: false } }
+      ]
+    })
+      .sort({ publishedAt: -1 })
+      .lean();
+
+    // Fetch all published articles for duplicate comparison
+    const publishedArticles = await News.find({ isActive: true })
+      .select('_id title content publishedAt author category location')
+      .lean();
+
+    // Check each pending article for duplicates
+    const pendingNewsWithDuplicateCheck = pendingNews.map(article => {
+      const duplicateResults = checkDuplicate(
+        { title: article.title, content: article.content },
+        publishedArticles
+      );
+
+      // Get top matches
+      const topMatches = duplicateResults
+        .filter(r => r.similarity.overall >= 50)
+        .slice(0, 5);
+
+      return {
+        ...article,
+        duplicateCheck: {
+          isDuplicate: duplicateResults.some(r => r.isDuplicate),
+          isSuspicious: duplicateResults.some(r => r.isSuspicious && !r.isDuplicate),
+          score: topMatches.length > 0 ? topMatches[0].similarity.overall : 0,
+          matchCount: topMatches.length,
+          similarArticles: topMatches
+        }
+      };
+    });
+
+    res.render('pending-news', {
+      pendingNews: pendingNewsWithDuplicateCheck || [],
+      title: 'Pending News Review'
+    });
+  } catch (error) {
+    console.error('Error rendering pending news page:', error);
+    res.status(500).send('Error loading pending news');
+  }
+}
+
+// Update pending news before approval
+async function updatePendingNews(req, res) {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      content,
+      category,
+      location,
+      readFullLink,
+      ePaperLink
+    } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid news ID' });
+    }
+
+    const existingNews = await News.findById(id).lean();
+    if (!existingNews) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    if (existingNews.isActive) {
+      return res.status(400).json({ error: 'Only pending news can be edited from this page' });
+    }
+
+    if (existingNews.rejectionStatus?.isRejected) {
+      return res.status(400).json({ error: 'Rejected news cannot be edited from pending page' });
+    }
+
+    const normalizedTitle = (title || '').trim();
+    const normalizedContent = (content || '').trim();
+    const normalizedCategory = (category || '').trim();
+    const normalizedLocation = typeof location === 'string' ? location.trim() : '';
+
+    if (!normalizedTitle || !normalizedContent || !normalizedCategory) {
+      return res.status(400).json({ error: 'Title, content and category are required' });
+    }
+
+    if (normalizedTitle.length > 55) {
+      return res.status(400).json({ error: 'Title must be 55 characters or less' });
+    }
+
+    if (normalizedContent.length > 220) {
+      return res.status(400).json({ error: 'Content must be 220 characters or less' });
+    }
+
+    const updatePayload = {
+      title: normalizedTitle,
+      content: normalizedContent,
+      category: normalizedCategory,
+      location: normalizedLocation,
+      readFullLink: typeof readFullLink === 'string' ? readFullLink.trim() : '',
+      ePaperLink: typeof ePaperLink === 'string' ? ePaperLink.trim() : ''
+    };
+
+    const changedFields = [];
+    ['title', 'content', 'category', 'location', 'readFullLink', 'ePaperLink'].forEach((field) => {
+      const prevVal = (existingNews[field] || '').toString();
+      const nextVal = (updatePayload[field] || '').toString();
+      if (prevVal !== nextVal) {
+        changedFields.push(field);
+      }
+    });
+
+    const adminId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
+    const adminName = req.admin?.username || req.admin?.name || 'Editor';
+
+    let adminRole = 'Editor';
+    if (req.admin?.role === 'superadmin' || req.admin?.role === 'admin') {
+      adminRole = 'Admin';
+    } else if (req.admin?.role === 'subeditor' || req.admin?.role === 'sub_editor') {
+      adminRole = 'Sub Editor';
+    } else if (req.admin?.role === 'editor') {
+      adminRole = req.admin?.displayRole || 'Reporter';
+    }
+
+    const actionHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
+    actionHistory.push(
+      buildAdminNewsHistory(
+        'updated',
+        adminId,
+        adminName,
+        adminRole,
+        changedFields.length > 0
+          ? `Pending news corrected before approval (${changedFields.join(', ')})`
+          : 'Pending news saved before approval',
+        { changedFields }
+      )
+    );
+
+    const updatedNews = await News.findByIdAndUpdate(
+      id,
+      {
+        ...updatePayload,
+        actionHistory
+      },
+      { new: true }
+    ).lean();
+
+    return res.json({
+      success: true,
+      message: 'Pending news updated successfully',
+      news: updatedNews
+    });
+  } catch (error) {
+    console.error('Error updating pending news:', error);
+    return res.status(500).json({ error: 'Failed to update pending news' });
+  }
+}
+
+// Approve pending news
+async function approveNews(req, res) {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid news ID' });
+    }
+
+    // Get admin/editor name and role
+    const adminId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
+    let adminName = 'Editor';
+    let adminRole = 'Editor';
+
+    if (adminId) {
+      const admin = await Admin.findById(adminId).select('username role').lean();
+      if (admin) {
+        adminName = admin.username;
+        // Format role for display
+        if (admin.role === 'superadmin' || admin.role === 'admin') {
+          adminRole = 'Admin';
+        } else if (admin.role === 'subeditor' || admin.role === 'sub_editor') {
+          adminRole = 'Sub Editor';
+        } else if (admin.role === 'reporter') {
+          adminRole = 'Reporter';
+        } else {
+          adminRole = admin.role ? admin.role.charAt(0).toUpperCase() + admin.role.slice(1) : 'Editor';
+        }
+      }
+    }
+
+    const existingNews = await News.findById(id).lean();
+    if (!existingNews) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    const actionHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
+    actionHistory.push(
+      buildAdminNewsHistory(
+        'approved',
+        adminId,
+        adminName,
+        adminRole,
+        'News approved and moved to active state',
+        { fromStatus: existingNews.isActive, toStatus: true }
+      )
+    );
+
+    // Update news to active with approval details
+    const updatedNews = await News.findByIdAndUpdate(
+      id,
+      {
+        isActive: true,
+        approvalStatus: {
+          isApproved: true,
+          approvedBy: adminName,
+          approvedByRole: adminRole,
+          approvedAt: new Date()
+        },
+        actionHistory
+      },
+      { new: true }
+    );
+
+    if (!updatedNews) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'News approved and published!',
+      news: updatedNews
+    });
+  } catch (error) {
+    console.error('Error approving news:', error);
+    res.status(500).json({ error: 'Failed to approve news' });
+  }
+}
+
+// Reject pending news
+async function rejectNews(req, res) {
+  try {
+    const { id } = req.params;
+    const { reason, feedback } = req.body;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid news ID' });
+    }
+
+    // Get admin/editor name and role
+    const adminId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
+    let adminName = 'Editor';
+    let adminRole = 'Editor';
+
+    if (adminId) {
+      const admin = await Admin.findById(adminId).select('username role').lean();
+      if (admin) {
+        adminName = admin.username;
+        // Format role for display
+        if (admin.role === 'superadmin' || admin.role === 'admin') {
+          adminRole = 'Admin';
+        } else if (admin.role === 'subeditor' || admin.role === 'sub_editor') {
+          adminRole = 'Sub Editor';
+        } else if (admin.role === 'reporter') {
+          adminRole = 'Reporter';
+        } else {
+          adminRole = admin.role ? admin.role.charAt(0).toUpperCase() + admin.role.slice(1) : 'Editor';
+        }
+      }
+    }
+
+    const existingNews = await News.findById(id).lean();
+    if (!existingNews) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    const actionHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
+    actionHistory.push(
+      buildAdminNewsHistory(
+        'rejected',
+        adminId,
+        adminName,
+        adminRole,
+        `News rejected${reason ? `: ${reason}` : ''}`,
+        {
+          reason: reason || 'Not Specified',
+          feedback: feedback || 'No additional feedback',
+          fromStatus: existingNews.isActive,
+          toStatus: false
+        }
+      )
+    );
+
+    // Mark article as rejected instead of deleting
+    const rejectedNews = await News.findByIdAndUpdate(
+      id,
+      {
+        isActive: false, // Keep as inactive
+        rejectionStatus: {
+          isRejected: true,
+          reason: reason || 'Not Specified',
+          feedback: feedback || 'No additional feedback',
+          rejectedBy: adminName,
+          rejectedByRole: adminRole,
+          rejectedAt: new Date()
+        },
+        actionHistory
+      },
+      { new: true }
+    );
+
+    if (!rejectedNews) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'News rejected',
+      reason: reason || 'No reason provided',
+      news: rejectedNews
+    });
+  } catch (error) {
+    console.error('Error rejecting news:', error);
+    res.status(500).json({ error: 'Failed to reject news' });
+  }
+}
+
+// Check for duplicate articles
+async function checkDuplicateArticles(req, res) {
+  try {
+    const { title, content } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content required' });
+    }
+
+    // Fetch all existing articles (published and pending)
+    const allArticles = await News.find({})
+      .select('_id title content publishedAt author category location')
+      .lean();
+
+    // Check for duplicates
+    const newArticle = { title, content };
+    const duplicateResults = checkDuplicate(newArticle, allArticles);
+
+    // Filter significant matches (>50% similarity)
+    const significantMatches = duplicateResults
+      .filter(result => result.similarity.overall >= 50)
+      .slice(0, 10); // Top 10 matches
+
+    res.json({
+      success: true,
+      hasDuplicate: duplicateResults.some(r => r.isDuplicate),
+      isSuspicious: duplicateResults.some(r => r.isSuspicious),
+      similarArticles: significantMatches,
+      totalMatches: duplicateResults.length
+    });
+  } catch (error) {
+    console.error('Error checking duplicates:', error);
+    res.status(500).json({ error: 'Failed to check for duplicates' });
+  }
+}
+
+// Render plagiarism report page
+async function renderPlagiarismReportPage(req, res) {
+  try {
+    // Get all articles with duplicate info
+    const allArticles = await News.find({})
+      .select('_id title author publishedAt category location isActive duplicateCheck')
+      .sort({ publishedAt: -1 })
+      .lean();
+
+    // Identify duplicates
+    const duplicateArticles = allArticles.filter(
+      article => article.duplicateCheck && (article.duplicateCheck.isDuplicate || article.duplicateCheck.isSuspicious)
+    );
+
+    // Group by similarity
+    const highDuplicates = duplicateArticles.filter(a => a.duplicateCheck.isDuplicate);
+    const suspiciousArticles = duplicateArticles.filter(a => a.duplicateCheck.isSuspicious && !a.duplicateCheck.isDuplicate);
+
+    res.render('plagiarism-report', {
+      title: 'Plagiarism & Duplicate Report',
+      totalArticles: allArticles.length,
+      duplicateCount: highDuplicates.length,
+      suspiciousCount: suspiciousArticles.length,
+      highDuplicates,
+      suspiciousArticles,
+      allArticles
+    });
+  } catch (error) {
+    console.error('Error rendering plagiarism report:', error);
+    res.status(500).send('Error loading plagiarism report');
+  }
+}
+
+// Get duplicate details for a specific article
+async function getDuplicateDetails(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid article ID' });
+    }
+
+    const article = await News.findById(id)
+      .select('title content duplicateCheck')
+      .lean();
+
+    if (!article) {
+      return res.status(404).json({ error: 'Article not found' });
+    }
+
+    res.json({
+      success: true,
+      article: {
+        id: article._id,
+        title: article.title,
+        duplicateCheck: article.duplicateCheck
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching duplicate details:', error);
+    res.status(500).json({ error: 'Failed to fetch duplicate details' });
+  }
+}
+
+// Render rejected news page
+async function renderRejectedNewsPage(req, res) {
+  try {
+    // Fetch all rejected news
+    const rejectedNews = await News.find({
+      'rejectionStatus.isRejected': true
+    })
+      .sort({ 'rejectionStatus.rejectedAt': -1 })
+      .select('title author category location publishedAt rejectionStatus isActive views')
+      .lean();
+
+    res.render('rejected-news', {
+      title: 'Rejected News',
+      rejectedNews: rejectedNews || [],
+      totalRejected: rejectedNews.length
+    });
+  } catch (error) {
+    console.error('Error rendering rejected news page:', error);
+    res.status(500).send('Error loading rejected news');
+  }
+}
+
 module.exports = {
   renderLoginPage,
   login,
@@ -1654,7 +2777,10 @@ module.exports = {
   renderRegisterEditorPage,
   registerEditor,
   renderEditorsPage,
+  renderPerformanceAnalyticsPage,
   updateEditor,
+  toggleEditorStatus,
+  changeEditorPassword,
   deleteEditor,
   renderUsersListPage,
   getUserById,
@@ -1672,5 +2798,15 @@ module.exports = {
   renderOneSignalAnalyticsPage,
   getOneSignalAnalytics,
   updateProfileImage,
-  renderR2UsagePage
+  renderR2UsagePage,
+  reporterLogin,
+  getReporterProfile,
+  renderPendingNewsPage,
+  updatePendingNews,
+  approveNews,
+  rejectNews,
+  checkDuplicateArticles,
+  renderPlagiarismReportPage,
+  getDuplicateDetails,
+  renderRejectedNewsPage
 };

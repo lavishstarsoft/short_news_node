@@ -24,6 +24,49 @@ const newsSchema = new mongoose.Schema({
   authorProfileImage: { type: String }, // Denormalized for performance
   authorConstituency: { type: String }, // Denormalized for performance
   shortId: { type: String, unique: true }, // Short ID for Fact Check (cbnys.co/XXXXXX)
+  contentHash: { type: String, index: true }, // Hash for duplicate detection
+  duplicateCheck: {
+    isDuplicate: { type: Boolean, default: false },
+    isSuspicious: { type: Boolean, default: false },
+    similarArticles: [{
+      articleId: mongoose.Schema.Types.ObjectId,
+      similarity: Number,
+      foundAt: { type: Date, default: Date.now }
+    }]
+  },
+
+  // Rejection Details
+  rejectionStatus: {
+    isRejected: { type: Boolean, default: false },
+    reason: { type: String }, // Predefined reason (e.g., "Plagiarism", "Poor Quality")
+    feedback: { type: String }, // Custom feedback from editor
+    rejectedBy: { type: String }, // Editor name who rejected
+    rejectedByRole: { type: String }, // Role: Admin, Sub Editor, Reporter
+    rejectedAt: { type: Date } // When was it rejected
+  },
+
+  // Approval Details
+  approvalStatus: {
+    isApproved: { type: Boolean, default: false },
+    approvedBy: { type: String }, // Editor/Admin name who approved
+    approvedByRole: { type: String }, // Role: Admin, Sub Editor, Reporter
+    approvedAt: { type: Date } // When was it approved
+  },
+
+  // Timeline of editorial/admin actions for auditing
+  actionHistory: [{
+    action: {
+      type: String,
+      enum: ['created', 'updated', 'status_toggled', 'approved', 'rejected', 'deleted'],
+      required: true
+    },
+    performedById: { type: String },
+    performedByName: { type: String },
+    performedByRole: { type: String },
+    details: { type: String },
+    metadata: { type: mongoose.Schema.Types.Mixed },
+    performedAt: { type: Date, default: Date.now }
+  }],
 
   // New fields for storing user interaction details
   userInteractions: {
@@ -60,12 +103,20 @@ const newsSchema = new mongoose.Schema({
   }
 });
 
-// Pre-save hook to generate shortId if not provided
+// Pre-save hook to generate shortId and contentHash if not provided
 newsSchema.pre('save', function (next) {
   if (!this.shortId) {
     const idStr = this._id.toString();
     this.shortId = idStr.length > 6 ? idStr.substring(idStr.length - 6) : idStr;
   }
+
+  // Generate content hash for duplicate detection
+  if (!this.contentHash && (this.title || this.content)) {
+    const crypto = require('crypto');
+    const combined = `${this.title || ''}${this.content || ''}`.toLowerCase();
+    this.contentHash = crypto.createHash('md5').update(combined).digest('hex');
+  }
+
   next();
 });
 

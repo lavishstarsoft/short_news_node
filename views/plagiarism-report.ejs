@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<%- include('partials/header', { title: 'Plagiarism & Duplicate Report' }) %>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        .dashboard-header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .dashboard-header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.95;
+            font-size: 0.95rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            text-align: center;
+            border-top: 4px solid #667eea;
+        }
+
+        .stat-card.duplicate {
+            border-top-color: #dc3545;
+        }
+
+        .stat-card.suspicious {
+            border-top-color: #ffc107;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-card.duplicate .stat-number {
+            color: #dc3545;
+        }
+
+        .stat-card.suspicious .stat-number {
+            color: #ffc107;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 0.5rem;
+            font-weight: 600;
+        }
+
+        .filters-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-input {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-input label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #667eea;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-input input,
+        .filter-input select {
+            width: 150px;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .filter-input input:focus,
+        .filter-input select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .table-wrapper {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .table-title {
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            background: #f5f5f5;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 700;
+            color: #333;
+            border-bottom: 2px solid #e0e0e0;
+            font-size: 0.9rem;
+        }
+
+        .table td {
+            padding: 1rem;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9rem;
+        }
+
+        .table tbody tr:hover {
+            background: #f9f9f9;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-duplicate {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-suspicious {
+            background: #ffe0b2;
+            color: #e65100;
+        }
+
+        .similarity-score {
+            font-weight: 700;
+            color: #dc3545;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-view {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-view:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filters-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-input input,
+            .filter-input select {
+                width: 100%;
+            }
+
+            .table {
+                font-size: 0.8rem;
+            }
+
+            .table th,
+            .table td {
+                padding: 0.75rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Plagiarism & Duplicate Report', backButton: true, backUrl: '/' }) %>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <%- include('partials/sidebar', { activePage: 'plagiarism-report' }) %>
+
+            <!-- Main Content -->
+            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <!-- Dashboard Header -->
+                <div class="dashboard-header mt-4">
+                    <h1>🔍 Plagiarism & Duplicate Report</h1>
+                    <p>Detect and manage duplicate or suspicious articles in your system</p>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number"><%= totalArticles %></div>
+                        <div class="stat-label">Total Articles</div>
+                    </div>
+                    <div class="stat-card duplicate">
+                        <div class="stat-number"><%= duplicateCount %></div>
+                        <div class="stat-label">High Duplicates (≥80%)</div>
+                    </div>
+                    <div class="stat-card suspicious">
+                        <div class="stat-number"><%= suspiciousCount %></div>
+                        <div class="stat-label">Suspicious (60-80%)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number"><%= totalArticles - duplicateCount - suspiciousCount %></div>
+                        <div class="stat-label">Clean Articles</div>
+                    </div>
+                </div>
+
+                <!-- Filters Section -->
+                <div class="filters-section">
+                    <div class="filter-input">
+                        <label>Type</label>
+                        <select id="typeFilter" onchange="filterTable()">
+                            <option value="">All</option>
+                            <option value="duplicate">High Duplicates</option>
+                            <option value="suspicious">Suspicious</option>
+                        </select>
+                    </div>
+                    <div class="filter-input">
+                        <label>Search</label>
+                        <input type="text" id="searchInput" placeholder="Article title..." onkeyup="filterTable()">
+                    </div>
+                </div>
+
+                <!-- High Duplicates Table -->
+                <% if (highDuplicates && highDuplicates.length > 0) { %>
+                    <div class="table-wrapper">
+                        <div class="table-title">⚠️ High Duplicate Articles (≥80% similarity)</div>
+                        <table class="table" id="highDuplicateTable">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Author</th>
+                                    <th>Category</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Similar Articles</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% highDuplicates.forEach(article => { %>
+                                    <tr data-type="duplicate" data-title="<%= article.title.toLowerCase() %>">
+                                        <td><strong><%= article.title.substring(0, 50) %>...</strong></td>
+                                        <td><%= article.author %></td>
+                                        <td><span class="badge"><%= article.category || 'N/A' %></span></td>
+                                        <td><%= new Date(article.publishedAt).toLocaleDateString() %></td>
+                                        <td>
+                                            <span class="badge badge-duplicate">DUPLICATE</span>
+                                            <% if (article.isActive) { %>
+                                                <br><small style="color: #dc3545;">⚠️ Published</small>
+                                            <% } else { %>
+                                                <br><small style="color: #ffc107;">🔄 Pending</small>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <% if (article.duplicateCheck && article.duplicateCheck.similarArticles) { %>
+                                                <%= article.duplicateCheck.similarArticles.length %> matches
+                                            <% } else { %>
+                                                0 matches
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-view" onclick="viewDetails('<%= article._id %>')">View Details</button>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+
+                <!-- Suspicious Articles Table -->
+                <% if (suspiciousArticles && suspiciousArticles.length > 0) { %>
+                    <div class="table-wrapper">
+                        <div class="table-title">🔍 Suspicious Articles (60-80% similarity)</div>
+                        <table class="table" id="suspiciousTable">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Author</th>
+                                    <th>Category</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Similarity</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% suspiciousArticles.forEach(article => { %>
+                                    <tr data-type="suspicious" data-title="<%= article.title.toLowerCase() %>">
+                                        <td><strong><%= article.title.substring(0, 50) %>...</strong></td>
+                                        <td><%= article.author %></td>
+                                        <td><span class="badge"><%= article.category || 'N/A' %></span></td>
+                                        <td><%= new Date(article.publishedAt).toLocaleDateString() %></td>
+                                        <td>
+                                            <span class="badge badge-suspicious">SUSPICIOUS</span>
+                                            <% if (article.isActive) { %>
+                                                <br><small style="color: #dc3545;">⚠️ Published</small>
+                                            <% } else { %>
+                                                <br><small style="color: #ffc107;">🔄 Pending</small>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <span class="similarity-score">
+                                                <% if (article.duplicateCheck && article.duplicateCheck.similarArticles) { %>
+                                                    <%= article.duplicateCheck.similarArticles[0].similarity %>%
+                                                <% } else { %>
+                                                    N/A
+                                                <% } %>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-view" onclick="viewDetails('<%= article._id %>')">View Details</button>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+
+                <!-- Empty State -->
+                <% if (duplicateCount === 0 && suspiciousCount === 0) { %>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✨</div>
+                        <h3>No Duplicates Found</h3>
+                        <p>All articles appear to be original! Great job maintaining content quality.</p>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function filterTable() {
+            const typeFilter = document.getElementById('typeFilter').value;
+            const searchInput = document.getElementById('searchInput').value.toLowerCase();
+
+            const tables = [
+                document.getElementById('highDuplicateTable'),
+                document.getElementById('suspiciousTable')
+            ];
+
+            tables.forEach(table => {
+                if (!table) return;
+
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    const type = row.getAttribute('data-type');
+                    const title = row.getAttribute('data-title');
+
+                    const typeMatch = !typeFilter || type === typeFilter;
+                    const titleMatch = title.includes(searchInput);
+
+                    row.style.display = (typeMatch && titleMatch) ? '' : 'none';
+                });
+            });
+        }
+
+        function viewDetails(articleId) {
+            // Fetch and display detailed duplicate information
+            fetch(`/admin/api/duplicate-details/${articleId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const article = data.article;
+                        const similar = article.duplicateCheck?.similarArticles || [];
+
+                        let message = `Article: ${article.title}\n\n`;
+                        message += `Found ${similar.length} similar articles:\n\n`;
+
+                        similar.slice(0, 5).forEach((sim, idx) => {
+                            message += `${idx + 1}. Similarity: ${sim.similarity}%\n`;
+                        });
+
+                        alert(message);
+                    }
+                })
+                .catch(err => alert('Error loading details: ' + err.message));
+        }
+    </script>
+
+</body>
+
+</html>

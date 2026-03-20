@@ -9,6 +9,22 @@ const typeDefs = gql`
     createdAt: String!
   }
 
+  type RejectionStatus {
+    isRejected: Boolean!
+    reason: String
+    feedback: String
+    rejectedBy: String
+    rejectedByRole: String
+    rejectedAt: String
+  }
+
+  type ApprovalStatus {
+    isApproved: Boolean!
+    approvedBy: String
+    approvedByRole: String
+    approvedAt: String
+  }
+
   type UserInteraction {
     id: ID
     userId: String!
@@ -56,6 +72,8 @@ const typeDefs = gql`
     shortId: String
     createdAt: String
     updatedAt: String
+    rejectionStatus: RejectionStatus
+    approvalStatus: ApprovalStatus
   }
 
   type Category {

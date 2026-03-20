@@ -300,7 +300,21 @@ const resolvers = {
                     likes: news.likes || 0,
                     author: news.author,
                     authorId: news.authorId,
-                    shortId: news.shortId || (news._id.toString().length > 6 ? news._id.toString().substring(news._id.toString().length - 6) : news._id.toString())
+                    shortId: news.shortId || (news._id.toString().length > 6 ? news._id.toString().substring(news._id.toString().length - 6) : news._id.toString()),
+                    rejectionStatus: news.rejectionStatus ? {
+                        isRejected: news.rejectionStatus.isRejected || false,
+                        reason: news.rejectionStatus.reason,
+                        feedback: news.rejectionStatus.feedback,
+                        rejectedBy: news.rejectionStatus.rejectedBy,
+                        rejectedByRole: news.rejectionStatus.rejectedByRole,
+                        rejectedAt: news.rejectionStatus.rejectedAt ? news.rejectionStatus.rejectedAt.toISOString() : null
+                    } : null,
+                    approvalStatus: news.approvalStatus ? {
+                        isApproved: news.approvalStatus.isApproved || false,
+                        approvedBy: news.approvalStatus.approvedBy,
+                        approvedByRole: news.approvalStatus.approvedByRole,
+                        approvedAt: news.approvalStatus.approvedAt ? news.approvalStatus.approvedAt.toISOString() : null
+                    } : null
                 }));
             } catch (error) {
                 console.error('Error fetching news by editor:', error);
@@ -334,7 +348,21 @@ const resolvers = {
                     authorId: news.authorId,
                     shortId: news.shortId || (news._id.toString().length > 6 ? news._id.toString().substring(news._id.toString().length - 6) : news._id.toString()),
                     userInteractions: news.userInteractions,
-                    comments: news.userInteractions?.comments?.length || 0
+                    comments: news.userInteractions?.comments?.length || 0,
+                    rejectionStatus: news.rejectionStatus ? {
+                        isRejected: news.rejectionStatus.isRejected || false,
+                        reason: news.rejectionStatus.reason,
+                        feedback: news.rejectionStatus.feedback,
+                        rejectedBy: news.rejectionStatus.rejectedBy,
+                        rejectedByRole: news.rejectionStatus.rejectedByRole,
+                        rejectedAt: news.rejectionStatus.rejectedAt ? news.rejectionStatus.rejectedAt.toISOString() : null
+                    } : null,
+                    approvalStatus: news.approvalStatus ? {
+                        isApproved: news.approvalStatus.isApproved || false,
+                        approvedBy: news.approvalStatus.approvedBy,
+                        approvedByRole: news.approvalStatus.approvedByRole,
+                        approvedAt: news.approvalStatus.approvedAt ? news.approvalStatus.approvedAt.toISOString() : null
+                    } : null
                 };
             } catch (error) {
                 console.error('Error fetching news by ID:', error);

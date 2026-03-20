@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<%- include('partials/header', { title: 'Pending News Review' }) %>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        .dashboard-header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .dashboard-header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.95;
+            font-size: 0.95rem;
+        }
+
+        .search-filter-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr auto;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .filter-input {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-input label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #667eea;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-input input,
+        .filter-input select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .filter-input input:focus,
+        .filter-input select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+            height: 100%;
+        }
+
+        .btn-filter-reset {
+            background: #f0f0f0;
+            color: #333;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-filter-reset:hover {
+            background: #e0e0e0;
+        }
+
+        .pending-count {
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 700;
+            text-align: center;
+            min-width: 140px;
+            height: fit-content;
+        }
+
+        .pending-count .number {
+            font-size: 1.5rem;
+            display: block;
+            margin-bottom: 0.2rem;
+        }
+
+        .pending-count .label {
+            font-size: 0.75rem;
+            opacity: 0.95;
+        }
+
+        /* Sort Options Moved */
+        .sort-options-container {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-start;
+        }
+
+        .sort-options {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .sort-options button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e0e0e0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .sort-options button:hover,
+        .sort-options button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .search-filter-section {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .sort-options-container {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .search-filter-section {
+                grid-template-columns: 1fr;
+            }
+
+            .pending-count,
+            .filter-buttons {
+                grid-column: 1 / -1;
+            }
+        }
+
+        /* News Table Container */
+        .table-wrapper {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+        }
+
+        .table-header {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 1.15rem;
+        }
+
+        .sort-options {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .sort-options button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e0e0e0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .sort-options button:hover,
+        .sort-options button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        /* News Grid/Cards */
+        .news-grid {
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .news-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .news-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
+        }
+
+        .news-card-image {
+            width: 100%;
+            height: 180px;
+            background: #f0f0f0;
+            overflow: hidden;
+        }
+
+        .news-card-image img,
+        .news-card-image video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .news-card-content {
+            padding: 1.5rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .news-card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #333;
+            margin: 0 0 0.75rem 0;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .news-card-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .meta-item strong {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .badge-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-category {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .badge-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-duplicate {
+            background: #f8d7da;
+            color: #721c24;
+            animation: pulse 2s infinite;
+        }
+
+        .badge-suspicious {
+            background: #ffe0b2;
+            color: #e65100;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .duplicate-warning {
+            background: #fff5f5;
+            border-left: 4px solid #dc3545;
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin: 0.75rem 0;
+            font-size: 0.85rem;
+            color: #721c24;
+        }
+
+        .duplicate-warning strong {
+            color: #dc3545;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: auto;
+        }
+
+        .btn-approve,
+        .btn-reject,
+        .btn-preview {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-approve {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-approve:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-reject {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+        }
+
+        .btn-reject:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-preview {
+            background: #667eea;
+            color: white;
+            flex: 0.5;
+        }
+
+        .btn-preview:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn-duplicate {
+            background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+            color: white;
+            flex: 0.5;
+        }
+
+        .btn-duplicate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(111, 66, 193, 0.3);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Preview Modal */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+        }
+
+        .modal-backdrop.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 700px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 1.5rem;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 1.3rem;
+            flex: 1;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .modal-meta-item {
+            font-size: 0.85rem;
+        }
+
+        .modal-meta-item strong {
+            display: block;
+            color: #667eea;
+            margin-bottom: 0.3rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            border-top: 2px solid #f0f0f0;
+            padding-top: 1.5rem;
+        }
+
+        .modal-actions button {
+            flex: 1;
+            padding: 1rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .modal-actions .btn-approve {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .modal-actions .btn-reject {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            padding: 3rem;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f0f0f0;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .dashboard-header {
+                padding: 1.5rem;
+            }
+
+            .dashboard-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .search-filter-section {
+                flex-direction: column;
+            }
+
+            .search-box {
+                min-width: 100%;
+            }
+
+            .news-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sort-options {
+                width: 100%;
+            }
+
+            .sort-options button {
+                flex: 1;
+                text-align: center;
+            }
+        }
+    </style>
+    </head>
+
+    <body>
+        <%- include('partials/top-nav', { pageTitle: 'Pending News Review', backButton: true, backUrl: '/' }) %>
+
+            <div class="container-fluid">
+                <div class="row">
+                    <!-- Sidebar -->
+                    <%- include('partials/sidebar', { activePage: 'pending-news' }) %>
+
+                        <!-- Main Content -->
+                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                            <!-- Dashboard Header -->
+                            <div class="dashboard-header mt-4">
+                                <h1>📰 Pending News Review</h1>
+                                <p>Manage and approve upcoming stories from your reporters</p>
+                            </div>
+
+                            <!-- Search & Filter Section -->
+                            <div class="search-filter-section">
+                                <!-- Search Box -->
+                                <div class="filter-input">
+                                    <label>🔍 Search</label>
+                                    <input type="text" id="searchInput" placeholder="Title or reporter..." onkeyup="filterNews()">
+                                </div>
+
+                                <!-- Category Filter -->
+                                <div class="filter-input">
+                                    <label>📂 Category</label>
+                                    <select id="categoryFilter" onchange="filterNews()">
+                                        <option value="">All Categories</option>
+                                        <% if (pendingNews && pendingNews.length > 0) { %>
+                                            <% const categories = [...new Set(pendingNews.map(n => n.category).filter(Boolean))].sort(); %>
+                                            <% categories.forEach(cat => { %>
+                                                <option value="<%= cat %>"><%= cat %></option>
+                                            <% }); %>
+                                        <% } %>
+                                    </select>
+                                </div>
+
+                                <!-- Location Filter -->
+                                <div class="filter-input">
+                                    <label>📍 Location</label>
+                                    <select id="locationFilter" onchange="filterNews()">
+                                        <option value="">All Locations</option>
+                                        <% if (pendingNews && pendingNews.length > 0) { %>
+                                            <% const locations = [...new Set(pendingNews.map(n => n.location).filter(Boolean))].sort(); %>
+                                            <% locations.forEach(loc => { %>
+                                                <option value="<%= loc %>"><%= loc %></option>
+                                            <% }); %>
+                                        <% } %>
+                                    </select>
+                                </div>
+
+                                <!-- Date Filter -->
+                                <div class="filter-input">
+                                    <label>📅 Date Range</label>
+                                    <select id="dateFilter" onchange="filterNews()">
+                                        <option value="">All Time</option>
+                                        <option value="today">Today</option>
+                                        <option value="week">This Week</option>
+                                        <option value="month">This Month</option>
+                                    </select>
+                                </div>
+
+                                <!-- Filter Buttons -->
+                                <div class="filter-buttons">
+                                    <button class="btn-filter-reset" onclick="resetFilters()">🔄 Reset</button>
+                                </div>
+
+                                <!-- Pending Count (moved) -->
+                                <div class="pending-count">
+                                    <span class="number" id="pendingCount"><%= pendingNews ? pendingNews.length : 0 %></span>
+                                    <span class="label">Pending</span>
+                                </div>
+                            </div>
+
+                            <!-- Sort Options -->
+                            <div class="sort-options-container">
+                                <label style="margin-right: 1rem; margin-bottom: 0; align-self: center; font-weight: 600; color: #333;">Sort by:</label>
+                                <div class="sort-options">
+                                    <button onclick="sortNews('recent')" class="active" data-sort="recent">📅 Most Recent</button>
+                                    <button onclick="sortNews('oldest')" data-sort="oldest">📅 Oldest</button>
+                                    <button onclick="sortNews('views')" data-sort="views">👁️ High Views</button>
+                                </div>
+                            </div>
+
+                            <!-- News Grid -->
+                            <div class="table-wrapper">
+                                <% if (pendingNews && pendingNews.length > 0) { %>
+                                    <div class="news-grid" id="newsGrid">
+                                        <% pendingNews.forEach((news, index) => { %>
+                                            <div class="news-card" data-id="<%= news._id %>" data-title="<%= news.title.toLowerCase() %>" data-author="<%= news.author.toLowerCase() %>" data-category="<%= (news.category || '').toLowerCase() %>" data-location="<%= (news.location || '').toLowerCase() %>" data-date="<%= new Date(news.publishedAt).getTime() %>">
+                                                <!-- News Image -->
+                                                <% if (news.mediaUrl) { %>
+                                                    <div class="news-card-image">
+                                                        <% if (news.mediaType === 'video') { %>
+                                                            <video controls style="width: 100%; height: 100%; object-fit: cover;">
+                                                                <source src="<%= news.mediaUrl %>" type="video/mp4">
+                                                            </video>
+                                                        <% } else { %>
+                                                            <img src="<%= news.mediaUrl %>" alt="<%= news.title %>">
+                                                        <% } %>
+                                                    </div>
+                                                <% } %>
+
+                                                <!-- Card Content -->
+                                                <div class="news-card-content">
+                                                    <!-- Title -->
+                                                    <h3 class="news-card-title"><%= news.title %></h3>
+
+                                                    <!-- Badges -->
+                                                    <div class="badge-group">
+                                                        <span class="badge badge-category"><%= news.category || 'Uncategorized' %></span>
+                                                        <span class="badge badge-pending">⏳ Pending</span>
+                                                        <% if (news.duplicateCheck && (news.duplicateCheck.isDuplicate || news.duplicateCheck.isSuspicious)) { %>
+                                                            <% if (news.duplicateCheck.isDuplicate) { %>
+                                                                <span class="badge badge-duplicate" title="High duplicate detected - <%= news.duplicateCheck.score %>% match">
+                                                                    ⚠️ Duplicate (<%= news.duplicateCheck.score %>%)
+                                                                </span>
+                                                            <% } else if (news.duplicateCheck.isSuspicious) { %>
+                                                                <span class="badge badge-suspicious" title="Suspicious similarity - <%= news.duplicateCheck.score %>% match">
+                                                                    🔍 Similar (<%= news.duplicateCheck.score %>%)
+                                                                </span>
+                                                            <% } %>
+                                                        <% } %>
+                                                    </div>
+
+                                                    <!-- Meta Info -->
+                                                    <div class="news-card-meta">
+                                                        <div class="meta-item">
+                                                            <strong>👤</strong>
+                                                            <span><%= news.author %></span>
+                                                        </div>
+                                                        <div class="meta-item">
+                                                            <strong>📍</strong>
+                                                            <span><%= news.location || 'N/A' %></span>
+                                                        </div>
+                                                        <div class="meta-item">
+                                                            <strong>📅</strong>
+                                                            <span><%= new Date(news.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Content Preview -->
+                                                    <div style="font-size: 0.9rem; color: #666; margin-bottom: 1rem; line-height: 1.4;">
+                                                        <%= news.content.substring(0, 120) %>...
+                                                    </div>
+
+                                                    <!-- Duplicate Warning Box -->
+                                                    <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
+                                                        <div class="duplicate-warning">
+                                                            <strong>⚠️ <%= news.duplicateCheck.matchCount %> Similar Article<%= news.duplicateCheck.matchCount > 1 ? 's' : '' %> Found</strong>
+                                                            <br>Highest match: <%= news.duplicateCheck.score %>% similarity
+                                                        </div>
+                                                    <% } %>
+
+                                                    <!-- Action Buttons -->
+                                                    <div class="card-actions">
+                                                        <button class="btn-preview" onclick="openPreview('<%= news._id %>')">👁️ Preview/Edit</button>
+                                                        <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
+                                                            <button class="btn-duplicate" onclick="viewDuplicates('<%= news._id %>')">🔍 Duplicates</button>
+                                                        <% } %>
+                                                        <button class="btn-approve" onclick="approveNews('<%= news._id %>', '<%= news.title.replace(/'/g, "\\'") %>')">✅ Approve</button>
+                                                        <button class="btn-reject" onclick="rejectNews('<%= news._id %>', '<%= news.title.replace(/'/g, "\\'") %>')">❌ Reject</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <% }); %>
+                                    </div>
+                                <% } else { %>
+                                    <div class="empty-state">
+                                        <div class="empty-state-icon">✨</div>
+                                        <h3>No Pending News</h3>
+                                        <p>All submitted stories have been reviewed!</p>
+                                    </div>
+                                <% } %>
+                            </div>
+                        </div>
+                </div>
+            </div>
+
+        <!-- Preview Modal -->
+        <div class="modal-backdrop" id="previewModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="previewTitle"></h3>
+                    <button class="modal-close" onclick="closePreview()">×</button>
+                </div>
+                <div id="previewBody">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Rejection Modal with Advanced Reasons -->
+        <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+                    <div class="modal-header" style="border-bottom: 2px solid #f0f0f0; padding: 1.5rem;">
+                        <div>
+                            <h5 class="modal-title" id="rejectModalLabel" style="font-size: 1.3rem; font-weight: 700; color: #333;">❌ Reject News Article</h5>
+                            <p id="rejectNewsTitle" style="color: #666; font-size: 0.9rem; margin-top: 0.5rem; margin-bottom: 0;"></p>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 2rem;"></button>
+                    </div>
+                    <div class="modal-body" style="padding: 1.5rem;">
+                        <!-- Predefined Reasons -->
+                        <div style="margin-bottom: 2rem;">
+                            <label style="font-weight: 700; color: #333; font-size: 0.95rem; margin-bottom: 1rem; display: block;">📋 Select Rejection Reason:</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Factually Inaccurate')">
+                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">❌</div>
+                                    <div style="font-weight: 600; color: #333;">Factually Inaccurate</div>
+                                    <div style="font-size: 0.75rem; color: #999;">Contains false information</div>
+                                </button>
+                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Inappropriate Content')">
+                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">🚫</div>
+                                    <div style="font-weight: 600; color: #333;">Inappropriate Content</div>
+                                    <div style="font-size: 0.75rem; color: #999;">Violates guidelines</div>
+                                </button>
+                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Poor Quality')">
+                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">⚠️</div>
+                                    <div style="font-weight: 600; color: #333;">Poor Quality</div>
+                                    <div style="font-size: 0.75rem; color: #999;">Needs improvement</div>
+                                </button>
+                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Plagiarism')">
+                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">🔍</div>
+                                    <div style="font-weight: 600; color: #333;">Plagiarism</div>
+                                    <div style="font-size: 0.75rem; color: #999;">Copied from elsewhere</div>
+                                </button>
+                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Missing Attribution')">
+                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">📝</div>
+                                    <div style="font-weight: 600; color: #333;">Missing Attribution</div>
+                                    <div style="font-size: 0.75rem; color: #999;">Source not cited</div>
+                                </button>
+                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Incomplete Article')">
+                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">📚</div>
+                                    <div style="font-weight: 600; color: #333;">Incomplete Article</div>
+                                    <div style="font-size: 0.75rem; color: #999;">Missing details</div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Selected Reason Display -->
+                        <div id="selectedReasonDisplay" style="display: none; background: #f0f7ff; border: 2px solid #667eea; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                            <div style="color: #667eea; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">✓ Selected Reason:</div>
+                            <div id="selectedReasonText" style="color: #333; font-weight: 600; font-size: 0.95rem;"></div>
+                        </div>
+
+                        <!-- Custom Reason Input -->
+                        <div>
+                            <label style="font-weight: 700; color: #333; font-size: 0.95rem; margin-bottom: 0.75rem; display: block;">📝 Additional Details (Optional):</label>
+                            <textarea id="rejectReason" class="form-control" rows="4" placeholder="Add specific details or custom reason..." style="border: 2px solid #e0e0e0; border-radius: 8px; font-size: 0.9rem; padding: 1rem;"></textarea>
+                            <small style="color: #999; margin-top: 0.5rem; display: block;">Provide specific feedback to help the reporter improve their submission</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="border-top: 2px solid #f0f0f0; padding: 1.5rem; background: #f9f9f9;">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-weight: 600;">Cancel</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmReject()" style="border-radius: 8px; font-weight: 600; background: #dc3545; border: none; padding: 0.75rem 2rem;">
+                            🗑️ Reject & Send Feedback
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            .rejection-reason-btn {
+                background: white;
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                padding: 1rem;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-align: center;
+            }
+
+            .rejection-reason-btn:hover {
+                border-color: #667eea;
+                background: #f8f9ff;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            }
+
+            .rejection-reason-btn.active {
+                background: #667eea;
+                border-color: #667eea;
+                color: white;
+            }
+
+            .rejection-reason-btn.active div:nth-child(2),
+            .rejection-reason-btn.active div:nth-child(3) {
+                color: white;
+            }
+
+            .rejection-reason-btn.active div:last-child {
+                color: rgba(255, 255, 255, 0.8);
+            }
+        </style>
+
+        <%- include('partials/footer') %>
+
+        <script>
+            let pendingRejectNewsId = null;
+            let newsDataCache = {};
+            let duplicateDataCache = {};
+            const TITLE_MAX = 55;
+            const CONTENT_MAX = 220;
+            const categoryOptions = <%- JSON.stringify([...(pendingNews ? new Set(pendingNews.map(n => n.category).filter(Boolean)) : [])]) %>;
+            const locationOptions = <%- JSON.stringify([...(pendingNews ? new Set(pendingNews.map(n => n.location).filter(Boolean)) : [])]) %>;
+
+            function escapeHtml(str = '') {
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function renderSelectOptions(options, selectedValue) {
+                return options.map(opt => {
+                    const selected = opt === selectedValue ? 'selected' : '';
+                    return `<option value="${escapeHtml(opt)}" ${selected}>${escapeHtml(opt)}</option>`;
+                }).join('');
+            }
+
+            // Store all news data for preview
+            <% if (pendingNews && pendingNews.length > 0) { %>
+                <% pendingNews.forEach(news => { %>
+                    newsDataCache['<%= news._id %>'] = {
+                        title: '<%= news.title.replace(/'/g, "\\'") %>',
+                        author: '<%= news.author %>',
+                        category: '<%= news.category || "Uncategorized" %>',
+                        location: '<%= news.location || "Not specified" %>',
+                        content: `<%= news.content.replace(/`/g, "\\`").replace(/'/g, "\\'") %>`,
+                        mediaUrl: '<%= news.mediaUrl || "" %>',
+                        mediaType: '<%= news.mediaType || "image" %>',
+                        readFullLink: '<%= news.readFullLink || "" %>',
+                        ePaperLink: '<%= news.ePaperLink || "" %>',
+                        publishedAt: '<%= new Date(news.publishedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) %>'
+                    };
+                    <% if (news.duplicateCheck && news.duplicateCheck.similarArticles) { %>
+                        duplicateDataCache['<%= news._id %>'] = {
+                            isDuplicate: <%= news.duplicateCheck.isDuplicate %>,
+                            isSuspicious: <%= news.duplicateCheck.isSuspicious %>,
+                            score: <%= news.duplicateCheck.score %>,
+                            matchCount: <%= news.duplicateCheck.matchCount %>,
+                            similarArticles: <%- JSON.stringify(news.duplicateCheck.similarArticles) %>
+                        };
+                    <% } %>
+                <% }); %>
+            <% } %>
+
+            function filterNews() {
+                const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
+                const locationFilter = document.getElementById('locationFilter').value.toLowerCase();
+                const dateFilter = document.getElementById('dateFilter').value;
+
+                const cards = document.querySelectorAll('.news-card');
+                let visibleCount = 0;
+
+                cards.forEach(card => {
+                    const title = card.dataset.title;
+                    const author = card.dataset.author;
+                    const category = card.dataset.category;
+                    const location = card.dataset.location;
+                    const cardDate = parseInt(card.dataset.date);
+
+                    // Search filter
+                    const matchesSearch = !searchTerm || title.includes(searchTerm) || author.includes(searchTerm);
+
+                    // Category filter
+                    const matchesCategory = !categoryFilter || category === categoryFilter;
+
+                    // Location filter
+                    const matchesLocation = !locationFilter || location === locationFilter;
+
+                    // Date filter
+                    let matchesDate = true;
+                    if (dateFilter) {
+                        const now = new Date();
+                        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        const cardDateObj = new Date(cardDate);
+
+                        switch(dateFilter) {
+                            case 'today':
+                                matchesDate = cardDateObj >= today;
+                                break;
+                            case 'week':
+                                const weekAgo = new Date(today);
+                                weekAgo.setDate(weekAgo.getDate() - 7);
+                                matchesDate = cardDateObj >= weekAgo;
+                                break;
+                            case 'month':
+                                const monthAgo = new Date(today);
+                                monthAgo.setMonth(monthAgo.getMonth() - 1);
+                                matchesDate = cardDateObj >= monthAgo;
+                                break;
+                        }
+                    }
+
+                    if (matchesSearch && matchesCategory && matchesLocation && matchesDate) {
+                        card.style.display = '';
+                        visibleCount++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // Update pending count
+                document.getElementById('pendingCount').textContent = visibleCount;
+            }
+
+            function resetFilters() {
+                document.getElementById('searchInput').value = '';
+                document.getElementById('categoryFilter').value = '';
+                document.getElementById('locationFilter').value = '';
+                document.getElementById('dateFilter').value = '';
+                filterNews();
+            }
+
+            function sortNews(type) {
+                const grid = document.getElementById('newsGrid');
+                const cards = Array.from(grid.querySelectorAll('.news-card'));
+
+                cards.sort((a, b) => {
+                    if (type === 'recent') {
+                        const dateA = parseInt(a.dataset.date);
+                        const dateB = parseInt(b.dataset.date);
+                        return dateB - dateA;
+                    } else if (type === 'oldest') {
+                        const dateA = parseInt(a.dataset.date);
+                        const dateB = parseInt(b.dataset.date);
+                        return dateA - dateB;
+                    } else if (type === 'views') {
+                        // For views, we can use title length as a proxy (just for demo)
+                        return b.dataset.title.length - a.dataset.title.length;
+                    }
+                });
+
+                cards.forEach(card => grid.appendChild(card));
+
+                // Update active button
+                document.querySelectorAll('.sort-options button').forEach(btn => btn.classList.remove('active'));
+                event.target.classList.add('active');
+            }
+
+            function openPreview(newsId) {
+                const news = newsDataCache[newsId];
+                if (!news) return;
+
+                let previewHTML = `
+                    <div class="modal-meta">
+                        <div class="modal-meta-item">
+                            <strong>📝 Reporter</strong>
+                            ${news.author}
+                        </div>
+                        <div class="modal-meta-item">
+                            <strong>📂 Category</strong>
+                            ${news.category}
+                        </div>
+                        <div class="modal-meta-item">
+                            <strong>📍 Location</strong>
+                            ${news.location}
+                        </div>
+                        <div class="modal-meta-item">
+                            <strong>📅 Date</strong>
+                            ${news.publishedAt}
+                        </div>
+                    </div>
+                `;
+
+                if (news.mediaUrl) {
+                    if (news.mediaType === 'video') {
+                        previewHTML += `<video style="width: 100%; border-radius: 10px; margin: 1rem 0;" controls><source src="${news.mediaUrl}" type="video/mp4">Your browser does not support the video tag.</video>`;
+                    } else {
+                        previewHTML += `<img src="${news.mediaUrl}" alt="Preview" style="width: 100%; border-radius: 10px; margin: 1rem 0;">`;
+                    }
+                }
+
+                previewHTML += `
+                    <div style="margin: 1.5rem 0;">
+                        <h5 style="color: #667eea; margin-bottom: 0.75rem;">✍️ Correct & Review Before Approval</h5>
+                        <div style="display: grid; gap: 0.8rem;">
+                            <div>
+                                <label style="font-size: 0.8rem; font-weight: 700; color: #555;">Title</label>
+                                <input id="editTitle-${newsId}" type="text" maxlength="${TITLE_MAX}" value="${escapeHtml(news.title)}" oninput="updateTitleCounter('${newsId}')" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px;">
+                                <div id="editTitleCount-${newsId}" style="font-size: 0.75rem; text-align: right; color: #777;">${(news.title || '').length}/${TITLE_MAX}</div>
+                            </div>
+
+                            <div>
+                                <label style="font-size: 0.8rem; font-weight: 700; color: #555;">Category</label>
+                                <select id="editCategory-${newsId}" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px;">
+                                    ${renderSelectOptions(categoryOptions, news.category)}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="font-size: 0.8rem; font-weight: 700; color: #555;">Location</label>
+                                <select id="editLocation-${newsId}" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px;">
+                                    <option value="">Select location</option>
+                                    ${renderSelectOptions(locationOptions, news.location === 'Not specified' ? '' : news.location)}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="font-size: 0.8rem; font-weight: 700; color: #555;">Content</label>
+                                <textarea id="editContent-${newsId}" rows="6" maxlength="${CONTENT_MAX}" oninput="updateContentCounter('${newsId}')" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px; resize: vertical;">${escapeHtml(news.content)}</textarea>
+                                <div id="editContentCount-${newsId}" style="font-size: 0.75rem; text-align: right; color: #777;">${(news.content || '').length}/${CONTENT_MAX}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                if (news.readFullLink || news.ePaperLink) {
+                    previewHTML += `<div style="margin: 1.5rem 0; padding: 1rem; background: #f8f9fa; border-radius: 8px;"><strong>🔗 External Links:</strong><br>`;
+                    if (news.readFullLink) previewHTML += `<a href="${news.readFullLink}" target="_blank" style="color: #667eea; text-decoration: none;">📄 Read Full Article</a><br>`;
+                    if (news.ePaperLink) previewHTML += `<a href="${news.ePaperLink}" target="_blank" style="color: #667eea; text-decoration: none;">📰 ePaper</a>`;
+                    previewHTML += `</div>`;
+                }
+
+                previewHTML += `
+                    <div class="modal-actions">
+                        <button class="btn-preview" onclick="savePendingChanges('${newsId}', false)">
+                            💾 Save Changes
+                        </button>
+                        <button class="btn-approve" onclick="approveNews('${newsId}', '${news.title}'); closePreview();">
+                            ✅ Approve & Publish
+                        </button>
+                        <button class="btn-approve" onclick="savePendingChanges('${newsId}', true)">
+                            ✅ Save & Approve
+                        </button>
+                        <button class="btn-reject" onclick="rejectNews('${newsId}', '${news.title}'); closePreview();">
+                            ❌ Reject
+                        </button>
+                    </div>
+                `;
+
+                document.getElementById('previewTitle').textContent = news.title;
+                document.getElementById('previewBody').innerHTML = previewHTML;
+                document.getElementById('previewModal').classList.add('active');
+            }
+
+            function updateTitleCounter(newsId) {
+                const input = document.getElementById(`editTitle-${newsId}`);
+                const count = document.getElementById(`editTitleCount-${newsId}`);
+                if (!input || !count) return;
+                const value = (input.value || '').slice(0, TITLE_MAX);
+                input.value = value;
+                count.textContent = `${value.length}/${TITLE_MAX}`;
+                count.style.color = value.length >= TITLE_MAX ? '#dc3545' : '#777';
+            }
+
+            function updateContentCounter(newsId) {
+                const input = document.getElementById(`editContent-${newsId}`);
+                const count = document.getElementById(`editContentCount-${newsId}`);
+                if (!input || !count) return;
+                const value = (input.value || '').slice(0, CONTENT_MAX);
+                input.value = value;
+                count.textContent = `${value.length}/${CONTENT_MAX}`;
+                count.style.color = value.length >= CONTENT_MAX ? '#dc3545' : '#777';
+            }
+
+            async function savePendingChanges(newsId, approveAfterSave = false) {
+                const titleInput = document.getElementById(`editTitle-${newsId}`);
+                const categoryInput = document.getElementById(`editCategory-${newsId}`);
+                const locationInput = document.getElementById(`editLocation-${newsId}`);
+                const contentInput = document.getElementById(`editContent-${newsId}`);
+
+                if (!titleInput || !categoryInput || !locationInput || !contentInput) {
+                    alert('Edit form is not ready. Please reopen preview.');
+                    return;
+                }
+
+                const payload = {
+                    title: titleInput.value.trim(),
+                    category: categoryInput.value.trim(),
+                    location: locationInput.value.trim(),
+                    content: contentInput.value.trim(),
+                    readFullLink: newsDataCache[newsId]?.readFullLink || '',
+                    ePaperLink: newsDataCache[newsId]?.ePaperLink || ''
+                };
+
+                if (!payload.title || !payload.content || !payload.category) {
+                    alert('Title, Content, Category are required.');
+                    return;
+                }
+
+                if (payload.title.length > TITLE_MAX) {
+                    alert(`Title must be ${TITLE_MAX} characters or less.`);
+                    return;
+                }
+
+                if (payload.content.length > CONTENT_MAX) {
+                    alert(`Content must be ${CONTENT_MAX} characters or less.`);
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/admin/api/news/${newsId}/update-pending`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        alert(`❌ ${data.error || 'Failed to save changes'}`);
+                        return;
+                    }
+
+                    newsDataCache[newsId] = {
+                        ...newsDataCache[newsId],
+                        ...payload
+                    };
+
+                    if (approveAfterSave) {
+                        approveNews(newsId, payload.title);
+                        return;
+                    }
+
+                    alert('✅ Changes saved. You can approve now.');
+                    openPreview(newsId);
+                } catch (error) {
+                    console.error('Save pending changes error:', error);
+                    alert('❌ Failed to save changes');
+                }
+            }
+
+            function closePreview() {
+                document.getElementById('previewModal').classList.remove('active');
+            }
+
+            function approveNews(newsId, newsTitle) {
+                if (!confirm(`Publish "${newsTitle}"?`)) return;
+
+                fetch(`/admin/api/news/${newsId}/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('✅ News approved and published!');
+                            location.reload();
+                        } else {
+                            alert('❌ Error: ' + data.error);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error:', err);
+                        alert('❌ Failed to approve news');
+                    });
+            }
+
+            function rejectNews(newsId, newsTitle) {
+                pendingRejectNewsId = newsId;
+                document.getElementById('rejectNewsTitle').textContent = `Rejecting: "${newsTitle}"`;
+
+                // Reset form
+                document.getElementById('rejectReason').value = '';
+                selectedReason = null;
+                document.getElementById('selectedReasonDisplay').style.display = 'none';
+                document.querySelectorAll('.rejection-reason-btn').forEach(btn => btn.classList.remove('active'));
+
+                const modal = new bootstrap.Modal(document.getElementById('rejectModal'));
+                modal.show();
+            }
+
+            let selectedReason = null;
+
+            function selectReason(reason) {
+                selectedReason = reason;
+
+                // Update button styles
+                document.querySelectorAll('.rejection-reason-btn').forEach(btn => btn.classList.remove('active'));
+                event.target.closest('.rejection-reason-btn').classList.add('active');
+
+                // Show selected reason display
+                document.getElementById('selectedReasonDisplay').style.display = 'block';
+                document.getElementById('selectedReasonText').textContent = reason;
+            }
+
+            function confirmReject() {
+                if (!pendingRejectNewsId) return;
+
+                const customFeedback = document.getElementById('rejectReason').value;
+                const rejectReason = selectedReason || 'Not specified';
+
+                fetch(`/admin/api/news/${pendingRejectNewsId}/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reason: rejectReason,
+                        feedback: customFeedback
+                    })
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('❌ News rejected and feedback sent to reporter');
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.error);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error:', err);
+                        alert('Failed to reject news');
+                    });
+            }
+
+            // Close modal when clicking outside
+            document.getElementById('previewModal').addEventListener('click', (e) => {
+                if (e.target.id === 'previewModal') closePreview();
+            });
+        </script>
+    </body>
+
+</html>

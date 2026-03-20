@@ -122,6 +122,29 @@
             max-height: 300px;
             overflow-y: auto;
         }
+
+        /* Keep dashboard cards in a single row */
+        .stats-container {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .stats-container .stats-card {
+            min-width: 180px;
+            flex: 1 0 180px;
+        }
+
+        .stats-container::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .stats-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
     </style>
     </head>
 
@@ -198,6 +221,17 @@
                                                 <%= typeof inactiveNewsCount !=='undefined' ? inactiveNewsCount :
                                                     (typeof newsList !=='undefined' ? newsList.filter(n=> n.isActive ===
                                                     false).length :
+                                                    0) %>
+                                            </h2>
+                                        </div>
+                                    </div>
+                                    <div class="card text-white bg-info stats-card">
+                                        <div class="card-body">
+                                            <h5 class="card-title text-white">Pending News</h5>
+                                            <h2>
+                                                <%= typeof pendingNewsCount !=='undefined' ? pendingNewsCount :
+                                                    (typeof newsList !=='undefined' ? newsList.filter(n=> n.isActive ===
+                                                    false && !(n.rejectionStatus && n.rejectionStatus.isRejected)).length :
                                                     0) %>
                                             </h2>
                                         </div>
@@ -415,9 +449,33 @@
                                                     </div>
                                                     <div>
                                                         <h6 class="mb-0" id="newsDetailAuthor">-</h6>
-                                                        <small class="text-muted">Editor/Admin</small>
+                                                        <small class="text-muted" id="newsDetailAuthorRole">Reporter</small>
                                                         <div class="small text-muted" id="newsDetailAuthorId"></div>
                                                     </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="card mb-4" id="newsDetailApprovalSection">
+                                            <div class="card-header bg-light">
+                                                <h6 class="mb-0"><i class="fas fa-check-circle text-success me-2"></i>Approval Details</h6>
+                                            </div>
+                                            <div class="card-body" id="newsDetailApprovalCard">
+                                                <div class="small text-muted">Status: <span id="newsDetailApprovalStatus">Pending</span></div>
+                                                <div class="small text-muted">By: <span id="newsDetailApprovalBy">-</span></div>
+                                                <div class="small text-muted">Role: <span id="newsDetailApprovalRole">-</span></div>
+                                                <div class="small text-muted">At: <span id="newsDetailApprovalAt">-</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="card mb-4">
+                                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0"><i class="fas fa-history me-2"></i>Activity Timeline</h6>
+                                                <span class="badge bg-secondary" id="newsDetailHistoryCount">0</span>
+                                            </div>
+                                            <div class="card-body p-0">
+                                                <div id="newsDetailHistoryList" class="list-group list-group-flush" style="max-height: 240px; overflow-y: auto;">
+                                                    <div class="text-center p-3"><small class="text-muted">No history available</small></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -641,9 +699,27 @@
                 }
 
                 // Open news detail modal
-                function openNewsDetail(newsId) {
+                async function openNewsDetail(newsId) {
                     // Find the news item in the newsList array
-                    const newsItem = newsList.find(news => news._id === newsId);
+                    let newsItem = newsList.find(news => news._id === newsId);
+
+                    if (!newsItem) {
+                        alert('News item not found');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch(`/news/api/news/${newsId}`);
+                        if (response.ok) {
+                            const latestNews = await response.json();
+                            newsItem = {
+                                ...newsItem,
+                                ...latestNews
+                            };
+                        }
+                    } catch (error) {
+                        console.warn('Could not fetch latest news details, falling back to cached list item.', error);
+                    }
 
                     if (newsItem) {
                         // Populate modal with news details
@@ -661,10 +737,42 @@
                         document.getElementById('newsDetailContent').textContent = newsItem.content;
                         document.getElementById('newsDetailCategory').textContent = newsItem.category;
                         document.getElementById('newsDetailAuthor').textContent = newsItem.author;
+                        document.getElementById('newsDetailAuthorRole').textContent = newsItem.authorRole || 'Reporter';
                         document.getElementById('newsDetailAuthorId').textContent = `ID: ${newsItem.authorId}`;
                         document.getElementById('newsDetailDate').textContent = new Date(newsItem.publishedAt).toLocaleString();
                         document.getElementById('newsDetailStatus').textContent = newsItem.isActive ? 'Active' : 'Inactive';
                         document.getElementById('newsDetailStatus').className = `badge ${newsItem.isActive ? 'bg-success' : 'bg-secondary'}`;
+                        const approval = newsItem.approvalStatus;
+                        const approved = approval && approval.isApproved;
+                        const isReporterNews = (newsItem.authorSystemRole === 'editor' || newsItem.authorSystemRole === 'reporter');
+                        document.getElementById('newsDetailApprovalSection').style.display = (isReporterNews && approved) ? '' : 'none';
+
+                        document.getElementById('newsDetailApprovalStatus').textContent = approved ? 'Approved' : 'Pending';
+                        document.getElementById('newsDetailApprovalBy').textContent = approved ? (approval.approvedBy || '-') : '-';
+                        document.getElementById('newsDetailApprovalRole').textContent = approved ? (approval.approvedByRole || '-') : '-';
+                        document.getElementById('newsDetailApprovalAt').textContent = approved && approval.approvedAt ? new Date(approval.approvedAt).toLocaleString() : '-';
+
+                        const historyList = document.getElementById('newsDetailHistoryList');
+                        const historyCount = document.getElementById('newsDetailHistoryCount');
+                        const historyItems = Array.isArray(newsItem.actionHistory) ? [...newsItem.actionHistory] : [];
+                        historyItems.sort((a, b) => new Date(b.performedAt || 0) - new Date(a.performedAt || 0));
+                        historyCount.textContent = historyItems.length;
+                        if (historyItems.length > 0) {
+                            historyList.innerHTML = historyItems.map(item => `
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <div class="fw-semibold text-capitalize">${(item.action || 'updated').replace(/_/g, ' ')}</div>
+                                            <div class="small text-muted">${item.details || '-'}</div>
+                                            <div class="small text-muted">${item.performedByName || 'System'} • ${item.performedByRole || '-'}</div>
+                                        </div>
+                                        <small class="text-muted">${item.performedAt ? new Date(item.performedAt).toLocaleString() : '-'}</small>
+                                    </div>
+                                </div>
+                            `).join('');
+                        } else {
+                            historyList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No history available</small></div>';
+                        }
                         document.getElementById('newsDetailLikes').textContent = newsItem.likes || 0;
                         document.getElementById('newsDetailDislikes').textContent = newsItem.dislikes || 0;
                         document.getElementById('newsDetailCommentsCount').textContent = newsItem.comments || 0;

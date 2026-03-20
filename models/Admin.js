@@ -23,7 +23,7 @@ const adminSchema = new mongoose.Schema({
   role: {
     type: String,
     default: 'editor',
-    enum: ['admin', 'superadmin', 'editor']
+    enum: ['admin', 'superadmin', 'editor', 'subeditor']
   },
   isActive: {
     type: Boolean,

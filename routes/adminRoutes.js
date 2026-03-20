@@ -23,7 +23,10 @@ router.post('/profile/image', adminController.requireAuth, uploadCategoryMedia.s
 router.get('/register-editor', adminController.requireAdmin, adminController.renderRegisterEditorPage);
 router.post('/register-editor', adminController.requireAdmin, adminController.registerEditor);
 router.get('/editors', adminController.requireAuth, adminController.renderEditorsPage);
+router.get('/performance-analytics', adminController.requireAuth, adminController.renderPerformanceAnalyticsPage);
 router.put('/editors/:id', adminController.requireAuth, adminController.updateEditor);
+router.put('/editors/:id/status', adminController.requireAuth, adminController.toggleEditorStatus);
+router.put('/editors/:id/password', adminController.requireAuth, adminController.changeEditorPassword);
 router.delete('/editors/:id', adminController.requireAdmin, adminController.deleteEditor);
 
 // User management routes
@@ -34,8 +37,8 @@ router.get('/users/:id', adminController.requireAuth, adminController.getUserByI
 router.get('/reports', adminController.requireAuth, adminController.renderReportsPage);
 
 // Notification routes
-router.get('/notifications', adminController.requireAuth, adminController.renderNotificationsPage);
-router.get('/onesignal-analytics', adminController.requireAuth, adminController.renderOneSignalAnalyticsPage);
+router.get('/notifications', adminController.requireAdmin, adminController.renderNotificationsPage);
+router.get('/onesignal-analytics', adminController.requireAdmin, adminController.renderOneSignalAnalyticsPage);
 router.post('/api/send-notification', adminController.requireAuth, adminController.sendNotification);
 router.get('/api/notifications/history', adminController.requireAuth, adminController.getNotificationHistory);
 router.get('/api/notifications/stats', adminController.requireAuth, adminController.getNotificationStats);
@@ -49,7 +52,25 @@ router.post('/api/notifications/received', adminController.requireAuth, adminCon
 // OneSignal analytics route
 router.get('/api/onesignal/analytics', adminController.requireAuth, adminController.getOneSignalAnalytics);
 
+// Reporter/Editor API routes (for mobile/Next.js apps)
+router.post('/api/reporter/login', adminController.reporterLogin);
+router.get('/api/reporter/profile', adminController.requireAuth, adminController.getReporterProfile);
+
 // Cloudflare R2 Usage route
 router.get('/r2-usage', adminController.requireAuth, adminController.renderR2UsagePage);
+
+// Pending News Review route (for editors to approve/reject news)
+router.get('/pending-news', adminController.requireAuth, adminController.renderPendingNewsPage);
+router.put('/api/news/:id/update-pending', adminController.requireAuth, adminController.updatePendingNews);
+router.post('/api/news/:id/approve', adminController.requireAuth, adminController.approveNews);
+router.post('/api/news/:id/reject', adminController.requireAuth, adminController.rejectNews);
+
+// Plagiarism & Duplicate Detection routes
+router.post('/api/check-duplicate', adminController.requireAuth, adminController.checkDuplicateArticles);
+router.get('/plagiarism-report', adminController.requireAuth, adminController.renderPlagiarismReportPage);
+router.get('/api/duplicate-details/:id', adminController.requireAuth, adminController.getDuplicateDetails);
+
+// Rejected News route
+router.get('/rejected-news', adminController.requireAuth, adminController.renderRejectedNewsPage);
 
 module.exports = router;

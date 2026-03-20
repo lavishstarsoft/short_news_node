@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<%- include('partials/header', { title: 'Rejected News' }) %>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .dashboard-header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        .dashboard-header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .dashboard-header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.95;
+            font-size: 0.95rem;
+        }
+
+        .stats-box {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+            text-align: center;
+            border-left: 4px solid #dc3545;
+        }
+
+        .stats-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #dc3545;
+        }
+
+        .stats-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+
+        .table-wrapper {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            background: #f5f5f5;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 700;
+            color: #333;
+            border-bottom: 2px solid #e0e0e0;
+            font-size: 0.9rem;
+        }
+
+        .table td {
+            padding: 1rem;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9rem;
+        }
+
+        .table tbody tr:hover {
+            background: #f9f9f9;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-category {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .reason-cell {
+            max-width: 300px;
+        }
+
+        .reason-title {
+            font-weight: 700;
+            color: #dc3545;
+            margin-bottom: 0.25rem;
+        }
+
+        .reason-feedback {
+            font-size: 0.85rem;
+            color: #666;
+            font-style: italic;
+        }
+
+        .rejection-date {
+            font-size: 0.85rem;
+            color: #999;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .filter-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .filter-input {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .filter-input label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #dc3545;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-input input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .filter-input input:focus {
+            outline: none;
+            border-color: #dc3545;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-header {
+                padding: 1.5rem;
+            }
+
+            .dashboard-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .table {
+                font-size: 0.8rem;
+            }
+
+            .table th,
+            .table td {
+                padding: 0.75rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Rejected News', backButton: true, backUrl: '/' }) %>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <%- include('partials/sidebar', { activePage: 'rejected-news' }) %>
+
+            <!-- Main Content -->
+            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <!-- Dashboard Header -->
+                <div class="dashboard-header mt-4">
+                    <h1>🚫 Rejected News</h1>
+                    <p>Review articles that were rejected during the editorial process</p>
+                </div>
+
+                <!-- Stats Box -->
+                <div class="stats-box">
+                    <div class="stats-number"><%= totalRejected %></div>
+                    <div class="stats-label">Total Rejected Articles</div>
+                </div>
+
+                <!-- Filter Section -->
+                <div class="filter-section">
+                    <div class="filter-input">
+                        <label>🔍 Search</label>
+                        <input type="text" id="searchInput" placeholder="Article title or author..." onkeyup="filterTable()">
+                    </div>
+                </div>
+
+                <!-- Rejected News Table -->
+                <% if (rejectedNews && rejectedNews.length > 0) { %>
+                    <div class="table-wrapper">
+                        <table class="table" id="rejectedTable">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Author</th>
+                                    <th>Category</th>
+                                    <th>Location</th>
+                                    <th>Rejection Reason & Feedback</th>
+                                    <th>Rejected At</th>
+                                    <th>Rejected By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% rejectedNews.forEach(article => { %>
+                                    <tr data-title="<%= article.title.toLowerCase() %>" data-author="<%= (article.author || '').toLowerCase() %>">
+                                        <td><strong><%= article.title.substring(0, 50) %>...</strong></td>
+                                        <td><%= article.author || 'N/A' %></td>
+                                        <td><span class="badge badge-category"><%= article.category || 'N/A' %></span></td>
+                                        <td><%= article.location || 'N/A' %></td>
+                                        <td class="reason-cell">
+                                            <% if (article.rejectionStatus) { %>
+                                                <div class="reason-title">
+                                                    <%= article.rejectionStatus.reason %>
+                                                </div>
+                                                <% if (article.rejectionStatus.feedback) { %>
+                                                    <div class="reason-feedback">
+                                                        <%= article.rejectionStatus.feedback.substring(0, 100) %>
+                                                        <% if (article.rejectionStatus.feedback.length > 100) { %>
+                                                            <span title="<%= article.rejectionStatus.feedback %>">...</span>
+                                                        <% } %>
+                                                    </div>
+                                                <% } %>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <div class="rejection-date">
+                                                <%= new Date(article.rejectionStatus.rejectedAt).toLocaleDateString() %>
+                                            </div>
+                                            <div class="rejection-date" style="font-size: 0.8rem;">
+                                                <%= new Date(article.rejectionStatus.rejectedAt).toLocaleTimeString() %>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div><strong><%= article.rejectionStatus.rejectedBy %></strong></div>
+                                            <div style="font-size: 0.8rem; color: #dc3545;"><%= article.rejectionStatus.rejectedByRole || 'Editor' %></div>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } else { %>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✨</div>
+                        <h3>No Rejected Articles</h3>
+                        <p>Great! All submitted articles are either published or pending review.</p>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function filterTable() {
+            const searchInput = document.getElementById('searchInput').value.toLowerCase();
+            const table = document.getElementById('rejectedTable');
+
+            if (!table) return;
+
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const title = row.getAttribute('data-title');
+                const author = row.getAttribute('data-author');
+
+                const matchesSearch = title.includes(searchInput) || author.includes(searchInput);
+                row.style.display = matchesSearch ? '' : 'none';
+            });
+        }
+    </script>
+
+</body>
+
+</html>

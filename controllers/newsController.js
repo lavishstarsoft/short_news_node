@@ -21,12 +21,61 @@ const { clearCache } = require('../middleware/cache');
 // Import Cloudflare R2 deletion utility
 const { deleteFromR2 } = require('../config/cloudflare');
 
+function getAuthorRoleLabel(authorAdmin) {
+  if (!authorAdmin) return 'Reporter';
+
+  if (authorAdmin.role === 'admin' || authorAdmin.role === 'superadmin') {
+    return 'Admin';
+  }
+
+  if (authorAdmin.role === 'subeditor') {
+    return authorAdmin.displayRole || 'Sub-Editor';
+  }
+
+  if (authorAdmin.role === 'editor') {
+    return authorAdmin.displayRole || 'Reporter';
+  }
+
+  return 'Reporter';
+}
+
+function getActorRoleLabel(adminLike) {
+  if (!adminLike) return 'System';
+
+  if (adminLike.role === 'admin' || adminLike.role === 'superadmin') {
+    return 'Admin';
+  }
+
+  if (adminLike.role === 'subeditor') {
+    return adminLike.displayRole || 'Sub-Editor';
+  }
+
+  if (adminLike.role === 'editor') {
+    return adminLike.displayRole || 'Reporter';
+  }
+
+  return adminLike.role || 'System';
+}
+
+function buildHistoryEntry(action, reqAdmin, details, metadata = {}) {
+  return {
+    action,
+    performedById: reqAdmin?.id || reqAdmin?._id?.toString() || null,
+    performedByName: reqAdmin?.username || reqAdmin?.name || 'System',
+    performedByRole: getActorRoleLabel(reqAdmin),
+    details,
+    metadata,
+    performedAt: new Date()
+  };
+}
+
 // Render dashboard page
 async function renderDashboard(req, res) {
   try {
     let totalNewsCount = 0;
     let activeNewsCount = 0;
     let inactiveNewsCount = 0;
+    let pendingNewsCount = 0;
     let todaysNewsCount = 0;
 
     if (req.app.locals.isConnectedToMongoDB) {
@@ -39,12 +88,21 @@ async function renderDashboard(req, res) {
         totalNewsCount = await News.countDocuments({ authorId: req.admin.id });
         activeNewsCount = await News.countDocuments({ authorId: req.admin.id, isActive: true });
         inactiveNewsCount = await News.countDocuments({ authorId: req.admin.id, isActive: false });
+        pendingNewsCount = await News.countDocuments({
+          authorId: req.admin.id,
+          isActive: false,
+          'rejectionStatus.isRejected': { $ne: true }
+        });
       } else {
         // Admins and superadmins see all news, but limit to latest 12
         newsList = await News.find().sort({ publishedAt: -1 }).limit(12);
         totalNewsCount = await News.countDocuments();
         activeNewsCount = await News.countDocuments({ isActive: true });
         inactiveNewsCount = await News.countDocuments({ isActive: false });
+        pendingNewsCount = await News.countDocuments({
+          isActive: false,
+          'rejectionStatus.isRejected': { $ne: true }
+        });
       }
 
       const categories = await Category.find();
@@ -56,11 +114,22 @@ async function renderDashboard(req, res) {
         locationMap[location.name] = location.code;
       });
 
+      const authorIds = [...new Set(newsList.map(news => news.authorId).filter(Boolean))];
+      const authors = await Admin.find({ _id: { $in: authorIds } }).select('_id role displayRole').lean();
+      const authorRoleMap = {};
+      const authorSystemRoleMap = {};
+      authors.forEach(author => {
+        authorRoleMap[author._id.toString()] = getAuthorRoleLabel(author);
+        authorSystemRoleMap[author._id.toString()] = author.role || 'editor';
+      });
+
       // Add location codes to news items
       const newsListWithCodes = newsList.map(news => {
         return {
           ...news.toObject(),
-          locationCode: news.location ? locationMap[news.location] : null
+          locationCode: news.location ? locationMap[news.location] : null,
+          authorRole: authorRoleMap[news.authorId] || 'Reporter',
+          authorSystemRole: authorSystemRoleMap[news.authorId] || 'editor'
         };
       });
 
@@ -89,6 +158,7 @@ async function renderDashboard(req, res) {
         totalNewsCount,
         activeNewsCount,
         inactiveNewsCount,
+        pendingNewsCount,
         admin: req.admin
       });
     } else {
@@ -101,6 +171,9 @@ async function renderDashboard(req, res) {
       totalNewsCount = newsData.length;
       activeNewsCount = newsData.filter(news => news.isActive !== false).length;
       inactiveNewsCount = newsData.filter(news => news.isActive === false).length;
+      pendingNewsCount = newsData.filter(news =>
+        news.isActive === false && !(news.rejectionStatus && news.rejectionStatus.isRejected)
+      ).length;
 
       // Calculate today's news count for in-memory data
       const today = new Date();
@@ -126,7 +199,9 @@ async function renderDashboard(req, res) {
       const newsListWithCodes = limitedNewsData.map(news => {
         return {
           ...news,
-          locationCode: news.location ? locationMap[news.location] : null
+          locationCode: news.location ? locationMap[news.location] : null,
+          authorRole: news.authorRole || 'Reporter',
+          authorSystemRole: news.authorSystemRole || 'editor'
         };
       });
 
@@ -138,6 +213,7 @@ async function renderDashboard(req, res) {
         totalNewsCount,
         activeNewsCount,
         inactiveNewsCount,
+        pendingNewsCount,
         admin: req.admin
       });
     }
@@ -155,6 +231,7 @@ async function renderNewsListPage(req, res) {
     const limit = 21; // 21 news per page for fast loading
     const skip = (page - 1) * limit;
     const searchQuery = req.query.search || '';
+    const selectedAuthorId = req.query.authorId || '';
     const fromDate = req.query.fromDate || '';
     const toDate = req.query.toDate || '';
 
@@ -183,6 +260,11 @@ async function renderNewsListPage(req, res) {
         query.isActive = true;
       } else if (selectedStatus === 'inactive') {
         query.isActive = false;
+      } else if (selectedStatus === 'pending') {
+        query.isActive = false;
+        query['rejectionStatus.isRejected'] = { $ne: true };
+      } else if (selectedStatus === 'rejected') {
+        query['rejectionStatus.isRejected'] = true;
       }
 
       // Date range filter
@@ -203,6 +285,8 @@ async function renderNewsListPage(req, res) {
       if (req.admin.role === 'editor') {
         // Editors only see their own news
         query.authorId = req.admin.id;
+      } else if (selectedAuthorId) {
+        query.authorId = selectedAuthorId;
       }
 
       // Get total count for pagination
@@ -224,11 +308,22 @@ async function renderNewsListPage(req, res) {
         locationMap[location.name] = location.code;
       });
 
+      const authorIds = [...new Set(newsList.map(news => news.authorId).filter(Boolean))];
+      const authors = await Admin.find({ _id: { $in: authorIds } }).select('_id role displayRole').lean();
+      const authorRoleMap = {};
+      const authorSystemRoleMap = {};
+      authors.forEach(author => {
+        authorRoleMap[author._id.toString()] = getAuthorRoleLabel(author);
+        authorSystemRoleMap[author._id.toString()] = author.role || 'editor';
+      });
+
       // Add location codes to news items
       const newsListWithCodes = newsList.map(news => {
         return {
           ...news.toObject(),
-          locationCode: news.location ? locationMap[news.location] : null
+          locationCode: news.location ? locationMap[news.location] : null,
+          authorRole: authorRoleMap[news.authorId] || 'Reporter',
+          authorSystemRole: authorSystemRoleMap[news.authorId] || 'editor'
         };
       });
 
@@ -238,6 +333,7 @@ async function renderNewsListPage(req, res) {
         locations,
         selectedLocation,
         selectedStatus,
+        selectedAuthorId,
         searchQuery,
         fromDate,
         toDate,
@@ -279,6 +375,14 @@ async function renderNewsListPage(req, res) {
         filteredNewsData = filteredNewsData.filter(news => news.isActive !== false);
       } else if (selectedStatus === 'inactive') {
         filteredNewsData = filteredNewsData.filter(news => news.isActive === false);
+      } else if (selectedStatus === 'pending') {
+        filteredNewsData = filteredNewsData.filter(news =>
+          news.isActive === false && !(news.rejectionStatus && news.rejectionStatus.isRejected)
+        );
+      } else if (selectedStatus === 'rejected') {
+        filteredNewsData = filteredNewsData.filter(news =>
+          news.rejectionStatus && news.rejectionStatus.isRejected
+        );
       }
 
       // Date range filter
@@ -296,6 +400,8 @@ async function renderNewsListPage(req, res) {
       if (req.admin.role === 'editor') {
         // Editors only see their own news
         filteredNewsData = filteredNewsData.filter(news => news.authorId === req.admin.id);
+      } else if (selectedAuthorId) {
+        filteredNewsData = filteredNewsData.filter(news => news.authorId === selectedAuthorId);
       }
 
       // Sort by published date
@@ -318,7 +424,9 @@ async function renderNewsListPage(req, res) {
       const newsListWithCodes = paginatedNews.map(news => {
         return {
           ...news,
-          locationCode: news.location ? locationMap[news.location] : null
+          locationCode: news.location ? locationMap[news.location] : null,
+          authorRole: news.authorRole || 'Reporter',
+          authorSystemRole: news.authorSystemRole || 'editor'
         };
       });
 
@@ -328,6 +436,7 @@ async function renderNewsListPage(req, res) {
         locations: locationData,
         selectedLocation,
         selectedStatus,
+        selectedAuthorId,
         searchQuery,
         fromDate,
         toDate,
@@ -397,7 +506,15 @@ async function getNewsById(req, res) {
       return res.status(403).json({ error: 'Access denied. You can only view your own news.' });
     }
 
-    res.json(news);
+    const author = news.authorId
+      ? await Admin.findById(news.authorId).select('role displayRole').lean()
+      : null;
+
+    res.json({
+      ...news.toObject(),
+      authorRole: getAuthorRoleLabel(author),
+      authorSystemRole: author?.role || 'editor'
+    });
   } catch (error) {
     res.status(500).json({ error: 'Error fetching news' });
   }
@@ -448,6 +565,13 @@ async function createNews(req, res) {
       authorId: req.admin.id,
       authorProfileImage: authorDetails?.profileImage || null,
       authorConstituency: authorDetails?.constituency || null,
+      actionHistory: [
+        buildHistoryEntry('created', req.admin, 'News article created', {
+          title: req.body.title,
+          category: req.body.category,
+          location: req.body.location || null
+        })
+      ],
       publishedAt: new Date() // Explicitly set the timestamp
     };
 
@@ -586,12 +710,26 @@ async function updateNews(req, res) {
 
     // Add author information to the update (in case it's missing)
     // Note: We don't update the publishedAt timestamp when editing news
+    const changedFieldKeys = Object.keys(req.body || {}).filter(key => typeof req.body[key] !== 'undefined');
+    const updatedHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
+    updatedHistory.push(
+      buildHistoryEntry(
+        'updated',
+        req.admin,
+        changedFieldKeys.length > 0
+          ? `News article updated (${changedFieldKeys.join(', ')})`
+          : 'News article updated',
+        { changedFields: changedFieldKeys }
+      )
+    );
+
     const newsData = {
       ...req.body,
       author: req.admin.username,
       authorId: req.admin.id,
       authorProfileImage: authorDetails?.profileImage || null,
       authorConstituency: authorDetails?.constituency || null,
+      actionHistory: updatedHistory,
     };
 
     // Handle media fields for backward compatibility
@@ -703,9 +841,22 @@ async function toggleNewsStatus(req, res) {
       }
 
       // Toggle the isActive status
+      const updatedHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
+      updatedHistory.push(
+        buildHistoryEntry(
+          'status_toggled',
+          req.admin,
+          `Status changed from ${existingNews.isActive ? 'Active' : 'Inactive'} to ${isActive ? 'Active' : 'Inactive'}`,
+          { from: existingNews.isActive, to: isActive }
+        )
+      );
+
       const news = await News.findByIdAndUpdate(
         id,
-        { isActive: isActive },
+        {
+          isActive: isActive,
+          actionHistory: updatedHistory
+        },
         { new: true }
       );
 
@@ -735,6 +886,17 @@ async function toggleNewsStatus(req, res) {
 
       // Toggle the isActive status
       newsData[newsIndex].isActive = isActive;
+      if (!Array.isArray(newsData[newsIndex].actionHistory)) {
+        newsData[newsIndex].actionHistory = [];
+      }
+      newsData[newsIndex].actionHistory.push(
+        buildHistoryEntry(
+          'status_toggled',
+          req.admin,
+          `Status changed to ${isActive ? 'Active' : 'Inactive'}`,
+          { to: isActive }
+        )
+      );
 
       console.log('News status updated in in-memory storage:', newsData[newsIndex]); // Debug log
       res.json({ message: 'News status updated successfully', news: newsData[newsIndex] });

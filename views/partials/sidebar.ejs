@@ -37,6 +37,25 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link ripple <%= activePage === 'pending-news' ? 'active' : '' %>" href="/admin/pending-news">
+                    <i class="fas fa-inbox me-3"></i>
+                    <span class="nav-text">Pending News</span>
+                    <span class="badge bg-warning ms-2">Review</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link ripple <%= activePage === 'rejected-news' ? 'active' : '' %>" href="/admin/rejected-news">
+                    <i class="fas fa-trash me-3"></i>
+                    <span class="nav-text">Rejected News</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link ripple <%= activePage === 'plagiarism-report' ? 'active' : '' %>" href="/admin/plagiarism-report">
+                    <i class="fas fa-fingerprint me-3"></i>
+                    <span class="nav-text">Plagiarism Report</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link ripple <%= activePage === 'viral-videos' ? 'active' : '' %>" href="/viral-videos">
                     <i class="fas fa-video me-3"></i>
                     <span class="nav-text">Viral Videos</span>
@@ -71,6 +90,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link ripple <%= activePage === 'performance-analytics' ? 'active' : '' %>" href="/admin/performance-analytics">
+                        <i class="fas fa-chart-line me-3"></i>
+                        <span class="nav-text">Performance Analytics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link ripple <%= activePage === 'users' ? 'active' : '' %>" href="/admin/users">
                         <i class="fas fa-users me-3"></i>
                         <span class="nav-text">Users</span>
@@ -98,20 +123,23 @@
                         </a>
                     </li>
 
-                    <li class="nav-item">
-                        <a class="nav-link ripple <%= activePage === 'notifications' ? 'active' : '' %>"
-                            href="/admin/notifications">
-                            <i class="fas fa-bell me-3"></i>
-                            <span class="nav-text">Send Notification</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link ripple <%= activePage === 'onesignal-analytics' ? 'active' : '' %>"
-                            href="/admin/onesignal-analytics">
-                            <i class="fas fa-chart-bar me-3"></i>
-                            <span class="nav-text">OneSignal Analytics</span>
-                        </a>
-                    </li>
+                    <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
+                        admin.role==='superadmin' )) { %>
+                        <li class="nav-item">
+                            <a class="nav-link ripple <%= activePage === 'notifications' ? 'active' : '' %>"
+                                href="/admin/notifications">
+                                <i class="fas fa-bell me-3"></i>
+                                <span class="nav-text">Send Notification</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link ripple <%= activePage === 'onesignal-analytics' ? 'active' : '' %>"
+                                href="/admin/onesignal-analytics">
+                                <i class="fas fa-chart-bar me-3"></i>
+                                <span class="nav-text">OneSignal Analytics</span>
+                            </a>
+                        </li>
+                        <% } %>
                     <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
                         admin.role==='superadmin' )) { %>
                         <li class="nav-item">
@@ -121,14 +149,14 @@
                                 <span class="nav-text">App Settings</span>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link ripple <%= activePage === 'r2-usage' ? 'active' : '' %>"
+                                href="/admin/r2-usage">
+                                <i class="fas fa-cloud me-3"></i>
+                                <span class="nav-text">R2 Usage</span>
+                            </a>
+                        </li>
                         <% } %>
-                            <li class="nav-item">
-                                <a class="nav-link ripple <%= activePage === 'r2-usage' ? 'active' : '' %>"
-                                    href="/admin/r2-usage">
-                                    <i class="fas fa-cloud me-3"></i>
-                                    <span class="nav-text">R2 Usage</span>
-                                </a>
-                            </li>
                             <li class="nav-item">
                                 <a class="nav-link ripple <%= activePage === 'profile' ? 'active' : '' %>"
                                     href="/admin/profile">
