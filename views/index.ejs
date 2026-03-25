@@ -10,6 +10,29 @@
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
+        /* Rejected Toast */
+        .rejected-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #dc3545;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        .rejected-toast.show {
+            opacity: 1;
+            visibility: visible;
+            bottom: 50px;
+        }
+
         .location-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
@@ -382,7 +405,10 @@
                 </div>
             </div>
 
-            <!-- News Detail Modal -->
+            <!-- Rejected Toast -->
+    <div id="rejectedToast" class="rejected-toast">Article Rejected</div>
+
+    <!-- News Detail Modal -->
             <div class="modal fade" id="newsDetailModal" tabindex="-1" aria-labelledby="newsDetailModalLabel"
                 aria-hidden="true">
                 <div class="modal-dialog modal-xl">
@@ -708,6 +734,12 @@
                         return;
                     }
 
+                    // Check if news is rejected
+                    if (newsItem.rejectionStatus && newsItem.rejectionStatus.isRejected) {
+                        showRejectedToast();
+                        return;
+                    }
+
                     try {
                         const response = await fetch(`/news/api/news/${newsId}`);
                         if (response.ok) {
@@ -863,6 +895,16 @@
                 function editNews(newsId) {
                     // Redirect to edit page
                     window.location.href = `/edit-news/${newsId}`;
+                }
+
+                function showRejectedToast() {
+                    const toast = document.getElementById('rejectedToast');
+                    if (toast) {
+                        toast.classList.add('show');
+                        setTimeout(() => {
+                            toast.classList.remove('show');
+                        }, 3000);
+                    }
                 }
 
                 // Delete news function
