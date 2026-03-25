@@ -218,6 +218,35 @@
             <%- include('partials/footer') %>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
                 <script>
+                    async function normalizeImageForCrop(file) {
+                        if (!file || !file.type) return file;
+
+                        const isHeic = file.type === 'image/heic' || file.type === 'image/heif';
+                        if (!isHeic) return file;
+
+                        const bitmap = await createImageBitmap(file);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = bitmap.width;
+                        canvas.height = bitmap.height;
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            throw new Error('Unable to process image for cropping');
+                        }
+                        ctx.drawImage(bitmap, 0, 0);
+
+                        const jpegBlob = await new Promise((resolve) =>
+                            canvas.toBlob(resolve, 'image/jpeg', 0.92)
+                        );
+
+                        if (!jpegBlob) {
+                            throw new Error('Failed to convert HEIC image');
+                        }
+
+                        return new File([jpegBlob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), {
+                            type: 'image/jpeg'
+                        });
+                    }
+
                     // Add News Function
                     async function saveNews() {
                         const newsId = document.getElementById('newsId').value;
@@ -347,21 +376,27 @@
                         }
 
                         if (mediaUpload) {
-                            mediaUpload.addEventListener('change', function (e) {
-                                const file = e.target.files[0];
-                                if (file) {
-                                    if (file.type.startsWith('video/')) {
-                                        uploadMediaFile(file);
+                            mediaUpload.addEventListener('change', async function (e) {
+                                const originalFile = e.target.files[0];
+                                if (originalFile) {
+                                    if (originalFile.type.startsWith('video/')) {
+                                        await uploadMediaFile(originalFile);
                                     } else {
-                                        const reader = new FileReader();
-                                        reader.onload = function (event) {
-                                            const imageToCrop = document.getElementById('imageToCrop');
-                                            const imageCropModalElement = document.getElementById('imageCropModal');
-                                            const imageCropModal = new bootstrap.Modal(imageCropModalElement);
-                                            imageToCrop.src = event.target.result;
-                                            setTimeout(() => imageCropModal.show(), 100);
-                                        };
-                                        reader.readAsDataURL(file);
+                                        try {
+                                            const file = await normalizeImageForCrop(originalFile);
+                                            const reader = new FileReader();
+                                            reader.onload = function (event) {
+                                                const imageToCrop = document.getElementById('imageToCrop');
+                                                const imageCropModalElement = document.getElementById('imageCropModal');
+                                                const imageCropModal = new bootstrap.Modal(imageCropModalElement);
+                                                imageToCrop.src = event.target.result;
+                                                setTimeout(() => imageCropModal.show(), 100);
+                                            };
+                                            reader.readAsDataURL(file);
+                                        } catch (error) {
+                                            console.error('Image normalization failed:', error);
+                                            showFeedback('Image processing failed. Please try another photo.', 'error');
+                                        }
                                     }
                                 }
                             });
