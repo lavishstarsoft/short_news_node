@@ -1371,6 +1371,37 @@ async function sendNotification(req, res) {
     // Emit to all connected clients
     io.emit('admin_notification', notificationData);
 
+    // 🚀 MANUAL NEWS NOTIFICATION: If newsId provided, also emit new_news for instant app updates
+    // Telugu: newsId ఉంటే app లో instant notification కోసం new_news event కూడా పంపుతాము
+    if (newsId) {
+      try {
+        // Fetch full news details for proper new_news event
+        const newsDetails = await News.findById(newsId).lean();
+        if (newsDetails) {
+          const newsNotificationData = {
+            id: newsDetails._id,
+            title: newsDetails.title,
+            content: newsDetails.content,
+            category: newsDetails.category,
+            location: newsDetails.location,
+            publishedAt: newsDetails.publishedAt,
+            author: newsDetails.author,
+            mediaType: newsDetails.mediaType,
+            mediaUrl: newsDetails.mediaUrl,
+            thumbnailUrl: newsDetails.thumbnailUrl,
+            imageUrl: newsDetails.imageUrl || newsDetails.mediaUrl // Backward compatibility
+          };
+
+          // Emit new_news event for instant app notification
+          io.emit('new_news', newsNotificationData);
+          console.log('📱 MANUAL: Sent new_news WebSocket event for instant app notification');
+          console.log('🎯 News Title:', newsDetails.title);
+        }
+      } catch (newsError) {
+        console.error('⚠️ Error fetching news details for WebSocket:', newsError);
+      }
+    }
+
     console.log('Sent admin notification to all clients:', notificationData);
 
     // Send OneSignal notification
@@ -2544,32 +2575,19 @@ async function approveNews(req, res) {
       return res.status(404).json({ error: 'News not found' });
     }
 
-    // 🚀 REAL-TIME FIX: Emit WebSocket event for instant notifications
-    const io = req.app.locals.io;
-    if (io) {
-      // Prepare notification data for real-time emission
-      const notificationData = {
-        id: updatedNews._id,
-        title: updatedNews.title,
-        content: updatedNews.content,
-        category: updatedNews.category,
-        location: updatedNews.location,
-        publishedAt: updatedNews.publishedAt,
-        author: updatedNews.author,
-        mediaType: updatedNews.mediaType,
-        mediaUrl: updatedNews.mediaUrl,
-        thumbnailUrl: updatedNews.thumbnailUrl,
-        imageUrl: updatedNews.imageUrl || updatedNews.mediaUrl // Backward compatibility
-      };
-
-      // Emit to all connected clients for instant real-time notifications
-      io.emit('new_news', notificationData);
-      console.log('🚀 REAL-TIME: Sent approved news notification to all clients');
-      console.log('📱 News Title:', updatedNews.title);
-      console.log('👥 Connected clients will receive instant notification');
-    } else {
-      console.log('⚠️ WebSocket io not available for real-time notifications');
-    }
+    // 🔕 MANUAL NOTIFICATION CONTROL: No automatic notifications on approval
+    // Telugu: Admin manually notification పంపాలని అనుకున్నప్పుడు మాత్రమే నోటిఫికేషన్ వస్తుంది
+    //
+    // Why disabled automatic notifications:
+    // 1. Admin gets full control over when to send notifications
+    // 2. Can schedule notifications for appropriate times
+    // 3. Breaking news vs regular news can be handled differently
+    // 4. Prevents notification spam to users
+    //
+    // Note: Manual notification still available via news-list bell button
+    console.log('📢 News approved successfully - Manual notification control enabled');
+    console.log('📱 News Title:', updatedNews.title);
+    console.log('👤 Admin can send notification manually from news-list page');
 
     // 🔄 Clear news cache after approving news to ensure fresh data
     try {
