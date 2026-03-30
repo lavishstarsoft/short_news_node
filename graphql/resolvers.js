@@ -483,7 +483,7 @@ const resolvers = {
 
     Mutation: {
         // News mutations
-        likeNews: async (_, { newsId }) => {
+        likeNews: async (_, { newsId }, context) => {
             try {
                 const news = await News.findById(newsId);
                 if (!news) {
@@ -493,6 +493,21 @@ const resolvers = {
                 news.likes += 1;
                 await news.save();
 
+                // 🚀 REAL-TIME UPDATE: WebSocket event for like count update
+                // Telugu: Like count real-time గా update అవుతుంది
+                const io = context?.io || (global.io);
+                if (io) {
+                    io.emit('news_interaction', {
+                        newsId: newsId,
+                        type: 'like',
+                        likes: news.likes,
+                        dislikes: news.dislikes,
+                        comments: news.comments,
+                        views: news.views
+                    });
+                    console.log(`🔥 Real-time like update sent: ${news.title} - Likes: ${news.likes}`);
+                }
+
                 return news;
             } catch (error) {
                 console.error('Error liking news:', error);
@@ -500,7 +515,7 @@ const resolvers = {
             }
         },
 
-        dislikeNews: async (_, { newsId }) => {
+        dislikeNews: async (_, { newsId }, context) => {
             try {
                 const news = await News.findById(newsId);
                 if (!news) {
@@ -510,6 +525,21 @@ const resolvers = {
                 news.dislikes += 1;
                 await news.save();
 
+                // 🚀 REAL-TIME UPDATE: WebSocket event for dislike count update
+                // Telugu: Dislike count real-time గా update అవుతుంది
+                const io = context?.io || (global.io);
+                if (io) {
+                    io.emit('news_interaction', {
+                        newsId: newsId,
+                        type: 'dislike',
+                        likes: news.likes,
+                        dislikes: news.dislikes,
+                        comments: news.comments,
+                        views: news.views
+                    });
+                    console.log(`🔥 Real-time dislike update sent: ${news.title} - Dislikes: ${news.dislikes}`);
+                }
+
                 return news;
             } catch (error) {
                 console.error('Error disliking news:', error);
@@ -517,7 +547,7 @@ const resolvers = {
             }
         },
 
-        addComment: async (_, { newsId, text }) => {
+        addComment: async (_, { newsId, text }, context) => {
             try {
                 const news = await News.findById(newsId);
                 if (!news) {
@@ -541,6 +571,22 @@ const resolvers = {
                 news.comments = (news.comments || 0) + 1; // Increment comment count
                 await news.save();
 
+                // 🚀 REAL-TIME UPDATE: WebSocket event for comment count update
+                // Telugu: Comment count real-time గా update అవుతుంది
+                const io = context?.io || (global.io);
+                if (io) {
+                    io.emit('news_interaction', {
+                        newsId: newsId,
+                        type: 'comment',
+                        likes: news.likes,
+                        dislikes: news.dislikes,
+                        comments: news.comments,
+                        views: news.views,
+                        newComment: comment
+                    });
+                    console.log(`🔥 Real-time comment update sent: ${news.title} - Comments: ${news.comments}`);
+                }
+
                 return news;
             } catch (error) {
                 console.error('Error adding comment:', error);
@@ -548,7 +594,7 @@ const resolvers = {
             }
         },
 
-        incrementViews: async (_, { newsId, userId, userName }) => {
+        incrementViews: async (_, { newsId, userId, userName }, context) => {
             try {
                 const news = await News.findById(newsId);
                 if (!news) {
@@ -581,6 +627,21 @@ const resolvers = {
                     });
 
                     await news.save();
+
+                    // 🚀 REAL-TIME UPDATE: WebSocket event for view count update
+                    // Telugu: View count real-time గా update అవుతుంది
+                    const io = context?.io || (global.io);
+                    if (io) {
+                        io.emit('news_interaction', {
+                            newsId: newsId,
+                            type: 'view',
+                            likes: news.likes,
+                            dislikes: news.dislikes,
+                            comments: news.comments,
+                            views: news.views
+                        });
+                        console.log(`🔥 Real-time view update sent: ${news.title} - Views: ${news.views}`);
+                    }
 
                     // 🚀 Invalidate cache so fresh data is returned
                     await invalidateCache('graphql:news:*');

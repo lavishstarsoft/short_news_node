@@ -603,8 +603,8 @@ async function createNews(req, res) {
     const io = req.app.locals.io;
     const connectedClients = req.app.locals.connectedClients;
 
-    if (io && connectedClients) {
-      // Prepare notification data
+    if (io) {
+      // Prepare notification data for Twitter-style pill
       const notificationData = {
         id: news._id,
         title: news.title,
@@ -615,62 +615,18 @@ async function createNews(req, res) {
         author: news.author,
         mediaType: news.mediaType,
         mediaUrl: news.mediaUrl,
-        thumbnailUrl: news.thumbnailUrl
+        thumbnailUrl: news.thumbnailUrl,
+        imageUrl: news.imageUrl || news.mediaUrl
       };
 
-      /* 
-      // 🔕 AUTO-NOTIFICATION DISABLED as per user request
-      // Emit to all connected clients
+      // 🐦 TWITTER-STYLE PILL: Send WebSocket event for in-app notification
+      // Telugu: Admin news create చేస్తే app లో Twitter-style pill వస్తుంది
+      // Note: This is IN-APP only, NOT OneSignal push notification
       io.emit('new_news', notificationData);
-      console.log('Sent new news notification to all clients');
-
-      // Get all users to track recipients
-      let allUsers = [];
-      if (req.app.locals.isConnectedToMongoDB) {
-        allUsers = await User.find({}, '_id');
-      }
-
-      // Create recipients list from connected clients
-      const recipients = [];
-      if (connectedClients) {
-        for (let [userId, socketId] of connectedClients.entries()) {
-          recipients.push({
-            userId: userId,
-            received: false,
-            opened: false
-          });
-        }
-      }
-
-      // Add users who are not connected but exist in the database
-      for (const user of allUsers) {
-        const userId = user._id.toString();
-        if (!recipients.find(r => r.userId === userId)) {
-          recipients.push({
-            userId: userId,
-            received: false,
-            opened: false
-          });
-        }
-      }
-
-      // Save notification to database
-      const notification = new Notification({
-        title: `New News: ${news.title}`,
-        message: news.content.substring(0, 100) + (news.content.length > 100 ? '...' : ''),
-        type: 'news',
-        priority: 'normal',
-        newsId: news._id,
-        recipients: recipients,
-        sentBy: 'System'
-      });
-
-      if (req.app.locals.isConnectedToMongoDB) {
-        await notification.save();
-        console.log('Saved news notification to database with ID:', notification._id);
-      }
-      */
-      console.log('🚀 Automatic notification skipped. Waiting for manual trigger.');
+      console.log('🐦 TWITTER-STYLE: WebSocket new_news sent for:', news.title);
+      console.log('📱 Flutter app will show Twitter-style pill automatically');
+    } else {
+      console.log('⚠️ WebSocket io not available');
     }
 
     // 🔄 Clear news cache after creating new news
