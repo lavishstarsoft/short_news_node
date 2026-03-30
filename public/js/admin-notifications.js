@@ -57,6 +57,23 @@
             document.dispatchEvent(new CustomEvent('new_news_report_received', { detail: data }));
         });
 
+        // Listen for new pending news submissions
+        socket.on('new_news', function (news) {
+            console.log('New pending news received:', news);
+            playNotificationSound();
+            
+            const title = `🗞️ New Pending News!`;
+            const content = `"${news.title}" submitted by ${news.author || 'Reporter'}. <br><a href="/admin/pending-news" class="text-white text-decoration-underline mt-1 d-inline-block">Click here to view</a>`;
+            
+            // Show toast 
+            if (typeof window.showToast === 'function') {
+                window.showToast(title, content, 'success');
+            }
+            
+            // Dispatch event for pending-news page to update the grid organically
+            document.dispatchEvent(new CustomEvent('new_pending_news_received', { detail: news }));
+        });
+
         // Connection status
         socket.on('connect', function () {
             console.log('Admin notification socket connected');

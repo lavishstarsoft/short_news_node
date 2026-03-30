@@ -22,6 +22,9 @@ const oneSignalService = require('../services/oneSignalService');
 // Import Similarity Detector
 const { checkDuplicate, generateContentHash } = require('../utils/similarityDetector');
 
+// Import cache clearing functionality
+const { clearCache } = require('../middleware/cache');
+
 function buildAdminNewsHistory(action, adminId, adminName, adminRole, details, metadata = {}) {
   return {
     action,
@@ -2539,6 +2542,42 @@ async function approveNews(req, res) {
 
     if (!updatedNews) {
       return res.status(404).json({ error: 'News not found' });
+    }
+
+    // 🚀 REAL-TIME FIX: Emit WebSocket event for instant notifications
+    const io = req.app.locals.io;
+    if (io) {
+      // Prepare notification data for real-time emission
+      const notificationData = {
+        id: updatedNews._id,
+        title: updatedNews.title,
+        content: updatedNews.content,
+        category: updatedNews.category,
+        location: updatedNews.location,
+        publishedAt: updatedNews.publishedAt,
+        author: updatedNews.author,
+        mediaType: updatedNews.mediaType,
+        mediaUrl: updatedNews.mediaUrl,
+        thumbnailUrl: updatedNews.thumbnailUrl,
+        imageUrl: updatedNews.imageUrl || updatedNews.mediaUrl // Backward compatibility
+      };
+
+      // Emit to all connected clients for instant real-time notifications
+      io.emit('new_news', notificationData);
+      console.log('🚀 REAL-TIME: Sent approved news notification to all clients');
+      console.log('📱 News Title:', updatedNews.title);
+      console.log('👥 Connected clients will receive instant notification');
+    } else {
+      console.log('⚠️ WebSocket io not available for real-time notifications');
+    }
+
+    // 🔄 Clear news cache after approving news to ensure fresh data
+    try {
+      await clearCache('cache:/api/public/news*');
+      await clearCache('cache:/api/public/locations*');
+      console.log('🗂️ Cache cleared after news approval');
+    } catch (cacheError) {
+      console.log('⚠️ Cache clearing failed (non-critical):', cacheError.message);
     }
 
     res.json({

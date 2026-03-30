@@ -1328,6 +1328,117 @@
             document.getElementById('previewModal').addEventListener('click', (e) => {
                 if (e.target.id === 'previewModal') closePreview();
             });
+            // Listen for global custom event to update grid dynamically
+            document.addEventListener('new_pending_news_received', function (e) {
+                const news = e.detail;
+                const activeGrid = document.getElementById('newsGrid');
+                const tableWrapper = document.querySelector('.table-wrapper');
+                
+                // Construct Date
+                const publishDate = new Date(news.publishedAt);
+                const dateOptions = { month: 'short', day: 'numeric' };
+                const formattedDate = publishDate.toLocaleDateString('en-US', dateOptions);
+                
+                // Add to cache so preview works
+                const newsIdStr = (news.id || news._id).toString();
+                if (typeof newsDataCache !== 'undefined') {
+                    newsDataCache[newsIdStr] = {
+                        title: (news.title || '').replace(/'/g, "\\'"),
+                        author: news.author || 'Reporter',
+                        category: news.category || "Uncategorized",
+                        location: news.location || "Not specified",
+                        content: (news.content || '').replace(/`/g, "\\`").replace(/'/g, "\\'"),
+                        mediaUrl: news.mediaUrl || "",
+                        mediaType: news.mediaType || "image",
+                        readFullLink: news.readFullLink || "",
+                        ePaperLink: news.ePaperLink || "",
+                        publishedAt: publishDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                    };
+                }
+                
+                // If the grid doesn't exist (empty state is showing)
+                if (!activeGrid) {
+                    if (tableWrapper) {
+                        tableWrapper.innerHTML = '<div class="news-grid" id="newsGrid"></div>';
+                    } else {
+                        return; // Container missing
+                    }
+                }
+                
+                const grid = document.getElementById('newsGrid');
+                if (!grid) return;
+                
+                // Construct Card HTML
+                const card = document.createElement('div');
+                card.className = 'news-card';
+                card.dataset.id = newsIdStr;
+                card.dataset.title = (news.title || '').toLowerCase();
+                card.dataset.author = (news.author || '').toLowerCase();
+                card.dataset.category = (news.category || '').toLowerCase();
+                card.dataset.location = (news.location || '').toLowerCase();
+                card.dataset.date = publishDate.getTime();
+                
+                let mediaHtml = '';
+                if (news.mediaUrl) {
+                    if (news.mediaType === 'video') {
+                        mediaHtml = `
+                        <div class="news-card-image">
+                            <video controls style="width: 100%; height: 100%; object-fit: cover;">
+                                <source src="${news.mediaUrl}" type="video/mp4">
+                            </video>
+                        </div>`;
+                    } else {
+                        mediaHtml = `
+                        <div class="news-card-image">
+                            <img src="${news.mediaUrl}" alt="Preview">
+                        </div>`;
+                    }
+                }
+                
+                const titleStr = (news.title || '').replace(/'/g, "\\'");
+                card.innerHTML = `
+                    ${mediaHtml}
+                    <div class="news-card-content">
+                        <h3 class="news-card-title">${news.title}</h3>
+                        <div class="badge-group">
+                            <span class="badge badge-category">${news.category || 'Uncategorized'}</span>
+                            <span class="badge badge-pending">⏳ Pending</span>
+                        </div>
+                        <div class="news-card-meta">
+                            <div class="meta-item">
+                                <strong>👤</strong>
+                                <span>${news.author || 'Reporter'}</span>
+                            </div>
+                            <div class="meta-item">
+                                <strong>📍</strong>
+                                <span>${news.location || 'N/A'}</span>
+                            </div>
+                            <div class="meta-item">
+                                <strong>📅</strong>
+                                <span>${formattedDate}</span>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 1rem; line-height: 1.4;">
+                            ${news.content ? escapeHtml(news.content).substring(0, 120) + '...' : ''}
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn-preview" onclick="openPreview('${newsIdStr}')">👁️ Preview/Edit</button>
+                            <button class="btn-approve" onclick="approveNews('${newsIdStr}', '${titleStr}')">✅ Approve</button>
+                            <button class="btn-reject" onclick="rejectNews('${newsIdStr}', '${titleStr}')">❌ Reject</button>
+                        </div>
+                    </div>
+                `;
+                
+                // Prepend to grid
+                grid.prepend(card);
+                
+                // Update badge count
+                const countBadge = document.getElementById('pendingCount');
+                if (countBadge) {
+                    const currentCount = parseInt(countBadge.textContent || '0', 10);
+                    countBadge.textContent = currentCount + 1;
+                }
+            });
         </script>
     </body>
 
