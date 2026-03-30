@@ -1255,7 +1255,16 @@
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
-                            alert('✅ News approved and published!');
+                            // 🔔 Ask admin if they want to send OneSignal push notification
+                            const sendPush = confirm('✅ News approved!\n\n🔔 Push notification పంపించాలా?\n(OneSignal - phone notification)');
+
+                            if (sendPush) {
+                                // Send OneSignal notification
+                                sendPushNotificationForNews(newsId, newsTitle, data.news);
+                            } else {
+                                alert('✅ News published! (Push notification పంపలేదు)');
+                            }
+
                             location.reload();
                         } else {
                             alert('❌ Error: ' + data.error);
@@ -1265,6 +1274,31 @@
                         console.error('Error:', err);
                         alert('❌ Failed to approve news');
                     });
+            }
+
+            // 🔔 Send OneSignal push notification for approved news
+            function sendPushNotificationForNews(newsId, newsTitle, newsData) {
+                const notificationData = {
+                    title: `కొత్త వార్త: ${newsTitle}`,
+                    message: newsData?.content ? newsData.content.substring(0, 100) + '...' : newsTitle,
+                    newsId: newsId,
+                    imageUrl: newsData?.mediaUrl || newsData?.imageUrl || null,
+                    launchUrl: `/news/${newsId}`,
+                    priority: 'normal'
+                };
+
+                fetch('/admin/api/send-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(notificationData)
+                })
+                .then(res => res.json())
+                .then(result => {
+                    console.log('🔔 Push notification sent:', result);
+                })
+                .catch(err => {
+                    console.error('❌ Push notification error:', err);
+                });
             }
 
             function rejectNews(newsId, newsTitle) {

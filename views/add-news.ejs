@@ -319,12 +319,35 @@
 
                             hideLoader();
                             if (response.ok) {
-                                const successMessage = newsId ? 'News updated successfully!' : 'News added successfully!';
-                                showFeedback(successMessage, 'success');
+                                const responseData = await response.json();
 
-                                setTimeout(() => {
-                                    window.location.href = '/news-list';
-                                }, 1500);
+                                if (newsId) {
+                                    // Update flow - just show success
+                                    showFeedback('News updated successfully!', 'success');
+                                    setTimeout(() => {
+                                        window.location.href = '/news-list';
+                                    }, 1500);
+                                } else {
+                                    // 🔔 New news created - ask admin if they want to send push notification
+                                    const sendPush = confirm('✅ News added successfully!\n\n🔔 Push notification పంపించాలా?\n(OneSignal - phone notification)');
+
+                                    if (sendPush) {
+                                        // Send OneSignal notification
+                                        sendPushNotificationForNews(
+                                            responseData._id,
+                                            newsData.title,
+                                            newsData.content,
+                                            newsData.mediaUrl || newsData.imageUrl
+                                        );
+                                        showFeedback('News published + Push notification sent! 🔔', 'success');
+                                    } else {
+                                        showFeedback('News published! (Push notification పంపలేదు)', 'success');
+                                    }
+
+                                    setTimeout(() => {
+                                        window.location.href = '/news-list';
+                                    }, 1500);
+                                }
                             } else {
                                 const errorText = await response.text();
                                 try {
@@ -339,6 +362,31 @@
                             console.error('Error:', error);
                             showFeedback('Error saving news: ' + error.message, 'error');
                         }
+                    }
+
+                    // 🔔 Send OneSignal push notification for newly created news
+                    function sendPushNotificationForNews(newsId, title, content, imageUrl) {
+                        const notificationData = {
+                            title: `కొత్త వార్త: ${title}`,
+                            message: content ? content.substring(0, 100) + '...' : title,
+                            newsId: newsId,
+                            imageUrl: imageUrl || null,
+                            launchUrl: `/news/${newsId}`,
+                            priority: 'normal'
+                        };
+
+                        fetch('/admin/api/send-notification', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(notificationData)
+                        })
+                        .then(res => res.json())
+                        .then(result => {
+                            console.log('🔔 Push notification sent:', result);
+                        })
+                        .catch(err => {
+                            console.error('❌ Push notification error:', err);
+                        });
                     }
 
                     // Wait for DOM to be fully loaded
