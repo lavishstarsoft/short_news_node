@@ -618,6 +618,8 @@ async function createNews(req, res) {
         thumbnailUrl: news.thumbnailUrl
       };
 
+      /* 
+      // 🔕 AUTO-NOTIFICATION DISABLED as per user request
       // Emit to all connected clients
       io.emit('new_news', notificationData);
       console.log('Sent new news notification to all clients');
@@ -667,8 +669,8 @@ async function createNews(req, res) {
         await notification.save();
         console.log('Saved news notification to database with ID:', notification._id);
       }
-
-      // Auto-notification removed - Admin will manually send notifications from news-list using bell button
+      */
+      console.log('🚀 Automatic notification skipped. Waiting for manual trigger.');
     }
 
     // 🔄 Clear news cache after creating new news
