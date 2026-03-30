@@ -2575,19 +2575,41 @@ async function approveNews(req, res) {
       return res.status(404).json({ error: 'News not found' });
     }
 
-    // 🔕 MANUAL NOTIFICATION CONTROL: No automatic notifications on approval
-    // Telugu: Admin manually notification పంపాలని అనుకున్నప్పుడు మాత్రమే నోటిఫికేషన్ వస్తుంది
+    // 🐦 X-STYLE IN-APP NOTIFICATION: WebSocket event for instant app notification
+    // Telugu: Admin news create/approve చేసిన వెంటనే app లో X-style notification రావాలి
     //
-    // Why disabled automatic notifications:
-    // 1. Admin gets full control over when to send notifications
-    // 2. Can schedule notifications for appropriate times
-    // 3. Breaking news vs regular news can be handled differently
-    // 4. Prevents notification spam to users
+    // What happens:
+    // 1. WebSocket 'new_news' event → App gets instant notification
+    // 2. App shows X-style "కొత్త వార్తలు వచ్చాయి!" banner
+    // 3. User taps → Sees new news
     //
-    // Note: Manual notification still available via news-list bell button
-    console.log('📢 News approved successfully - Manual notification control enabled');
-    console.log('📱 News Title:', updatedNews.title);
-    console.log('👤 Admin can send notification manually from news-list page');
+    // Note: This is IN-APP notification only, NOT push notification
+    // Push notifications are still manual via bell button
+    const io = req.app.locals.io;
+    if (io) {
+      // Prepare notification data for real-time in-app notification
+      const notificationData = {
+        id: updatedNews._id,
+        title: updatedNews.title,
+        content: updatedNews.content,
+        category: updatedNews.category,
+        location: updatedNews.location,
+        publishedAt: updatedNews.publishedAt,
+        author: updatedNews.author,
+        mediaType: updatedNews.mediaType,
+        mediaUrl: updatedNews.mediaUrl,
+        thumbnailUrl: updatedNews.thumbnailUrl,
+        imageUrl: updatedNews.imageUrl || updatedNews.mediaUrl
+      };
+
+      // Emit to all connected clients for X-style in-app notification
+      io.emit('new_news', notificationData);
+      console.log('🐦 X-STYLE: Sent in-app notification to all connected clients');
+      console.log('📰 News Title:', updatedNews.title);
+      console.log('📱 App will show "కొత్త వార్తలు వచ్చాయి!" notification');
+    } else {
+      console.log('⚠️ WebSocket io not available for in-app notifications');
+    }
 
     // 🔄 Clear news cache after approving news to ensure fresh data
     try {
