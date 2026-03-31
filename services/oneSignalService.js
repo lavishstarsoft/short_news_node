@@ -253,8 +253,9 @@ class OneSignalService {
     }
 
     try {
-      const title = `New News: ${news.title}`;
-      const message = news.content.substring(0, 100) + (news.content.length > 100 ? '...' : '');
+      // 🔔 "News Via Yellowsingam:" format notification
+      const title = 'News Via Yellowsingam:';
+      const message = news.title;
 
       // 🔧 FIX: Use relative path for launchUrl. 
       // This tells the Flutter app to handle the routing internally instead of forcing a browser open.
