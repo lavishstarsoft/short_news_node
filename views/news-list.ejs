@@ -873,8 +873,8 @@
                         if (newsItem) {
                             // Prepare notification data
                             const notificationData = {
-                                title: `New News: ${newsItem.title}`,
-                                message: newsItem.content.substring(0, 100) + (newsItem.content.length > 100 ? '...' : ''),
+                                title: 'News Via Yellowsingam:',
+                                message: newsItem.title,
                                 newsId: newsItem._id,
                                 imageUrl: newsItem.mediaUrl || newsItem.imageUrl,
                                 launchUrl: null, // We'll set this to point to the news detail page
