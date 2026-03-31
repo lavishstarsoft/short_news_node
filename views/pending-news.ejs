@@ -1279,7 +1279,7 @@
             // 🔔 Send OneSignal push notification for approved news
             function sendPushNotificationForNews(newsId, newsTitle, newsData) {
                 const notificationData = {
-                    title: `కొత్త వార్త: ${newsTitle}`,
+                    title: `Latest News: ${newsTitle}`,
                     message: newsData?.content ? newsData.content.substring(0, 100) + '...' : newsTitle,
                     newsId: newsId,
                     imageUrl: newsData?.mediaUrl || newsData?.imageUrl || null,

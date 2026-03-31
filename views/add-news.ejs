@@ -367,7 +367,7 @@
                     // 🔔 Send OneSignal push notification for newly created news
                     function sendPushNotificationForNews(newsId, title, content, imageUrl) {
                         const notificationData = {
-                            title: `కొత్త వార్త: ${title}`,
+                            title: `Latest News: ${title}`,
                             message: content ? content.substring(0, 100) + '...' : title,
                             newsId: newsId,
                             imageUrl: imageUrl || null,
