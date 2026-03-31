@@ -197,11 +197,17 @@
                             <div class="content-area">
                                 <div class="card users-card">
                                     <div class="card-header users-header">
-                                        <div class="d-flex justify-content-between align-items-center">
+                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                                             <div>
                                                 <h2><i class="fas fa-users me-2"></i>Users Management</h2>
                                                 <p class="mb-0">View and manage user accounts with detailed interaction
                                                     information</p>
+                                            </div>
+                                            <div>
+                                                <div class="text-center px-4 py-2" style="background: rgba(255,255,255,0.2); border-radius: 10px;">
+                                                    <div class="fs-3 fw-bold"><%= users ? users.length : 0 %></div>
+                                                    <small>👥 Total Users</small>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -283,20 +289,18 @@
                                                                                 <% } %>
                                                                 </td>
                                                                 <td>
-                                                                    <div class="d-flex flex-wrap">
+                                                                    <div class="d-flex flex-wrap gap-1">
                                                                         <span class="badge bg-info interaction-badge">
                                                                             <i class="fas fa-thumbs-up me-1"></i>
-                                                                            <%= user.interactions.likes.length %>
+                                                                            <%= user.activityCounts?.likes || 0 %>
                                                                         </span>
-                                                                        <span
-                                                                            class="badge bg-warning interaction-badge">
+                                                                        <span class="badge bg-warning interaction-badge">
                                                                             <i class="fas fa-thumbs-down me-1"></i>
-                                                                            <%= user.interactions.dislikes.length %>
+                                                                            <%= user.activityCounts?.dislikes || 0 %>
                                                                         </span>
-                                                                        <span
-                                                                            class="badge bg-success interaction-badge">
+                                                                        <span class="badge bg-success interaction-badge">
                                                                             <i class="fas fa-comment me-1"></i>
-                                                                            <%= user.interactions.comments.length %>
+                                                                            <%= user.activityCounts?.comments || 0 %>
                                                                         </span>
                                                                     </div>
                                                                 </td>
@@ -411,19 +415,19 @@
                                                 <div class="d-flex justify-content-around text-center">
                                                     <div>
                                                         <div class="fs-4 text-info">
-                                                            <%= user.interactions.likes.length %>
+                                                            <%= user.activityCounts?.likes || 0 %>
                                                         </div>
                                                         <div class="small text-muted">Likes</div>
                                                     </div>
                                                     <div>
                                                         <div class="fs-4 text-warning">
-                                                            <%= user.interactions.dislikes.length %>
+                                                            <%= user.activityCounts?.dislikes || 0 %>
                                                         </div>
                                                         <div class="small text-muted">Dislikes</div>
                                                     </div>
                                                     <div>
                                                         <div class="fs-4 text-success">
-                                                            <%= user.interactions.comments.length %>
+                                                            <%= user.activityCounts?.comments || 0 %>
                                                         </div>
                                                         <div class="small text-muted">Comments</div>
                                                     </div>
@@ -435,9 +439,9 @@
                                         <div class="interaction-section">
                                             <h6 class="section-title"><i
                                                     class="fas fa-thumbs-up text-info me-2"></i>Likes (
-                                                <%= user.interactions.likes.length %>)
+                                                <%= user.activityCounts?.likes || 0 %>)
                                             </h6>
-                                            <% if (user.interactions.likes && user.interactions.likes.length> 0) { %>
+                                            <% if (user.interactions && user.interactions.likes && user.interactions.likes.length > 0) { %>
                                                 <div class="row">
                                                     <% user.interactions.likes.slice(0, 5).forEach(function(like) { %>
                                                         <div class="col-md-12 mb-2">
@@ -475,10 +479,8 @@
                                         <!-- Dislikes Section -->
                                         <div class="interaction-section">
                                             <h6 class="section-title"><i
-                                                    class="fas fa-thumbs-down text-warning me-2"></i>Dislikes (<%=
-                                                    user.interactions.dislikes.length %>)</h6>
-                                            <% if (user.interactions.dislikes && user.interactions.dislikes.length> 0) {
-                                                %>
+                                                    class="fas fa-thumbs-down text-warning me-2"></i>Dislikes (<%= user.activityCounts?.dislikes || 0 %>)</h6>
+                                            <% if (user.interactions && user.interactions.dislikes && user.interactions.dislikes.length > 0) { %>
                                                 <div class="row">
                                                     <% user.interactions.dislikes.slice(0, 5).forEach(function(dislike)
                                                         { %>
@@ -500,7 +502,7 @@
                                                             </div>
                                                         </div>
                                                         <% }); %>
-                                                            <% if (user.interactions.dislikes.length> 5) { %>
+                                                            <% if (user.interactions && user.interactions.dislikes && user.interactions.dislikes.length > 5) { %>
                                                                 <div class="col-md-12">
                                                                     <p class="text-muted small">+ <%=
                                                                             user.interactions.dislikes.length - 5 %>
@@ -518,9 +520,8 @@
                                         <div class="interaction-section">
                                             <h6 class="section-title"><i
                                                     class="fas fa-comments text-success me-2"></i>Comments
-                                                (<%= user.interactions.comments.length %>)</h6>
-                                            <% if (user.interactions.comments && user.interactions.comments.length> 0) {
-                                                %>
+                                                (<%= user.activityCounts?.comments || 0 %>)</h6>
+                                            <% if (user.interactions && user.interactions.comments && user.interactions.comments.length > 0) { %>
                                                 <div class="row">
                                                     <% user.interactions.comments.slice(0,
                                                         3).forEach(function(commentObj) { %>
@@ -556,7 +557,7 @@
                                                             </div>
                                                         </div>
                                                         <% }); %>
-                                                            <% if (user.interactions.comments.length> 3) { %>
+                                                            <% if (user.interactions && user.interactions.comments && user.interactions.comments.length > 3) { %>
                                                                 <div class="col-md-12">
                                                                     <p class="text-muted small">+ <%=
                                                                             user.interactions.comments.length - 3 %>

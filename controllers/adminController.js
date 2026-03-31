@@ -399,19 +399,103 @@ const renderUsersListPage = async (req, res) => {
     const User = require('../models/User');
     const News = require('../models/News');
 
-    // Get all users from database with populated interactions
-    const users = await User.find()
-      .sort({ createdAt: -1 })
-      .populate([
-        { path: 'interactions.likes', select: 'title category publishedAt' },
-        { path: 'interactions.dislikes', select: 'title category publishedAt' },
-        {
-          path: 'interactions.comments.newsId',
-          select: 'title publishedAt category'
-        }
-      ]);
+    // Get all users from database
+    const users = await User.find().sort({ createdAt: -1 });
 
-    res.render('users', { admin, users });
+    // Aggregate likes from news
+    const likesAgg = await News.aggregate([
+      { $unwind: '$userInteractions.likes' },
+      { $group: {
+        _id: '$userInteractions.likes.userId',
+        count: { $sum: 1 },
+        newsItems: {
+          $push: {
+            newsId: '$_id',
+            title: '$title',
+            category: '$category',
+            publishedAt: '$publishedAt'
+          }
+        }
+      }}
+    ]);
+
+    // Aggregate dislikes from news
+    const dislikesAgg = await News.aggregate([
+      { $unwind: '$userInteractions.dislikes' },
+      { $group: {
+        _id: '$userInteractions.dislikes.userId',
+        count: { $sum: 1 },
+        newsItems: {
+          $push: {
+            newsId: '$_id',
+            title: '$title',
+            category: '$category',
+            publishedAt: '$publishedAt'
+          }
+        }
+      }}
+    ]);
+
+    // Aggregate comments from news
+    const commentsAgg = await News.aggregate([
+      { $unwind: '$userInteractions.comments' },
+      { $group: {
+        _id: '$userInteractions.comments.userId',
+        count: { $sum: 1 },
+        newsItems: {
+          $push: {
+            newsId: '$_id',
+            title: '$title',
+            category: '$category',
+            publishedAt: '$publishedAt',
+            comment: '$userInteractions.comments.comment',
+            timestamp: '$userInteractions.comments.timestamp'
+          }
+        }
+      }}
+    ]);
+
+    // Create activity lookup maps
+    const likesMap = {};
+    const dislikesMap = {};
+    const commentsMap = {};
+
+    likesAgg.forEach(item => {
+      likesMap[item._id] = { count: item.count, items: item.newsItems };
+    });
+
+    dislikesAgg.forEach(item => {
+      dislikesMap[item._id] = { count: item.count, items: item.newsItems };
+    });
+
+    commentsAgg.forEach(item => {
+      commentsMap[item._id] = { count: item.count, items: item.newsItems };
+    });
+
+    // Map users with aggregated activity data
+    const usersWithInteractions = users.map(user => {
+      const userObj = user.toObject();
+      // Use googleId instead of _id for matching (News interactions store googleId as userId)
+      const userId = user.googleId || user._id.toString(); // Fallback to _id for mobile users
+
+      // Set aggregated interaction data
+      userObj.interactions = {
+        likes: likesMap[userId]?.items || [],
+        dislikes: dislikesMap[userId]?.items || [],
+        comments: commentsMap[userId]?.items || []
+      };
+
+      // Add counts for easy access
+      userObj.activityCounts = {
+        likes: likesMap[userId]?.count || 0,
+        dislikes: dislikesMap[userId]?.count || 0,
+        comments: commentsMap[userId]?.count || 0
+      };
+
+      return userObj;
+    });
+
+    res.render('users', { admin, users: usersWithInteractions });
   } catch (error) {
     console.error('Users list error:', error);
     res.status(500).send('Error fetching users list');
