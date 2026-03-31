@@ -1165,8 +1165,8 @@
 
                         // Prepare notification data
                         const notificationData = {
-                            title: title,
-                            message: currentNotificationNewsItem.title,
+                            title: `${title}: ${currentNotificationNewsItem.title}`,
+                            message: '' + (currentNotificationNewsItem.content ? currentNotificationNewsItem.content.substring(0, 100) + '...' : ''),
                             newsId: currentNotificationNewsItem._id,
                             imageUrl: currentNotificationNewsItem.mediaUrl || currentNotificationNewsItem.imageUrl,
                             launchUrl: null,
