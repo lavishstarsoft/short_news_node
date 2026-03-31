@@ -85,6 +85,201 @@
             padding: 1rem;
             margin-bottom: 1.5rem;
         }
+
+        /* Notification Title Modal Styles */
+        .notification-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .notification-modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .notification-modal {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            transform: scale(0.8) translateY(20px);
+            transition: all 0.3s ease;
+        }
+
+        .notification-modal-overlay.active .notification-modal {
+            transform: scale(1) translateY(0);
+        }
+
+        .notification-modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 16px 16px 0 0;
+            text-align: center;
+        }
+
+        .notification-modal-header h5 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .notification-modal-header .news-title-preview {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .notification-modal-body {
+            padding: 24px;
+        }
+
+        .title-option {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .title-option:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .title-option.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        }
+
+        .title-option input[type="radio"] {
+            display: none;
+        }
+
+        .title-option .option-icon {
+            font-size: 1.5rem;
+            margin-right: 12px;
+        }
+
+        .title-option .option-text {
+            flex: 1;
+        }
+
+        .title-option .option-text .option-label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95rem;
+        }
+
+        .title-option .option-text .option-preview {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .title-option .check-icon {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #ddd;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .title-option.selected .check-icon {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .custom-title-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 1rem;
+            margin-top: 10px;
+            display: none;
+            transition: all 0.2s ease;
+        }
+
+        .custom-title-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .custom-title-input.show {
+            display: block;
+        }
+
+        .notification-modal-footer {
+            padding: 16px 24px 24px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .notification-modal-footer button {
+            flex: 1;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-cancel-notif {
+            background: #f1f3f4;
+            border: none;
+            color: #666;
+        }
+
+        .btn-cancel-notif:hover {
+            background: #e2e6ea;
+        }
+
+        .btn-send-notif {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+
+        .btn-send-notif:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-send-notif:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
     </style>
     </head>
 
@@ -865,55 +1060,164 @@
                         }
                     }
 
-                    // Send notification for news function
+                    // Send notification for news function - Shows modal with title options
+                    let currentNotificationNewsItem = null;
+
                     function sendNotificationForNews(newsId) {
                         // Find the news item in the newsListItems array
                         const newsItem = newsListItems.find(news => news._id === newsId);
 
                         if (newsItem) {
-                            // Prepare notification data
-                            const notificationData = {
-                                title: 'Breaking News 🚨:',
-                                message: newsItem.title,
-                                newsId: newsItem._id,
-                                imageUrl: newsItem.mediaUrl || newsItem.imageUrl,
-                                launchUrl: null, // We'll set this to point to the news detail page
-                                platformSettings: {},
-                                priority: 'normal'
-                            };
+                            currentNotificationNewsItem = newsItem;
 
-                            // Show confirmation dialog
-                            if (confirm(`Send notification for news: "${newsItem.title}"?`)) {
-                                // Make API call to send the notification
-                                fetch('/admin/api/send-notification', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify(notificationData)
-                                })
-                                    .then(response => {
-                                        if (response.ok) {
-                                            return response.json();
-                                        } else {
-                                            return response.json().then(errorData => {
-                                                throw new Error(errorData.error || 'Failed to send notification');
-                                            });
-                                        }
-                                    })
-                                    .then(data => {
-                                        alert('Notification sent successfully!');
-                                        console.log('Notification sent:', data);
-                                    })
-                                    .catch(error => {
-                                        console.error('Error:', error);
-                                        alert('Error sending notification: ' + error.message);
-                                    });
+                            // Update modal with news title preview
+                            const newsTitlePreview = document.getElementById('newsTitlePreview');
+                            if (newsTitlePreview) {
+                                newsTitlePreview.textContent = newsItem.title;
+                            }
+
+                            // Reset modal state
+                            const titleOptions = document.querySelectorAll('.title-option');
+                            titleOptions.forEach(opt => opt.classList.remove('selected'));
+
+                            // Select first option by default
+                            const firstOption = document.querySelector('.title-option');
+                            if (firstOption) {
+                                firstOption.classList.add('selected');
+                                firstOption.querySelector('input[type="radio"]').checked = true;
+                            }
+
+                            // Hide custom input
+                            const customInput = document.getElementById('customTitleInput');
+                            if (customInput) {
+                                customInput.classList.remove('show');
+                                customInput.value = '';
+                            }
+
+                            // Show modal
+                            const modal = document.getElementById('notificationTitleModal');
+                            if (modal) {
+                                modal.classList.add('active');
                             }
                         } else {
                             alert('News item not found');
                         }
                     }
+
+                    // Handle title option selection
+                    function selectTitleOption(element) {
+                        // Remove selected from all
+                        document.querySelectorAll('.title-option').forEach(opt => {
+                            opt.classList.remove('selected');
+                        });
+
+                        // Add selected to clicked
+                        element.classList.add('selected');
+                        element.querySelector('input[type="radio"]').checked = true;
+
+                        // Show/hide custom input
+                        const customInput = document.getElementById('customTitleInput');
+                        const isCustom = element.dataset.value === 'custom';
+
+                        if (isCustom) {
+                            customInput.classList.add('show');
+                            customInput.focus();
+                        } else {
+                            customInput.classList.remove('show');
+                        }
+                    }
+
+                    // Close notification modal
+                    function closeNotificationModal() {
+                        const modal = document.getElementById('notificationTitleModal');
+                        if (modal) {
+                            modal.classList.remove('active');
+                        }
+                        currentNotificationNewsItem = null;
+                    }
+
+                    // Send the notification with selected title
+                    function confirmSendNotification() {
+                        if (!currentNotificationNewsItem) {
+                            alert('No news item selected');
+                            return;
+                        }
+
+                        // Get selected title
+                        const selectedOption = document.querySelector('.title-option.selected');
+                        if (!selectedOption) {
+                            alert('Please select a title type');
+                            return;
+                        }
+
+                        let title = selectedOption.dataset.title;
+
+                        // If custom, get from input
+                        if (selectedOption.dataset.value === 'custom') {
+                            const customInput = document.getElementById('customTitleInput');
+                            title = customInput.value.trim();
+                            if (!title) {
+                                alert('Please enter a custom title');
+                                customInput.focus();
+                                return;
+                            }
+                        }
+
+                        // Prepare notification data
+                        const notificationData = {
+                            title: title,
+                            message: currentNotificationNewsItem.title,
+                            newsId: currentNotificationNewsItem._id,
+                            imageUrl: currentNotificationNewsItem.mediaUrl || currentNotificationNewsItem.imageUrl,
+                            launchUrl: null,
+                            platformSettings: {},
+                            priority: 'normal'
+                        };
+
+                        // Disable send button
+                        const sendBtn = document.getElementById('sendNotifBtn');
+                        sendBtn.disabled = true;
+                        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+                        // Make API call to send the notification
+                        fetch('/admin/api/send-notification', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(notificationData)
+                        })
+                            .then(response => {
+                                if (response.ok) {
+                                    return response.json();
+                                } else {
+                                    return response.json().then(errorData => {
+                                        throw new Error(errorData.error || 'Failed to send notification');
+                                    });
+                                }
+                            })
+                            .then(data => {
+                                closeNotificationModal();
+                                alert('✅ Notification sent successfully!');
+                                console.log('Notification sent:', data);
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('Error sending notification: ' + error.message);
+                            })
+                            .finally(() => {
+                                sendBtn.disabled = false;
+                                sendBtn.innerHTML = '🚀 Send Notification';
+                            });
+                    }
+
+                    // Close modal when clicking outside
+                    document.addEventListener('click', function(e) {
+                        const modal = document.getElementById('notificationTitleModal');
+                        if (e.target === modal) {
+                            closeNotificationModal();
+                        }
+                    });
 
                     // Mobile menu setup
                     function setupMobileMenu() {
@@ -955,6 +1259,71 @@
                         });
                     }
                 </script>
+
+    <!-- Notification Title Selection Modal -->
+    <div id="notificationTitleModal" class="notification-modal-overlay">
+        <div class="notification-modal">
+            <div class="notification-modal-header">
+                <h5>🔔 Send Notification</h5>
+                <div class="news-title-preview" id="newsTitlePreview"></div>
+            </div>
+            <div class="notification-modal-body">
+                <p style="margin-bottom: 16px; color: #666; font-size: 0.9rem;">Select notification title type:</p>
+
+                <!-- Breaking News Option -->
+                <div class="title-option selected" onclick="selectTitleOption(this)" data-value="breaking" data-title="Breaking News 🚨:">
+                    <input type="radio" name="titleType" value="breaking" checked>
+                    <span class="option-icon">🚨</span>
+                    <div class="option-text">
+                        <div class="option-label">Breaking News</div>
+                        <div class="option-preview">Breaking News 🚨:</div>
+                    </div>
+                    <div class="check-icon">✓</div>
+                </div>
+
+                <!-- News Via Yellowsingam Option -->
+                <div class="title-option" onclick="selectTitleOption(this)" data-value="yellowsingam" data-title="News Via Yellowsingam:">
+                    <input type="radio" name="titleType" value="yellowsingam">
+                    <span class="option-icon">📰</span>
+                    <div class="option-text">
+                        <div class="option-label">News Via Yellowsingam</div>
+                        <div class="option-preview">News Via Yellowsingam:</div>
+                    </div>
+                    <div class="check-icon">✓</div>
+                </div>
+
+                <!-- Latest News Option -->
+                <div class="title-option" onclick="selectTitleOption(this)" data-value="latest" data-title="Latest News 📢:">
+                    <input type="radio" name="titleType" value="latest">
+                    <span class="option-icon">📢</span>
+                    <div class="option-text">
+                        <div class="option-label">Latest News</div>
+                        <div class="option-preview">Latest News 📢:</div>
+                    </div>
+                    <div class="check-icon">✓</div>
+                </div>
+
+                <!-- Custom Option -->
+                <div class="title-option" onclick="selectTitleOption(this)" data-value="custom" data-title="">
+                    <input type="radio" name="titleType" value="custom">
+                    <span class="option-icon">✏️</span>
+                    <div class="option-text">
+                        <div class="option-label">Custom Title</div>
+                        <div class="option-preview">Type your own title</div>
+                    </div>
+                    <div class="check-icon">✓</div>
+                </div>
+
+                <!-- Custom Title Input -->
+                <input type="text" id="customTitleInput" class="custom-title-input" placeholder="Enter custom notification title..." maxlength="100">
+            </div>
+            <div class="notification-modal-footer">
+                <button class="btn-cancel-notif" onclick="closeNotificationModal()">Cancel</button>
+                <button class="btn-send-notif" id="sendNotifBtn" onclick="confirmSendNotification()">🚀 Send Notification</button>
+            </div>
+        </div>
+    </div>
+
     </body>
 
 </html>
