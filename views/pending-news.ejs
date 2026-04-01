@@ -1375,6 +1375,14 @@
                 
                 // Add to cache so preview works
                 const newsIdStr = (news.id || news._id).toString();
+
+                // 🔒 DUPLICATE CHECK: Skip if this news card already exists in the grid
+                const existingCard = document.querySelector(`.news-card[data-id="${newsIdStr}"]`);
+                if (existingCard) {
+                    console.log('⚠️ Duplicate news skipped:', newsIdStr, news.title);
+                    return;
+                }
+
                 if (typeof newsDataCache !== 'undefined') {
                     newsDataCache[newsIdStr] = {
                         title: (news.title || '').replace(/'/g, "\\'"),
