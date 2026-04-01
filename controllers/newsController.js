@@ -575,6 +575,15 @@ async function createNews(req, res) {
       publishedAt: new Date() // Explicitly set the timestamp
     };
 
+    // Role-based isActive:
+    // Reporter (editor role) → isActive: false → goes to Pending News (needs admin approval)
+    // Admin / Sub-Editor / SuperAdmin → isActive: true → directly published to News List
+    if (req.admin.role === 'editor') {
+      newsData.isActive = false;
+    } else {
+      newsData.isActive = true;
+    }
+
     // Handle media fields for backward compatibility
     if (req.body.mediaUrl) {
       newsData.mediaUrl = req.body.mediaUrl;
@@ -599,12 +608,12 @@ async function createNews(req, res) {
     const news = new News(newsData);
     await news.save();
 
-    // Send WebSocket notification to all connected clients
+    // Send WebSocket notifications based on role
     const io = req.app.locals.io;
     const connectedClients = req.app.locals.connectedClients;
 
     if (io) {
-      // Prepare notification data for Twitter-style pill
+      // Prepare notification data
       const notificationData = {
         id: news._id,
         title: news.title,
@@ -619,12 +628,16 @@ async function createNews(req, res) {
         imageUrl: news.imageUrl || news.mediaUrl
       };
 
-      // 🐦 TWITTER-STYLE PILL: Send WebSocket event for in-app notification
-      // Telugu: Admin news create చేస్తే app లో Twitter-style pill వస్తుంది
-      // Note: This is IN-APP only, NOT OneSignal push notification
-      io.emit('new_news', notificationData);
-      console.log('🐦 TWITTER-STYLE: WebSocket new_news sent for:', news.title);
-      console.log('📱 Flutter app will show Twitter-style pill automatically');
+      if (req.admin.role === 'editor') {
+        // 🔔 REPORTER submitted news → Send pending notification to admin dashboard (sound + toast)
+        io.emit('new_news', notificationData);
+        console.log('🔔 PENDING: Reporter submitted news, admin notified:', news.title);
+      } else {
+        // ✅ ADMIN/SUB-EDITOR published news → No pending notification, direct publish
+        // Emit different event for Flutter app (Twitter-style pill) without triggering admin pending sound
+        io.emit('news_published', notificationData);
+        console.log('✅ PUBLISHED: Admin/Sub-Editor news published directly:', news.title);
+      }
     } else {
       console.log('⚠️ WebSocket io not available');
     }

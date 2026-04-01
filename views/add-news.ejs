@@ -328,22 +328,8 @@
                                         window.location.href = '/news-list';
                                     }, 1500);
                                 } else {
-                                    // 🔔 New news created - ask admin if they want to send push notification
-                                    const sendPush = confirm('✅ News added successfully!\n\n🔔 Push notification పంపించాలా?\n(OneSignal - phone notification)');
-
-                                    if (sendPush) {
-                                        // Send OneSignal notification
-                                        sendPushNotificationForNews(
-                                            responseData._id,
-                                            newsData.title,
-                                            newsData.content,
-                                            newsData.mediaUrl || newsData.imageUrl
-                                        );
-                                        showFeedback('News published + Push notification sent! 🔔', 'success');
-                                    } else {
-                                        showFeedback('News published! (Push notification పంపలేదు)', 'success');
-                                    }
-
+                                    // Direct save - no notification popup
+                                    showFeedback('✅ News added successfully!', 'success');
                                     setTimeout(() => {
                                         window.location.href = '/news-list';
                                     }, 1500);
