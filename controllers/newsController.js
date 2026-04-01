@@ -578,10 +578,14 @@ async function createNews(req, res) {
     // Role-based isActive:
     // Reporter (editor role) → isActive: false → goes to Pending News (needs admin approval)
     // Admin / Sub-Editor / SuperAdmin → isActive: true → directly published to News List
-    if (req.admin.role === 'editor') {
-      newsData.isActive = false;
+
+    // ✅ Direct Publish Roles: admin, superadmin, subeditor
+    const directPublishRoles = ['admin', 'superadmin', 'subeditor'];
+
+    if (directPublishRoles.includes(req.admin.role)) {
+      newsData.isActive = true;   // → Direct Publish (No Pending)
     } else {
-      newsData.isActive = true;
+      newsData.isActive = false;  // → Pending News (Reporter/Editor approval needed)
     }
 
     // Handle media fields for backward compatibility
@@ -628,15 +632,18 @@ async function createNews(req, res) {
         imageUrl: news.imageUrl || news.mediaUrl
       };
 
-      if (req.admin.role === 'editor') {
+      // ✅ Direct Publish Roles: admin, superadmin, subeditor
+      const directPublishRoles = ['admin', 'superadmin', 'subeditor'];
+
+      if (directPublishRoles.includes(req.admin.role)) {
+        // ✅ ADMIN/SUB-EDITOR/SUPERADMIN published news → No pending notification, direct publish
+        // Emit different event for Flutter app (Twitter-style pill) without triggering admin pending sound
+        io.emit('news_published', notificationData);
+        console.log('✅ PUBLISHED: Admin/Sub-Editor/SuperAdmin news published directly:', news.title);
+      } else {
         // 🔔 REPORTER submitted news → Send pending notification to admin dashboard (sound + toast)
         io.emit('new_news', notificationData);
         console.log('🔔 PENDING: Reporter submitted news, admin notified:', news.title);
-      } else {
-        // ✅ ADMIN/SUB-EDITOR published news → No pending notification, direct publish
-        // Emit different event for Flutter app (Twitter-style pill) without triggering admin pending sound
-        io.emit('news_published', notificationData);
-        console.log('✅ PUBLISHED: Admin/Sub-Editor news published directly:', news.title);
       }
     } else {
       console.log('⚠️ WebSocket io not available');
