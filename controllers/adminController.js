@@ -2683,11 +2683,13 @@ async function approveNews(req, res) {
         mediaType: updatedNews.mediaType,
         mediaUrl: updatedNews.mediaUrl,
         thumbnailUrl: updatedNews.thumbnailUrl,
-        imageUrl: updatedNews.imageUrl || updatedNews.mediaUrl
+        imageUrl: updatedNews.imageUrl || updatedNews.mediaUrl,
+        isApproved: true // Flag to distinguish from new pending submissions
       };
 
-      // Emit to all connected clients for X-style in-app notification
-      io.emit('new_news', notificationData);
+      // Emit to all connected clients for X-style in-app notification (Flutter)
+      // admin-notifications.js will skip this because isApproved = true
+      io.emit('news_published', notificationData);
       console.log('🐦 X-STYLE: Sent in-app notification to all connected clients');
       console.log('📰 News Title:', updatedNews.title);
       console.log('📱 App will show "కొత్త వార్తలు వచ్చాయి!" notification');
