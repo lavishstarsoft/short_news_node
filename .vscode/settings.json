@@ -1,0 +1,13 @@
+{
+  "files.associations": {
+    "*.ejs": "html"
+  },
+  "javascript.validate.enable": true,
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features"
+  },
+  "emmet.includeLanguages": {
+    "ejs": "html"
+  },
+  "css.lint.vendorPrefix": "ignore"
+}
