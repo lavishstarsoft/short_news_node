@@ -2691,19 +2691,20 @@ async function approveNews(req, res) {
       return res.status(404).json({ error: 'News not found' });
     }
 
+    // 🔄 IMPORTANT: Clear cache FIRST, THEN emit WebSocket
+    // Telugu: WebSocket emit చేయడానికి ముందు cache clear చేయాలి
+    try {
+      await clearCache('cache:/api/public/news*');
+      await clearCache('cache:/api/public/locations*');
+      await invalidateCache('graphql:news:*');
+      console.log('🗂️ Cache cleared before WebSocket notification (approval)');
+    } catch (cacheError) {
+      console.log('⚠️ Cache clearing failed (non-critical):', cacheError.message);
+    }
+
     // 🐦 X-STYLE IN-APP NOTIFICATION: WebSocket event for instant app notification
-    // Telugu: Admin news create/approve చేసిన వెంటనే app లో X-style notification రావాలి
-    //
-    // What happens:
-    // 1. WebSocket 'new_news' event → App gets instant notification
-    // 2. App shows X-style "కొత్త వార్తలు వచ్చాయి!" banner
-    // 3. User taps → Sees new news
-    //
-    // Note: This is IN-APP notification only, NOT push notification
-    // Push notifications are still manual via bell button
     const io = req.app.locals.io;
     if (io) {
-      // Prepare notification data for real-time in-app notification
       const notificationData = {
         id: updatedNews._id,
         title: updatedNews.title,
@@ -2716,15 +2717,12 @@ async function approveNews(req, res) {
         mediaUrl: updatedNews.mediaUrl,
         thumbnailUrl: updatedNews.thumbnailUrl,
         imageUrl: updatedNews.imageUrl || updatedNews.mediaUrl,
-        isApproved: true // Flag to distinguish from new pending submissions
+        isApproved: true
       };
 
-      // Emit to all connected clients for X-style in-app notification (Flutter)
-      // admin-notifications.js will skip this because isApproved = true
       io.emit('news_published', notificationData);
       console.log('🐦 X-STYLE: Sent in-app notification to all connected clients');
       console.log('📰 News Title:', updatedNews.title);
-      console.log('📱 App will show "కొత్త వార్తలు వచ్చాయి!" notification');
 
       // 🔥 Send real-time updates to reporter dashboard
       io.emit('story_status_updated_editor', {
@@ -2735,16 +2733,6 @@ async function approveNews(req, res) {
       console.log('📝 Sent story_status_updated_editor (approved) to reporters');
     } else {
       console.log('⚠️ WebSocket io not available for in-app notifications');
-    }
-
-    // 🔄 Clear news cache after approving news to ensure fresh data
-    try {
-      await clearCache('cache:/api/public/news*');
-      await clearCache('cache:/api/public/locations*');
-      await invalidateCache('graphql:news:*');
-      console.log('🗂️ Cache cleared after news approval');
-    } catch (cacheError) {
-      console.log('⚠️ Cache clearing failed (non-critical):', cacheError.message);
     }
 
     res.json({

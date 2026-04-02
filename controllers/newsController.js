@@ -613,6 +613,14 @@ async function createNews(req, res) {
     const news = new News(newsData);
     await news.save();
 
+    // 🔄 IMPORTANT: Clear cache FIRST, THEN emit WebSocket
+    // Telugu: WebSocket emit చేయడానికి ముందు cache clear చేయాలి
+    // లేకపోతే Flutter app stale cached data fetch చేస్తుంది
+    await clearCache('cache:/api/public/news*');
+    await clearCache('cache:/api/public/locations*');
+    await invalidateCache('graphql:news:*');
+    console.log('🗑️ Cache cleared before WebSocket notification');
+
     // Send WebSocket notifications based on role
     const io = req.app.locals.io;
     const connectedClients = req.app.locals.connectedClients;
@@ -638,7 +646,6 @@ async function createNews(req, res) {
 
       if (directPublishRoles.includes(req.admin.role)) {
         // ✅ ADMIN/SUB-EDITOR/SUPERADMIN published news → No pending notification, direct publish
-        // Emit different event for Flutter app (Twitter-style pill) without triggering admin pending sound
         io.emit('news_published', notificationData);
         console.log('✅ PUBLISHED: Admin/Sub-Editor/SuperAdmin news published directly:', news.title);
       } else {
@@ -649,11 +656,6 @@ async function createNews(req, res) {
     } else {
       console.log('⚠️ WebSocket io not available');
     }
-
-    // 🔄 Clear news cache after creating new news
-    await clearCache('cache:/api/public/news*');
-    await clearCache('cache:/api/public/locations*');
-    await invalidateCache('graphql:news:*');
 
     // Send JSON response for API calls
     res.status(201).json(news);
