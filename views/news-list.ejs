@@ -426,12 +426,25 @@
                                                                                         - 6) : news._id.toString()) %>
                                                                                 </div>
                                                                                 <!-- Active status indicator -->
-                                                                                <div
-                                                                                    style="position: absolute; top: 10px; right: 10px;">
-                                                                                    <span
-                                                                                        class="badge <%= news.isActive === false ? 'bg-secondary' : 'bg-success' %>">
-                                                                                        <%= news.isActive===false
-                                                                                            ? 'Inactive' : 'Active' %>
+                                                                                <% 
+                                                                                  let statusText = news.isActive === false ? 'Inactive' : 'Active';
+                                                                                  let badgeClass = news.isActive === false ? 'bg-secondary' : 'bg-success';
+                                                                                  let isPending = false;
+                                                                                  
+                                                                                  if (news.isActive === false) {
+                                                                                    if (news.rejectionStatus && news.rejectionStatus.isRejected) {
+                                                                                      statusText = 'Rejected';
+                                                                                      badgeClass = 'bg-danger';
+                                                                                    } else if (news.approvalStatus && news.approvalStatus.isApproved === false) {
+                                                                                      statusText = 'Pending';
+                                                                                      badgeClass = 'bg-warning text-dark';
+                                                                                      isPending = true;
+                                                                                    }
+                                                                                  }
+                                                                                %>
+                                                                                <div style="position: absolute; top: 10px; right: 10px;">
+                                                                                    <span class="badge <%= badgeClass %>">
+                                                                                        <%= statusText %>
                                                                                     </span>
                                                                                 </div>
                                                         </div>
@@ -491,8 +504,8 @@
                                                                     <div class="d-flex gap-2 mt-auto">
                                                                         <button
                                                                             class="btn btn-sm btn-<%= news.isActive === false ? 'success' : 'secondary' %> ripple"
-                                                                            onclick="toggleNewsStatus('<%= news._id %>'); event.stopPropagation();"
-                                                                            title="<%= news.isActive === false ? 'Activate' : 'Deactivate' %>">
+                                                                            onclick="<% if (isPending) { %>alert('⚠️ This news is Pending! Please go to the Pending News page to review and approve it.'); event.stopPropagation();<% } else { %>toggleNewsStatus('<%= news._id %>'); event.stopPropagation();<% } %>"
+                                                                            title="<%= isPending ? 'Pending Review' : (news.isActive === false ? 'Activate' : 'Deactivate') %>">
                                                                             <i
                                                                                 class="fas fa-<%= news.isActive === false ? 'check' : 'times' %>"></i>
                                                                         </button>

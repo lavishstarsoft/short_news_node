@@ -2675,6 +2675,7 @@ async function approveNews(req, res) {
       id,
       {
         isActive: true,
+        publishedAt: new Date(), // 🔥 Refresh timestamp to current time on approval so it becomes "latest"
         approvalStatus: {
           isApproved: true,
           approvedBy: adminName,

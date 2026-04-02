@@ -19,6 +19,74 @@ const path = require('path');
 const fs = require('fs');
 
 
+// Public API endpoint for Flutter app (no authentication required)
+// Cached for 10 minutes (600 seconds)
+const handleGetNews = async (req, res) => {
+  try {
+    let newsList;
+
+    // Check if MongoDB is connected
+    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
+
+    if (isConnectedToMongoDB) {
+      // Fetch only active published news from MongoDB
+      // Include news where isActive is true or not set (implicitly active)
+      newsList = await News.find({
+        $or: [{ isActive: true }, { isActive: { $exists: false } }]
+      }).sort({ publishedAt: -1 });
+    } else {
+      // Use in-memory storage and filter for active news
+      const allNews = req.app.locals.newsData || [];
+      newsList = allNews
+        .filter(news => news.isActive !== false)
+        .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)); // Sort by publishedAt descending (newest first)
+    }
+
+    // Transform data for Flutter app
+    const transformedNews = newsList.map(news => {
+      const newsObj = news.toObject ? news.toObject() : news;
+      return {
+        id: newsObj._id,
+        title: newsObj.title,
+        content: newsObj.content,
+        imageUrl: newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        mediaUrl: newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        mediaType: newsObj.mediaType || 'image',
+        category: newsObj.category,
+        location: newsObj.location,
+        publishedAt: newsObj.publishedAt,
+        likes: newsObj.likes || 0,
+        dislikes: newsObj.dislikes || 0,
+        views: newsObj.views || 0,
+        comments: newsObj.comments || 0,
+        author: newsObj.author,
+        isRead: newsObj.isRead || false,
+        readFullLink: newsObj.readFullLink || null,
+        ePaperLink: newsObj.ePaperLink || null,
+        // Include user interaction details
+        userLikes: newsObj.userInteractions?.likes || [],
+        userDislikes: newsObj.userInteractions?.dislikes || [],
+        userComments: (newsObj.userInteractions?.comments || []).map(comment => ({
+          userId: comment.userId,
+          userName: comment.userName,
+          userEmail: comment.userEmail,
+          comment: comment.comment,
+          timestamp: comment.timestamp,
+          likes: comment.likes || [] // Include likes array
+        }))
+      };
+    });
+
+    res.json(transformedNews);
+  } catch (error) {
+    console.error('Error fetching public news:', error);
+    res.status(500).json({ error: 'Error fetching news' });
+  }
+};
+
+router.get('/api/public/news', cacheMiddleware(600), handleGetNews);
+router.post('/api/public/news', handleGetNews);
+
 // Public API endpoint for Flutter app with category filter (no authentication required)
 // Cached for 10 minutes (600 seconds)
 router.get('/api/public/news/category/:category', cacheMiddleware(600), async (req, res) => {

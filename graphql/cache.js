@@ -73,11 +73,28 @@ async function invalidateCache(pattern) {
     }
 
     try {
-        const keys = await redisClient.keys(pattern);
-        if (keys.length > 0) {
-            await redisClient.del(keys);
-            console.log(`🗑️  GraphQL Cache cleared: ${keys.length} keys (${pattern})`);
+        let keysFound = [];
+        // 🚀 NON-BLOCKING: Use scanIterator instead of keys() to avoid blocking event loop
+        // node-redis v4/v5 compatible
+        for await (const key of redisClient.scanIterator({
+            MATCH: pattern,
+            COUNT: 100
+        })) {
+            keysFound.push(key);
+            
+            // Delete in batches of 100 to stay efficient
+            if (keysFound.length >= 100) {
+                await redisClient.del(keysFound);
+                keysFound = [];
+            }
         }
+
+        // Delete remaining keys
+        if (keysFound.length > 0) {
+            await redisClient.del(keysFound);
+        }
+
+        console.log(`🗑️  GraphQL Cache cleared: pattern (${pattern})`);
     } catch (error) {
         console.error(`❌ Error invalidating GraphQL cache (${pattern}):`, error.message);
     }

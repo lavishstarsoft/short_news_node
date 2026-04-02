@@ -833,12 +833,19 @@ async function toggleNewsStatus(req, res) {
         )
       );
 
+      const updateData = {
+        isActive: isActive,
+        actionHistory: updatedHistory
+      };
+
+      // 🔥 If becoming active, refresh timestamp to make it "latest"
+      if (isActive && !existingNews.isActive) {
+        updateData.publishedAt = new Date();
+      }
+
       const news = await News.findByIdAndUpdate(
         id,
-        {
-          isActive: isActive,
-          actionHistory: updatedHistory
-        },
+        updateData,
         { new: true }
       );
 
