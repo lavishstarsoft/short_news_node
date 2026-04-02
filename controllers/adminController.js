@@ -24,6 +24,7 @@ const { checkDuplicate, generateContentHash } = require('../utils/similarityDete
 
 // Import cache clearing functionality
 const { clearCache } = require('../middleware/cache');
+const { invalidateCache } = require('../graphql/cache');
 
 function buildAdminNewsHistory(action, adminId, adminName, adminRole, details, metadata = {}) {
   return {
@@ -2709,6 +2710,7 @@ async function approveNews(req, res) {
     try {
       await clearCache('cache:/api/public/news*');
       await clearCache('cache:/api/public/locations*');
+      await invalidateCache('graphql:news:*');
       console.log('🗂️ Cache cleared after news approval');
     } catch (cacheError) {
       console.log('⚠️ Cache clearing failed (non-critical):', cacheError.message);

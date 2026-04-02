@@ -17,6 +17,7 @@ const oneSignalService = require('../services/oneSignalService');
 
 // Import cache middleware for cache invalidation
 const { clearCache } = require('../middleware/cache');
+const { invalidateCache } = require('../graphql/cache');
 
 // Import Cloudflare R2 deletion utility
 const { deleteFromR2 } = require('../config/cloudflare');
@@ -652,6 +653,7 @@ async function createNews(req, res) {
     // 🔄 Clear news cache after creating new news
     await clearCache('cache:/api/public/news*');
     await clearCache('cache:/api/public/locations*');
+    await invalidateCache('graphql:news:*');
 
     // Send JSON response for API calls
     res.status(201).json(news);
@@ -744,6 +746,7 @@ async function updateNews(req, res) {
     // 🔄 Clear news cache after updating
     await clearCache('cache:/api/public/news*');
     await clearCache('cache:/api/public/locations*');
+    await invalidateCache('graphql:news:*');
 
     res.json(news);
   } catch (error) {
@@ -778,6 +781,7 @@ async function deleteNews(req, res) {
     // 🔄 Clear news cache after deleting
     await clearCache('cache:/api/public/news*');
     await clearCache('cache:/api/public/locations*');
+    await invalidateCache('graphql:news:*');
 
     res.json({ message: 'News deleted successfully' });
   } catch (error) {
