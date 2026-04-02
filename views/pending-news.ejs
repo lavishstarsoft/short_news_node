@@ -771,8 +771,8 @@
                                                         <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
                                                             <button class="btn-duplicate" onclick="viewDuplicates('<%= news._id %>')">🔍 Duplicates</button>
                                                         <% } %>
-                                                        <button class="btn-approve" onclick="approveNews('<%= news._id %>', '<%= news.title.replace(/'/g, "\\'") %>')">✅ Approve</button>
-                                                        <button class="btn-reject" onclick="rejectNews('<%= news._id %>', '<%= news.title.replace(/'/g, "\\'") %>')">❌ Reject</button>
+                                                        <button class="btn-approve" onclick='approveNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'>✅ Approve</button>
+                                                        <button class="btn-reject" onclick='rejectNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'>❌ Reject</button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -940,16 +940,16 @@
             <% if (pendingNews && pendingNews.length > 0) { %>
                 <% pendingNews.forEach(news => { %>
                     newsDataCache['<%= news._id %>'] = {
-                        title: '<%= news.title.replace(/'/g, "\\'") %>',
-                        author: '<%= news.author %>',
-                        category: '<%= news.category || "Uncategorized" %>',
-                        location: '<%= news.location || "Not specified" %>',
-                        content: `<%= news.content.replace(/`/g, "\\`").replace(/'/g, "\\'") %>`,
-                        mediaUrl: '<%= news.mediaUrl || "" %>',
-                        mediaType: '<%= news.mediaType || "image" %>',
-                        readFullLink: '<%= news.readFullLink || "" %>',
-                        ePaperLink: '<%= news.ePaperLink || "" %>',
-                        publishedAt: '<%= new Date(news.publishedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) %>'
+                        title: <%- JSON.stringify(news.title || '') %>,
+                        author: <%- JSON.stringify(news.author || '') %>,
+                        category: <%- JSON.stringify(news.category || 'Uncategorized') %>,
+                        location: <%- JSON.stringify(news.location || 'Not specified') %>,
+                        content: <%- JSON.stringify(news.content || '') %>,
+                        mediaUrl: <%- JSON.stringify(news.mediaUrl || '') %>,
+                        mediaType: <%- JSON.stringify(news.mediaType || 'image') %>,
+                        readFullLink: <%- JSON.stringify(news.readFullLink || '') %>,
+                        ePaperLink: <%- JSON.stringify(news.ePaperLink || '') %>,
+                        publishedAt: <%- JSON.stringify(new Date(news.publishedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) %>
                     };
                     <% if (news.duplicateCheck && news.duplicateCheck.similarArticles) { %>
                         duplicateDataCache['<%= news._id %>'] = {
@@ -1137,13 +1137,13 @@
                         <button class="btn-preview" onclick="savePendingChanges('${newsId}', false)">
                             💾 Save Changes
                         </button>
-                        <button class="btn-approve" onclick="approveNews('${newsId}', '${news.title}'); closePreview();">
+                        <button class="btn-approve" onclick="approveNews('${newsId}', \`${news.title.replace(/`/g, '\\`')}\`); closePreview();">
                             ✅ Approve & Publish
                         </button>
                         <button class="btn-approve" onclick="savePendingChanges('${newsId}', true)">
                             ✅ Save & Approve
                         </button>
-                        <button class="btn-reject" onclick="rejectNews('${newsId}', '${news.title}'); closePreview();">
+                        <button class="btn-reject" onclick="rejectNews('${newsId}', \`${news.title.replace(/`/g, '\\`')}\`); closePreview();">
                             ❌ Reject
                         </button>
                     </div>
@@ -1292,12 +1292,19 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(notificationData)
                 })
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) {
+                        return res.json().then(err => { throw new Error(err.error || 'Failed to send'); });
+                    }
+                    return res.json();
+                })
                 .then(result => {
                     console.log('🔔 Push notification sent:', result);
+                    alert('✅ Push Notification sent successfully!');
                 })
                 .catch(err => {
                     console.error('❌ Push notification error:', err);
+                    alert('⚠️ ' + err.message);
                 });
             }
 

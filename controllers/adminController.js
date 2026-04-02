@@ -1396,6 +1396,36 @@ async function sendNotification(req, res) {
       return res.status(400).json({ error: 'Title and message are required' });
     }
 
+    // ⏳ SERVER LOAD CONTROL: Restrict push notifications within 2 minutes of publishing news
+    // To prevent mass simultaneous operations (WebSocket + Database + Cache + Push)
+    if (newsId) {
+      try {
+        const News = require('../models/News');
+        const newsItem = await News.findById(newsId).lean();
+        
+        let referenceDate = newsItem.publishedAt;
+        if (newsItem && newsItem.approvalStatus && newsItem.approvalStatus.approvedAt) {
+          const pubTime = new Date(newsItem.publishedAt).getTime();
+          const appTime = new Date(newsItem.approvalStatus.approvedAt).getTime();
+          referenceDate = new Date(Math.max(pubTime, appTime));
+        }
+        
+        if (newsItem && referenceDate) {
+          const timeSincePublished = Date.now() - new Date(referenceDate).getTime();
+          const twoMinutesMs = 2 * 60 * 1000;
+          
+          if (timeSincePublished < twoMinutesMs) {
+            const remainingSeconds = Math.ceil((twoMinutesMs - timeSincePublished) / 1000);
+            return res.status(429).json({ 
+              error: `సర్వర్ లోడ్ కంట్రోల్: దయచేసి రిఫ్రెష్ పేజీలో వార్త పబ్లిష్ లేదా అప్రూవ్ చేసిన 2 నిమిషాల తర్వాత మాత్రమే పుష్ నోటిఫికేషన్ పంపండి. ఇంకా ${remainingSeconds} సెకన్లు వేచి ఉండండి.` 
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error checking news publishedAt time for notification cooldown:', err);
+      }
+    }
+
     // If newsId is provided but launchUrl is not, automatically set the launch URL to the news detail page
     let finalLaunchUrl = launchUrl;
     if (newsId && !launchUrl) {
