@@ -2693,6 +2693,14 @@ async function approveNews(req, res) {
       console.log('🐦 X-STYLE: Sent in-app notification to all connected clients');
       console.log('📰 News Title:', updatedNews.title);
       console.log('📱 App will show "కొత్త వార్తలు వచ్చాయి!" notification');
+
+      // 🔥 Send real-time updates to reporter dashboard
+      io.emit('story_status_updated_editor', {
+        id: updatedNews._id,
+        status: 'approved',
+        approvalStatus: updatedNews.approvalStatus
+      });
+      console.log('📝 Sent story_status_updated_editor (approved) to reporters');
     } else {
       console.log('⚠️ WebSocket io not available for in-app notifications');
     }
@@ -2792,6 +2800,17 @@ async function rejectNews(req, res) {
 
     if (!rejectedNews) {
       return res.status(404).json({ error: 'News not found' });
+    }
+
+    // 🔥 Send real-time updates to reporter dashboard
+    const io = req.app.locals.io;
+    if (io) {
+      io.emit('story_status_updated_editor', {
+        id: rejectedNews._id,
+        status: 'rejected',
+        rejectionStatus: rejectedNews.rejectionStatus
+      });
+      console.log('📝 Sent story_status_updated_editor (rejected) to reporters');
     }
 
     res.json({
