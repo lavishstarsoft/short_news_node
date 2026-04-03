@@ -203,6 +203,25 @@ const resolvers = {
             }
         },
 
+        // Personalized Interactions lookup
+        getUserNewsInteractions: async (_, { userId }) => {
+            try {
+                // Fetch ONLY the _id field to make the query lightning fast
+                const likedNews = await News.find({ 'userInteractions.likes.userId': userId }).select('_id');
+                const dislikedNews = await News.find({ 'userInteractions.dislikes.userId': userId }).select('_id');
+                const commentedNews = await News.find({ 'userInteractions.comments.userId': userId }).select('_id');
+
+                return {
+                    likedNewsIds: likedNews.map(n => n._id.toString()),
+                    dislikedNewsIds: dislikedNews.map(n => n._id.toString()),
+                    commentedNewsIds: commentedNews.map(n => n._id.toString()),
+                };
+            } catch (error) {
+                console.error('Error fetching user interactions:', error);
+                throw new Error('Failed to fetch user interactions');
+            }
+        },
+
         // Viral videos queries (with Redis caching - 5 minutes TTL)
         viralVideos: async (_, { limit = 50, offset = 0 }) => {
             try {

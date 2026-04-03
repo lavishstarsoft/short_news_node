@@ -103,6 +103,12 @@ const typeDefs = gql`
     createdAt: String!
   }
 
+  type UserInteractionsList {
+    likedNewsIds: [ID!]!
+    dislikedNewsIds: [ID!]!
+    commentedNewsIds: [ID!]!
+  }
+
   type ViralVideo {
     id: ID!
     title: String!
@@ -144,6 +150,9 @@ const typeDefs = gql`
     # Viral videos queries
     viralVideos(limit: Int, offset: Int): [ViralVideo!]!
     viralVideoById(id: ID!): ViralVideo
+
+    # Personalized Interaction queries
+    getUserNewsInteractions(userId: ID!): UserInteractionsList
   }
 
   type Mutation {
