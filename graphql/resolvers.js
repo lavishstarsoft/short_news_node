@@ -33,7 +33,9 @@ const resolvers = {
                 if (cached) return cached;
 
                 // Cache miss - fetch from DB
-                let query = { isActive: true };
+                // ✅ FIX #2: Use $ne: false instead of isActive: true
+                // This includes documents where isActive is true OR isActive field is missing (legacy docs)
+                let query = { isActive: { $ne: false } };
 
                 if (category) {
                     query.category = category;
@@ -48,8 +50,12 @@ const resolvers = {
                     .skip(offset)
                     .limit(limit);
 
-                // Cache the result (300s = 5 minutes)
-                await setCachedData('news', variables, news, 300);
+                // ✅ FIX #1: Don't cache empty results — prevents 5-min empty screen for all users
+                if (news && news.length > 0) {
+                    await setCachedData('news', variables, news, 300);
+                } else {
+                    console.log('⚠️ Empty news result — skipping cache to allow quick retry');
+                }
 
                 return news;
             } catch (error) {
@@ -103,6 +109,9 @@ const resolvers = {
                     category: news.category,
                     location: news.location,
                     imageUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl) || '/images/placeholder.png',
+                    imageUrls: news.imageUrls && news.imageUrls.length > 0 
+                        ? news.imageUrls.map(url => getAbsoluteUrl(url)) 
+                        : null,
                     mediaUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl),
                     mediaType: news.mediaType || 'image',
                     thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
@@ -291,6 +300,9 @@ const resolvers = {
                     category: news.category,
                     location: news.location,
                     imageUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl) || '/images/placeholder.png',
+                    imageUrls: news.imageUrls && news.imageUrls.length > 0 
+                        ? news.imageUrls.map(url => getAbsoluteUrl(url)) 
+                        : null,
                     mediaUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl),
                     mediaType: news.mediaType || 'image',
                     thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
@@ -336,6 +348,9 @@ const resolvers = {
                     category: news.category,
                     location: news.location,
                     imageUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl) || '/images/placeholder.png',
+                    imageUrls: news.imageUrls && news.imageUrls.length > 0 
+                        ? news.imageUrls.map(url => getAbsoluteUrl(url)) 
+                        : null,
                     mediaUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl),
                     mediaType: news.mediaType || 'image',
                     thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),

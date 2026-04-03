@@ -4,6 +4,7 @@ const newsSchema = new mongoose.Schema({
   title: { type: String, required: true, maxlength: 100 },
   content: { type: String, required: true, maxlength: 1000 },
   imageUrl: { type: String }, // Keep for backward compatibility
+  imageUrls: { type: [String], default: [] }, // Array of image URLs for photo carousel
   mediaUrl: { type: String }, // New field for both images and videos
   mediaType: { type: String, enum: ['image', 'video'] }, // New field to specify media type
   thumbnailUrl: { type: String }, // New field for video thumbnails

@@ -46,6 +46,7 @@ const typeDefs = gql`
     title: String!
     content: String!
     imageUrl: String
+    imageUrls: [String]
     videoUrl: String
     mediaUrl: String
     mediaType: String
@@ -83,6 +84,7 @@ const typeDefs = gql`
     icon: String
     color: String
     imageUrl: String
+    imageUrls: [String]
   }
 
   type Location {

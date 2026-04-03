@@ -102,16 +102,22 @@
                                                                 <button type="button"
                                                                     class="btn btn-outline-primary ripple"
                                                                     id="uploadMediaButton">
-                                                                    <i class="fas fa-upload me-1"></i> Upload Media
+                                                                    <i class="fas fa-upload me-1"></i> Upload Media (Select Multiple Images)
                                                                 </button>
                                                                 <input type="file" id="mediaUpload"
-                                                                    accept="image/*,video/*" class="d-none">
+                                                                    accept="image/*,video/*" class="d-none" multiple>
                                                                 <input type="hidden" id="mediaUrl"
                                                                     value="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '' %>">
                                                                 <input type="hidden" id="mediaType"
                                                                     value="<%= typeof news !== 'undefined' ? (news.mediaType || 'image') : '' %>">
                                                                 <input type="hidden" id="thumbnailUrl"
                                                                     value="<%= typeof news !== 'undefined' ? (news.thumbnailUrl || news.mediaUrl || news.imageUrl) : '' %>">
+                                                                <!-- Store multiple images here -->
+                                                                <input type="hidden" id="imageUrls"
+                                                                    value='<%= typeof news !== "undefined" && news.imageUrls ? JSON.stringify(news.imageUrls) : "[]" %>'>
+                                                                <div id="multipleImagesContainer" class="mt-3 d-flex flex-wrap gap-2">
+                                                                    <!-- Additional images will be shown here -->
+                                                                </div>
                                                             </div>
 
                                                             <!-- Video Thumbnail Selection (hidden by default) -->
@@ -282,6 +288,20 @@
                             thumbnailUrl,
                             category
                         };
+                        
+                        try {
+                            const parsedArray = JSON.parse(document.getElementById('imageUrls').value);
+                            // If parsed array has links, send them; if single media is present, prepend if not there
+                            if (parsedArray && parsedArray.length > 0) {
+                                newsData.imageUrls = parsedArray;
+                            } else if (mediaUrl && mediaType === 'image') {
+                                newsData.imageUrls = [mediaUrl];
+                            } else {
+                                newsData.imageUrls = [];
+                            }
+                        } catch(e) {
+                            newsData.imageUrls = mediaUrl && mediaType === 'image' ? [mediaUrl] : [];
+                        }
 
                         if (location) {
                             newsData.location = location;
@@ -411,30 +431,46 @@
 
                         if (mediaUpload) {
                             mediaUpload.addEventListener('change', async function (e) {
-                                const originalFile = e.target.files[0];
-                                if (originalFile) {
-                                    if (originalFile.type.startsWith('video/')) {
-                                        await uploadMediaFile(originalFile);
-                                    } else {
-                                        try {
-                                            const file = await normalizeImageForCrop(originalFile);
-                                            const reader = new FileReader();
-                                            reader.onload = function (event) {
-                                                const imageToCrop = document.getElementById('imageToCrop');
-                                                const imageCropModalElement = document.getElementById('imageCropModal');
-                                                const imageCropModal = new bootstrap.Modal(imageCropModalElement);
-                                                imageToCrop.src = event.target.result;
-                                                setTimeout(() => imageCropModal.show(), 100);
-                                            };
-                                            reader.readAsDataURL(file);
-                                        } catch (error) {
-                                            console.error('Image normalization failed:', error);
-                                            showFeedback('Image processing failed. Please try another photo.', 'error');
-                                        }
-                                    }
-                                }
+                                const files = e.target.files;
+                                if (files.length === 0) return;
+
+                                // NEW QUEUE-BASED CROPPER FOR MULTIPLE IMAGES
+                                window.pendingCropFiles = Array.from(files);
+                                window.processNextCrop();
                             });
                         }
+
+                        // Queue processing function
+                        window.processNextCrop = async function() {
+                            if (!window.pendingCropFiles || window.pendingCropFiles.length === 0) {
+                                return; // Queue finished
+                            }
+                            
+                            const fileToProcess = window.pendingCropFiles.shift(); // Remove first from queue
+                            
+                            if (fileToProcess.type.startsWith('video/')) {
+                                await uploadMediaFile(fileToProcess);
+                                setTimeout(window.processNextCrop, 300);
+                            } else {
+                                try {
+                                    const file = await normalizeImageForCrop(fileToProcess);
+                                    const reader = new FileReader();
+                                    reader.onload = function (event) {
+                                        const imageToCrop = document.getElementById('imageToCrop');
+                                        const imageCropModalElement = document.getElementById('imageCropModal');
+                                        const imageCropModal = new bootstrap.Modal(imageCropModalElement);
+                                        imageToCrop.src = event.target.result;
+                                        setTimeout(() => imageCropModal.show(), 100);
+                                    };
+                                    reader.readAsDataURL(file);
+                                } catch (error) {
+                                    console.error('Image normalization failed:', error);
+                                    showFeedback('Image processing failed. Skipping.', 'error');
+                                    // Skip to next automatically
+                                    setTimeout(window.processNextCrop, 500);
+                                }
+                            }
+                        };
 
                         // Cropper setup
                         const imageToCrop = document.getElementById('imageToCrop');
@@ -457,6 +493,11 @@
                                     cropper = null;
                                 }
                                 imageToCrop.src = '';
+                                
+                                // Automatically process next file in queue if any remain
+                                if (window.pendingCropFiles && window.pendingCropFiles.length > 0) {
+                                    setTimeout(window.processNextCrop, 300);
+                                }
                             });
 
                             document.getElementById('cropButton').addEventListener('click', function () {
@@ -468,7 +509,53 @@
                         }
 
                         setupMobileMenu();
+                        refreshMultipleImagesUI();
                     });
+
+                    function refreshMultipleImagesUI() {
+                        const container = document.getElementById('multipleImagesContainer');
+                        if (!container) return;
+                        container.innerHTML = '';
+                        let urls = [];
+                        try { urls = JSON.parse(document.getElementById('imageUrls').value) || []; } catch(e){}
+                        
+                        urls.forEach((url, i) => {
+                            const wrapper = document.createElement('div');
+                            wrapper.style.position = 'relative';
+                            
+                            const img = document.createElement('img');
+                            img.src = url;
+                            img.style.width = '60px';
+                            img.style.height = '60px';
+                            img.style.objectFit = 'cover';
+                            img.className = 'border rounded';
+                            
+                            const removeBtn = document.createElement('button');
+                            removeBtn.innerHTML = '&times;';
+                            removeBtn.style.position = 'absolute';
+                            removeBtn.style.top = '-5px';
+                            removeBtn.style.right = '-5px';
+                            removeBtn.style.background = 'red';
+                            removeBtn.style.color = 'white';
+                            removeBtn.style.border = 'none';
+                            removeBtn.style.borderRadius = '50%';
+                            removeBtn.style.width = '20px';
+                            removeBtn.style.height = '20px';
+                            removeBtn.style.fontSize = '14px';
+                            removeBtn.style.lineHeight = '0';
+                            removeBtn.style.cursor = 'pointer';
+                            
+                            removeBtn.onclick = function() {
+                                urls.splice(i, 1);
+                                document.getElementById('imageUrls').value = JSON.stringify(urls);
+                                refreshMultipleImagesUI();
+                            };
+                            
+                            wrapper.appendChild(img);
+                            wrapper.appendChild(removeBtn);
+                            container.appendChild(wrapper);
+                        });
+                    }
 
                     // Upload media file
                     async function uploadMediaFile(file, type = null) {
@@ -511,6 +598,18 @@
 
                             mediaUrlInput.value = data.mediaUrl;
                             thumbnailUrlInput.value = data.thumbnailUrl || data.mediaUrl;
+
+                            // Include it in the imageUrls list if it's an image
+                            if (data.fileType === 'image' || type === 'image') {
+                                let urls = [];
+                                try { urls = JSON.parse(document.getElementById('imageUrls').value); } catch(e) { }
+                                if(!urls.includes(data.mediaUrl)) {
+                                    urls.push(data.mediaUrl);
+                                    document.getElementById('imageUrls').value = JSON.stringify(urls);
+                                    refreshMultipleImagesUI();
+                                }
+                            }
+
                             showFeedback('Media uploaded successfully!', 'success');
 
                             const cropBtn = document.getElementById('cropButton');
