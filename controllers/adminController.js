@@ -1389,12 +1389,33 @@ async function renderReportsPage(req, res) {
 // Send notification to all connected clients
 async function sendNotification(req, res) {
   try {
-    const { title, message, newsId, imageUrl, launchUrl, titleColor, platformSettings, priority } = req.body;
+    const { title, message, newsId, imageUrl, launchUrl, titleColor, messageColor, platformSettings, priority } = req.body;
 
     // Validate input
     if (!title || !message) {
       return res.status(400).json({ error: 'Title and message are required' });
     }
+
+    // 🎨 Strip HTML tags from title and message for OneSignal
+    // Telugu: HTML tags తీసేసి plain text పంపుతాము, color separately పంపుతాము
+    function stripHtmlTags(html) {
+      if (!html) return '';
+      return html
+        .replace(/<[^>]*>/g, '') // Remove all HTML tags
+        .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
+        .replace(/&amp;/g, '&')  // Replace &amp; with &
+        .replace(/&lt;/g, '<')   // Replace &lt; with <
+        .replace(/&gt;/g, '>')   // Replace &gt; with >
+        .replace(/&quot;/g, '"') // Replace &quot; with "
+        .trim();
+    }
+
+    const plainTitle = stripHtmlTags(title);
+    const plainMessage = stripHtmlTags(message);
+
+    console.log('📧 Notification - Original:', title);
+    console.log('📧 Notification - Plain text:', plainTitle);
+    console.log('📧 Notification - Title Color:', titleColor);
 
     // ⏳ SERVER LOAD CONTROL: Restrict push notifications within 2 minutes of publishing news
     // To prevent mass simultaneous operations (WebSocket + Database + Cache + Push)
@@ -1472,12 +1493,13 @@ async function sendNotification(req, res) {
 
     // Prepare notification data
     const notificationData = {
-      title,
-      message,
+      title: plainTitle,      // 🎨 Use plain text (HTML stripped)
+      message: plainMessage,  // 🎨 Use plain text (HTML stripped)
       newsId: newsId || null,
       imageUrl: imageUrl || null,
       launchUrl: finalLaunchUrl || null,
       titleColor: titleColor || null, // Include title color in WebSocket notification
+      messageColor: messageColor || null, // Include message color
       platformSettings: finalPlatformSettings,
       priority: priority || 'normal',
       timestamp: new Date()
@@ -1521,16 +1543,17 @@ async function sendNotification(req, res) {
 
     // Send OneSignal notification
     try {
-      await oneSignalService.sendAdminNotification(title, message, {
+      await oneSignalService.sendAdminNotification(plainTitle, plainMessage, {
         newsId: newsId || null,
         imageUrl: imageUrl || null,
         launchUrl: finalLaunchUrl || null,
-        titleColor: titleColor || null,
+        titleColor: titleColor || '#FF6F00',  // Default orange if not provided
+        messageColor: messageColor || '#333333', // Default dark gray
         platformSettings: finalPlatformSettings,
         priority: priority || 'normal',
         ...notificationData
       });
-      console.log('OneSignal admin notification sent');
+      console.log('OneSignal admin notification sent with colors - Title:', titleColor, 'Message:', messageColor);
     } catch (error) {
       console.error('Error sending OneSignal admin notification:', error);
     }

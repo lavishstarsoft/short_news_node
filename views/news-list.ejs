@@ -1158,6 +1158,25 @@
                         const titleHtml = document.getElementById('richTitleEditor').innerHTML;
                         const messageHtml = document.getElementById('richMessageEditor').innerHTML;
 
+                        // 🎨 Extract first color from HTML for Way2News-style notifications
+                        // Telugu: HTML నుండి color extract చేసి OneSignal కి పంపుతాము
+                        function extractFirstColor(html) {
+                            // Check for color attribute in font tag: <font color="#FF6F00">
+                            const fontColorMatch = html.match(/color=["']?(#[0-9A-Fa-f]{6}|[a-zA-Z]+)["']?/i);
+                            if (fontColorMatch) return fontColorMatch[1];
+
+                            // Check for style color: style="color: #FF6F00"
+                            const styleColorMatch = html.match(/color:\s*(#[0-9A-Fa-f]{6}|[a-zA-Z]+)/i);
+                            if (styleColorMatch) return styleColorMatch[1];
+
+                            return null; // No color found
+                        }
+
+                        const titleColor = extractFirstColor(titleHtml);
+                        const messageColor = extractFirstColor(messageHtml);
+
+                        console.log('📧 Notification colors - Title:', titleColor, 'Message:', messageColor);
+
                         const notificationData = {
                             title: titleHtml,
                             message: messageHtml,
@@ -1165,7 +1184,10 @@
                             imageUrl: currentNotificationNewsItem.mediaUrl || currentNotificationNewsItem.imageUrl,
                             launchUrl: null,
                             platformSettings: {},
-                            priority: 'high'
+                            priority: 'high',
+                            // 🎨 Way2News style: Send colors separately for heads-up notification
+                            titleColor: titleColor || '#FF6F00',  // Default orange if no color selected
+                            messageColor: messageColor || '#333333' // Default dark gray
                         };
 
                         const sendBtn = document.getElementById('sendNotifBtn');
