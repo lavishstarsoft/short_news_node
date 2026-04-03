@@ -113,7 +113,7 @@
             background: white;
             border-radius: 20px;
             width: 95%;
-            max-width: 600px;
+            max-width: 550px;
             max-height: 90vh;
             overflow-y: auto;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
@@ -128,121 +128,261 @@
         .notification-modal-header {
             background: linear-gradient(135deg, #FF6F00 0%, #FF8F00 100%);
             color: white;
-            padding: 24px;
+            padding: 20px 24px;
             border-radius: 20px 20px 0 0;
             text-align: center;
-            position: sticky;
-            top: 0;
-            z-index: 10;
         }
 
         .notification-modal-header h5 {
             margin: 0;
-            font-size: 1.4rem;
+            font-size: 1.3rem;
             font-weight: 700;
-            letter-spacing: 0.5px;
         }
 
         .notification-modal-body {
-            padding: 24px;
+            padding: 20px 24px;
         }
 
-        .editor-label {
-            font-weight: 600;
-            color: #444;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .rich-editor-container {
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
+        /* Simple Input Section */
+        .notif-section {
             margin-bottom: 20px;
-            overflow: hidden;
-            transition: border-color 0.2s;
         }
 
-        .rich-editor-container:focus-within {
+        .notif-section-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .notif-section-label i {
+            color: #FF6F00;
+        }
+
+        .notif-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+
+        .notif-input:focus {
+            outline: none;
             border-color: #FF6F00;
         }
 
-        .editor-toolbar {
+        .notif-textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        /* Color Picker Section */
+        .color-section {
             background: #f8fafc;
-            padding: 8px 12px;
-            border-bottom: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .color-section-title {
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+        }
+
+        .color-row {
             display: flex;
-            gap: 10px;
             align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
             flex-wrap: wrap;
         }
 
-        .toolbar-btn {
-            background: white;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            padding: 5px 10px;
-            font-size: 0.9rem;
+        .color-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .color-row-label {
+            min-width: 80px;
+            font-size: 0.85rem;
+            color: #555;
+            font-weight: 500;
+        }
+
+        /* Preset Color Buttons */
+        .color-presets {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 3px solid transparent;
             cursor: pointer;
             transition: all 0.2s;
+            position: relative;
+        }
+
+        .color-btn:hover {
+            transform: scale(1.15);
+        }
+
+        .color-btn.selected {
+            border-color: #333;
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
+        }
+
+        .color-btn::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            opacity: 0;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .color-btn.selected::after {
+            opacity: 1;
+        }
+
+        .custom-color-wrapper {
             display: flex;
             align-items: center;
-            gap: 5px;
-            color: #475569;
+            gap: 6px;
+            margin-left: 8px;
+            padding-left: 8px;
+            border-left: 1px solid #ddd;
         }
 
-        .toolbar-btn:hover {
-            background: #f1f5f9;
-            border-color: #94a3b8;
-            color: #1e293b;
+        .custom-color-input {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border: 2px solid #ddd;
+            border-radius: 50%;
+            cursor: pointer;
+            background: none;
         }
 
-        .toolbar-btn.active {
+        .custom-color-label {
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        /* Font Size Section */
+        .font-size-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .font-size-btn {
+            padding: 8px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .font-size-btn:hover {
+            border-color: #FF6F00;
+        }
+
+        .font-size-btn.selected {
             background: #FF6F00;
             color: white;
             border-color: #FF6F00;
         }
 
-        .color-picker-wrapper {
+        .font-size-btn.small { font-size: 0.8rem; }
+        .font-size-btn.normal { font-size: 1rem; }
+        .font-size-btn.large { font-size: 1.2rem; }
+
+        /* Live Preview */
+        .preview-section {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .preview-label {
+            color: #888;
+            font-size: 0.75rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .preview-notification {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .preview-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #FF6F00, #FF8F00);
+            border-radius: 10px;
             display: flex;
             align-items: center;
-            gap: 5px;
-            position: relative;
+            justify-content: center;
+            flex-shrink: 0;
         }
 
-        .color-picker-input {
-            width: 30px;
-            height: 30px;
-            padding: 0;
-            border: none;
-            background: none;
-            cursor: pointer;
+        .preview-icon img {
+            width: 24px;
+            height: 24px;
         }
 
-        .rich-content-area {
-            min-height: 80px;
-            padding: 12px 16px;
-            outline: none;
-            font-size: 1rem;
-            color: #1e293b;
-            background: white;
-            line-height: 1.5;
+        .preview-content {
+            flex: 1;
+            min-width: 0;
         }
 
-        .rich-content-area:empty:before {
-            content: attr(data-placeholder);
-            color: #94a3b8;
+        .preview-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            word-wrap: break-word;
+            line-height: 1.3;
+        }
+
+        .preview-message {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .preview-time {
+            color: #666;
+            font-size: 0.7rem;
+            margin-top: 6px;
         }
 
         .notification-modal-footer {
             padding: 0 24px 24px;
             display: flex;
             gap: 12px;
-            position: sticky;
-            bottom: 0;
-            background: white;
-            padding-top: 12px;
         }
 
         .notification-modal-footer button {
@@ -1094,56 +1234,100 @@
                         }
                     }
 
-                    // Send notification for news function - Shows Rich Text Editor
+                    // Send notification for news function - Shows Simple Editor
                     let currentNotificationNewsItem = null;
+                    let selectedTitleColor = '#FF6F00';
+                    let selectedMessageColor = '#333333';
 
                     function sendNotificationForNews(newsId) {
                         const newsItem = newsListItems.find(news => news._id === newsId);
                         if (newsItem) {
                             currentNotificationNewsItem = newsItem;
-                            
-                            // Initialize editor with news content
-                            const titleEditor = document.getElementById('richTitleEditor');
-                            const messageEditor = document.getElementById('richMessageEditor');
-                            
-                            if (titleEditor) titleEditor.innerHTML = newsItem.title;
-                            if (messageEditor) messageEditor.innerHTML = newsItem.content;
-                            
+
+                            // Initialize simple inputs with news content
+                            const titleInput = document.getElementById('notifTitleInput');
+                            const messageInput = document.getElementById('notifMessageInput');
+
+                            if (titleInput) titleInput.value = newsItem.title;
+                            if (messageInput) messageInput.value = newsItem.content;
+
+                            // Reset colors to default
+                            selectedTitleColor = '#FF6F00';
+                            selectedMessageColor = '#333333';
+
+                            // Reset color button selections
+                            resetColorButtons();
+
+                            // Update preview
+                            updateNotifPreview();
+
                             // Show modal
                             const modal = document.getElementById('notificationRichModal');
                             if (modal) modal.classList.add('active');
-                            
-                            updateCharCounts();
                         }
                     }
 
-                    function updateCharCounts() {
-                        const titleLen = document.getElementById('richTitleEditor').innerText.length;
-                        const messageLen = document.getElementById('richMessageEditor').innerText.length;
-                        document.getElementById('titleCharCount').textContent = `${titleLen}/100`;
-                        document.getElementById('messageCharCount').textContent = `${messageLen}/200`;
+                    function resetColorButtons() {
+                        // Reset title color buttons
+                        document.querySelectorAll('#titleColorPresets .color-btn').forEach(btn => {
+                            btn.classList.remove('selected');
+                            if (btn.dataset.color === '#FF6F00') btn.classList.add('selected');
+                        });
+                        document.getElementById('customTitleColor').value = '#FF6F00';
+
+                        // Reset message color buttons
+                        document.querySelectorAll('#messageColorPresets .color-btn').forEach(btn => {
+                            btn.classList.remove('selected');
+                            if (btn.dataset.color === '#333333') btn.classList.add('selected');
+                        });
+                        document.getElementById('customMessageColor').value = '#333333';
                     }
 
-                    // Rich Text Commands
-                    function execEditorCommand(command, value = null) {
-                        document.execCommand(command, false, value);
-                        updateCharCounts();
+                    function selectTitleColor(btn) {
+                        // Remove selected from all title color buttons
+                        document.querySelectorAll('#titleColorPresets .color-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                        selectedTitleColor = btn.dataset.color;
+                        document.getElementById('customTitleColor').value = selectedTitleColor;
+                        updateNotifPreview();
                     }
 
-                    // Deep Big Text replacement (Wraps selection in <big>)
-                    function applyBigText() {
-                        const selection = window.getSelection();
-                        if (!selection.rangeCount) return;
-                        
-                        const range = selection.getRangeAt(0);
-                        const selectedText = range.toString();
-                        if (!selectedText) return;
+                    function selectCustomTitleColor(color) {
+                        document.querySelectorAll('#titleColorPresets .color-btn').forEach(b => b.classList.remove('selected'));
+                        selectedTitleColor = color;
+                        updateNotifPreview();
+                    }
 
-                        const big = document.createElement('big');
-                        big.appendChild(range.extractContents());
-                        range.insertNode(big);
-                        
-                        updateCharCounts();
+                    function selectMessageColor(btn) {
+                        // Remove selected from all message color buttons
+                        document.querySelectorAll('#messageColorPresets .color-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                        selectedMessageColor = btn.dataset.color;
+                        document.getElementById('customMessageColor').value = selectedMessageColor;
+                        updateNotifPreview();
+                    }
+
+                    function selectCustomMessageColor(color) {
+                        document.querySelectorAll('#messageColorPresets .color-btn').forEach(b => b.classList.remove('selected'));
+                        selectedMessageColor = color;
+                        updateNotifPreview();
+                    }
+
+                    function updateNotifPreview() {
+                        const title = document.getElementById('notifTitleInput')?.value || 'Title Preview';
+                        const message = document.getElementById('notifMessageInput')?.value || 'Message preview...';
+
+                        const previewTitle = document.getElementById('previewTitle');
+                        const previewMessage = document.getElementById('previewMessage');
+
+                        if (previewTitle) {
+                            previewTitle.textContent = title || 'Title Preview';
+                            previewTitle.style.color = selectedTitleColor;
+                        }
+                        if (previewMessage) {
+                            previewMessage.textContent = message || 'Message preview...';
+                            previewMessage.style.color = selectedMessageColor;
+                        }
                     }
 
                     function closeNotificationModal() {
@@ -1155,39 +1339,30 @@
                     function confirmSendNotification() {
                         if (!currentNotificationNewsItem) return;
 
-                        const titleHtml = document.getElementById('richTitleEditor').innerHTML;
-                        const messageHtml = document.getElementById('richMessageEditor').innerHTML;
+                        const title = document.getElementById('notifTitleInput').value.trim();
+                        const message = document.getElementById('notifMessageInput').value.trim();
 
-                        // 🎨 Extract first color from HTML for Way2News-style notifications
-                        // Telugu: HTML నుండి color extract చేసి OneSignal కి పంపుతాము
-                        function extractFirstColor(html) {
-                            // Check for color attribute in font tag: <font color="#FF6F00">
-                            const fontColorMatch = html.match(/color=["']?(#[0-9A-Fa-f]{6}|[a-zA-Z]+)["']?/i);
-                            if (fontColorMatch) return fontColorMatch[1];
-
-                            // Check for style color: style="color: #FF6F00"
-                            const styleColorMatch = html.match(/color:\s*(#[0-9A-Fa-f]{6}|[a-zA-Z]+)/i);
-                            if (styleColorMatch) return styleColorMatch[1];
-
-                            return null; // No color found
+                        if (!title || !message) {
+                            alert('Please enter both title and message');
+                            return;
                         }
 
-                        const titleColor = extractFirstColor(titleHtml);
-                        const messageColor = extractFirstColor(messageHtml);
-
-                        console.log('📧 Notification colors - Title:', titleColor, 'Message:', messageColor);
+                        console.log('📧 Sending notification:');
+                        console.log('   Title:', title);
+                        console.log('   Title Color:', selectedTitleColor);
+                        console.log('   Message Color:', selectedMessageColor);
 
                         const notificationData = {
-                            title: titleHtml,
-                            message: messageHtml,
+                            title: title,
+                            message: message,
                             newsId: currentNotificationNewsItem._id,
                             imageUrl: currentNotificationNewsItem.mediaUrl || currentNotificationNewsItem.imageUrl,
                             launchUrl: null,
                             platformSettings: {},
                             priority: 'high',
-                            // 🎨 Way2News style: Send colors separately for heads-up notification
-                            titleColor: titleColor || '#FF6F00',  // Default orange if no color selected
-                            messageColor: messageColor || '#333333' // Default dark gray
+                            // 🎨 Way2News style: Send colors directly
+                            titleColor: selectedTitleColor,
+                            messageColor: selectedMessageColor
                         };
 
                         const sendBtn = document.getElementById('sendNotifBtn');
@@ -1263,58 +1438,92 @@
                     }
                 </script>
 
-    <!-- Advanced Rich Text Notification Modal -->
+    <!-- Easy Notification Editor Modal -->
     <div id="notificationRichModal" class="notification-modal-overlay">
         <div class="notification-modal">
             <div class="notification-modal-header">
-                <h5>🔔 Smart Notification Editor</h5>
-                <p style="margin: 0; font-size: 0.8rem; opacity: 0.8;">Style specific words for maximum impact</p>
+                <h5>🔔 Send Notification</h5>
             </div>
             <div class="notification-modal-body">
-                
-                <!-- Title Editor -->
-                <div class="editor-label">
-                    <span>Title:</span>
-                    <span class="char-count" id="titleCharCount">0/100</span>
-                </div>
-                <div class="rich-editor-container">
-                    <div class="editor-toolbar">
-                        <button class="toolbar-btn" onclick="execEditorCommand('bold')" title="Bold"><b>B</b></button>
-                        <button class="toolbar-btn" onclick="applyBigText()" title="Large Text"><b>Big</b></button>
-                        <div class="color-picker-wrapper">
-                            <i class="fas fa-palette" style="font-size: 0.8rem; color: #64748b;"></i>
-                            <input type="color" class="color-picker-input" onchange="execEditorCommand('foreColor', this.value)" title="Text Color">
-                        </div>
-                        <button class="toolbar-btn" onclick="execEditorCommand('removeFormat')" title="Clear Style"><i class="fas fa-eraser"></i></button>
+
+                <!-- Title Input -->
+                <div class="notif-section">
+                    <div class="notif-section-label">
+                        <i class="fas fa-heading"></i>
+                        <span>Title</span>
                     </div>
-                    <div id="richTitleEditor" class="rich-content-area" contenteditable="true" data-placeholder="Enter notification title..." oninput="updateCharCounts()"></div>
+                    <input type="text" id="notifTitleInput" class="notif-input" placeholder="Enter notification title..." maxlength="100" oninput="updateNotifPreview()">
                 </div>
 
-                <!-- Message Editor -->
-                <div class="editor-label">
-                    <span>Message:</span>
-                    <span class="char-count" id="messageCharCount">0/200</span>
-                </div>
-                <div class="rich-editor-container">
-                    <div class="editor-toolbar">
-                        <button class="toolbar-btn" onclick="execEditorCommand('bold')" title="Bold"><b>B</b></button>
-                        <button class="toolbar-btn" onclick="applyBigText()" title="Large Text"><b>Big</b></button>
-                        <div class="color-picker-wrapper">
-                            <i class="fas fa-palette" style="font-size: 0.8rem; color: #64748b;"></i>
-                            <input type="color" class="color-picker-input" onchange="execEditorCommand('foreColor', this.value)" title="Text Color">
-                        </div>
-                        <button class="toolbar-btn" onclick="execEditorCommand('removeFormat')" title="Clear Style"><i class="fas fa-eraser"></i></button>
+                <!-- Message Input -->
+                <div class="notif-section">
+                    <div class="notif-section-label">
+                        <i class="fas fa-comment-alt"></i>
+                        <span>Message</span>
                     </div>
-                    <div id="richMessageEditor" class="rich-content-area" contenteditable="true" data-placeholder="Enter notification message..." oninput="updateCharCounts()"></div>
+                    <textarea id="notifMessageInput" class="notif-input notif-textarea" placeholder="Enter notification message..." maxlength="200" oninput="updateNotifPreview()"></textarea>
                 </div>
 
-                <div class="alert alert-info py-2" style="font-size: 0.75rem; border-radius: 10px;">
-                    <i class="fas fa-info-circle me-1"></i> Highlight text first, then click color/bold/big tools.
+                <!-- Color Selection -->
+                <div class="color-section">
+                    <div class="color-section-title">🎨 Colors (One-Click Selection)</div>
+
+                    <!-- Title Color -->
+                    <div class="color-row">
+                        <span class="color-row-label">Title Color:</span>
+                        <div class="color-presets" id="titleColorPresets">
+                            <button class="color-btn selected" style="background: #FF6F00;" data-color="#FF6F00" onclick="selectTitleColor(this)" title="Orange"></button>
+                            <button class="color-btn" style="background: #E53935;" data-color="#E53935" onclick="selectTitleColor(this)" title="Red"></button>
+                            <button class="color-btn" style="background: #1E88E5;" data-color="#1E88E5" onclick="selectTitleColor(this)" title="Blue"></button>
+                            <button class="color-btn" style="background: #43A047;" data-color="#43A047" onclick="selectTitleColor(this)" title="Green"></button>
+                            <button class="color-btn" style="background: #8E24AA;" data-color="#8E24AA" onclick="selectTitleColor(this)" title="Purple"></button>
+                            <button class="color-btn" style="background: #F4511E;" data-color="#F4511E" onclick="selectTitleColor(this)" title="Deep Orange"></button>
+                            <button class="color-btn" style="background: #00897B;" data-color="#00897B" onclick="selectTitleColor(this)" title="Teal"></button>
+                            <button class="color-btn" style="background: #D81B60;" data-color="#D81B60" onclick="selectTitleColor(this)" title="Pink"></button>
+                        </div>
+                        <div class="custom-color-wrapper">
+                            <input type="color" class="custom-color-input" id="customTitleColor" value="#FF6F00" onchange="selectCustomTitleColor(this.value)" title="Custom Color">
+                            <span class="custom-color-label">Custom</span>
+                        </div>
+                    </div>
+
+                    <!-- Message Color -->
+                    <div class="color-row">
+                        <span class="color-row-label">Body Color:</span>
+                        <div class="color-presets" id="messageColorPresets">
+                            <button class="color-btn selected" style="background: #333333;" data-color="#333333" onclick="selectMessageColor(this)" title="Dark Gray"></button>
+                            <button class="color-btn" style="background: #000000;" data-color="#000000" onclick="selectMessageColor(this)" title="Black"></button>
+                            <button class="color-btn" style="background: #555555;" data-color="#555555" onclick="selectMessageColor(this)" title="Gray"></button>
+                            <button class="color-btn" style="background: #1565C0;" data-color="#1565C0" onclick="selectMessageColor(this)" title="Blue"></button>
+                            <button class="color-btn" style="background: #2E7D32;" data-color="#2E7D32" onclick="selectMessageColor(this)" title="Green"></button>
+                            <button class="color-btn" style="background: #C62828;" data-color="#C62828" onclick="selectMessageColor(this)" title="Red"></button>
+                        </div>
+                        <div class="custom-color-wrapper">
+                            <input type="color" class="custom-color-input" id="customMessageColor" value="#333333" onchange="selectCustomMessageColor(this.value)" title="Custom Color">
+                            <span class="custom-color-label">Custom</span>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Live Preview -->
+                <div class="preview-section">
+                    <div class="preview-label">📱 Live Preview</div>
+                    <div class="preview-notification">
+                        <div class="preview-icon">
+                            <i class="fas fa-newspaper" style="color: white; font-size: 18px;"></i>
+                        </div>
+                        <div class="preview-content">
+                            <div class="preview-title" id="previewTitle" style="color: #FF6F00;">Title Preview</div>
+                            <div class="preview-message" id="previewMessage" style="color: #333333;">Message preview will appear here...</div>
+                            <div class="preview-time">Just now • Short News</div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
             <div class="notification-modal-footer">
                 <button class="btn-cancel-notif" onclick="closeNotificationModal()">Cancel</button>
-                <button class="btn-send-notif" id="sendNotifBtn" onclick="confirmSendNotification()">🚀 Send Notification</button>
+                <button class="btn-send-notif" id="sendNotifBtn" onclick="confirmSendNotification()">🚀 Send</button>
             </div>
         </div>
     </div>
