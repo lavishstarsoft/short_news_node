@@ -268,6 +268,9 @@ class OneSignalService {
         content: news.content,
         mediaUrl: news.mediaUrl,
         mediaType: news.mediaType,
+        // 🎨 TEXT COLORS: Default brand colors for news notifications
+        titleColor: '#FF6F00', // Deep Orange for news headlines
+        messageColor: '#000000', // Black for news body
         // 🔧 FIX: Send URL in 'data' instead of notification.url
         // This forces the app to open instead of the browser
         launchUrl: newsUrl
@@ -302,7 +305,8 @@ class OneSignalService {
 
       const notificationData = {
         type: 'admin',
-        titleColor: titleColor || null, // Include title color in the data sent to the app
+        titleColor: titleColor || '#FF6F00', // Default if not provided
+        messageColor: data.messageColor || '#000000', // Default if not provided
         ...otherData
       };
 
@@ -323,26 +327,28 @@ class OneSignalService {
 
       // Add title color if provided (Android only)
       if (titleColor) {
-        // Convert hex color to the format expected by OneSignal
-        // OneSignal expects colors in ARGB format
         const hexColor = titleColor.replace('#', '');
         if (hexColor.length === 6) {
-          // Convert RGB to ARGB (add alpha channel)
           notification.android_accent_color = `FF${hexColor}`;
         }
       }
 
+      // 🚨 High Priority / Heads-up Settings
+      // Telugu: నోటిఫికేషన్ వేరే యాప్స్ పైన పాప్-అప్ అవ్వడానికి ఈ సెట్టింగ్స్ అవసరం
+      if (data.priority === 'high') {
+        notification.priority = 10; // High priority for FCM (delivered immediately)
+        notification.android_visibility = 1; // Public visibility
+        // If importance is high, it triggers heads-up behavior on Android
+      }
+
       // Add image if provided
       if (imageUrl) {
-        // For Android, use big_picture for large image
         notification.big_picture = imageUrl;
-        // For iOS, use ios_attachments
         notification.ios_attachments = { id1: imageUrl };
       }
 
       // Apply platform-specific settings if provided
       if (platformSettings) {
-        // Android settings
         if (platformSettings.android) {
           if (platformSettings.android.sound !== undefined) {
             notification.android_sound = platformSettings.android.sound;
@@ -351,8 +357,7 @@ class OneSignalService {
             notification.android_vibrate = platformSettings.android.vibrate;
           }
           if (platformSettings.android.lights !== undefined) {
-            notification.android_led_color = platformSettings.android.lights ? "FF0000FF" : null; // Blue color
-            // Add LED timing for older Android versions
+            notification.android_led_color = platformSettings.android.lights ? "FF0000FF" : null;
             if (platformSettings.android.lights) {
               notification.android_led_on_ms = 1000;
               notification.android_led_off_ms = 1000;
@@ -364,7 +369,6 @@ class OneSignalService {
           if (platformSettings.android.icon) {
             notification.small_icon = platformSettings.android.icon;
           }
-          // Add new Android fields
           if (platformSettings.android.largeIcon) {
             notification.large_icon = platformSettings.android.largeIcon;
           }
