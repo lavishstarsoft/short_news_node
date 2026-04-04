@@ -1237,7 +1237,8 @@
                     // Send notification for news function - Shows Simple Editor
                     let currentNotificationNewsItem = null;
                     let selectedTitleColor = '#FF6F00';
-                    let selectedMessageColor = '#333333';
+                    let selectedMessageColor = '#FFFFFF';
+                    let selectedTitleFontSize = 'normal'; // small, normal, large
 
                     function sendNotificationForNews(newsId) {
                         const newsItem = newsListItems.find(news => news._id === newsId);
@@ -1251,9 +1252,10 @@
                             if (titleInput) titleInput.value = newsItem.title;
                             if (messageInput) messageInput.value = newsItem.content;
 
-                            // Reset colors to default
+                            // Reset colors and font size to default
                             selectedTitleColor = '#FF6F00';
-                            selectedMessageColor = '#333333';
+                            selectedMessageColor = '#FFFFFF';
+                            selectedTitleFontSize = 'normal';
 
                             // Reset color button selections
                             resetColorButtons();
@@ -1278,9 +1280,15 @@
                         // Reset message color buttons
                         document.querySelectorAll('#messageColorPresets .color-btn').forEach(btn => {
                             btn.classList.remove('selected');
-                            if (btn.dataset.color === '#333333') btn.classList.add('selected');
+                            if (btn.dataset.color === '#FFFFFF') btn.classList.add('selected');
                         });
-                        document.getElementById('customMessageColor').value = '#333333';
+                        document.getElementById('customMessageColor').value = '#FFFFFF';
+
+                        // Reset font size buttons
+                        document.querySelectorAll('#titleFontSizePresets .font-size-btn').forEach(btn => {
+                            btn.classList.remove('selected');
+                            if (btn.dataset.size === 'normal') btn.classList.add('selected');
+                        });
                     }
 
                     function selectTitleColor(btn) {
@@ -1313,6 +1321,14 @@
                         updateNotifPreview();
                     }
 
+                    function selectTitleFontSize(btn) {
+                        // Remove selected from all font size buttons
+                        document.querySelectorAll('#titleFontSizePresets .font-size-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                        selectedTitleFontSize = btn.dataset.size;
+                        updateNotifPreview();
+                    }
+
                     function updateNotifPreview() {
                         const title = document.getElementById('notifTitleInput')?.value || 'Title Preview';
                         const message = document.getElementById('notifMessageInput')?.value || 'Message preview...';
@@ -1323,6 +1339,12 @@
                         if (previewTitle) {
                             previewTitle.textContent = title || 'Title Preview';
                             previewTitle.style.color = selectedTitleColor;
+
+                            // Apply font size
+                            let fontSize = '1rem'; // default
+                            if (selectedTitleFontSize === 'small') fontSize = '0.9rem';
+                            else if (selectedTitleFontSize === 'large') fontSize = '1.3rem';
+                            previewTitle.style.fontSize = fontSize;
                         }
                         if (previewMessage) {
                             previewMessage.textContent = message || 'Message preview...';
@@ -1350,6 +1372,7 @@
                         console.log('📧 Sending notification:');
                         console.log('   Title:', title);
                         console.log('   Title Color:', selectedTitleColor);
+                        console.log('   Title Font Size:', selectedTitleFontSize);
                         console.log('   Message Color:', selectedMessageColor);
 
                         const notificationData = {
@@ -1360,8 +1383,9 @@
                             launchUrl: null,
                             platformSettings: {},
                             priority: 'high',
-                            // 🎨 Way2News style: Send colors directly
+                            // 🎨 Way2News style: Send colors and font size directly
                             titleColor: selectedTitleColor,
+                            titleFontSize: selectedTitleFontSize,
                             messageColor: selectedMessageColor
                         };
 
@@ -1491,7 +1515,8 @@
                     <div class="color-row">
                         <span class="color-row-label">Body Color:</span>
                         <div class="color-presets" id="messageColorPresets">
-                            <button class="color-btn selected" style="background: #333333;" data-color="#333333" onclick="selectMessageColor(this)" title="Dark Gray"></button>
+                            <button class="color-btn selected" style="background: #FFFFFF; border: 2px solid #ddd;" data-color="#FFFFFF" onclick="selectMessageColor(this)" title="White"></button>
+                            <button class="color-btn" style="background: #333333;" data-color="#333333" onclick="selectMessageColor(this)" title="Dark Gray"></button>
                             <button class="color-btn" style="background: #000000;" data-color="#000000" onclick="selectMessageColor(this)" title="Black"></button>
                             <button class="color-btn" style="background: #555555;" data-color="#555555" onclick="selectMessageColor(this)" title="Gray"></button>
                             <button class="color-btn" style="background: #1565C0;" data-color="#1565C0" onclick="selectMessageColor(this)" title="Blue"></button>
@@ -1499,8 +1524,21 @@
                             <button class="color-btn" style="background: #C62828;" data-color="#C62828" onclick="selectMessageColor(this)" title="Red"></button>
                         </div>
                         <div class="custom-color-wrapper">
-                            <input type="color" class="custom-color-input" id="customMessageColor" value="#333333" onchange="selectCustomMessageColor(this.value)" title="Custom Color">
+                            <input type="color" class="custom-color-input" id="customMessageColor" value="#FFFFFF" onchange="selectCustomMessageColor(this.value)" title="Custom Color">
                             <span class="custom-color-label">Custom</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Font Size Selection -->
+                <div class="color-section">
+                    <div class="color-section-title">📏 Title Font Size</div>
+                    <div class="color-row">
+                        <span class="color-row-label">Title Size:</span>
+                        <div class="font-size-btns" id="titleFontSizePresets">
+                            <button class="font-size-btn small" data-size="small" onclick="selectTitleFontSize(this)" title="Small">Small</button>
+                            <button class="font-size-btn normal selected" data-size="normal" onclick="selectTitleFontSize(this)" title="Normal">Normal</button>
+                            <button class="font-size-btn large" data-size="large" onclick="selectTitleFontSize(this)" title="Large">Large</button>
                         </div>
                     </div>
                 </div>
@@ -1514,7 +1552,7 @@
                         </div>
                         <div class="preview-content">
                             <div class="preview-title" id="previewTitle" style="color: #FF6F00;">Title Preview</div>
-                            <div class="preview-message" id="previewMessage" style="color: #333333;">Message preview will appear here...</div>
+                            <div class="preview-message" id="previewMessage" style="color: #FFFFFF;">Message preview will appear here...</div>
                             <div class="preview-time">Just now • Short News</div>
                         </div>
                     </div>
