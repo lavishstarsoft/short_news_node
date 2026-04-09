@@ -52,9 +52,10 @@ const resolvers = {
                     .skip(offset)
                     .limit(limit);
 
-                // ✅ FIX #1: Don't cache empty results — prevents 5-min empty screen for all users
+                // Keep offset=0 cache very short so interaction counts stay fresh on feed load.
                 if (news && news.length > 0) {
-                    await setCachedData('news', variables, news, 300);
+                    const feedTtlSeconds = offset === 0 ? 10 : 300;
+                    await setCachedData('news', variables, news, feedTtlSeconds);
                 } else {
                     console.log('⚠️ Empty news result — skipping cache to allow quick retry');
                 }
@@ -863,6 +864,7 @@ const resolvers = {
                         action: action,
                         likes: news.likes,
                         dislikes: news.dislikes,
+                        views: news.views,
                         comments: news.comments,
                         userId: userId,
                         userName: userName,
