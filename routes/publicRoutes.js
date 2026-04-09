@@ -11,7 +11,7 @@ const CommentReport = require('../models/CommentReport');
 const Admin = require('../models/Admin');
 
 // Import cache middleware for Redis caching
-const { cacheMiddleware } = require('../middleware/cache');
+const { cacheMiddleware, clearCache } = require('../middleware/cache');
 
 // Import upload middleware for profile image upload
 const { uploadMedia } = require('../middleware/upload');
@@ -536,6 +536,10 @@ router.post('/api/public/news/:id/interact', async (req, res) => {
         savePromises.push(user.save());
       }
       await Promise.all(savePromises);
+
+      // 🔄 Clear news cache after interaction to ensure accurate counts
+      await clearCache('cache:/api/public/news*');
+      await clearCache('cache:/api/public/news');
 
       // Verify save for like_comment action
       if (action === 'like_comment') {

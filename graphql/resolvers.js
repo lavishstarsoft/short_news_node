@@ -11,6 +11,8 @@ const LiveStream = require('../models/LiveStream');
 
 // Import GraphQL cache utility
 const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = require('./cache');
+// Import REST API cache utility for clearing REST cache after GraphQL mutations
+const { clearCache: clearRestCache } = require('../middleware/cache');
 
 /**
  * Helper to ensure media URLs are absolute
@@ -680,6 +682,9 @@ const resolvers = {
                     // 🚀 Invalidate cache so fresh data is returned
                     await invalidateCache('graphql:news:*');
                     await invalidateItemCache('newsById', newsId);
+                    // Clear REST API cache to ensure accurate view counts
+                    await clearRestCache('cache:/api/public/news*');
+                    await clearRestCache('cache:/api/public/news');
 
                     console.log(`✅ View tracked: ${news.title.substring(0, 40)}... - User: ${userId} - Total views: ${news.views}`);
                 } else {
@@ -846,6 +851,9 @@ const resolvers = {
                 // Invalidate related caches after mutation
                 await invalidateCache('graphql:news:*');
                 await invalidateItemCache('newsById', newsId);
+                // Clear REST API cache to ensure accurate counts
+                await clearRestCache('cache:/api/public/news*');
+                await clearRestCache('cache:/api/public/news');
 
                 // 🚀 REAL-TIME BROADCAST via Socket.IO
                 const io = context?.io;
@@ -1132,10 +1140,19 @@ const resolvers = {
             try {
                 const Admin = require('../models/Admin');
 
-                // Find editor/reporter by username (must have role 'editor')
+                // Find editor/reporter by username OR email (support editor and subeditor roles)
                 const editor = await Admin.findOne({
-                    username: username,
-                    role: 'editor'
+                    $and: [
+                        {
+                            $or: [
+                                { username: username },
+                                { email: username }  // username parameter can contain email
+                            ]
+                        },
+                        {
+                            role: { $in: ['editor', 'subeditor'] }  // Support both editor and subeditor roles
+                        }
+                    ]
                 });
 
                 if (!editor) {
