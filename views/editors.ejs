@@ -3,131 +3,194 @@
 
 <%- include('partials/header', { title: 'Editors List' }) %>
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
-        .editors-container {
-            max-width: 1200px;
-            margin: 0 auto;
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #eef2ff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-400: #94a3b8;
+            --slate-600: #475569;
+            --slate-900: #0f172a;
+            --radius-xl: 20px;
+            --radius-lg: 12px;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            background-color: var(--slate-100);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: var(--slate-900);
+        }
+
+        .main-content {
+            padding-bottom: 50px;
         }
 
         .editors-card {
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-            border: none;
-            margin-bottom: 20px;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--slate-200);
             background: white;
+            overflow: hidden;
+            margin-bottom: 30px;
         }
 
         .editors-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--slate-900);
             color: white;
-            border-radius: 15px 15px 0 0 !important;
-            padding: 30px;
+            padding: 35px 30px;
+            border-bottom: none;
+        }
+
+        .table {
+            --bs-table-hover-bg: var(--slate-50);
+            margin-bottom: 0;
         }
 
         .table th {
-            background-color: #f8f9fa;
-            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: var(--slate-600);
+            padding: 18px 24px;
+            border-bottom: 2px solid var(--slate-100);
+            background: var(--slate-50);
         }
 
-        .table tr:hover {
-            background-color: #f8f9fa;
+        .table td {
+            padding: 20px 24px;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--slate-100);
         }
 
-        .badge-active {
-            background-color: #28a745;
+        .avatar-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            color: white;
+            background: linear-gradient(135deg, var(--primary) 0%, #818cf8 100%);
+            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
         }
 
-        .badge-inactive {
-            background-color: #dc3545;
-        }
-
-        .btn-logout {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        .btn-register {
+            background: white;
+            color: var(--slate-900);
             border: none;
+            padding: 10px 22px;
+            border-radius: 10px;
+            font-weight: 700;
+            box-shadow: var(--shadow-md);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .btn-logout:hover {
-            background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+        .btn-register:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            background: var(--slate-50);
         }
 
         .stats-pill {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            margin: 2px 4px 2px 0;
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 14px;
+            border-radius: 8px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            margin-right: 6px;
+            margin-bottom: 6px;
         }
 
-        .stats-submitted {
-            background: #e9ecef;
-            color: #495057;
+        .stats-today { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+        .stats-weekly { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+        .stats-submitted { background: var(--slate-100); color: var(--slate-600); }
+        .stats-published { background: #dcfce7; color: #166534; }
+        .stats-range { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; cursor: pointer; transition: all 0.2s; }
+        .stats-range:hover { background: #fecaca; }
+        .stats-range i { font-size: 0.8rem; }
+
+        .leaderboard-card {
+            background: white;
+            border: 1px solid var(--slate-200);
+            border-radius: 18px;
+            padding: 20px;
+            transition: all 0.3s ease;
         }
 
-        .stats-published {
-            background: #d1fae5;
-            color: #065f46;
+        .leaderboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary);
         }
 
-        .stats-pending {
-            background: #fef3c7;
-            color: #92400e;
+        .rank-badge {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.9rem;
         }
 
-        .stats-rejected {
-            background: #fee2e2;
-            color: #991b1b;
+        .rank-1 { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .rank-2 { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+        .rank-3 { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
+
+        .btn-action {
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            transition: all 0.2s;
+            border: 1px solid var(--slate-200);
+            background: white;
+            color: var(--slate-600);
         }
 
-        /* Modal styles */
-        .modal-content {
-            border-radius: 15px;
-            border: none;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        .modal-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .btn-action:hover {
+            background: var(--slate-900);
             color: white;
-            border-radius: 15px 15px 0 0 !important;
-            padding: 20px 24px;
+            border-color: var(--slate-900);
         }
 
-        /* Feedback message */
         .feedback-message {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            border-radius: 5px;
+            top: 25px;
+            right: 25px;
+            padding: 16px 24px;
+            border-radius: 12px;
             color: white;
-            font-weight: 500;
+            font-weight: 600;
             z-index: 9999;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+            box-shadow: var(--shadow-lg);
             transform: translateX(200%);
-            transition: transform 0.3s ease;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        .feedback-message.show {
-            transform: translateX(0);
-        }
+        .feedback-message.show { transform: translateX(0); }
+        .feedback-message.success { background-color: var(--success); }
+        .feedback-message.error { background-color: var(--danger); }
 
-        .feedback-message.success {
-            background-color: #28a745;
-        }
-
-        .feedback-message.error {
-            background-color: #dc3545;
-        }
-
-        @media (max-width: 767.98px) {
-            .editors-header {
-                padding: 20px 15px;
-            }
-
-            .table-responsive {
-                font-size: 0.85rem;
-            }
+        @media (max-width: 992px) {
+            .editors-container { padding: 0 15px; }
+            .table-responsive { font-size: 0.82rem; }
         }
     </style>
     </head>
@@ -143,133 +206,164 @@
                         <!-- Main Content -->
                         <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
                             <div class="content-area mt-4">
+                                <!-- Weekly Leaderboard -->
+                                <div class="row mb-4">
+                                    <div class="col-12">
+                                        <div class="card panel border-0 shadow-sm rounded-4">
+                                            <div class="card-body p-4">
+                                                <div class="d-flex align-items-center mb-4">
+                                                    <div class="bg-warning bg-opacity-10 p-2 rounded-3 me-3">
+                                                        <i class="fas fa-trophy text-warning fs-4"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h5 class="mb-1 fw-bold">Weekly Performance Leaderboard</h5>
+                                                        <p class="text-muted small mb-0">Top reporters based on last 7 days activity</p>
+                                                    </div>
+                                                </div>
+                                                <div class="row g-3">
+                                                    <% 
+                                                        const topEditors = [...editors].sort((a, b) => (b.newsStats?.weekly || 0) - (a.newsStats?.weekly || 0)).slice(0, 4);
+                                                        topEditors.forEach((editor, index) => { 
+                                                    %>
+                                                        <div class="col-md-3">
+                                                            <div class="leaderboard-card p-3 h-100">
+                                                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                                                    <div class="rank-badge rank-<%= index + 1 %>">
+                                                                        <%= index + 1 %>
+                                                                    </div>
+                                                                    <span class="badge bg-primary rounded-pill"><%= editor.newsStats?.weekly || 0 %> posts</span>
+                                                                </div>
+                                                                <div class="fw-bold text-dark truncate-text"><%= editor.name || editor.username %></div>
+                                                                <div class="text-muted small mb-2"><%= editor.location || 'N/A' %></div>
+                                                                <div class="progress" style="height: 6px;">
+                                                                    <div class="progress-bar bg-success" role="progressbar" 
+                                                                        style="width: <%= Math.min(100, (editor.newsStats?.weekly || 0) * 10) %>%"></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    <% }) %>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="card editors-card">
                                     <div class="card-header editors-header">
                                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                                             <div>
-                                                <h2 class="mb-0"><i class="fas fa-users-cog me-2"></i>Editors Management
-                                                </h2>
-                                                <p class="mb-0 opacity-75">Manage reporter accounts and permissions</p>
+                                                <h2 class="mb-1 fw-bold"><i class="fas fa-users-cog me-2 text-primary"></i>Editors Management</h2>
+                                                <p class="mb-0 text-white-50">Manage reporter accounts, permissions and track real-time performance</p>
                                             </div>
-                                            <button class="btn btn-light ripple"
-                                                onclick="window.location.href='/register-editor'">
-                                                <i class="fas fa-user-plus me-1"></i>Register Editor
+                                            <button class="btn btn-register ripple" onclick="window.location.href='/register-editor'">
+                                                <i class="fas fa-plus-circle me-1"></i>New Editor
                                             </button>
                                         </div>
                                     </div>
-                                    <div class="card-body">
-                                        <% if (editors && editors.length> 0) { %>
+                                    <div class="card-body p-0">
+                                        <% if (editors && editors.length > 0) { %>
                                             <div class="table-responsive">
                                                 <table class="table table-hover align-middle">
-                                                    <thead>
+                                                    <thead class="bg-light">
                                                         <tr>
-                                                            <th>Reporter</th>
-                                                            <th>Role</th>
-                                                            <th>Contact</th>
-                                                            <th>Location</th>
-                                                            <th>News Insights</th>
-                                                            <th>Status</th>
-                                                            <th>Last Login</th>
-                                                            <th>Joined</th>
+                                                            <th>Reporter Profile</th>
+                                                            <th>Permissions</th>
+                                                            <th>Location & Contact</th>
+                                                            <th>Post Insights</th>
+                                                            <th>SLA Status</th>
                                                             <th class="text-end">Actions</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        <% editors.forEach(function(editor) { %>
-                                                            <tr id="editor-row-<%= editor._id %>">
+                                                        <% editors.forEach(function(editor) { 
+                                                            const initials = (editor.name || editor.username).split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+                                                        %>
+                                                            <tr id="editor-row-<%= editor._id %>" class="transition-all">
                                                                 <td>
-                                                                    <div class="fw-bold">
-                                                                        <%= editor.name || editor.username %>
-                                                                    </div>
-                                                                    <div class="text-muted small">@<%= editor.username
-                                                                            %>
+                                                                    <div class="d-flex align-items-center">
+                                                                        <div class="avatar-circle me-3">
+                                                                            <%= initials %>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div class="fw-bold text-dark"><%= editor.name || editor.username %></div>
+                                                                            <div class="text-muted small">@<%= editor.username %></div>
+                                                                        </div>
                                                                     </div>
                                                                 </td>
                                                                 <td>
-                                                                    <span class="badge <%= editor.role === 'subeditor' ? 'bg-info' : 'bg-secondary' %>">
+                                                                    <span class="badge rounded-pill <%= editor.role === 'subeditor' ? 'bg-primary' : 'bg-info' %> bg-opacity-10 text-<%= editor.role === 'subeditor' ? 'primary' : 'info' %> px-3">
                                                                         <%= editor.role === 'subeditor' ? 'Sub-Editor' : 'Reporter' %>
                                                                     </span>
-                                                                    <div class="text-muted small"><%= editor.displayRole || '' %></div>
+                                                                    <div class="text-muted small px-1 mt-1"><%= editor.displayRole || 'Field Staff' %></div>
                                                                 </td>
                                                                 <td>
-                                                                    <div>
-                                                                        <%= editor.email %>
-                                                                    </div>
-                                                                    <div class="small">
-                                                                        <%= editor.mobileNumber || '-' %>
-                                                                    </div>
-                                                                </td>
-                                                                <td>
-                                                                    <div>
-                                                                        <%= editor.location || '-' %>
-                                                                    </div>
-                                                                    <div class="text-muted small">
-                                                                        <%= editor.constituency || '-' %>
-                                                                    </div>
-                                                                </td>
-                                                                <td>
-                                                                    <div>
-                                                                        <span class="stats-pill stats-submitted">Submitted: <%= editor.newsStats?.submitted || 0 %></span>
-                                                                        <span class="stats-pill stats-published">Published: <%= editor.newsStats?.published || 0 %></span>
-                                                                        <span class="stats-pill stats-pending">Pending: <%= editor.newsStats?.pending || 0 %></span>
-                                                                        <span class="stats-pill stats-rejected">Rejected: <%= editor.newsStats?.rejected || 0 %></span>
-                                                                    </div>
-                                                                    <% if (editor.latestRejection) { %>
-                                                                        <div class="small text-danger mt-1" title="<%= editor.latestRejection.feedback || '' %>">
-                                                                            Last reject: <%= editor.latestRejection.reason || 'Not specified' %>
+                                                                    <div class="d-flex flex-column">
+                                                                        <div class="text-dark fw-medium small mb-1">
+                                                                            <i class="fas fa-map-marker-alt me-1 text-danger opacity-50"></i>
+                                                                            <%= editor.location || 'Pan India' %>
                                                                         </div>
-                                                                        <div class="small text-muted">
-                                                                            <%= editor.latestRejection.rejectedAt ? new Date(editor.latestRejection.rejectedAt).toLocaleDateString() : '' %>
+                                                                        <div class="text-muted small">
+                                                                            <i class="fas fa-envelope me-1 opacity-50"></i>
+                                                                            <%= editor.email %>
                                                                         </div>
-                                                                    <% } else { %>
-                                                                        <div class="small text-muted mt-1">No rejection history</div>
-                                                                    <% } %>
-                                                                    <button class="btn btn-sm btn-outline-primary mt-2"
-                                                                        onclick="openInsightsModal('<%= editor._id %>')">
-                                                                        <i class="fas fa-chart-pie me-1"></i>View Insights
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <div class="d-flex flex-wrap gap-2 mb-2">
+                                                                        <span class="stats-pill stats-today" title="Posts Today">
+                                                                            <i class="fas fa-calendar-day me-1"></i>Today: <%= editor.newsStats?.today || 0 %>
+                                                                        </span>
+                                                                        <span class="stats-pill stats-weekly" title="Weekly Reach">
+                                                                            <i class="fas fa-chart-line me-1"></i>7D: <%= editor.newsStats?.weekly || 0 %>
+                                                                        </span>
+                                                                        <span class="stats-pill stats-range" id="range-pill-<%= editor._id %>" title="Click to select Date Range" onclick="document.getElementById('picker-<%= editor._id %>')._flatpickr.open()">
+                                                                            <i class="fas fa-calendar-alt me-1"></i>Range: <span id="count-<%= editor._id %>">0</span>
+                                                                        </span>
+                                                                        <input type="text" id="picker-<%= editor._id %>" class="range-picker-input" style="visibility: hidden; position: absolute; width: 0; height: 0;" data-id="<%= editor._id %>">
+                                                                    </div>
+                                                                    <div class="d-flex flex-wrap gap-1">
+                                                                        <span class="stats-pill stats-submitted">S: <%= editor.newsStats?.submitted || 0 %></span>
+                                                                        <span class="stats-pill stats-published">P: <%= editor.newsStats?.published || 0 %></span>
+                                                                    </div>
+                                                                    <button class="btn btn-insights btn-sm mt-1" onclick="showEditorInsights('<%= editor._id %>', '<%= editor.name || editor.username %>', '<%= JSON.stringify(editor.newsStats?.monthlyTrend || []) %>')">
+                                                                        <i class="fas fa-chart-line me-1"></i>Insights
                                                                     </button>
                                                                 </td>
                                                                 <td>
-                                                                    <span
-                                                                        class="badge <%= editor.isActive ? 'badge-active' : 'badge-inactive' %>">
-                                                                        <%= editor.isActive ? 'Active' : 'Inactive' %>
-                                                                    </span>
-                                                                    <div class="mt-2">
-                                                                        <button
-                                                                            class="btn btn-sm <%= editor.isActive ? 'btn-outline-warning' : 'btn-outline-success' %>"
-                                                                            onclick="toggleEditorStatus('<%= editor._id %>', <%= editor.isActive ? 'true' : 'false' %>)"
-                                                                            title="Toggle Status">
-                                                                            <i class="fas <%= editor.isActive ? 'fa-user-slash' : 'fa-user-check' %>"></i>
-                                                                            <%= editor.isActive ? 'Deactivate' : 'Activate' %>
+                                                                    <div class="d-flex flex-column gap-2">
+                                                                        <div class="d-flex align-items-center gap-2">
+                                                                            <span class="badge <%= editor.isActive ? 'bg-success' : 'bg-danger' %> p-1 rounded-circle" style="width:8px; height:8px;"></span>
+                                                                            <span class="small fw-semibold <%= editor.isActive ? 'text-success' : 'text-danger' %>">
+                                                                                <%= editor.isActive ? 'Active' : 'Account Locked' %>
+                                                                            </span>
+                                                                        </div>
+                                                                        <button class="btn btn-sm <%= editor.isActive ? 'btn-outline-warning' : 'btn-outline-success' %> border-0 py-0 text-start ps-0" 
+                                                                                onclick="toggleEditorStatus('<%= editor._id %>', <%= editor.isActive ? 'true' : 'false' %>)">
+                                                                            <i class="fas <%= editor.isActive ? 'fa-lock' : 'fa-unlock' %> me-1"></i>
+                                                                            <%= editor.isActive ? 'Lock' : 'Unlock' %>
                                                                         </button>
                                                                     </div>
                                                                 </td>
-                                                                <td class="small">
-                                                                    <%= editor.lastLogin ? new Date(editor.lastLogin).toLocaleString() : '-' %>
-                                                                </td>
-                                                                <td class="small">
-                                                                    <%= new Date(editor.createdAt).toLocaleDateString()
-                                                                        %>
-                                                                </td>
                                                                 <td class="text-end">
-                                                                    <div class="d-flex justify-content-end gap-1">
-                                                                        <button class="btn btn-sm btn-outline-primary"
-                                                                            onclick="openEditEditorModal('<%= editor._id %>')">
-                                                                            <i class="fas fa-edit"></i>
+                                                                    <div class="d-flex flex-column gap-2">
+                                                        <button class="btn btn-sm btn-outline-primary" onclick="window.location.href='/admin/performance-analytics?authorId=<%= editor._id %>'">
+                                                            Details
+                                                        </button>
+                                                    </div>
+                                                                    <div class="d-flex justify-content-end gap-2">
+                                                                        <button class="btn btn-action btn-outline-primary" onclick="openEditEditorModal('<%= editor._id %>')" title="Edit Profile">
+                                                                            <i class="fas fa-pen-to-square"></i>
                                                                         </button>
-                                                                        <button class="btn btn-sm btn-outline-warning"
-                                                                            onclick="openPasswordModal('<%= editor._id %>')"
-                                                                            title="Change Password">
-                                                                            <i class="fas fa-key"></i>
+                                                                        <button class="btn btn-action btn-outline-warning" onclick="openPasswordModal('<%= editor._id %>')" title="Security Settings">
+                                                                            <i class="fas fa-shield-halved"></i>
                                                                         </button>
-                                                                        <button class="btn btn-sm btn-outline-danger"
-                                                                            onclick="deleteEditor('<%= editor._id %>')">
-                                                                            <i class="fas fa-trash"></i>
+                                                                        <button class="btn btn-action btn-outline-danger" onclick="deleteEditor('<%= editor._id %>')" title="Terminate Account">
+                                                                            <i class="fas fa-user-xmark"></i>
                                                                         </button>
                                                                     </div>
                                                                 </td>
                                                             </tr>
-                                                            <% }); %>
+                                                        <% }); %>
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -380,59 +474,7 @@
                 </div>
             </div>
 
-            <!-- News Insights Modal -->
-            <div class="modal fade" id="insightsModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-lg modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title"><i class="fas fa-chart-line me-2"></i>News Insights</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <h6 class="mb-1" id="insightsEditorName">Reporter</h6>
-                                <div class="small text-muted" id="insightsEditorRole">Role</div>
-                            </div>
 
-                            <div class="row g-3">
-                                <div class="col-6 col-md-3">
-                                    <button class="btn w-100 btn-outline-secondary" onclick="openEditorNews('submitted')">
-                                        <div class="fw-bold fs-4" id="insightsSubmitted">0</div>
-                                        <div class="small">Submitted</div>
-                                    </button>
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <button class="btn w-100 btn-outline-success" onclick="openEditorNews('published')">
-                                        <div class="fw-bold fs-4" id="insightsPublished">0</div>
-                                        <div class="small">Published</div>
-                                    </button>
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <button class="btn w-100 btn-outline-warning" onclick="openEditorNews('pending')">
-                                        <div class="fw-bold fs-4" id="insightsPending">0</div>
-                                        <div class="small">Pending</div>
-                                    </button>
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <button class="btn w-100 btn-outline-danger" onclick="openEditorNews('rejected')">
-                                        <div class="fw-bold fs-4" id="insightsRejected">0</div>
-                                        <div class="small">Rejected</div>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="mt-4 p-3 bg-light rounded">
-                                <div class="fw-semibold mb-1">Latest Rejection Reason</div>
-                                <div id="insightsRejectionReason" class="text-danger small">No rejection history</div>
-                                <div id="insightsRejectionDate" class="text-muted small"></div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <%- include('partials/footer') %>
                 <script>
@@ -642,6 +684,126 @@
                         window.location.href = `/news-list?${params.toString()}`;
                     }
                 </script>
-    </body>
+    <!-- Performance Insights Modal -->
+    <div class="modal fade" id="insightsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header bg-dark text-white p-4" style="border-radius: 24px 24px 0 0;">
+                    <div>
+                        <h5 class="modal-title fw-bold" id="insightsTitle">Editor Performance Insights</h5>
+                        <p class="mb-0 text-white-50 small" id="insightsSubtitle"></p>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded-4 border">
+                                <h6 class="text-muted small fw-bold text-uppercase">Monthly View Trend (Last 6 Months)</h6>
+                                <div id="monthlyTrendChart" class="mt-3" style="height: 200px; display: flex; align-items: flex-end; gap: 10px;">
+                                    <!-- Dynamic bars will be inserted here -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <div class="p-3 bg-primary bg-opacity-10 rounded-4 text-center">
+                                        <div class="text-primary small fw-bold">Avg Views/Post</div>
+                                        <div class="fs-4 fw-bold" id="avgViewsStat">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-3 bg-success bg-opacity-10 rounded-4 text-center">
+                                        <div class="text-success small fw-bold">Published Ratio</div>
+                                        <div class="fs-4 fw-bold" id="publishRatioStat">0%</div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="p-3 bg-warning bg-opacity-10 rounded-4">
+                                        <div class="text-warning small fw-bold">Performance Tip</div>
+                                        <p class="mb-0 small" id="performanceTip">Consistency is key to growth.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        // Initialize range pickers
+        document.addEventListener('DOMContentLoaded', function() {
+            flatpickr(".range-picker-input", {
+                mode: "range",
+                dateFormat: "Y-m-d",
+                onClose: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length === 2) {
+                        const authorId = instance.element.dataset.id;
+                        const startDate = instance.formatDate(selectedDates[0], "Y-m-d");
+                        const endDate = instance.formatDate(selectedDates[1], "Y-m-d");
+                        
+                        // Show loading state
+                        const displaySpan = document.getElementById(`count-${authorId}`);
+                        displaySpan.innerText = '...';
+                        
+                        fetch(`/admin/api/editor-range-stats?authorId=${authorId}&startDate=${startDate}&endDate=${endDate}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                displaySpan.innerText = data.count || 0;
+                                document.getElementById(`range-pill-${authorId}`).title = `Posts between ${startDate} and ${endDate}`;
+                            })
+                            .catch(err => {
+                                console.error('Error fetching stats:', err);
+                                displaySpan.innerText = 'Error';
+                            });
+                    }
+                }
+            });
+        });
+
+        function showEditorInsights(id, name, trendJson) {
+            const trend = JSON.parse(trendJson);
+            const modal = new bootstrap.Modal(document.getElementById('insightsModal'));
+            document.getElementById('insightsTitle').innerText = `${name}'s Performance`;
+            document.getElementById('insightsSubtitle').innerText = `Data driven insights and growth metrics`;
+            
+            const chartArea = document.getElementById('monthlyTrendChart');
+            chartArea.innerHTML = '';
+            
+            if (trend.length === 0) {
+                chartArea.innerHTML = '<div class="w-100 text-center text-muted">No trend data available</div>';
+            } else {
+                const maxViews = Math.max(...trend.map(t => t.views)) || 1;
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                
+                trend.forEach(t => {
+                    const height = (t.views / maxViews) * 100;
+                    const bar = document.createElement('div');
+                    bar.className = 'flex-grow-1 position-relative';
+                    bar.style.height = `${height}%`;
+                    bar.style.background = 'linear-gradient(to top, #4f46e5, #818cf8)';
+                    bar.style.borderRadius = '6px 6px 0 0';
+                    bar.title = `${months[t.month-1]} ${t.year}: ${t.views} views`;
+                    
+                    const label = document.createElement('div');
+                    label.innerText = months[t.month-1];
+                    label.style.fontSize = '10px';
+                    label.style.position = 'absolute';
+                    label.style.bottom = '-20px';
+                    label.style.left = '50%';
+                    label.style.transform = 'translateX(-50%)';
+                    bar.appendChild(label);
+                    
+                    chartArea.appendChild(bar);
+                });
+            }
+            
+            modal.show();
+        }
+    </script>
+    </body>
 </html>

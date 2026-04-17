@@ -52,6 +52,9 @@ router.post('/api/notifications/received', adminController.requireAuth, adminCon
 // OneSignal analytics route
 router.get('/api/onesignal/analytics', adminController.requireAuth, adminController.getOneSignalAnalytics);
 
+// Editor stats by date range
+router.get('/api/editor-range-stats', adminController.requireAuth, adminController.getEditorRangeStats);
+
 // Reporter/Editor API routes (for mobile/Next.js apps)
 router.post('/api/reporter/login', adminController.reporterLogin);
 router.get('/api/reporter/profile', adminController.requireAuth, adminController.getReporterProfile);

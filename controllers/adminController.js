@@ -649,6 +649,13 @@ async function renderEditorsPage(req, res) {
     const latestRejectByEditor = {};
 
     if (editorIds.length > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      weekAgo.setHours(0, 0, 0, 0);
+
       const lifecycleStats = await News.aggregate([
         {
           $match: {
@@ -656,50 +663,75 @@ async function renderEditorsPage(req, res) {
           }
         },
         {
-          $project: {
-            authorId: 1,
-            isActive: 1,
-            isRejected: '$rejectionStatus.isRejected'
-          }
-        },
-        {
           $group: {
             _id: '$authorId',
             submitted: { $sum: 1 },
-            published: {
-              $sum: {
-                $cond: [{ $eq: ['$isActive', true] }, 1, 0]
-              }
-            },
-            rejected: {
-              $sum: {
-                $cond: [{ $eq: ['$isRejected', true] }, 1, 0]
-              }
-            },
+            published: { $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] } },
+            rejected: { $sum: { $cond: [{ $eq: ['$rejectionStatus.isRejected', true] }, 1, 0] } },
             pending: {
               $sum: {
                 $cond: [
-                  {
-                    $and: [
-                      { $eq: ['$isActive', false] },
-                      { $ne: ['$isRejected', true] }
-                    ]
-                  },
+                  { $and: [{ $eq: ['$isActive', false] }, { $ne: ['$rejectionStatus.isRejected', true] }] },
                   1,
                   0
                 ]
               }
-            }
+            },
+            todayCount: { $sum: { $cond: [{ $gte: ['$publishedAt', today] }, 1, 0] } },
+            weeklyCount: { $sum: { $cond: [{ $gte: ['$publishedAt', weekAgo] }, 1, 0] } },
+            totalViews: { $sum: { $ifNull: ['$views', 0] } }
           }
         }
       ]);
+
+      // NEW: Aggregate Monthly Views for the last 6 months
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+      sixMonthsAgo.setDate(1);
+      sixMonthsAgo.setHours(0, 0, 0, 0);
+
+      const monthlyTrendData = await News.aggregate([
+        {
+          $match: {
+            authorId: { $in: editorIds },
+            publishedAt: { $gte: sixMonthsAgo }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              authorId: "$authorId",
+              year: { $year: "$publishedAt" },
+              month: { $month: "$publishedAt" }
+            },
+            views: { $sum: { $ifNull: ["$views", 0] } },
+            posts: { $sum: 1 }
+          }
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1 } }
+      ]);
+
+      const monthlyTrendByEditor = {};
+      monthlyTrendData.forEach(item => {
+        if (!monthlyTrendByEditor[item._id.authorId]) monthlyTrendByEditor[item._id.authorId] = [];
+        monthlyTrendByEditor[item._id.authorId].push({
+          month: item._id.month,
+          year: item._id.year,
+          views: item.views,
+          posts: item.posts
+        });
+      });
 
       lifecycleStats.forEach(item => {
         statsByEditor[item._id] = {
           submitted: item.submitted || 0,
           published: item.published || 0,
           pending: item.pending || 0,
-          rejected: item.rejected || 0
+          rejected: item.rejected || 0,
+          today: item.todayCount || 0,
+          weekly: item.weeklyCount || 0,
+          totalViews: item.totalViews || 0,
+          monthlyTrend: monthlyTrendByEditor[item._id] || []
         };
       });
 
@@ -742,7 +774,11 @@ async function renderEditorsPage(req, res) {
           submitted: 0,
           published: 0,
           pending: 0,
-          rejected: 0
+          rejected: 0,
+          today: 0,
+          weekly: 0,
+          totalViews: 0,
+          monthlyTrend: []
         },
         latestRejection: latestRejectByEditor[editor._id.toString()] || null
       };
@@ -826,11 +862,24 @@ async function renderPerformanceAnalyticsPage(req, res) {
 
     const allowedPeriods = ['7', '30', '90', 'all'];
     const period = allowedPeriods.includes(req.query.period) ? req.query.period : '30';
+    const { startDate, endDate } = req.query;
 
     let sinceDate = null;
-    if (period !== 'all') {
+    let untilDate = null;
+
+    if (startDate) {
+      sinceDate = new Date(startDate);
+      sinceDate.setHours(0, 0, 0, 0);
+    }
+    if (endDate) {
+      untilDate = new Date(endDate);
+      untilDate.setHours(23, 59, 59, 999);
+    }
+
+    if (!startDate && period !== 'all') {
       sinceDate = new Date();
       sinceDate.setDate(sinceDate.getDate() - Number(period));
+      sinceDate.setHours(0, 0, 0, 0);
     }
 
     const members = await Admin.find({ role: { $in: ['editor', 'subeditor'] } })
@@ -844,8 +893,10 @@ async function renderPerformanceAnalyticsPage(req, res) {
       authorId: { $in: memberIds }
     };
 
-    if (sinceDate) {
-      newsMatch.publishedAt = { $gte: sinceDate };
+    if (sinceDate || untilDate) {
+      newsMatch.publishedAt = {};
+      if (sinceDate) newsMatch.publishedAt.$gte = sinceDate;
+      if (untilDate) newsMatch.publishedAt.$lte = untilDate;
     }
 
     const authorStats = await News.aggregate([
@@ -899,6 +950,30 @@ async function renderPerformanceAnalyticsPage(req, res) {
           totalComments: { $sum: '$comments' }
         }
       }
+    ]);
+
+    // NEW: Team-wide Monthly View Trend (Last 6 Months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    const teamMonthlyTrend = await News.aggregate([
+      {
+        $match: {
+          authorId: { $in: memberIds },
+          publishedAt: { $gte: sixMonthsAgo }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$publishedAt" },
+            month: { $month: "$publishedAt" }
+          },
+          views: { $sum: { $ifNull: ["$views", 0] } }
+        }
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } }
     ]);
 
     const normalizeName = (value) => (value || '').toString().trim().toLowerCase();
@@ -1089,10 +1164,13 @@ async function renderPerformanceAnalyticsPage(req, res) {
     const topPerformers = rowsWithRank.slice(0, 5);
     const poorPerformers = [...rowsWithRank].reverse().slice(0, 5).reverse();
 
+    const totalTeamViews = rowsWithRank.reduce((acc, row) => acc + row.totalViews, 0);
+
     const summary = {
       totalMembers: rowsWithRank.length,
       totalSubEditors: subEditors.length,
       totalReporters: reporters.length,
+      totalTeamViews: totalTeamViews,
       excellentCount: rowsWithRank.filter((row) => row.performanceBand === 'excellent').length,
       poorCount: rowsWithRank.filter((row) => row.performanceBand === 'poor').length,
       avgScore: rowsWithRank.length > 0
@@ -1105,10 +1183,14 @@ async function renderPerformanceAnalyticsPage(req, res) {
       title: 'Performance Analytics',
       period,
       sinceDate,
+      untilDate,
+      startDate: req.query.startDate || '',
+      endDate: req.query.endDate || '',
       summary,
       analyticsRows: rowsWithRank,
       topPerformers,
       poorPerformers,
+      teamMonthlyTrend,
       recommendations: performanceRecommendations
     });
   } catch (error) {
@@ -1250,6 +1332,36 @@ async function changeEditorPassword(req, res) {
     return res.status(500).json({ error: 'An error occurred while updating password' });
   }
 }
+
+// Get editor stats for a specific range (AJAX API)
+async function getEditorRangeStats(req, res) {
+  try {
+    const { authorId, startDate, endDate } = req.query;
+
+    if (!authorId || !startDate || !endDate) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    console.log(`Fetching stats for Editor: ${authorId} from ${start} to ${end}`);
+
+    const count = await News.countDocuments({
+      authorId: authorId,
+      publishedAt: { $gte: start, $lte: end }
+    });
+
+    console.log(`Count found: ${count}`);
+    res.json({ count });
+  } catch (error) {
+    console.error('Get editor range stats error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 
 // Delete editor (DELETE /editors/:id)
 async function deleteEditor(req, res) {
@@ -3036,5 +3148,6 @@ module.exports = {
   checkDuplicateArticles,
   renderPlagiarismReportPage,
   getDuplicateDetails,
-  renderRejectedNewsPage
+  renderRejectedNewsPage, 
+  getEditorRangeStats
 };
