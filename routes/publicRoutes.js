@@ -98,14 +98,18 @@ router.get('/api/public/news/category/:category', cacheMiddleware(600), async (r
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
 
     if (isConnectedToMongoDB) {
-      // Fetch only active published news from MongoDB with category filter
-      // Include news where isActive is true or not set (implicitly active)
-      newsList = await News.find({
-        $and: [
-          { category: category },
-          { $or: [{ isActive: true }, { isActive: { $exists: false } }] }
-        ]
-      }).sort({ publishedAt: -1 });
+      // 🚀 Robust filtering for legacy support
+      const Category = require('../models/Category');
+      const categoryExists = await Category.findById(category).catch(() => null);
+
+      let query = { isActive: { $ne: false } };
+      if (categoryExists) {
+        query.category = category;
+      } else {
+        console.log(`ℹ️ REST: Legacy category ID detected (${category}) - showing all news`);
+      }
+
+      newsList = await News.find(query).sort({ publishedAt: -1 });
     } else {
       // Use in-memory storage and filter for active news with category filter
       const allNews = req.app.locals.newsData || [];

@@ -16,11 +16,17 @@ const { clearCache: clearRestCache } = require('../middleware/cache');
 
 /**
  * Helper to ensure media URLs are absolute
+ * 🚀 Updated to be domain-agnostic
  */
 const getAbsoluteUrl = (path) => {
     if (!path) return null;
     if (path.startsWith('http')) return path;
-    const baseUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://cbnyellowsingam.in';
+    
+    // Use the environment variable if available, otherwise fallback to relative or dynamic
+    const baseUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || ''; 
+    
+    if (!baseUrl) return path; // Return relative path if no base URL set
+    
     return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
 };
 
@@ -35,16 +41,26 @@ const resolvers = {
                 if (cached) return cached;
 
                 // Cache miss - fetch from DB
-                // ✅ FIX #2: Use $ne: false instead of isActive: true
-                // This includes documents where isActive is true OR isActive field is missing (legacy docs)
                 let query = { isActive: { $ne: false } };
 
+                // 🚀 Robust filtering: Only filter if the category/location actually exists in the DB
+                // Telugu: ఒకవేళ పాత యాప్ నుండి వచ్చే ID లు కొత్త DB లో లేకపోతే, ఫిల్టర్ ని ఇగ్నోర్ చేస్తుంది
                 if (category) {
-                    query.category = category;
+                    const categoryExists = await Category.findById(category).catch(() => null);
+                    if (categoryExists) {
+                        query.category = category;
+                    } else {
+                        console.log(`ℹ️ Legacy category ID detected (${category}) - showing all news`);
+                    }
                 }
 
                 if (location) {
-                    query.location = location;
+                    const locationExists = await Location.findById(location).catch(() => null);
+                    if (locationExists) {
+                        query.location = location;
+                    } else {
+                        console.log(`ℹ️ Legacy location ID detected (${location}) - showing all news`);
+                    }
                 }
 
                 const news = await News.find(query)
