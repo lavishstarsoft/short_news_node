@@ -21,6 +21,16 @@ const { clearCache } = require('../middleware/cache');
 // Import Cloudflare R2 deletion utility
 const { deleteFromR2 } = require('../config/cloudflare');
 
+// Helper to strip color tags [c=#RRGGBB]...[/c] for length validation
+const stripTags = (text) => {
+  if (!text) return '';
+  return text.toString()
+    .replace(/\[c=#[0-9a-fA-F]{6}\]/gi, '')
+    .replace(/\[\/c\]/gi, '')
+    .replace(/\[b\]/gi, '')
+    .replace(/\[\/b\]/gi, '');
+};
+
 function getAuthorRoleLabel(authorAdmin) {
   if (!authorAdmin) return 'Reporter';
 
@@ -105,7 +115,7 @@ async function renderDashboard(req, res) {
         });
       }
 
-      const categories = await Category.find();
+      const categories = await Category.find({ type: { $in: ['news', null] } });
       const locations = await Location.find();
 
       // Get all locations to create a map of name to code
@@ -547,12 +557,12 @@ async function renderEditNewsPage(req, res) {
 // Create new news (include author information)
 async function createNews(req, res) {
   try {
-    // Validation
-    if (req.body.title && req.body.title.length > 55) {
-      return res.status(400).json({ error: 'Title cannot exceed 55 characters' });
+    // Validation (ignoring color tags for limit)
+    if (req.body.title && stripTags(req.body.title).length > 62) {
+      return res.status(400).json({ error: 'Title cannot exceed 62 characters' });
     }
-    if (req.body.content && req.body.content.length > 220) {
-      return res.status(400).json({ error: 'Content cannot exceed 220 characters' });
+    if (req.body.content && stripTags(req.body.content).length > 480) {
+      return res.status(400).json({ error: 'Content cannot exceed 480 characters' });
     }
 
     // Fetch author details for denormalization
@@ -675,12 +685,12 @@ async function updateNews(req, res) {
       return res.status(403).json({ error: 'Access denied. You can only update your own news.' });
     }
 
-    // Validation
-    if (req.body.title && req.body.title.length > 55) {
-      return res.status(400).json({ error: 'Title cannot exceed 55 characters' });
+    // Validation (ignoring color tags for limit)
+    if (req.body.title && stripTags(req.body.title).length > 62) {
+      return res.status(400).json({ error: 'Title cannot exceed 62 characters' });
     }
-    if (req.body.content && req.body.content.length > 220) {
-      return res.status(400).json({ error: 'Content cannot exceed 220 characters' });
+    if (req.body.content && stripTags(req.body.content).length > 480) {
+      return res.status(400).json({ error: 'Content cannot exceed 480 characters' });
     }
 
     // Fetch author details for denormalization

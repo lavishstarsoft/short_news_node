@@ -160,6 +160,7 @@ app.locals.connectedClients = connectedClients;
 const newsRoutes = require('./routes/newsRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const viralVideosRoutes = require('./routes/viralVideosRoutes');
+const longVideosRoutes = require('./routes/longVideosRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const publicRoutes = require('./routes/publicRoutes');
@@ -645,6 +646,7 @@ app.use('/admin', adminRoutes); // Admin routes with /admin prefix
 app.use('/news', newsRoutes); // News routes with /news prefix
 app.use('/categories', categoryRoutes);
 app.use('/viral-videos', viralVideosRoutes);
+app.use('/long-videos', longVideosRoutes);
 app.use('/locations', locationRoutes);
 app.use('/ads', adRoutes); // Add this line for ads routes
 app.use('/intelligent-ads', intelligentAdRoutes); // Add this line for intelligent ads routes

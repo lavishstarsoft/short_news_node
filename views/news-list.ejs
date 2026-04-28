@@ -1237,7 +1237,6 @@
                     // Send notification for news function - Shows Simple Editor
                     let currentNotificationNewsItem = null;
                     let selectedTitleColor = '#FF6F00';
-                    let selectedMessageColor = '#FFFFFF';
                     let selectedTitleFontSize = 'normal'; // small, normal, large
 
                     function sendNotificationForNews(newsId) {
@@ -1254,7 +1253,6 @@
 
                             // Reset colors and font size to default
                             selectedTitleColor = '#FF6F00';
-                            selectedMessageColor = '#FFFFFF';
                             selectedTitleFontSize = 'normal';
 
                             // Reset color button selections
@@ -1277,13 +1275,6 @@
                         });
                         document.getElementById('customTitleColor').value = '#FF6F00';
 
-                        // Reset message color buttons
-                        document.querySelectorAll('#messageColorPresets .color-btn').forEach(btn => {
-                            btn.classList.remove('selected');
-                            if (btn.dataset.color === '#FFFFFF') btn.classList.add('selected');
-                        });
-                        document.getElementById('customMessageColor').value = '#FFFFFF';
-
                         // Reset font size buttons
                         document.querySelectorAll('#titleFontSizePresets .font-size-btn').forEach(btn => {
                             btn.classList.remove('selected');
@@ -1303,21 +1294,6 @@
                     function selectCustomTitleColor(color) {
                         document.querySelectorAll('#titleColorPresets .color-btn').forEach(b => b.classList.remove('selected'));
                         selectedTitleColor = color;
-                        updateNotifPreview();
-                    }
-
-                    function selectMessageColor(btn) {
-                        // Remove selected from all message color buttons
-                        document.querySelectorAll('#messageColorPresets .color-btn').forEach(b => b.classList.remove('selected'));
-                        btn.classList.add('selected');
-                        selectedMessageColor = btn.dataset.color;
-                        document.getElementById('customMessageColor').value = selectedMessageColor;
-                        updateNotifPreview();
-                    }
-
-                    function selectCustomMessageColor(color) {
-                        document.querySelectorAll('#messageColorPresets .color-btn').forEach(b => b.classList.remove('selected'));
-                        selectedMessageColor = color;
                         updateNotifPreview();
                     }
 
@@ -1348,7 +1324,8 @@
                         }
                         if (previewMessage) {
                             previewMessage.textContent = message || 'Message preview...';
-                            previewMessage.style.color = selectedMessageColor;
+                            // Body color is dynamic based on app theme, so we don't preview a forced color here.
+                            previewMessage.style.color = '#FFFFFF'; 
                         }
                     }
 
@@ -1373,7 +1350,6 @@
                         console.log('   Title:', title);
                         console.log('   Title Color:', selectedTitleColor);
                         console.log('   Title Font Size:', selectedTitleFontSize);
-                        console.log('   Message Color:', selectedMessageColor);
 
                         const notificationData = {
                             title: title,
@@ -1385,8 +1361,7 @@
                             priority: 'high',
                             // 🎨 Way2News style: Send colors and font size directly
                             titleColor: selectedTitleColor,
-                            titleFontSize: selectedTitleFontSize,
-                            messageColor: selectedMessageColor
+                            titleFontSize: selectedTitleFontSize
                         };
 
                         const sendBtn = document.getElementById('sendNotifBtn');
@@ -1511,22 +1486,6 @@
                         </div>
                     </div>
 
-                    <!-- Message Color -->
-                    <div class="color-row">
-                        <span class="color-row-label">Body Color:</span>
-                        <div class="color-presets" id="messageColorPresets">
-                            <button class="color-btn selected" style="background: #FFFFFF; border: 2px solid #ddd;" data-color="#FFFFFF" onclick="selectMessageColor(this)" title="White"></button>
-                            <button class="color-btn" style="background: #333333;" data-color="#333333" onclick="selectMessageColor(this)" title="Dark Gray"></button>
-                            <button class="color-btn" style="background: #000000;" data-color="#000000" onclick="selectMessageColor(this)" title="Black"></button>
-                            <button class="color-btn" style="background: #555555;" data-color="#555555" onclick="selectMessageColor(this)" title="Gray"></button>
-                            <button class="color-btn" style="background: #1565C0;" data-color="#1565C0" onclick="selectMessageColor(this)" title="Blue"></button>
-                            <button class="color-btn" style="background: #2E7D32;" data-color="#2E7D32" onclick="selectMessageColor(this)" title="Green"></button>
-                            <button class="color-btn" style="background: #C62828;" data-color="#C62828" onclick="selectMessageColor(this)" title="Red"></button>
-                        </div>
-                        <div class="custom-color-wrapper">
-                            <input type="color" class="custom-color-input" id="customMessageColor" value="#FFFFFF" onchange="selectCustomMessageColor(this.value)" title="Custom Color">
-                            <span class="custom-color-label">Custom</span>
-                        </div>
                     </div>
                 </div>
 

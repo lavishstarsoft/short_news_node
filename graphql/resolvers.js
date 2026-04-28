@@ -143,7 +143,7 @@ const resolvers = {
                 if (cached) return cached;
 
                 // Cache miss - fetch from DB
-                const categories = await Category.find();
+                const categories = await Category.find({ type: { $in: ['news', null] } });
 
                 // Cache the result (1800s = 30 minutes - categories rarely change)
                 await setCachedData('categories', {}, categories, 1800);

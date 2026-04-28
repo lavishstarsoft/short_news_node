@@ -915,10 +915,36 @@
             let pendingRejectNewsId = null;
             let newsDataCache = {};
             let duplicateDataCache = {};
-            const TITLE_MAX = 55;
-            const CONTENT_MAX = 220;
+            const TITLE_MAX = 62;
+            const CONTENT_MAX = 480;
             const categoryOptions = <%- JSON.stringify([...(pendingNews ? new Set(pendingNews.map(n => n.category).filter(Boolean)) : [])]) %>;
             const locationOptions = <%- JSON.stringify([...(pendingNews ? new Set(pendingNews.map(n => n.location).filter(Boolean)) : [])]) %>;
+
+            function stripTags(text) {
+                if (!text) return '';
+                return text.replace(/\[c=#[0-9a-fA-F]{6}\]/gi, '').replace(/\[\/c\]/gi, '');
+            }
+
+            // Trim text to a specific plain-text length while keeping tags intact
+            function trimToPlainLimit(text, max) {
+                if (!text) return '';
+                let plainLength = 0;
+                let result = '';
+                let i = 0;
+                while (i < text.length && plainLength < max) {
+                    // Check for opening or closing color tags
+                    const tagMatch = text.substring(i).match(/^\[c=#[0-9a-fA-F]{6}\]|^\[\/c\]/i);
+                    if (tagMatch) {
+                        result += tagMatch[0];
+                        i += tagMatch[0].length;
+                    } else {
+                        result += text[i];
+                        plainLength++;
+                        i++;
+                    }
+                }
+                return result;
+            }
 
             function escapeHtml(str = '') {
                 return String(str)
@@ -1097,8 +1123,8 @@
                         <div style="display: grid; gap: 0.8rem;">
                             <div>
                                 <label style="font-size: 0.8rem; font-weight: 700; color: #555;">Title</label>
-                                <input id="editTitle-${newsId}" type="text" maxlength="${TITLE_MAX}" value="${escapeHtml(news.title)}" oninput="updateTitleCounter('${newsId}')" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px;">
-                                <div id="editTitleCount-${newsId}" style="font-size: 0.75rem; text-align: right; color: #777;">${(news.title || '').length}/${TITLE_MAX}</div>
+                                <input id="editTitle-${newsId}" type="text" maxlength="800" value="${escapeHtml(news.title)}" oninput="updateTitleCounter('${newsId}')" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px;">
+                                <div id="editTitleCount-${newsId}" style="font-size: 0.75rem; text-align: right; color: #777;">${stripTags(news.title || '').length}/${TITLE_MAX}</div>
                             </div>
 
                             <div>
@@ -1118,8 +1144,8 @@
 
                             <div>
                                 <label style="font-size: 0.8rem; font-weight: 700; color: #555;">Content</label>
-                                <textarea id="editContent-${newsId}" rows="6" maxlength="${CONTENT_MAX}" oninput="updateContentCounter('${newsId}')" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px; resize: vertical;">${escapeHtml(news.content)}</textarea>
-                                <div id="editContentCount-${newsId}" style="font-size: 0.75rem; text-align: right; color: #777;">${(news.content || '').length}/${CONTENT_MAX}</div>
+                                <textarea id="editContent-${newsId}" rows="6" maxlength="1200" oninput="updateContentCounter('${newsId}')" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px; resize: vertical;">${escapeHtml(news.content)}</textarea>
+                                <div id="editContentCount-${newsId}" style="font-size: 0.75rem; text-align: right; color: #777;">${stripTags(news.content || '').length}/${CONTENT_MAX}</div>
                             </div>
                         </div>
                     </div>
@@ -1158,20 +1184,40 @@
                 const input = document.getElementById(`editTitle-${newsId}`);
                 const count = document.getElementById(`editTitleCount-${newsId}`);
                 if (!input || !count) return;
-                const value = (input.value || '').slice(0, TITLE_MAX);
-                input.value = value;
-                count.textContent = `${value.length}/${TITLE_MAX}`;
-                count.style.color = value.length >= TITLE_MAX ? '#dc3545' : '#777';
+                
+                let plainText = stripTags(input.value);
+                let current = plainText.length;
+                
+                if (current > TITLE_MAX) {
+                    // Trim to limit
+                    input.value = trimToPlainLimit(input.value, TITLE_MAX);
+                    plainText = stripTags(input.value);
+                    current = plainText.length;
+                }
+                
+                count.style.color = current >= TITLE_MAX ? '#dc3545' : '#777';
+                count.style.fontWeight = current >= TITLE_MAX ? 'bold' : '';
+                count.textContent = `${current}/${TITLE_MAX}`;
             }
 
             function updateContentCounter(newsId) {
                 const input = document.getElementById(`editContent-${newsId}`);
                 const count = document.getElementById(`editContentCount-${newsId}`);
                 if (!input || !count) return;
-                const value = (input.value || '').slice(0, CONTENT_MAX);
-                input.value = value;
-                count.textContent = `${value.length}/${CONTENT_MAX}`;
-                count.style.color = value.length >= CONTENT_MAX ? '#dc3545' : '#777';
+                
+                let plainText = stripTags(input.value);
+                let current = plainText.length;
+                
+                if (current > CONTENT_MAX) {
+                    // Trim to limit
+                    input.value = trimToPlainLimit(input.value, CONTENT_MAX);
+                    plainText = stripTags(input.value);
+                    current = plainText.length;
+                }
+                
+                count.style.color = current >= CONTENT_MAX ? '#dc3545' : '#777';
+                count.style.fontWeight = current >= CONTENT_MAX ? 'bold' : '';
+                count.textContent = `${current}/${CONTENT_MAX}`;
             }
 
             async function savePendingChanges(newsId, approveAfterSave = false) {
@@ -1199,13 +1245,13 @@
                     return;
                 }
 
-                if (payload.title.length > TITLE_MAX) {
-                    alert(`Title must be ${TITLE_MAX} characters or less.`);
+                if (stripTags(payload.title).length > TITLE_MAX) {
+                    alert(`Title must be ${TITLE_MAX} characters or less (excluding color tags).`);
                     return;
                 }
 
-                if (payload.content.length > CONTENT_MAX) {
-                    alert(`Content must be ${CONTENT_MAX} characters or less.`);
+                if (stripTags(payload.content).length > CONTENT_MAX) {
+                    alert(`Content must be ${CONTENT_MAX} characters or less (excluding color tags).`);
                     return;
                 }
 

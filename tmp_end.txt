@@ -1,0 +1,85 @@
+4:<%- include('partials/header', { title: 'News List' }) %>
+299:        <%- include('partials/top-nav', { pageTitle: 'News List' , backButton: true, backUrl: '/' }) %>
+300:            <% const selectedAuthorIdSafe = (typeof selectedAuthorId !== 'undefined' && selectedAuthorId) ? selectedAuthorId : ''; %>
+305:                    <%- include('partials/sidebar', { activePage: 'news-list' }) %>
+321:                                                value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+326:                                                <% locations.forEach(function(location) { %>
+327:                                                    <option value="<%= location.name %>" <%=(typeof selectedLocation
+329:                                                        : '' %>
+330:                                                        ><%= location.name %>
+332:                                                    <% }); %>
+339:                                                    selectedStatus==='active' ) ? 'selected' : '' %>>Active</option>
+341:                                                    selectedStatus==='inactive' ) ? 'selected' : '' %>>Inactive</option>
+343:                                                    selectedStatus==='pending' ) ? 'selected' : '' %>>Pending</option>
+345:                                                    selectedStatus==='rejected' ) ? 'selected' : '' %>>Rejected</option>
+351:                                                value="<%= typeof fromDate !== 'undefined' ? fromDate : '' %>">
+356:                                                value="<%= typeof toDate !== 'undefined' ? toDate : '' %>">
+364:                                                <a href="/news-list<%= selectedAuthorIdSafe ? '?authorId=' + selectedAuthorIdSafe : '' %>" class="btn btn-outline-secondary" title="Clear">
+374:                                        value="<%= selectedAuthorIdSafe %>">
+376:                                        value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+378:                                        value="<%= typeof selectedLocation !== 'undefined' ? selectedLocation : '' %>">
+380:                                        value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : '' %>">
+382:                                        value="<%= typeof fromDate !== 'undefined' ? fromDate : '' %>">
+384:                                        value="<%= typeof toDate !== 'undefined' ? toDate : '' %>">
+391:                                        <%= newsList.length %> articles
+395:                                <% if (newsList.length===0) { %>
+406:                                    <% } else { %>
+408:                                            <% newsList.forEach(function(news) { %>
+411:                                                        onclick="viewNews('<%= news._id %>')" style="cursor: pointer;">
+413:                                                            <% if (news.mediaType==='video' ) { %>
+414:                                                                <video src="<%= news.mediaUrl %>" class="card-img-top"
+417:                                                                <% } else { %>
+418:                                                                    <img src="<%= news.mediaUrl || news.imageUrl %>"
+419:                                                                        class="card-img-top" alt="<%= news.title %>"
+421:                                                                    <% } %>
+422:                                                                        <% if (news.location) { %>
+427:                                                                                <% if (news.locationCode) { %>
+428:                                                                                    <%= news.locationCode %>
+429:                                                                                        <% } %>
+431:                                                                            <% } %>
+438:                                                                                        - 6) : news._id.toString()) %>
+456:                                                                                %>
+458:                                                                                    <span class="badge <%= badgeClass %>">
+459:                                                                                        <%= statusText %>
+467:                                                                    : '') %>
+472:                                                                    '...' : '') %>
+477:                                                                    <%= news.category %>
+481:                                                                        %>
+485:                                                                !=='editor' ) { %>
+490:                                                                        <%= news.author %>
+493:                                                                <% } %>
+499:                                                                            <%= news.likes || 0 %>
+504:                                                                            <%= news.dislikes || 0 %>
+509:                                                                            <%= news.comments || 0 %>
+513:                                                                            <%= news.views || 0 %>
+518:                                                                            class="btn btn-sm btn-<%= news.isActive === false ? 'success' : 'secondary' %> ripple"
+519:                                                                            onclick="<% if (isPending) { %>alert('⚠️ This news is Pending! Please go to the Pending News page to review and approve it.'); event.stopPropagation();<% } else { %>toggleNewsStatus('<%= news._id %>'); event.stopPropagation();<% } %>"
+520:                                                                            title="<%= isPending ? 'Pending Review' : (news.isActive === false ? 'Activate' : 'Deactivate') %>">
+522:                                                                                class="fas fa-<%= news.isActive === false ? 'check' : 'times' %>"></i>
+526:                                                                            onclick="viewNews('<%= news._id %>'); event.stopPropagation();"
+531:                                                                            onclick="editNews('<%= news._id %>'); event.stopPropagation();"
+536:                                                                            onclick="sendNotificationForNews('<%= news._id %>'); event.stopPropagation();"
+541:                                                                            onclick="deleteNews('<%= news._id %>'); event.stopPropagation();"
+549:                                                <% }); %>
+553:                                        <% if (typeof pagination !== 'undefined' && pagination.totalPages > 1) { %>
+557:                                                    Showing <%= ((pagination.currentPage - 1) * pagination.limit) + 1 %> -
+558:                                                    <%= Math.min(pagination.currentPage * pagination.limit, pagination.totalNews) %>
+559:                                                    of <%= pagination.totalNews %> news
+562:                                                    Page <%= pagination.currentPage %> of <%= pagination.totalPages %>
+567:                                                <li class="page-item <%= pagination.currentPage === 1 ? 'disabled' : '' %>">
+568:                                                    <a class="page-link" href="?page=1<%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '' %><%= selectedLocation ? '&location=' + selectedLocation : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %><%= fromDate ? '&fromDate=' + fromDate : '' %><%= toDate ? '&toDate=' + toDate : '' %>">
+573:                                                <li class="page-item <%= !pagination.hasPrevPage ? 'disabled' : '' %>">
+574:                                                    <a class="page-link" href="?page=<%= pagination.currentPage - 1 %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '' %><%= selectedLocation ? '&location=' + selectedLocation : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %><%= fromDate ? '&fromDate=' + fromDate : '' %><%= toDate ? '&toDate=' + toDate : '' %>">
+593:                                                for (let i = startPage; i <= endPage; i++) { %>
+594:                                                    <li class="page-item <%= i === pagination.currentPage ? 'active' : '' %>">
+595:                                                        <a class="page-link" href="?page=<%= i %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '' %><%= selectedLocation ? '&location=' + selectedLocation : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %><%= fromDate ? '&fromDate=' + fromDate : '' %><%= toDate ? '&toDate=' + toDate : '' %>">
+596:                                                            <%= i %>
+599:                                                <% } %>
+602:                                                <li class="page-item <%= !pagination.hasNextPage ? 'disabled' : '' %>">
+603:                                                    <a class="page-link" href="?page=<%= pagination.currentPage + 1 %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '' %><%= selectedLocation ? '&location=' + selectedLocation : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %><%= fromDate ? '&fromDate=' + fromDate : '' %><%= toDate ? '&toDate=' + toDate : '' %>">
+608:                                                <li class="page-item <%= pagination.currentPage === pagination.totalPages ? 'disabled' : '' %>">
+609:                                                    <a class="page-link" href="?page=<%= pagination.totalPages %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '' %><%= selectedLocation ? '&location=' + selectedLocation : '' %><%= selectedStatus ? '&status=' + selectedStatus : '' %><%= fromDate ? '&fromDate=' + fromDate : '' %><%= toDate ? '&toDate=' + toDate : '' %>">
+615:                                        <% } %>
+617:                                        <% } %>
+790:            <%- include('partials/footer') %>
+792:                <script id="newsData" type="application/json"><%- JSON.stringify(newsList) %></script>

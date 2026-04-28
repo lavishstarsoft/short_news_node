@@ -61,6 +61,12 @@
                     <span class="nav-text">Viral Videos</span>
                 </a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link ripple <%= activePage === 'long-videos' ? 'active' : '' %>" href="/long-videos">
+                    <i class="fas fa-tv me-3"></i>
+                    <span class="nav-text">Long Videos / Programs</span>
+                </a>
+            </li>
             <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
                 admin.role==='superadmin' )) { %>
                 <li class="nav-item">
@@ -107,6 +113,13 @@
                             href="/categories">
                             <i class="fas fa-list me-3"></i>
                             <span class="nav-text">Categories</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link ripple <%= activePage === 'program-categories' ? 'active' : '' %>"
+                            href="/categories?type=program">
+                            <i class="fas fa-list-alt me-3"></i>
+                            <span class="nav-text">Program Categories</span>
                         </a>
                     </li>
                     <li class="nav-item">

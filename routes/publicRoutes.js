@@ -943,6 +943,47 @@ router.get('/api/public/viral-videos', cacheMiddleware(300), async (req, res) =>
   }
 });
 
+// Public API endpoint for fetching long videos (no authentication required)
+// Cached for 5 minutes (300 seconds)
+router.get('/api/public/long-videos', cacheMiddleware(300), async (req, res) => {
+  try {
+    let videosList;
+
+    // Check if MongoDB is connected
+    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
+
+    if (isConnectedToMongoDB) {
+      const LongVideo = require('../models/LongVideo');
+      // Fetch only active long videos from MongoDB
+      videosList = await LongVideo.find({ isActive: true }).sort({ publishedAt: -1 });
+    } else {
+      videosList = [];
+    }
+
+    // Transform data for Flutter app
+    const transformedVideos = videosList.map(video => {
+      const videoObj = video.toObject ? video.toObject() : video;
+      return {
+        id: videoObj._id,
+        title: videoObj.title,
+        description: videoObj.description,
+        videoUrl: videoObj.videoUrl,
+        thumbnailUrl: videoObj.thumbnailUrl || '/images/placeholder.png',
+        category: videoObj.category,
+        publishedAt: videoObj.publishedAt,
+        views: videoObj.views || 0,
+        likes: videoObj.likes || 0
+      };
+    });
+
+    res.json(transformedVideos);
+  } catch (error) {
+    console.error('Error fetching public long videos:', error);
+    res.status(500).json({ error: 'Error fetching long videos' });
+  }
+});
+
+
 // New endpoint for viral video interactions
 router.post('/api/public/viral-videos/:id/interact', async (req, res) => {
   try {

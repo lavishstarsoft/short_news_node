@@ -26,6 +26,17 @@ const { checkDuplicate, generateContentHash } = require('../utils/similarityDete
 const { clearCache } = require('../middleware/cache');
 const { invalidateCache } = require('../graphql/cache');
 
+// Helper to strip color tags [c=#RRGGBB]...[/c] for length validation
+const stripTags = (text) => {
+  if (!text) return '';
+  return text.toString()
+    .replace(/\[c=#[0-9a-fA-F]{6}\]/gi, '')
+    .replace(/\[\/c\]/gi, '')
+    .replace(/\[b\]/gi, '')
+    .replace(/\[\/b\]/gi, '');
+};
+
+
 function buildAdminNewsHistory(action, adminId, adminName, adminRole, details, metadata = {}) {
   return {
     action,
@@ -527,7 +538,7 @@ async function renderDashboard(req, res) {
         inactiveNewsCount = await News.countDocuments({ isActive: false });
       }
 
-      const categories = await Category.find();
+      const categories = await Category.find({ type: { $in: ['news', null] } });
       const locations = await Location.find();
 
       // Get all locations to create a map of name to code
@@ -1501,7 +1512,7 @@ async function renderReportsPage(req, res) {
 // Send notification to all connected clients
 async function sendNotification(req, res) {
   try {
-    const { title, message, newsId, imageUrl, launchUrl, titleColor, messageColor, platformSettings, priority } = req.body;
+    const { title, message, newsId, imageUrl, launchUrl, titleColor, messageColor, titleFontSize, platformSettings, priority } = req.body;
 
     // Validate input
     if (!title || !message) {
@@ -1612,6 +1623,7 @@ async function sendNotification(req, res) {
       launchUrl: finalLaunchUrl || null,
       titleColor: titleColor || null, // Include title color in WebSocket notification
       messageColor: messageColor || null, // Include message color
+      titleFontSize: titleFontSize || 'normal', // Include title font size
       platformSettings: finalPlatformSettings,
       priority: priority || 'normal',
       timestamp: new Date()
@@ -1661,6 +1673,7 @@ async function sendNotification(req, res) {
         launchUrl: finalLaunchUrl || null,
         titleColor: titleColor || '#FF6F00',  // Default orange if not provided
         messageColor: messageColor || '#333333', // Default dark gray
+        titleFontSize: titleFontSize || 'normal', // Pass the selected font size
         platformSettings: finalPlatformSettings,
         priority: priority || 'normal',
         ...notificationData
@@ -2684,12 +2697,12 @@ async function updatePendingNews(req, res) {
       return res.status(400).json({ error: 'Title, content and category are required' });
     }
 
-    if (normalizedTitle.length > 55) {
-      return res.status(400).json({ error: 'Title must be 55 characters or less' });
+    if (stripTags(normalizedTitle).length > 62) {
+      return res.status(400).json({ error: 'Title must be 62 characters or less' });
     }
 
-    if (normalizedContent.length > 220) {
-      return res.status(400).json({ error: 'Content must be 220 characters or less' });
+    if (stripTags(normalizedContent).length > 480) {
+      return res.status(400).json({ error: 'Content must be 480 characters or less' });
     }
 
     const updatePayload = {

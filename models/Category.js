@@ -9,6 +9,11 @@ const categorySchema = new mongoose.Schema({
     minlength: 2,
     maxlength: 50
   },
+  type: {
+    type: String,
+    enum: ['news', 'program'],
+    default: 'news'
+  },
   description: { 
     type: String, 
     required: true,

@@ -1,5 +1,6 @@
 const Category = require('../models/Category');
 const News = require('../models/News');
+const LongVideo = require('../models/LongVideo');
 const path = require('path');
 const fs = require('fs');
 const { deleteFromR2 } = require('../config/cloudflare');
@@ -7,16 +8,18 @@ const { deleteFromR2 } = require('../config/cloudflare');
 // Get all categories
 exports.getAllCategories = async (req, res) => {
   try {
-    // Check if MongoDB is connected
+    const type = req.query.type || 'news';
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
 
     if (isConnectedToMongoDB) {
-      const categories = await Category.find().sort({ name: 1 });
-      res.render('categories', { categories, admin: req.admin });
+      const query = type === 'news' ? { type: { $in: ['news', null] } } : { type };
+      const categories = await Category.find(query).sort({ name: 1 });
+      res.render(type === 'program' ? 'program-categories' : 'categories', { categories, admin: req.admin });
     } else {
       // Use in-memory storage
-      const categories = req.app.locals.categoryData || [];
-      res.render('categories', { categories, admin: req.admin });
+      let categories = req.app.locals.categoryData || [];
+      categories = categories.filter(cat => (cat.type || 'news') === type);
+      res.render(type === 'program' ? 'program-categories' : 'categories', { categories, admin: req.admin });
     }
   } catch (error) {
     console.error('Error fetching categories:', error);
@@ -27,14 +30,17 @@ exports.getAllCategories = async (req, res) => {
 // Get categories with news count
 exports.getCategoriesWithCount = async (req, res) => {
   try {
+    const type = req.query.type || 'news';
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
 
     if (isConnectedToMongoDB) {
-      const categories = await Category.getCategoriesWithCount();
+      const query = type === 'news' ? { type: { $in: ['news', null] } } : { type };
+      const categories = await Category.find(query).sort({ name: 1 });
       res.json(categories);
     } else {
       // Use in-memory storage
-      const categories = req.app.locals.categoryData || [];
+      let categories = req.app.locals.categoryData || [];
+      categories = categories.filter(cat => (cat.type || 'news') === type);
       res.json(categories);
     }
   } catch (error) {
@@ -72,7 +78,7 @@ exports.getCategoryById = async (req, res) => {
 // Create new category
 exports.createCategory = async (req, res) => {
   try {
-    const { name, description, color, icon, isActive } = req.body;
+    const { name, description, color, icon, isActive, type } = req.body;
     let imageUrl = '/uploads/default-category.png';
 
     // Handle image upload if provided
@@ -93,12 +99,13 @@ exports.createCategory = async (req, res) => {
     if (isConnectedToMongoDB) {
       // Check if category already exists
       const existingCategory = await Category.findOne({
-        name: { $regex: new RegExp(`^${name}$`, 'i') }
+        name: { $regex: new RegExp(`^${name}$`, 'i') },
+        type: type || 'news'
       });
 
       if (existingCategory) {
         return res.status(400).json({
-          error: 'Category with this name already exists'
+          error: 'Category with this name already exists in this section'
         });
       }
 
@@ -108,7 +115,8 @@ exports.createCategory = async (req, res) => {
         color: color || '#007bff',
         icon: icon || 'fas fa-folder',
         imageUrl: imageUrl,
-        isActive: isActive !== false
+        isActive: isActive !== false,
+        type: type || 'news'
       });
 
       await category.save();
@@ -255,12 +263,21 @@ exports.deleteCategory = async (req, res) => {
         return res.status(404).json({ error: 'Category not found' });
       }
 
-      // Check if category has associated news
-      const newsCount = await News.countDocuments({ category: category.name });
-      if (newsCount > 0) {
-        return res.status(400).json({
-          error: `Cannot delete category. It has ${newsCount} associated news articles. Please reassign or delete the news first.`
-        });
+      // Check if category has associated content
+      if (category.type === 'program') {
+        const videoCount = await LongVideo.countDocuments({ category: category.name });
+        if (videoCount > 0) {
+          return res.status(400).json({
+            error: `Cannot delete category. It has ${videoCount} associated long videos. Please reassign or delete the videos first.`
+          });
+        }
+      } else {
+        const newsCount = await News.countDocuments({ category: category.name });
+        if (newsCount > 0) {
+          return res.status(400).json({
+            error: `Cannot delete category. It has ${newsCount} associated news articles. Please reassign or delete the news first.`
+          });
+        }
       }
 
       // Delete media from Cloudflare R2

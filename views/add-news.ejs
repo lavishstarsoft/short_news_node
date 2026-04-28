@@ -35,6 +35,85 @@
             object-fit: cover;
             border-radius: 4px;
         }
+
+        /* Color Toolbar Styles */
+        .color-toolbar {
+            display: flex;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 5px 10px;
+            border: 1px solid #dee2e6;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+        }
+
+        .color-btn {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            margin-right: 8px;
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+
+        .color-btn:hover {
+            transform: scale(1.2);
+        }
+
+        .color-input-wrapper {
+            position: relative;
+            width: 22px;
+            height: 22px;
+            overflow: hidden;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+        }
+
+        .color-input-wrapper input[type="color"] {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            border: none;
+            padding: 0;
+            background: none;
+        }
+
+        .form-control-with-toolbar {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+
+        .toolbar-divider {
+            width: 1px;
+            height: 20px;
+            background: #dee2e6;
+            margin: 0 12px;
+        }
+
+        .toolbar-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #495057;
+        }
+
+        .toolbar-btn:hover {
+            background: #e9ecef;
+            color: #212529;
+        }
     </style>
     </head>
 
@@ -64,22 +143,69 @@
                                                         value="<%= typeof news !== 'undefined' ? news._id : '' %>">
                                                     <div class="mb-3">
                                                         <label for="title" class="form-label">Title</label>
-                                                        <input type="text" class="form-control" id="title"
+                                                        <div class="color-toolbar">
+                                                            <span class="small text-muted me-2"><i
+                                                                    class="fas fa-palette"></i></span>
+                                                            <div class="color-btn" style="background-color: #F44336;"
+                                                                onclick="applyTextColor('title', '#F44336')"></div>
+                                                            <div class="color-btn" style="background-color: #2196F3;"
+                                                                onclick="applyTextColor('title', '#2196F3')"></div>
+                                                            <div class="color-btn" style="background-color: #4CAF50;"
+                                                                onclick="applyTextColor('title', '#4CAF50')"></div>
+                                                            <div class="color-btn" style="background-color: #FF9800;"
+                                                                onclick="applyTextColor('title', '#FF9800')"></div>
+                                                            <div class="color-input-wrapper" title="Custom Color">
+                                                                <input type="color"
+                                                                    onchange="applyTextColor('title', this.value)">
+                                                            </div>
+                                                            <div class="toolbar-divider"></div>
+                                                            <div class="toolbar-btn" title="Bold" onclick="applyBoldText('title')">
+                                                                <i class="fas fa-bold"></i>
+                                                            </div>
+                                                            <div class="toolbar-btn" title="Remove Styling" onclick="removeStyling('title')">
+                                                                <i class="fas fa-eraser"></i>
+                                                            </div>
+                                                        </div>
+                                                        <input type="text"
+                                                            class="form-control form-control-with-toolbar" id="title"
                                                             placeholder="Enter news title"
                                                             value="<%= typeof news !== 'undefined' ? news.title : '' %>"
-                                                            maxlength="55" oninput="updateCount('title', 55)" required>
+                                                            maxlength="800" oninput="updateCount('title', 62)" required>
                                                         <div class="form-text text-end">
-                                                            <span id="titleCount">0</span>/55 characters
+                                                            <span id="titleCount">0</span>/62 characters
                                                         </div>
                                                     </div>
                                                     <div class="mb-3">
                                                         <label for="content" class="form-label">Content</label>
-                                                        <textarea class="form-control" id="content" rows="6"
-                                                            placeholder="Enter news content" maxlength="220"
-                                                            oninput="updateCount('content', 220)"
+                                                        <div class="color-toolbar">
+                                                            <span class="small text-muted me-2"><i
+                                                                    class="fas fa-palette"></i></span>
+                                                            <div class="color-btn" style="background-color: #F44336;"
+                                                                onclick="applyTextColor('content', '#F44336')"></div>
+                                                            <div class="color-btn" style="background-color: #2196F3;"
+                                                                onclick="applyTextColor('content', '#2196F3')"></div>
+                                                            <div class="color-btn" style="background-color: #4CAF50;"
+                                                                onclick="applyTextColor('content', '#4CAF50')"></div>
+                                                            <div class="color-btn" style="background-color: #FF9800;"
+                                                                onclick="applyTextColor('content', '#FF9800')"></div>
+                                                            <div class="color-input-wrapper" title="Custom Color">
+                                                                <input type="color"
+                                                                    onchange="applyTextColor('content', this.value)">
+                                                            </div>
+                                                            <div class="toolbar-divider"></div>
+                                                            <div class="toolbar-btn" title="Bold" onclick="applyBoldText('content')">
+                                                                <i class="fas fa-bold"></i>
+                                                            </div>
+                                                            <div class="toolbar-btn" title="Remove Styling" onclick="removeStyling('content')">
+                                                                <i class="fas fa-eraser"></i>
+                                                            </div>
+                                                        </div>
+                                                        <textarea class="form-control form-control-with-toolbar"
+                                                            id="content" rows="6" placeholder="Enter news content"
+                                                            maxlength="1200" oninput="updateCount('content', 480)"
                                                             required><%= typeof news !== 'undefined' ? news.content : '' %></textarea>
                                                         <div class="form-text text-end">
-                                                            <span id="contentCount">0</span>/220 characters
+                                                            <span id="contentCount">0</span>/480 characters
                                                         </div>
                                                     </div>
 
@@ -89,20 +215,21 @@
                                                         <div class="border rounded p-3 mb-3">
                                                             <div class="d-flex flex-column align-items-center">
                                                                 <div id="mediaPreviewContainer" class="mb-3"
-                                                                    style="width: 100%; max-width: 300px;">
+                                                                    style="width: 100%; aspect-ratio: 16/9; overflow: hidden; border-radius: 8px; background: #f0f0f0;">
                                                                     <img id="imagePreview"
                                                                         src="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '/images/placeholder.png' %>"
                                                                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmZmZmYiPkltYWdlIFVwbG9hZDwvdGV4dD48L3N2Zz4='"
-                                                                        class="img-fluid rounded" alt="Media Preview"
-                                                                        style="display: block;">
+                                                                        class="rounded" alt="Media Preview"
+                                                                        style="display: block; width: 100%; height: 100%; object-fit: contain;">
                                                                     <video id="videoPreview" src="" controls
-                                                                        class="img-fluid rounded" alt="Video Preview"
-                                                                        style="display: none; max-height: 300px;"></video>
+                                                                        class="rounded" alt="Video Preview"
+                                                                        style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
                                                                 </div>
                                                                 <button type="button"
                                                                     class="btn btn-outline-primary ripple"
                                                                     id="uploadMediaButton">
-                                                                    <i class="fas fa-upload me-1"></i> Upload Media (Select Multiple Images)
+                                                                    <i class="fas fa-upload me-1"></i> Upload Media
+                                                                    (Select Multiple Images)
                                                                 </button>
                                                                 <input type="file" id="mediaUpload"
                                                                     accept="image/*,video/*" class="d-none" multiple>
@@ -115,7 +242,8 @@
                                                                 <!-- Store multiple images here -->
                                                                 <input type="hidden" id="imageUrls"
                                                                     value='<%= typeof news !== "undefined" && news.imageUrls ? JSON.stringify(news.imageUrls) : "[]" %>'>
-                                                                <div id="multipleImagesContainer" class="mt-3 d-flex flex-wrap gap-2">
+                                                                <div id="multipleImagesContainer"
+                                                                    class="mt-3 d-flex flex-wrap gap-2">
                                                                     <!-- Additional images will be shown here -->
                                                                 </div>
                                                             </div>
@@ -205,7 +333,7 @@
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="imageCropModalLabel">Crop Image to 9:13 (Flutter Display)</h5>
+                            <h5 class="modal-title" id="imageCropModalLabel">Crop Image to 16:9</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
@@ -270,13 +398,13 @@
                             return;
                         }
 
-                        if (title.length > 55) {
-                            showFeedback('Title cannot exceed 55 characters', 'error');
+                        if (stripTags(title).length > 62) {
+                            showFeedback('Title cannot exceed 62 characters', 'error');
                             return;
                         }
 
-                        if (content.length > 220) {
-                            showFeedback('Content cannot exceed 220 characters', 'error');
+                        if (stripTags(content).length > 480) {
+                            showFeedback('Content cannot exceed 480 characters', 'error');
                             return;
                         }
 
@@ -288,7 +416,7 @@
                             thumbnailUrl,
                             category
                         };
-                        
+
                         try {
                             const parsedArray = JSON.parse(document.getElementById('imageUrls').value);
                             // If parsed array has links, send them; if single media is present, prepend if not there
@@ -299,7 +427,7 @@
                             } else {
                                 newsData.imageUrls = [];
                             }
-                        } catch(e) {
+                        } catch (e) {
                             newsData.imageUrls = mediaUrl && mediaType === 'image' ? [mediaUrl] : [];
                         }
 
@@ -386,13 +514,13 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(notificationData)
                         })
-                        .then(res => res.json())
-                        .then(result => {
-                            console.log('🔔 Push notification sent:', result);
-                        })
-                        .catch(err => {
-                            console.error('❌ Push notification error:', err);
-                        });
+                            .then(res => res.json())
+                            .then(result => {
+                                console.log('🔔 Push notification sent:', result);
+                            })
+                            .catch(err => {
+                                console.error('❌ Push notification error:', err);
+                            });
                     }
 
                     // Wait for DOM to be fully loaded
@@ -409,8 +537,8 @@
                         });
 
                         // Initialize character counts
-                        updateCount('title', 55);
-                        updateCount('content', 220);
+                        updateCount('title', 62);
+                        updateCount('content', 480);
 
                         // Initial media preview
                         const mediaType = document.getElementById('mediaType').value;
@@ -441,13 +569,13 @@
                         }
 
                         // Queue processing function
-                        window.processNextCrop = async function() {
+                        window.processNextCrop = async function () {
                             if (!window.pendingCropFiles || window.pendingCropFiles.length === 0) {
                                 return; // Queue finished
                             }
-                            
+
                             const fileToProcess = window.pendingCropFiles.shift(); // Remove first from queue
-                            
+
                             if (fileToProcess.type.startsWith('video/')) {
                                 await uploadMediaFile(fileToProcess);
                                 setTimeout(window.processNextCrop, 300);
@@ -481,7 +609,7 @@
                             imageCropModalElement.addEventListener('shown.bs.modal', function () {
                                 if (cropper) cropper.destroy();
                                 cropper = new Cropper(imageToCrop, {
-                                    aspectRatio: 9 / 13,
+                                    aspectRatio: 16 / 9,
                                     viewMode: 1,
                                     autoCropArea: 1
                                 });
@@ -493,7 +621,7 @@
                                     cropper = null;
                                 }
                                 imageToCrop.src = '';
-                                
+
                                 // Automatically process next file in queue if any remain
                                 if (window.pendingCropFiles && window.pendingCropFiles.length > 0) {
                                     setTimeout(window.processNextCrop, 300);
@@ -502,7 +630,7 @@
 
                             document.getElementById('cropButton').addEventListener('click', function () {
                                 if (cropper) {
-                                    const canvas = cropper.getCroppedCanvas({ width: 600, height: 866 });
+                                    const canvas = cropper.getCroppedCanvas({ width: 1280, height: 720 });
                                     canvas.toBlob(blob => uploadMediaFile(blob, 'image'), 'image/jpeg', 0.85);
                                 }
                             });
@@ -517,19 +645,19 @@
                         if (!container) return;
                         container.innerHTML = '';
                         let urls = [];
-                        try { urls = JSON.parse(document.getElementById('imageUrls').value) || []; } catch(e){}
-                        
+                        try { urls = JSON.parse(document.getElementById('imageUrls').value) || []; } catch (e) { }
+
                         urls.forEach((url, i) => {
                             const wrapper = document.createElement('div');
                             wrapper.style.position = 'relative';
-                            
+
                             const img = document.createElement('img');
                             img.src = url;
                             img.style.width = '60px';
                             img.style.height = '60px';
                             img.style.objectFit = 'cover';
                             img.className = 'border rounded';
-                            
+
                             const removeBtn = document.createElement('button');
                             removeBtn.innerHTML = '&times;';
                             removeBtn.style.position = 'absolute';
@@ -544,13 +672,13 @@
                             removeBtn.style.fontSize = '14px';
                             removeBtn.style.lineHeight = '0';
                             removeBtn.style.cursor = 'pointer';
-                            
-                            removeBtn.onclick = function() {
+
+                            removeBtn.onclick = function () {
                                 urls.splice(i, 1);
                                 document.getElementById('imageUrls').value = JSON.stringify(urls);
                                 refreshMultipleImagesUI();
                             };
-                            
+
                             wrapper.appendChild(img);
                             wrapper.appendChild(removeBtn);
                             container.appendChild(wrapper);
@@ -602,8 +730,8 @@
                             // Include it in the imageUrls list if it's an image
                             if (data.fileType === 'image' || type === 'image') {
                                 let urls = [];
-                                try { urls = JSON.parse(document.getElementById('imageUrls').value); } catch(e) { }
-                                if(!urls.includes(data.mediaUrl)) {
+                                try { urls = JSON.parse(document.getElementById('imageUrls').value); } catch (e) { }
+                                if (!urls.includes(data.mediaUrl)) {
                                     urls.push(data.mediaUrl);
                                     document.getElementById('imageUrls').value = JSON.stringify(urls);
                                     refreshMultipleImagesUI();
@@ -729,13 +857,66 @@
                         setTimeout(() => toast.remove(), 3000);
                     }
 
+                    // Strip tags for counting
+                    function stripTags(text) {
+                        if (!text) return '';
+                        return text
+                            .replace(/\[c=#[0-9a-fA-F]{6}\]/gi, '')
+                            .replace(/\[\/c\]/gi, '')
+                            .replace(/\[b\]/gi, '')
+                            .replace(/\[\/b\]/gi, '');
+                    }
+
+                    // Trim text to a specific plain-text length while keeping tags intact
+                    function trimToPlainLimit(text, max) {
+                        if (!text) return '';
+                        let plainLength = 0;
+                        let result = '';
+                        let i = 0;
+                        while (i < text.length && plainLength < max) {
+                            // Check for color tags
+                            const colorTagMatch = text.substring(i).match(/^\[c=#[0-9a-fA-F]{6}\]|^\[\/c\]/i);
+                            // Check for bold tags
+                            const boldTagMatch = text.substring(i).match(/^\[b\]|^\[\/b\]/i);
+                            
+                            if (colorTagMatch) {
+                                result += colorTagMatch[0];
+                                i += colorTagMatch[0].length;
+                            } else if (boldTagMatch) {
+                                result += boldTagMatch[0];
+                                i += boldTagMatch[0].length;
+                            } else {
+                                result += text[i];
+                                plainLength++;
+                                i++;
+                            }
+                        }
+                        return result;
+                    }
+
+                    // Track last valid values to prevent over-typing
+                    let lastValidValues = {};
+
                     // Update character count
                     function updateCount(id, max) {
                         const input = document.getElementById(id);
                         const countSpan = document.getElementById(id + 'Count');
                         if (input && countSpan) {
-                            const current = input.value.length;
+                            let plainText = stripTags(input.value);
+                            let current = plainText.length;
+
+                            if (current > max) {
+                                // If exceeded, trim to the limit
+                                input.value = trimToPlainLimit(input.value, max);
+                                // Recalculate with trimmed value
+                                plainText = stripTags(input.value);
+                                current = plainText.length;
+                            }
+
+                            // Store valid value
+                            lastValidValues[id] = input.value;
                             countSpan.textContent = current;
+
                             if (current >= max) {
                                 countSpan.style.color = '#F44336';
                                 countSpan.style.fontWeight = 'bold';
@@ -744,6 +925,73 @@
                                 countSpan.style.fontWeight = '';
                             }
                         }
+                    }
+
+                    // Apply text color tags to selection
+                    function applyTextColor(inputId, color) {
+                        const input = document.getElementById(inputId);
+                        const start = input.selectionStart;
+                        const end = input.selectionEnd;
+                        const value = input.value;
+
+                        if (start === end) {
+                            showFeedback('Please select some text first', 'info');
+                            return;
+                        }
+
+                        const selectedText = value.substring(start, end);
+                        const newValue = value.substring(0, start) + `[c=${color}]${selectedText}[/c]` + value.substring(end);
+
+                        input.value = newValue;
+                        updateCount(inputId, inputId === 'title' ? 62 : 480);
+
+                        // Set focus back and selection
+                        input.focus();
+                        const newEnd = start + `[c=${color}]`.length + selectedText.length + `[/c]`.length;
+                        input.setSelectionRange(start, newEnd);
+                    }
+
+                    function applyBoldText(inputId) {
+                        const input = document.getElementById(inputId);
+                        const start = input.selectionStart;
+                        const end = input.selectionEnd;
+                        const value = input.value;
+
+                        if (start === end) {
+                            showFeedback('Please select some text first', 'info');
+                            return;
+                        }
+
+                        const selectedText = value.substring(start, end);
+                        const newValue = value.substring(0, start) + `[b]${selectedText}[/b]` + value.substring(end);
+                        input.value = newValue;
+                        updateCount(inputId, inputId === 'title' ? 62 : 480);
+                        input.focus();
+                    }
+
+                    function removeStyling(inputId) {
+                        const input = document.getElementById(inputId);
+                        const start = input.selectionStart;
+                        const end = input.selectionEnd;
+                        const value = input.value;
+
+                        if (start === end) {
+                            showFeedback('Please select text with tags to remove styling', 'info');
+                            return;
+                        }
+
+                        const selectedText = value.substring(start, end);
+                        // Remove [c=...] and [b] tags from selection
+                        const cleanedText = selectedText
+                            .replace(/\[c=#[0-9a-fA-F]{6}\]/gi, '')
+                            .replace(/\[\/c\]/gi, '')
+                            .replace(/\[b\]/gi, '')
+                            .replace(/\[\/b\]/gi, '');
+
+                        const newValue = value.substring(0, start) + cleanedText + value.substring(end);
+                        input.value = newValue;
+                        updateCount(inputId, inputId === 'title' ? 62 : 480);
+                        input.focus();
                     }
                 </script>
     </body>

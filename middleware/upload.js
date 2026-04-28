@@ -117,15 +117,15 @@ const createMulterR2Interface = (options = {}) => {
 // Exported interfaces that match the project's usage
 const upload = createMulterR2Interface({
     folder: 'short_news_images',
-    width: 1080,
-    height: 1560,
+    width: 1280,
+    height: 720,
     resize: true
 });
 
 const uploadMedia = createMulterR2Interface({
     folder: 'short_news_images', // Will auto-switch for videos in logic above
-    width: 1080,
-    height: 1560,
+    width: 1280,
+    height: 720,
     resize: true,
     limitSize: 50 * 1024 * 1024
 });
