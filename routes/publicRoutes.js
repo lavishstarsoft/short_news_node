@@ -29,10 +29,10 @@ const handleGetNews = async (req, res) => {
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
 
     if (isConnectedToMongoDB) {
-      // Fetch only active published news from MongoDB
-      // Include news where isActive is true or not set (implicitly active)
+      // ✅ ROBUST FILTER: Include news where isActive is NOT false
+      // This handles legacy docs correctly
       newsList = await News.find({
-        $or: [{ isActive: true }, { isActive: { $exists: false } }]
+        isActive: { $ne: false }
       }).sort({ publishedAt: -1 });
     } else {
       // Use in-memory storage and filter for active news
@@ -84,12 +84,11 @@ const handleGetNews = async (req, res) => {
   }
 };
 
-router.get('/api/public/news', cacheMiddleware(600), handleGetNews);
+router.get('/api/public/news', handleGetNews);
 router.post('/api/public/news', handleGetNews);
 
 // Public API endpoint for Flutter app with category filter (no authentication required)
-// Cached for 10 minutes (600 seconds)
-router.get('/api/public/news/category/:category', cacheMiddleware(600), async (req, res) => {
+router.get('/api/public/news/category/:category', async (req, res) => {
   try {
     const { category } = req.params;
     let newsList;
