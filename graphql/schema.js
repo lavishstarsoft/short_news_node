@@ -85,19 +85,26 @@ const typeDefs = gql`
 
   type Category {
     id: ID!
+    _id: ID # Backward compatibility
     name: String!
     description: String
     icon: String
     color: String
     imageUrl: String
+    image_url: String # Backward compatibility
     imageUrls: [String]
+    newsCount: Int
+    isActive: Boolean
   }
 
   type Location {
     id: ID!
+    _id: ID # Backward compatibility
     name: String!
     description: String
     icon: String
+    newsCount: Int
+    isActive: Boolean
   }
 
   type User {

@@ -541,6 +541,21 @@ const resolvers = {
         published_at: (parent) => parent.publishedAt ? parent.publishedAt.toISOString() : null,
     },
 
+    Category: {
+        id: (parent) => parent.id || parent._id.toString(),
+        _id: (parent) => parent.id || parent._id.toString(),
+        image_url: (parent) => parent.imageUrl,
+        newsCount: (parent) => parent.newsCount || 0,
+        isActive: (parent) => parent.isActive !== false,
+    },
+
+    Location: {
+        id: (parent) => parent.id || parent._id.toString(),
+        _id: (parent) => parent.id || parent._id.toString(),
+        newsCount: (parent) => parent.newsCount || 0,
+        isActive: (parent) => parent.isActive !== false,
+    },
+
     Mutation: {
         // News mutations
         likeNews: async (_, { newsId }, context) => {
