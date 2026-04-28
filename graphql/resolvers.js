@@ -532,6 +532,13 @@ const resolvers = {
                 return null;
             }
         },
+        // Backward compatibility resolvers
+        _id: (parent) => parent.id || parent._id.toString(),
+        image_url: (parent) => parent.thumbnailUrl || parent.mediaUrl || parent.imageUrl,
+        media_url: (parent) => parent.mediaUrl || parent.imageUrl,
+        media_type: (parent) => parent.mediaType || 'image',
+        thumbnail_url: (parent) => parent.thumbnailUrl || parent.mediaUrl || parent.imageUrl,
+        published_at: (parent) => parent.publishedAt ? parent.publishedAt.toISOString() : null,
     },
 
     Mutation: {

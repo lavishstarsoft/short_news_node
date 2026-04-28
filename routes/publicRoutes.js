@@ -42,19 +42,28 @@ const handleGetNews = async (req, res) => {
         .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)); // Sort by publishedAt descending (newest first)
     }
 
-    // Transform data for Flutter app
+    // Transform data for Flutter app with backward compatibility
     const transformedNews = newsList.map(news => {
       const newsObj = news.toObject ? news.toObject() : news;
+      const imageUrl = newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png';
+      
       return {
         id: newsObj._id,
+        _id: newsObj._id, // Backward compatibility
         title: newsObj.title,
         content: newsObj.content,
-        imageUrl: newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        imageUrl: imageUrl,
+        image_url: imageUrl, // Backward compatibility
         mediaUrl: newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        media_url: newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png', // Backward compatibility
         mediaType: newsObj.mediaType || 'image',
+        media_type: newsObj.mediaType || 'image', // Backward compatibility
+        thumbnailUrl: newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png',
+        thumbnail_url: newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png', // Backward compatibility
         category: newsObj.category,
         location: newsObj.location,
         publishedAt: newsObj.publishedAt,
+        published_at: newsObj.publishedAt, // Backward compatibility
         likes: newsObj.likes || 0,
         dislikes: newsObj.dislikes || 0,
         views: newsObj.views || 0,
@@ -72,7 +81,7 @@ const handleGetNews = async (req, res) => {
           userEmail: comment.userEmail,
           comment: comment.comment,
           timestamp: comment.timestamp,
-          likes: comment.likes || [] // Include likes array
+          likes: comment.likes || []
         }))
       };
     });

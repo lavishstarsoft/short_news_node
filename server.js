@@ -52,18 +52,7 @@ const PORT = process.env.PORT || 3001;
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: [
-      'http://localhost:3000', 
-      'http://127.0.0.1:3000', 
-      'http://localhost:3001', 
-      'http://10.0.2.2:3001', 
-      'https://news.lavishstar.in', 
-      'https://cbnyellowsingam.in', 
-      'https://www.cbnyellowsingam.in', 
-      'https://report.cbnyellowsingam.in', 
-      'https://news.tehelkanews.in', 
-      'https://www.news.tehelkanews.in'
-    ],
+    origin: '*',
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -195,18 +184,7 @@ const newsController = require('./controllers/newsController');
 // CORS must be first to handle preflight requests
 app.use(compression()); // Compress all responses
 app.use(cors({
-  origin: [
-    'http://localhost:3000', 
-    'http://127.0.0.1:3000', 
-    'http://localhost:3001', 
-    'http://10.0.2.2:3001', 
-    'https://news.lavishstar.in', 
-    'https://cbnyellowsingam.in', 
-    'https://www.cbnyellowsingam.in', 
-    'https://report.cbnyellowsingam.in', 
-    'https://news.tehelkanews.in', 
-    'https://www.news.tehelkanews.in'
-  ],
+  origin: '*', // Allow all origins for better compatibility with legacy apps
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));

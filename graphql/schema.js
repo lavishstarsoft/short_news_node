@@ -43,17 +43,23 @@ const typeDefs = gql`
 
   type News {
     id: ID!
+    _id: ID # Backward compatibility
     title: String!
     content: String!
     imageUrl: String
+    image_url: String # Backward compatibility
     imageUrls: [String]
     videoUrl: String
     mediaUrl: String
+    media_url: String # Backward compatibility
     mediaType: String
+    media_type: String # Backward compatibility
     thumbnailUrl: String
+    thumbnail_url: String # Backward compatibility
     category: String!
     location: String
     publishedAt: String!
+    published_at: String # Backward compatibility
     likes: Int!
     dislikes: Int!
     views: Int!
