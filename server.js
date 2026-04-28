@@ -184,7 +184,7 @@ const newsController = require('./controllers/newsController');
 // CORS must be first to handle preflight requests
 app.use(compression()); // Compress all responses
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://10.0.2.2:3001', 'https://news.lavishstar.in', 'http://192.168.0.127:3001', 'http://192.168.29.205:3000', 'http://192.168.29.205:3001', 'http://192.168.29.8:3000', 'http://192.168.29.8:3001', 'https://short-news-next-reporters.vercel.app', 'https://report.cbnyellowsingam.in'],
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://10.0.2.2:3001', 'https://news.lavishstar.in', 'http://192.168.0.127:3001', 'http://192.168.29.205:3000', 'http://192.168.29.205:3001', 'http://192.168.29.8:3000', 'http://192.168.29.8:3001', 'https://short-news-next-reporters.vercel.app', 'https://report.cbnyellowsingam.in', 'https://news.tehelkanews.in', 'https://www.news.tehelkanews.in'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
@@ -195,7 +195,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Increase payl
 app.use(cookieParser()); // Add cookie parser middleware
 
 // 🚀 Explicit route for Android Digital Asset Links (MUST be an Array)
-app.get('/.well-known/assetlinks.json', (req, res) => {
+app.get(['/.well-known/assetlinks.json', '/assetlinks.json'], (req, res) => {
   const filePath = path.join(__dirname, 'public/.well-known/assetlinks.json');
   let data;
 
@@ -225,6 +225,38 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
   const finalArray = Array.isArray(data) ? data : [data];
   res.setHeader('Content-Type', 'application/json');
   return res.status(200).send(JSON.stringify(finalArray));
+});
+
+// 🍎 Explicit route for Apple App Site Association (AASA)
+app.get(['/.well-known/apple-app-site-association', '/apple-app-site-association'], (req, res) => {
+  const filePath = path.join(__dirname, 'public/.well-known/apple-app-site-association');
+  let data;
+
+  if (fs.existsSync(filePath)) {
+    try {
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      data = JSON.parse(fileContent);
+    } catch (e) {
+      console.error('Error parsing AASA file:', e);
+    }
+  }
+
+  if (!data) {
+    data = {
+      "applinks": {
+        "apps": [],
+        "details": [
+          {
+            "appID": "YOUR_APPLE_TEAM_ID.com.lavish.yellowsingam",
+            "paths": ["/news/*", "/*"]
+          }
+        ]
+      }
+    };
+  }
+
+  res.setHeader('Content-Type', 'application/json');
+  return res.status(200).send(JSON.stringify(data));
 });
 
 app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));

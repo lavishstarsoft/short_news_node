@@ -62,8 +62,8 @@ router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
     }
 });
 
-// Public route to get app settings for mobile app (Cached for 5 mins)
-router.get('/api/public/app-settings', cacheMiddleware(300), async (req, res) => {
+// Public route to get app settings for mobile app (Cache removed for real-time updates)
+router.get('/api/public/app-settings', async (req, res) => {
     try {
         let settings = await AppSettings.findOne({ key: 'update_flags' });
         if (!settings) {

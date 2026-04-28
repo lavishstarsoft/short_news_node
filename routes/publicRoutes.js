@@ -1719,11 +1719,14 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
     shortLink.clicks += 1;
     shortLink.save().catch(err => console.error('Error updating clicks:', err));
 
+    const host = req.get('host') || 'news.tehelkanews.in';
+    const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+    
     const newsId = shortLink.newsId;
     const appPackage = 'com.lavish.yellowsingam';
     const playStoreUrl = `https://play.google.com/store/apps/details?id=${appPackage}`;
-    const deepLinkUrl = `https://www.news.cbnyellowsingam.in/news/${newsId}`;
-    const intentUrl = `intent://www.news.cbnyellowsingam.in/news/${newsId}#Intent;scheme=https;package=${appPackage};S.browser_fallback_url=${playStoreUrl};end`;
+    const deepLinkUrl = `${protocol}://${host}/news/${newsId}`;
+    const intentUrl = `intent://${host}/news/${newsId}#Intent;scheme=https;package=${appPackage};S.browser_fallback_url=${playStoreUrl};end`;
 
     // Serve a smart HTML page that handles all platforms
     // This works exactly like Firebase Dynamic Links:
@@ -1736,9 +1739,9 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Yellow Singam - Opening News...</title>
-  <meta property="og:title" content="Yellow Singam News" />
-  <meta property="og:description" content="Read this news on Yellow Singam app" />
+  <title>Tehelka News - Opening...</title>
+  <meta property="og:title" content="Tehelka News" />
+  <meta property="og:description" content="Read this news on Tehelka News app" />
   <meta property="og:url" content="${deepLinkUrl}" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1781,8 +1784,8 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
 </head>
 <body>
   <div class="container">
-    <img src="https://www.news.cbnyellowsingam.in/uploads/logo.png" alt="Yellow Singam" class="logo" 
-         onerror="this.style.display='none'" />
+    <img src="${protocol}://${host}/uploads/logo.png" alt="News Logo" class="logo" 
+         onerror="this.src='/images/placeholder.png'" />
     <h1>Yellow Singam</h1>
     <div id="loading">
       <div class="spinner"></div>
