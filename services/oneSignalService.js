@@ -253,8 +253,8 @@ class OneSignalService {
     }
 
     try {
-      // 🔔 "News Via Yellowsingam:" format notification
-      const title = 'News Via Yellowsingam:';
+      // 🔔 "News Via Tehelka:" format notification
+      const title = 'News Via Tehelka:';
       const message = news.title;
 
       // 🔧 FIX: Use relative path for launchUrl. 

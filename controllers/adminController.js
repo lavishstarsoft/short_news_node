@@ -1224,7 +1224,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, constituency, mobileNumber, role } = req.body;
+    const { name, displayRole, location, constituency, mobileNumber, role, profileImage } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -1237,6 +1237,7 @@ async function updateEditor(req, res) {
     if (location !== undefined) editor.location = location || null;
     if (constituency !== undefined) editor.constituency = constituency || null;
     if (mobileNumber !== undefined) editor.mobileNumber = mobileNumber || null;
+    if (profileImage !== undefined) editor.profileImage = profileImage || null;
 
     // Update role if provided (only allow editor or subeditor)
     if (role !== undefined && (role === 'editor' || role === 'subeditor')) {
