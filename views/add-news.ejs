@@ -215,7 +215,7 @@
                                                         <div class="border rounded p-3 mb-3">
                                                             <div class="d-flex flex-column align-items-center">
                                                                 <div id="mediaPreviewContainer" class="mb-3"
-                                                                    style="width: 100%; aspect-ratio: 4/3; overflow: hidden; border-radius: 8px; background: #f0f0f0;">
+                                                                    style="width: 100%; aspect-ratio: 1080/900; overflow: hidden; border-radius: 8px; background: #f0f0f0;">
                                                                     <img id="imagePreview"
                                                                         src="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '/images/placeholder.png' %>"
                                                                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmZmZmYiPkltYWdlIFVwbG9hZDwvdGV4dD48L3N2Zz4='"
@@ -333,7 +333,7 @@
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="imageCropModalLabel">Crop Image to 4:3</h5>
+                            <h5 class="modal-title" id="imageCropModalLabel">Crop Image to 1080x900</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
@@ -609,7 +609,7 @@
                             imageCropModalElement.addEventListener('shown.bs.modal', function () {
                                 if (cropper) cropper.destroy();
                                 cropper = new Cropper(imageToCrop, {
-                                    aspectRatio: 4 / 3,
+                                    aspectRatio: 1080 / 900,
                                     viewMode: 1,
                                     autoCropArea: 1
                                 });
@@ -630,7 +630,7 @@
 
                             document.getElementById('cropButton').addEventListener('click', function () {
                                 if (cropper) {
-                                    const canvas = cropper.getCroppedCanvas({ width: 1280, height: 960 });
+                                    const canvas = cropper.getCroppedCanvas({ width: 1080, height: 900 });
                                     canvas.toBlob(blob => uploadMediaFile(blob, 'image'), 'image/jpeg', 0.85);
                                 }
                             });
