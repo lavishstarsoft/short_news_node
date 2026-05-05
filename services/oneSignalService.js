@@ -276,11 +276,31 @@ class OneSignalService {
         launchUrl: newsUrl
       };
 
+      const platformSettings = {
+        android: {
+          icon: 'ic_stat_onesignal_default',
+          largeIcon: 'tehelka_notif_large'
+        }
+      };
+
       // 🔧 FIX: Call sendNotificationToAll instead of sendNotificationToAllWithUrl
       // This prevents OneSignal from setting the "Launch URL" property which
       // causes Android to open the browser if deep link verification fails.
       // Instead, we handle the navigation completely inside the Flutter app.
-      return await this.sendNotificationToAll(title, message, data);
+      
+      // Build notification manually to include platform settings
+      const notification = new OneSignal.Notification();
+      notification.app_id = this.appId;
+      notification.contents = { en: message };
+      notification.headings = { en: title };
+      notification.data = data;
+      notification.included_segments = ['All'];
+      notification.small_icon = 'ic_stat_onesignal_default';
+      notification.large_icon = 'tehelka_notif_large';
+
+      const response = await this.client.createNotification(notification);
+      console.log('OneSignal news notification sent successfully:', response);
+      return response;
     } catch (error) {
       console.error('Error sending news notification:', error);
       throw error;
@@ -368,9 +388,16 @@ class OneSignalService {
           }
           if (platformSettings.android.icon) {
             notification.small_icon = platformSettings.android.icon;
+          } else {
+            // Default to our new unique small icon name
+            notification.small_icon = 'ic_stat_onesignal_default';
           }
+          
           if (platformSettings.android.largeIcon) {
             notification.large_icon = platformSettings.android.largeIcon;
+          } else {
+            // FORCE our new unique large icon to bypass OS cache
+            notification.large_icon = 'tehelka_notif_large';
           }
           if (platformSettings.android.bigPicture) {
             notification.big_picture = platformSettings.android.bigPicture;

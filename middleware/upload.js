@@ -5,6 +5,13 @@ const { Upload } = require('@aws-sdk/lib-storage');
 const { s3Client, bucketName, publicUrl } = require('../config/cloudflare');
 const path = require('path');
 const crypto = require('crypto');
+const ffmpeg = require('fluent-ffmpeg');
+const fs = require('fs');
+const os = require('os');
+const { promisify } = require('util');
+const writeFile = promisify(fs.writeFile);
+const unlink = promisify(fs.unlink);
+const mkdir = promisify(fs.mkdir);
 
 // Use memory storage to process files before uploading to R2
 const memoryStorage = multer.memoryStorage();
@@ -98,6 +105,56 @@ const createMulterR2Interface = (options = {}) => {
                             // Automatically switch to video folder if it's a video and we were in images
                             folderName = folder === 'short_news_images' ? 'short_news_videos' : folder;
                             req.file.path = await uploadToR2(buffer, folderName, req.file.originalname, mimetype);
+
+                            // 🎥 VIDEO THUMBNAIL GENERATION
+                            try {
+                                console.log('🎬 Generating thumbnail for video...');
+                                const tempId = crypto.randomBytes(8).toString('hex');
+                                const tempDir = path.join(os.tmpdir(), 'short_news_uploads');
+                                
+                                // Ensure temp directory exists
+                                if (!fs.existsSync(tempDir)) {
+                                    await mkdir(tempDir, { recursive: true });
+                                }
+
+                                const tempVideoPath = path.join(tempDir, `video_${tempId}${path.extname(req.file.originalname)}`);
+                                const tempThumbPath = path.join(tempDir, `thumb_${tempId}.webp`);
+
+                                // 1. Save buffer to temp file
+                                await writeFile(tempVideoPath, buffer);
+
+                                // 2. Extract frame using ffmpeg
+                                await new Promise((resolve, reject) => {
+                                    ffmpeg(tempVideoPath)
+                                        .screenshots({
+                                            timestamps: ['1'], // Capture at 1 second
+                                            filename: path.basename(tempThumbPath),
+                                            folder: path.dirname(tempThumbPath),
+                                            size: '1080x?' // Match project width
+                                        })
+                                        .on('end', resolve)
+                                        .on('error', reject);
+                                });
+
+                                // 3. Process generated thumb with Sharp (optional, for webp/optimization)
+                                if (fs.existsSync(tempThumbPath)) {
+                                    const thumbBuffer = await sharp(tempThumbPath)
+                                        .resize(400) // Small width for thumbnails
+                                        .webp({ quality: 60 })
+                                        .toBuffer();
+
+                                    thumbnailPath = await uploadToR2(thumbBuffer, folderName, `thumb_${req.file.originalname}`, 'image/webp');
+                                    req.file.thumbnailPath = thumbnailPath;
+                                    console.log('✅ Thumbnail generated successfully:', thumbnailPath);
+                                }
+
+                                // 4. Cleanup
+                                if (fs.existsSync(tempVideoPath)) await unlink(tempVideoPath);
+                                if (fs.existsSync(tempThumbPath)) await unlink(tempThumbPath);
+                            } catch (thumbError) {
+                                console.error('⚠️ Thumbnail generation failed, but video upload succeeded:', thumbError);
+                                // Don't fail the whole request if only thumbnail fails
+                            }
                         }
 
                         next();

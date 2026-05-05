@@ -904,26 +904,13 @@ async function uploadMedia(req, res) {
 
     const fileUrl = req.file.path;
     const fileType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+    const thumbnailUrl = req.file.thumbnailPath || fileUrl;
 
-    // For videos, Cloudinary automatically generates thumbnails
-    if (fileType === 'video') {
-      // Cloudinary allows getting a thumbnail by changing the file extension to .jpg
-      // Example: .../video/upload/v123456/folder/video.mp4 -> .../video/upload/v123456/folder/video.jpg
-      const thumbnailUrl = fileUrl.replace(/\.[^/.]+$/, ".jpg");
-
-      return res.json({
-        mediaUrl: fileUrl,
-        thumbnailUrl: thumbnailUrl,
-        fileType: fileType
-      });
-    } else {
-      // For images, use the generated thumbnail if available
-      return res.json({
-        mediaUrl: fileUrl,
-        thumbnailUrl: req.file.thumbnailPath || fileUrl,
-        fileType: fileType
-      });
-    }
+    return res.json({
+      mediaUrl: fileUrl,
+      thumbnailUrl: thumbnailUrl,
+      fileType: fileType
+    });
   } catch (error) {
     console.error('Media upload error:', error);
     res.status(500).json({ error: 'Error uploading media: ' + error.message });
