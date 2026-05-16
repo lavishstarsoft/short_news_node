@@ -73,6 +73,7 @@ const typeDefs = gql`
     author: String
     authorName: String
     authorId: String
+    authorRole: String
     authorProfileImage: String
     authorConstituency: String
     readFullLink: String
