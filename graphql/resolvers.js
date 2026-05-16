@@ -8,6 +8,8 @@ const Admin = require('../models/Admin');
 const Report = require('../models/Report');
 const CommentReport = require('../models/CommentReport');
 const LiveStream = require('../models/LiveStream');
+const RegistrationField = require('../models/RegistrationField');
+const ReporterApplication = require('../models/ReporterApplication');
 
 // Import GraphQL cache utility
 const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = require('./cache');
@@ -419,6 +421,48 @@ const resolvers = {
                 };
             } catch (error) {
                 console.error('Error fetching news by ID:', error);
+                return null;
+            }
+        },
+
+        getRegistrationFields: async () => {
+            try {
+                return await RegistrationField.find({ isActive: true }).sort({ order: 1 });
+            } catch (error) {
+                console.error('Error fetching registration fields:', error);
+                return [];
+            }
+        },
+
+        getReporterApplications: async () => {
+            try {
+                const apps = await ReporterApplication.find().sort({ createdAt: -1 });
+                return apps.map(app => ({
+                    id: app._id.toString(),
+                    data: JSON.stringify(Object.fromEntries(app.data)),
+                    status: app.status,
+                    adminNotes: app.adminNotes,
+                    createdAt: app.createdAt.toISOString()
+                }));
+            } catch (error) {
+                console.error('Error fetching reporter applications:', error);
+                return [];
+            }
+        },
+
+        getReporterApplicationById: async (_, { id }) => {
+            try {
+                const app = await ReporterApplication.findById(id);
+                if (!app) return null;
+                return {
+                    id: app._id.toString(),
+                    data: JSON.stringify(Object.fromEntries(app.data)),
+                    status: app.status,
+                    adminNotes: app.adminNotes,
+                    createdAt: app.createdAt.toISOString()
+                };
+            } catch (error) {
+                console.error('Error fetching application by ID:', error);
                 return null;
             }
         }
@@ -1214,6 +1258,16 @@ const resolvers = {
                     };
                 }
 
+                // Check if editor is approved
+                if (editor.isApproved === false) {
+                    return {
+                        success: false,
+                        message: 'మీ అకౌంట్ ఇంకా అడ్మిన్ అప్రూవల్ కోసం వేచి ఉంది. దయచేసి వేచి ఉండండి. (Account pending admin approval)',
+                        token: null,
+                        editor: null
+                    };
+                }
+
                 // Validate password
                 const isPasswordValid = await editor.comparePassword(password);
                 if (!isPasswordValid) {
@@ -1599,6 +1653,153 @@ const resolvers = {
                 return { success: false, message: 'Failed to submit comment report' };
             }
         },
+
+        registerEditor: async (_, { username, email, password, name, displayRole, location, mobileNumber }) => {
+            try {
+                const Admin = require('../models/Admin');
+                const jwt = require('jsonwebtoken');
+
+                // Check if username or email already exists
+                const existingUser = await Admin.findOne({ $or: [{ username }, { email }] });
+                if (existingUser) {
+                    return {
+                        success: false,
+                        message: 'Username or email already exists',
+                        token: null,
+                        editor: null
+                    };
+                }
+
+                // Create new editor
+                const newEditor = new Admin({
+                    username,
+                    email,
+                    password,
+                    role: 'editor',
+                    name: name || null,
+                    displayRole: displayRole || 'Reporter',
+                    location: location || null,
+                    mobileNumber: mobileNumber || null,
+                    isActive: true,
+                    isApproved: false
+                });
+
+                await newEditor.save();
+
+                return {
+                    success: true,
+                    message: 'రిజిస్ట్రేషన్ విజయవంతమైంది. అడ్మిన్ అప్రూవల్ కోసం వేచి ఉండండి. (Registration successful. Pending admin approval.)',
+                    token: null,
+                    editor: {
+                        id: newEditor._id.toString(),
+                        username: newEditor.username,
+                        email: newEditor.email,
+                        role: newEditor.role,
+                        displayRole: newEditor.displayRole,
+                        name: newEditor.name,
+                        location: newEditor.location,
+                        mobileNumber: newEditor.mobileNumber,
+                        isActive: newEditor.isActive
+                    }
+                };
+            } catch (error) {
+                console.error('Register editor error:', error);
+                return {
+                    success: false,
+                    message: 'An error occurred while registering',
+                    token: null,
+                    editor: null
+                };
+            }
+        },
+
+        submitReporterApplication: async (_, { data }) => {
+            try {
+                const parsedData = JSON.parse(data);
+                
+                // --- DUPLICATE CHECK ---
+                // Find fields that might be email or phone
+                const email = parsedData.email || parsedData.Email || parsedData.email_address;
+                const phone = parsedData.phone || parsedData.Phone || parsedData.mobile || parsedData.phone_number || parsedData.Phone_Number;
+
+                if (email || phone) {
+                    const orConditions = [];
+                    if (email) {
+                        orConditions.push({ "data.email": email }, { "data.Email": email }, { "data.email_address": email });
+                    }
+                    if (phone) {
+                        orConditions.push({ "data.phone": phone }, { "data.Phone": phone }, { "data.mobile": phone }, { "data.phone_number": phone }, { "data.Phone_Number": phone });
+                    }
+
+                    const existing = await ReporterApplication.findOne({ $or: orConditions });
+                    if (existing) {
+                        return { success: false, message: 'An application with this Email or Phone Number already exists!' };
+                    }
+                }
+                // -----------------------
+
+                const application = new ReporterApplication({
+                    data: parsedData,
+                    status: 'pending'
+                });
+                await application.save();
+                return { success: true, message: 'Application submitted successfully! Please wait for admin review.' };
+            } catch (error) {
+                console.error('Error submitting application:', error);
+                return { success: false, message: 'Failed to submit application' };
+            }
+        },
+
+        updateRegistrationField: async (_, args) => {
+            try {
+                const { id, ...updateData } = args;
+                let field;
+                if (id) {
+                    field = await RegistrationField.findByIdAndUpdate(id, updateData, { new: true });
+                } else {
+                    field = new RegistrationField(updateData);
+                    await field.save();
+                }
+                return { success: true, message: 'Field updated successfully', field };
+            } catch (error) {
+                console.error('Error updating field:', error);
+                return { success: false, message: 'Failed to update field' };
+            }
+        },
+
+        deleteRegistrationField: async (_, { id }) => {
+            try {
+                await RegistrationField.findByIdAndDelete(id);
+                return { success: true, message: 'Field deleted successfully' };
+            } catch (error) {
+                console.error('Error deleting field:', error);
+                return { success: false, message: 'Failed to delete field' };
+            }
+        },
+
+        reviewReporterApplication: async (_, { applicationId, status, adminNotes }) => {
+            try {
+                await ReporterApplication.findByIdAndUpdate(applicationId, {
+                    status,
+                    adminNotes,
+                    reviewedAt: new Date()
+                });
+                return { success: true, message: `Application ${status} successfully` };
+            } catch (error) {
+                console.error('Error reviewing application:', error);
+                return { success: false, message: 'Failed to review application' };
+            }
+        },
+
+        deleteReporterApplication: async (_, { applicationId }) => {
+            try {
+                await ReporterApplication.findByIdAndDelete(applicationId);
+                return { success: true, message: 'Application deleted successfully' };
+            } catch (error) {
+                console.error('Error deleting application:', error);
+                return { success: false, message: 'Failed to delete application' };
+            }
+        }
     },
 
     ViralVideo: {

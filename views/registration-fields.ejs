@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<%- include('partials/header', { title: 'Registration Form Builder' }) %>
+
+<style>
+    :root {
+        --primary: #4f46e5;
+        --primary-light: #eef2ff;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0;
+        --slate-400: #94a3b8;
+        --slate-600: #475569;
+        --slate-900: #0f172a;
+        --radius-xl: 20px;
+        --radius-lg: 12px;
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    }
+
+    body {
+        background-color: var(--slate-100);
+        font-family: 'Inter', sans-serif;
+    }
+
+    .main-card {
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--slate-200);
+        background: white;
+        overflow: hidden;
+        margin-top: 2rem;
+    }
+
+    .card-header-custom {
+        background: var(--slate-900);
+        color: white;
+        padding: 30px;
+    }
+
+    .field-card {
+        border: 1px solid var(--slate-200);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        margin-bottom: 15px;
+        transition: all 0.2s;
+        background: white;
+    }
+
+    .field-card:hover {
+        border-color: var(--primary);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .drag-handle {
+        cursor: move;
+        color: var(--slate-400);
+    }
+
+    .btn-add {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+
+    .btn-add:hover {
+        background: #4338ca;
+        color: white;
+    }
+
+    /* Preview Styles */
+    .preview-phone {
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 30px;
+        border: 8px solid var(--slate-900);
+        padding: 30px 20px;
+        min-height: 600px;
+        box-shadow: var(--shadow-lg);
+    }
+    .preview-input {
+        border-radius: 12px;
+        padding: 12px 15px;
+        border: 1px solid var(--slate-200);
+        margin-bottom: 15px;
+        width: 100%;
+    }
+    .preview-label {
+        font-weight: 600;
+        margin-bottom: 5px;
+        display: block;
+        font-size: 0.9rem;
+    }
+</style>
+
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Registration Form Builder' , backButton: true, backUrl: '/' }) %>
+
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar', { activePage: 'registration-fields' }) %>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="main-card">
+                    <div class="card-header-custom d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-1 fw-bold">Registration Form Builder</h2>
+                            <p class="mb-0 text-white-50">Define the fields reporters need to fill out during registration</p>
+                        </div>
+                        <div class="d-flex gap-3">
+                            <button class="btn btn-outline-light rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#previewModal" onclick="generatePreview()">
+                                <i class="fas fa-eye me-2"></i>Preview Form
+                            </button>
+                            <button class="btn btn-add" data-bs-toggle="modal" data-bs-target="#fieldModal" onclick="resetForm()">
+                                <i class="fas fa-plus me-2"></i>Add New Field
+                            </button>
+                        </div>
+                    </div>
+
+                    <script id="fieldsData" type="application/json"><%- JSON.stringify(fields) %></script>
+
+                    <div class="card-body p-4">
+                        <div id="fieldsList">
+                            <% if (fields && fields.length > 0) { %>
+                                <% fields.forEach(field => { %>
+                                    <div class="field-card d-flex align-items-center justify-content-between" data-id="<%= field._id %>">
+                                        <div class="d-flex align-items-center">
+                                            <div class="drag-handle me-3">
+                                                <i class="fas fa-grip-vertical fa-lg"></i>
+                                            </div>
+                                            <div>
+                                                <h5 class="mb-1 fw-bold text-dark"><%= field.label %></h5>
+                                                <div class="small text-muted">
+                                                    <span class="badge bg-slate-100 text-slate-600 border me-2"><%= field.type.toUpperCase() %></span>
+                                                    <span>Name: <code><%= field.name %></code></span>
+                                                    <% if (field.required) { %>
+                                                        <span class="badge bg-danger bg-opacity-10 text-danger ms-2">Required</span>
+                                                    <% } %>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="editField('<%= JSON.stringify(field) %>')">
+                                                <i class="fas fa-edit me-1"></i>Edit
+                                            </button>
+                                            <button class="btn btn-outline-danger btn-sm rounded-pill px-3" onclick="deleteField('<%= field._id %>')">
+                                                <i class="fas fa-trash me-1"></i>Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            <% } else { %>
+                                <div class="text-center py-5">
+                                    <div class="text-muted mb-3"><i class="fas fa-form fa-3x"></i></div>
+                                    <h4>No fields defined yet</h4>
+                                    <p class="text-muted">Start building your registration form by adding fields.</p>
+                                </div>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Field Modal -->
+    <div class="modal fade" id="fieldModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header bg-slate-900 text-white rounded-top-4 border-0 p-4">
+                    <h5 class="modal-title fw-bold" id="modalTitle">Add New Field</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="fieldForm">
+                        <input type="hidden" id="fieldId">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Field Label</label>
+                            <input type="text" class="form-control" id="label" placeholder="e.g. Phone Number" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Field Name (ID)</label>
+                            <input type="text" class="form-control" id="name" placeholder="e.g. phone_number" required>
+                            <small class="text-muted">No spaces, use underscores</small>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">Type</label>
+                                <select class="form-select" id="type" required>
+                                    <option value="text">Short Text</option>
+                                    <option value="email">Email</option>
+                                    <option value="tel">Phone Number</option>
+                                    <option value="textarea">Long Text</option>
+                                    <option value="date">Date</option>
+                                    <option value="file">File Upload</option>
+                                    <option value="select">Dropdown</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">Order</label>
+                                <input type="number" class="form-control" id="order" value="0">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Placeholder</label>
+                            <input type="text" class="form-control" id="placeholder" placeholder="Enter your...">
+                        </div>
+                        <div id="optionsContainer" class="mb-3 d-none">
+                            <label class="form-label fw-semibold">Options (comma separated)</label>
+                            <input type="text" class="form-control" id="options" placeholder="Option 1, Option 2">
+                        </div>
+                        <div class="mb-3 form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="required">
+                            <label class="form-check-label fw-semibold">Required Field</label>
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-primary py-2 rounded-3 fw-bold">Save Field</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Preview Modal -->
+    <div class="modal fade" id="previewModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 bg-transparent">
+                <div class="modal-body p-0">
+                    <div class="preview-phone">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h4 class="fw-bold mb-0">Join as Reporter</h4>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div id="previewFormContent">
+                            <!-- Dynamic Preview Content -->
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button class="btn btn-primary py-3 rounded-4 fw-bold shadow-sm" disabled>Submit Application</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script>
+        const GRAPHQL_ENDPOINT = '/graphql';
+
+        function resetForm() {
+            document.getElementById('fieldForm').reset();
+            document.getElementById('fieldId').value = '';
+            document.getElementById('modalTitle').innerText = 'Add New Field';
+            document.getElementById('optionsContainer').classList.add('d-none');
+        }
+
+        document.getElementById('type').addEventListener('change', function() {
+            if (this.value === 'select') {
+                document.getElementById('optionsContainer').classList.remove('d-none');
+            } else {
+                document.getElementById('optionsContainer').classList.add('d-none');
+            }
+        });
+
+        function editField(fieldData) {
+            const field = JSON.parse(fieldData);
+            document.getElementById('fieldId').value = field._id;
+            document.getElementById('label').value = field.label;
+            document.getElementById('name').value = field.name;
+            document.getElementById('type').value = field.type;
+            document.getElementById('placeholder').value = field.placeholder || '';
+            document.getElementById('order').value = field.order || 0;
+            document.getElementById('required').checked = field.required;
+            
+            if (field.type === 'select') {
+                document.getElementById('optionsContainer').classList.remove('d-none');
+                document.getElementById('options').value = field.options ? field.options.join(', ') : '';
+            } else {
+                document.getElementById('optionsContainer').classList.add('d-none');
+            }
+
+            document.getElementById('modalTitle').innerText = 'Edit Field';
+            new bootstrap.Modal(document.getElementById('fieldModal')).show();
+        }
+
+        document.getElementById('fieldForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const id = document.getElementById('fieldId').value;
+            const variables = {
+                id: id || undefined,
+                label: document.getElementById('label').value,
+                name: document.getElementById('name').value,
+                type: document.getElementById('type').value,
+                placeholder: document.getElementById('placeholder').value,
+                order: parseInt(document.getElementById('order').value),
+                required: document.getElementById('required').checked,
+                options: document.getElementById('type').value === 'select' ? 
+                    document.getElementById('options').value.split(',').map(o => o.trim()).filter(o => o) : []
+            };
+
+            const query = `
+                mutation UpdateRegistrationField($id: ID, $label: String, $name: String, $type: String, $placeholder: String, $order: Int, $required: Boolean, $options: [String]) {
+                    updateRegistrationField(id: $id, label: $label, name: $name, type: $type, placeholder: $placeholder, order: $order, required: $required, options: $options) {
+                        success
+                        message
+                    }
+                }
+            `;
+
+            try {
+                const response = await fetch(GRAPHQL_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, variables })
+                });
+                const result = await response.json();
+                if (result.data.updateRegistrationField.success) {
+                    location.reload();
+                } else {
+                    alert(result.data.updateRegistrationField.message);
+                }
+            } catch (error) {
+                console.error('Error saving field:', error);
+            }
+        });
+
+        async function deleteField(id) {
+            if (!confirm('Are you sure you want to delete this field?')) return;
+
+            const query = `
+                mutation DeleteRegistrationField($id: ID!) {
+                    deleteRegistrationField(id: $id) {
+                        success
+                        message
+                    }
+                }
+            `;
+
+            try {
+                const response = await fetch(GRAPHQL_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, variables: { id } })
+                });
+                const result = await response.json();
+                if (result.data.deleteRegistrationField.success) {
+                    location.reload();
+                } else {
+                    alert(result.data.deleteRegistrationField.message);
+                }
+            } catch (error) {
+                console.error('Error deleting field:', error);
+            }
+        }
+
+        function generatePreview() {
+            const fields = JSON.parse(document.getElementById('fieldsData').textContent);
+            const container = document.getElementById('previewFormContent');
+            container.innerHTML = '';
+
+            fields.sort((a, b) => (a.order || 0) - (b.order || 0)).forEach(field => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'mb-3';
+                
+                const label = document.createElement('label');
+                label.className = 'preview-label';
+                label.innerHTML = `${field.label}${field.required ? ' <span class="text-danger">*</span>' : ''}`;
+                wrapper.appendChild(label);
+
+                if (field.type === 'textarea') {
+                    const el = document.createElement('textarea');
+                    el.className = 'preview-input';
+                    el.placeholder = field.placeholder || '';
+                    el.rows = 3;
+                    wrapper.appendChild(el);
+                } else if (field.type === 'select') {
+                    const el = document.createElement('select');
+                    el.className = 'preview-input form-select';
+                    const defOpt = document.createElement('option');
+                    defOpt.innerText = `Select ${field.label}`;
+                    el.appendChild(defOpt);
+                    if (field.options) {
+                        field.options.forEach(opt => {
+                            const o = document.createElement('option');
+                            o.value = opt;
+                            o.innerText = opt;
+                            el.appendChild(o);
+                        });
+                    }
+                    wrapper.appendChild(el);
+                } else {
+                    const el = document.createElement('input');
+                    el.type = field.type;
+                    el.className = 'preview-input';
+                    el.placeholder = field.placeholder || '';
+                    wrapper.appendChild(el);
+                }
+
+                container.appendChild(wrapper);
+            });
+        }
+    </script>
+</body>
+</html>

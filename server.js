@@ -631,6 +631,11 @@ app.get('/logout', logout);
 app.get('/register-editor', requireAdmin, renderRegisterEditorPage);
 app.post('/register-editor', requireAdmin, registerEditor);
 
+// Registration Form & Applications
+const { renderRegistrationFieldsPage, renderReporterApplicationsPage } = require('./controllers/adminController');
+app.get('/registration-fields', requireAdmin, renderRegistrationFieldsPage);
+app.get('/reporter-applications', requireAdmin, renderReporterApplicationsPage);
+
 // Add profile route at the root level
 
 // Add news routes at the root level

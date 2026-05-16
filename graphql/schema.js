@@ -166,6 +166,37 @@ const typeDefs = gql`
 
     # Personalized Interaction queries
     getUserNewsInteractions(userId: ID!): UserInteractionsList
+
+    # Dynamic Registration Form queries
+    getRegistrationFields: [RegistrationField!]!
+    getReporterApplications: [ReporterApplication!]!
+    getReporterApplicationById(id: ID!): ReporterApplication
+
+    # Existing extensions
+    getLiveStreamStatus: LiveStreamStatus
+    getEditorById(id: ID!): Editor
+    getNewsByEditor(editorId: ID!, limit: Int): [News!]!
+    getNewsById(id: ID!): News
+  }
+
+  type RegistrationField {
+    id: ID!
+    label: String!
+    type: String!
+    name: String!
+    placeholder: String
+    required: Boolean
+    options: [String]
+    order: Int
+    isActive: Boolean
+  }
+
+  type ReporterApplication {
+    id: ID!
+    data: String! # JSON stringified map
+    status: String!
+    adminNotes: String
+    createdAt: String!
   }
 
   type Mutation {
@@ -184,6 +215,19 @@ const typeDefs = gql`
     reportNews(newsId: ID!, reason: String!, description: String!, userId: String!, userName: String!, userEmail: String!): ReportResponse
     reportComment(newsId: ID!, commentText: String!, commentUserId: String!, commentUserName: String!, userId: String!, userName: String!, userEmail: String!, reason: String!, additionalDetails: String): ReportResponse
     reportViralVideoComment(videoId: ID!, commentText: String!, commentUserId: String!, commentUserName: String!, userId: String!, userName: String!, userEmail: String!, reason: String!, additionalDetails: String): ReportResponse
+
+    # Existing extensions
+    updateLiveStreamStatus(isLive: Boolean!, url: String): LiveStreamStatus
+    loginEditor(username: String!, password: String!): EditorLoginPayload
+    updateEditorProfile(editorId: ID!, name: String, displayRole: String, location: String, profileImage: String): EditorProfileUpdatePayload
+    registerEditor(username: String!, email: String!, password: String!, name: String, displayRole: String, location: String, mobileNumber: String): EditorRegisterPayload
+    
+    # Dynamic Form Mutations
+    submitReporterApplication(data: String!): ApplicationResponse
+    updateRegistrationField(id: ID, label: String, type: String, name: String, placeholder: String, required: Boolean, options: [String], order: Int, isActive: Boolean): FieldResponse
+    deleteRegistrationField(id: ID!): FieldResponse
+    reviewReporterApplication(applicationId: ID!, status: String!, adminNotes: String): ApplicationResponse
+    deleteReporterApplication(applicationId: ID!): ApplicationResponse
   }
   
   type ReportResponse {
@@ -196,17 +240,22 @@ const typeDefs = gql`
     url: String
   }
 
-  extend type Query {
-    getLiveStreamStatus: LiveStreamStatus
-    getEditorById(id: ID!): Editor
-    getNewsByEditor(editorId: ID!, limit: Int): [News!]!
-    getNewsById(id: ID!): News
+  type ApplicationResponse {
+    success: Boolean!
+    message: String!
   }
 
-  extend type Mutation {
-    updateLiveStreamStatus(isLive: Boolean!, url: String): LiveStreamStatus
-    loginEditor(username: String!, password: String!): EditorLoginPayload
-    updateEditorProfile(editorId: ID!, name: String, displayRole: String, location: String, profileImage: String): EditorProfileUpdatePayload
+  type FieldResponse {
+    success: Boolean!
+    message: String!
+    field: RegistrationField
+  }
+
+  type EditorRegisterPayload {
+    success: Boolean!
+    message: String!
+    token: String
+    editor: Editor
   }
 
   type EditorLoginPayload {

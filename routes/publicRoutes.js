@@ -1658,6 +1658,27 @@ router.post('/api/public/upload-profile-image', uploadMedia.single('media'), asy
   }
 });
 
+// Generic endpoint for registration file uploads (Docs, PDFs, etc.)
+router.post('/api/public/upload-registration-file', uploadMedia.single('media'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const fileUrl = req.file.path;
+    console.log('Registration file uploaded to R2:', fileUrl);
+
+    return res.json({
+      url: fileUrl,
+      success: true,
+      message: 'File uploaded successfully'
+    });
+  } catch (error) {
+    console.error('Registration file upload error:', error);
+    res.status(500).json({ error: 'Error uploading file: ' + error.message });
+  }
+});
+
 // --- URL Shortener Endpoints ---
 const ShortLink = require('../models/ShortLink');
 

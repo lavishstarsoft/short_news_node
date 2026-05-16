@@ -29,6 +29,10 @@ const adminSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isApproved: {
+    type: Boolean,
+    default: true
+  },
   profileImage: {
     type: String,
     default: null

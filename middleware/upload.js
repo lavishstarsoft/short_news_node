@@ -155,6 +155,10 @@ const createMulterR2Interface = (options = {}) => {
                                 console.error('⚠️ Thumbnail generation failed, but video upload succeeded:', thumbError);
                                 // Don't fail the whole request if only thumbnail fails
                             }
+                        } else {
+                            // Handle other file types (PDF, Doc, etc.)
+                            console.log(`📄 Uploading non-media file: ${req.file.originalname} (${mimetype})`);
+                            req.file.path = await uploadToR2(buffer, folderName, req.file.originalname, mimetype);
                         }
 
                         next();

@@ -15,6 +15,8 @@ const Category = require('../models/Category');
 // Import the Notification model
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const RegistrationField = require('../models/RegistrationField');
+const ReporterApplication = require('../models/ReporterApplication');
 
 // Import OneSignal service
 const oneSignalService = require('../services/oneSignalService');
@@ -3096,9 +3098,9 @@ async function getDuplicateDetails(req, res) {
 }
 
 // Render rejected news page
+
 async function renderRejectedNewsPage(req, res) {
   try {
-    // Fetch all rejected news
     const rejectedNews = await News.find({
       'rejectionStatus.isRejected': true
     })
@@ -3117,6 +3119,34 @@ async function renderRejectedNewsPage(req, res) {
   }
 }
 
+async function renderRegistrationFieldsPage(req, res) {
+  try {
+    const fields = await RegistrationField.find().sort({ order: 1 });
+    res.render('registration-fields', {
+      admin: req.admin,
+      activePage: 'registration-fields',
+      fields
+    });
+  } catch (error) {
+    console.error('Error rendering registration fields page:', error);
+    res.status(500).send('Internal Server Error');
+  }
+}
+
+async function renderReporterApplicationsPage(req, res) {
+  try {
+    const applications = await ReporterApplication.find().sort({ createdAt: -1 }).lean();
+    res.render('reporter-applications', {
+      admin: req.admin,
+      activePage: 'reporter-applications',
+      applications
+    });
+  } catch (error) {
+    console.error('Error rendering reporter applications page:', error);
+    res.status(500).send('Internal Server Error');
+  }
+}
+
 module.exports = {
   renderLoginPage,
   login,
@@ -3127,7 +3157,6 @@ module.exports = {
   renderDashboard,
   renderProfilePage,
   updateProfile,
-
   renderRegisterEditorPage,
   registerEditor,
   renderEditorsPage,
@@ -3138,7 +3167,7 @@ module.exports = {
   deleteEditor,
   renderUsersListPage,
   getUserById,
-  renderReportsPage, // Add this back
+  renderReportsPage,
   renderNotificationsPage,
   sendNotification,
   getNotificationHistory,
@@ -3163,5 +3192,7 @@ module.exports = {
   renderPlagiarismReportPage,
   getDuplicateDetails,
   renderRejectedNewsPage, 
-  getEditorRangeStats
+  getEditorRangeStats,
+  renderRegistrationFieldsPage,
+  renderReporterApplicationsPage
 };

@@ -1,0 +1,427 @@
+<%- include('partials/header', { title: 'Reporter Applications' }) %>
+
+<!-- Add html2pdf library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+    :root {
+        --primary: #4f46e5;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0;
+        --slate-400: #94a3b8;
+        --slate-600: #475569;
+        --slate-900: #0f172a;
+        --radius-xl: 20px;
+        --radius-lg: 12px;
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    }
+
+    body {
+        background-color: var(--slate-100);
+        font-family: 'Inter', sans-serif;
+    }
+
+    .main-card {
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--slate-200);
+        background: white;
+        overflow: hidden;
+        margin-top: 2rem;
+    }
+
+    .card-header-custom {
+        background: var(--slate-900);
+        color: white;
+        padding: 35px;
+    }
+
+    .app-card {
+        border: 1px solid var(--slate-200);
+        border-radius: var(--radius-lg);
+        margin-bottom: 25px;
+        background: white;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+
+    .app-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--primary);
+    }
+
+    .app-header {
+        background: var(--slate-50);
+        padding: 20px 25px;
+        border-bottom: 1px solid var(--slate-200);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+
+    .app-body {
+        padding: 30px;
+    }
+
+    .data-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 25px;
+    }
+
+    .data-item {
+        background: var(--slate-50);
+        padding: 15px;
+        border-radius: 12px;
+        border: 1px solid var(--slate-100);
+    }
+
+    .data-label {
+        font-weight: 700;
+        color: var(--slate-400);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .data-value {
+        color: var(--slate-900);
+        font-weight: 600;
+        font-size: 1rem;
+        word-break: break-word;
+    }
+
+    .file-preview {
+        margin-top: 10px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--slate-200);
+        background: white;
+    }
+
+    .img-preview {
+        max-width: 100%;
+        height: auto;
+        max-height: 200px;
+        display: block;
+    }
+
+    .pdf-link {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+        background: var(--primary-light);
+        transition: all 0.2s;
+    }
+
+    .pdf-link:hover {
+        background: var(--primary);
+        color: white;
+    }
+
+    .status-badge {
+        padding: 8px 16px;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .status-pending { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    .status-approved { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .status-rejected { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+    .btn-download {
+        background: white;
+        color: var(--slate-900);
+        border: 1px solid var(--slate-200);
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .btn-download:hover {
+        background: var(--slate-900);
+        color: white;
+    }
+
+    /* Print styling for PDF */
+    .print-only {
+        display: none;
+    }
+
+    @media print {
+        .no-print { display: none !important; }
+        .print-only { display: block !important; }
+    }
+</style>
+
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Reporter Applications' , backButton: true, backUrl: '/' }) %>
+
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar', { activePage: 'reporter-applications' }) %>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="main-card no-print">
+                    <div class="card-header-custom d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-1 fw-bold">Reporter Applications</h2>
+                            <p class="mb-0 text-white-50">Manage incoming reporter onboarding requests and review documentation</p>
+                        </div>
+                    </div>
+
+                    <div class="card-body p-4">
+                        <% if (applications && applications.length > 0) { %>
+                            <% applications.forEach(app => { %>
+                                <div class="app-card" id="app-card-<%= app._id %>">
+                                    <div class="app-header d-flex justify-content-between align-items-center">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <span class="status-badge status-<%= app.status %>">
+                                                <%= app.status %>
+                                            </span>
+                                            <span class="text-muted small fw-medium">
+                                                <i class="far fa-calendar-alt me-1"></i>
+                                                <%= new Date(app.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) %>
+                                            </span>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn-download" onclick="downloadApplicationPDF('<%= app._id %>')">
+                                                <i class="fas fa-file-pdf me-2 text-danger"></i>Download PDF
+                                            </button>
+                                            <% if (app.status === 'pending') { %>
+                                                <button class="btn btn-success btn-sm px-4 rounded-pill fw-bold" onclick="reviewApp('<%= app._id %>', 'approved')">
+                                                    Approve
+                                                </button>
+                                                <button class="btn btn-danger btn-sm px-4 rounded-pill fw-bold" onclick="reviewApp('<%= app._id %>', 'rejected')">
+                                                    Reject
+                                                </button>
+                                            <% } %>
+                                            <button class="btn btn-outline-danger btn-sm px-3 rounded-pill" onclick="deleteApp('<%= app._id %>')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="app-body" id="print-area-<%= app._id %>">
+                                        <!-- Header for PDF export only -->
+                                        <div class="print-only">
+                                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                                <div style="width: 150px;">
+                                                    <img src="/uploads/logo.png" alt="Tehelka News Logo" style="width: 100%; height: auto;" onerror="this.style.display='none'">
+                                                    <h2 class="fw-bold m-0" style="color: #4f46e5;">Tehelka News</h2>
+                                                </div>
+                                                <div class="text-end">
+                                                    <h3 class="fw-bold mb-1">OFFICE RECORD</h3>
+                                                    <p class="text-muted small mb-0">Application ID: <%= app._id %></p>
+                                                    <p class="text-muted small mb-0">Submission Date: <%= new Date(app.createdAt).toLocaleDateString('en-IN') %></p>
+                                                </div>
+                                            </div>
+                                            <div class="text-center mb-5">
+                                                <h2 class="fw-bold text-uppercase" style="border-bottom: 2px solid #000; display: inline-block; padding-bottom: 5px;">Reporter Registration Form</h2>
+                                            </div>
+                                        </div>
+
+                                        <!-- Main Content for Web View -->
+                                        <div class="data-grid no-print">
+                                            <% Object.keys(app.data).forEach(key => { 
+                                                const value = app.data[key];
+                                                const isUrl = typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads') || value.includes('pub-'));
+                                                const isImage = isUrl && (value.match(/\.(jpeg|jpg|gif|png|webp)/i));
+                                                const isPdf = isUrl && (value.match(/\.pdf/i));
+                                            %>
+                                                <div class="data-item">
+                                                    <span class="data-label"><%= key.replace(/_/g, ' ') %></span>
+                                                    <div class="data-value">
+                                                        <% if (isImage) { %>
+                                                            <div class="file-preview">
+                                                                <img src="<%= value %>" class="img-preview" alt="Attachment">
+                                                                <a href="<%= value %>" target="_blank" class="pdf-link mt-2">
+                                                                    <i class="fas fa-external-link-alt me-2"></i>Full Image
+                                                                </a>
+                                                            </div>
+                                                        <% } else if (isPdf) { %>
+                                                            <div class="file-preview">
+                                                                <a href="<%= value %>" target="_blank" class="pdf-link">
+                                                                    <i class="fas fa-file-pdf me-2"></i>View PDF Document
+                                                                </a>
+                                                            </div>
+                                                        <% } else if (isUrl) { %>
+                                                            <a href="<%= value %>" target="_blank" class="text-primary fw-bold">
+                                                                View Attachment <i class="fas fa-paperclip ms-1"></i>
+                                                            </a>
+                                                        <% } else { %>
+                                                            <%= value %>
+                                                        <% } %>
+                                                    </div>
+                                                </div>
+                                            <% }) %>
+                                        </div>
+
+                                        <!-- Formal Table for PDF Export Only -->
+                                        <div class="print-only">
+                                            <table class="table table-bordered border-dark w-100">
+                                                <tbody>
+                                                    <% Object.keys(app.data).forEach((key, index) => { 
+                                                        const value = app.data[key];
+                                                        const isUrl = typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads') || value.includes('pub-'));
+                                                        const isImage = isUrl && (value.match(/\.(jpeg|jpg|gif|png|webp)/i));
+                                                    %>
+                                                        <tr>
+                                                            <th class="bg-light text-uppercase" style="width: 30%; font-size: 11px;"><%= key.replace(/_/g, ' ') %></th>
+                                                            <td style="font-size: 13px;">
+                                                                <% if (isImage) { %>
+                                                                    <div style="max-height: 150px; overflow: hidden;">
+                                                                        <img src="<%= value %>" style="max-width: 200px; height: auto;">
+                                                                    </div>
+                                                                <% } else { %>
+                                                                    <%= value %>
+                                                                <% } %>
+                                                            </td>
+                                                        </tr>
+                                                    <% }) %>
+                                                    <% if (app.adminNotes) { %>
+                                                        <tr>
+                                                            <th class="bg-light text-uppercase" style="font-size: 11px;">OFFICIAL REMARKS</th>
+                                                            <td style="font-size: 13px; font-weight: bold;"><%= app.adminNotes %></td>
+                                                        </tr>
+                                                    <% } %>
+                                                    <tr>
+                                                        <th class="bg-light text-uppercase" style="font-size: 11px;">APPLICATION STATUS</th>
+                                                        <td style="font-size: 13px; font-weight: bold; text-transform: uppercase;"><%= app.status %></td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <div class="print-only mt-5 pt-5">
+                                            <div class="d-flex justify-content-between">
+                                                <div class="text-center" style="width: 200px; border-top: 1px solid black; padding-top: 10px;">
+                                                    <p class="small fw-bold">Applicant Signature</p>
+                                                </div>
+                                                <div class="text-center" style="width: 200px; border-top: 1px solid black; padding-top: 10px;">
+                                                    <p class="small fw-bold">Office Authority</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <% }) %>
+                        <% } else { %>
+                            <div class="text-center py-5">
+                                <div class="text-muted mb-3"><i class="fas fa-clipboard-list fa-5x opacity-25"></i></div>
+                                <h4 class="fw-bold">No applications pending</h4>
+                                <p class="text-muted">New reporter applications will appear here for administrative review.</p>
+                            </div>
+                        <% } %>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script>
+        const GRAPHQL_ENDPOINT = '/graphql';
+
+        async function downloadApplicationPDF(appId) {
+            const element = document.getElementById(`print-area-${appId}`);
+            const opt = {
+                margin: 10,
+                filename: `Reporter_Application_${appId}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Temporarily show print elements
+            element.classList.add('printing');
+            
+            try {
+                await html2pdf().set(opt).from(element).save();
+            } catch (err) {
+                console.error('PDF Export Error:', err);
+                alert('Failed to generate PDF. Please check if all images loaded.');
+            } finally {
+                element.classList.remove('printing');
+            }
+        }
+
+        async function deleteApp(applicationId) {
+            if (!confirm('Are you sure you want to delete this application? This action cannot be undone.')) return;
+
+            const query = `
+                mutation DeleteReporterApplication($applicationId: ID!) {
+                    deleteReporterApplication(applicationId: $applicationId) {
+                        success
+                        message
+                    }
+                }
+            `;
+
+            try {
+                const response = await fetch(GRAPHQL_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query,
+                        variables: { applicationId }
+                    })
+                });
+                const result = await response.json();
+                if (result.data.deleteReporterApplication.success) {
+                    location.reload();
+                } else {
+                    alert(result.data.deleteReporterApplication.message);
+                }
+            } catch (error) {
+                console.error('Error deleting application:', error);
+            }
+        }
+
+        async function reviewApp(applicationId, status) {
+            const adminNotes = prompt(`Enter official remarks for ${status} status:`);
+            if (adminNotes === null) return;
+
+            const query = `
+                mutation ReviewReporterApplication($applicationId: ID!, $status: String!, $adminNotes: String) {
+                    reviewReporterApplication(applicationId: $applicationId, status: $status, adminNotes: $adminNotes) {
+                        success
+                        message
+                    }
+                }
+            `;
+
+            try {
+                const response = await fetch(GRAPHQL_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query,
+                        variables: { applicationId, status, adminNotes }
+                    })
+                });
+                const result = await response.json();
+                if (result.data.reviewReporterApplication.success) {
+                    location.reload();
+                } else {
+                    alert(result.data.reviewReporterApplication.message);
+                }
+            } catch (error) {
+                console.error('Error reviewing application:', error);
+            }
+        }
+    </script>
+</body>
+</html>
