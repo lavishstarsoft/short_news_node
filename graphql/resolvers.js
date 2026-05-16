@@ -350,6 +350,8 @@ const resolvers = {
                     publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
                     views: news.views || 0,
                     likes: news.likes || 0,
+                    dislikes: news.dislikes || 0,
+                    comments: news.comments || 0,
                     author: news.author,
                     authorId: news.authorId,
                     shortId: news.shortId || (news._id.toString().length > 6 ? news._id.toString().substring(news._id.toString().length - 6) : news._id.toString()),
