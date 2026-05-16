@@ -1204,18 +1204,28 @@ const resolvers = {
 
         updateLiveStreamStatus: async (_, { isLive, url }) => {
             try {
+                // Clean and validate URL
+                let cleanedUrl = url ? url.trim() : '';
+                
+                if (isLive && cleanedUrl) {
+                    const isYouTube = cleanedUrl.includes('youtube.com') || cleanedUrl.includes('youtu.be');
+                    if (!isYouTube) {
+                        throw new Error('Please provide a valid YouTube URL (వీడియో లింక్ మాత్రమే ఇవ్వండి)');
+                    }
+                }
+
                 let status = await LiveStream.findOne();
                 if (!status) {
-                    status = new LiveStream({ isLive, url });
+                    status = new LiveStream({ isLive, url: cleanedUrl });
                 } else {
                     status.isLive = isLive;
-                    if (url !== undefined) status.url = url;
+                    if (url !== undefined) status.url = cleanedUrl;
                 }
                 await status.save();
                 return status;
             } catch (error) {
                 console.error('Error updating live stream status:', error);
-                throw new Error('Failed to update live stream status');
+                throw new Error(error.message || 'Failed to update live stream status');
             }
         },
 
