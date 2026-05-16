@@ -546,6 +546,21 @@ const resolvers = {
             }
             return [];
         },
+        // Fetch reporter name from Admin model
+        authorName: async (parent) => {
+            try {
+                if (parent.authorId) {
+                    const editor = await Admin.findById(parent.authorId);
+                    if (editor && editor.name) {
+                        return editor.name;
+                    }
+                }
+                return parent.author; // Fallback to email/username
+            } catch (error) {
+                console.error('Error fetching author name:', error);
+                return parent.author;
+            }
+        },
         // Fetch reporter profile image from Admin model (Use denormalized if available)
         authorProfileImage: async (parent) => {
             if (parent.authorProfileImage) return parent.authorProfileImage;
