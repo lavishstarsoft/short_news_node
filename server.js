@@ -247,7 +247,7 @@ app.get(['/.well-known/apple-app-site-association', '/apple-app-site-association
         "apps": [],
         "details": [
           {
-            "appID": "YOUR_APPLE_TEAM_ID.com.lavish.yellowsingam",
+            "appID": "UW6F2VM6D8.com.lavish.yellowsingam",
             "paths": ["/news/*", "/*"]
           }
         ]
