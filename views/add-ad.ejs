@@ -384,7 +384,7 @@
             <div class="crop-modal" id="cropModal">
                 <div class="crop-container">
                     <div class="aspect-ratio-info">
-                        <h5><i class="fas fa-crop me-2"></i>Image Crop - 9:16 Ratio</h5>
+                        <h5><i class="fas fa-crop me-2"></i>Image Crop - 9:20 Ratio</h5>
                     </div>
                     <div class="crop-image-container">
                         <img id="cropImage" src="" alt="Crop preview">
@@ -562,7 +562,7 @@
                             document.getElementById('cropModal').classList.add('active');
                             if (cropper) cropper.destroy();
                             cropper = new Cropper(cropImage, {
-                                aspectRatio: 9 / 16,
+                                aspectRatio: 9 / 20,
                                 viewMode: 1,
                                 dragMode: 'move',
                                 autoCropArea: 1,
@@ -597,7 +597,7 @@
                             if (!cropper) return;
                             const canvas = cropper.getCroppedCanvas({
                                 width: 1080,
-                                height: 1920,
+                                height: 2400,
                                 imageSmoothingEnabled: true,
                                 imageSmoothingQuality: 'high',
                             });

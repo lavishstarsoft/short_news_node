@@ -818,7 +818,12 @@
                                                         <div class="small text-muted">Comments</div>
                                                     </div>
                                                     <div>
-                                                        <div class="fs-4 text-info" id="newsDetailViews">0</div>
+                                                        <div class="d-flex align-items-center justify-content-center gap-2">
+                                                            <div class="fs-4 text-info" id="newsDetailViews">0</div>
+                                                            <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
+                                                            <button class="btn btn-sm btn-outline-info" onclick="editNewsViews()" title="Edit Views"><i class="fas fa-edit"></i></button>
+                                                            <% } %>
+                                                        </div>
                                                         <div class="small text-muted">Views</div>
                                                     </div>
                                                 </div>
@@ -941,6 +946,7 @@
                 <script>
                     // Make newsList available globally
                     const newsListItems = JSON.parse(document.getElementById('newsData').textContent);
+                    let currentViewNewsId = null;
 
                     // Wait for DOM to be fully loaded
                     document.addEventListener('DOMContentLoaded', function () {
@@ -999,6 +1005,7 @@
 
                     // View news function
                     async function viewNews(newsId) {
+                        currentViewNewsId = newsId;
                         // Find the news item in the newsList array
                         let newsItem = newsListItems.find(news => news._id === newsId);
 
@@ -1434,6 +1441,54 @@
                                 }
                             });
                         });
+                    }
+
+                    // Edit News Views Function
+                    async function editNewsViews() {
+                        if (!currentViewNewsId) return;
+                        
+                        const viewsElement = document.getElementById('newsDetailViews');
+                        const currentViews = viewsElement.textContent;
+                        const newViews = prompt('Enter new view count:', currentViews);
+                        
+                        if (newViews !== null && newViews !== '') {
+                            const parsedViews = parseInt(newViews, 10);
+                            if (isNaN(parsedViews) || parsedViews < 0) {
+                                alert('Please enter a valid positive number');
+                                return;
+                            }
+                            
+                            try {
+                                const response = await fetch(`/news/api/news/${currentViewNewsId}/views`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ views: parsedViews })
+                                });
+                                
+                                const result = await response.json();
+                                
+                                if (response.ok) {
+                                    viewsElement.textContent = parsedViews;
+                                    // Update in local array
+                                    const index = newsListItems.findIndex(n => n._id === currentViewNewsId);
+                                    if (index !== -1) {
+                                        newsListItems[index].views = parsedViews;
+                                    }
+                                    
+                                    // Optionally refresh the main list UI or let the user refresh
+                                    // To show it immediately in the main list:
+                                    // location.reload();
+                                    
+                                } else {
+                                    alert(result.error || 'Failed to update view count');
+                                }
+                            } catch (error) {
+                                console.error('Error updating views:', error);
+                                alert('Error updating view count');
+                            }
+                        }
                     }
                 </script>
 

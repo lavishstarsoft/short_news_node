@@ -952,6 +952,84 @@ async function renderReportsPage(req, res) {
   }
 }
 
+// Update news view count manually by admin
+async function updateViewCount(req, res) {
+  try {
+    if (req.admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. Only superadmin can edit view counts.' });
+    }
+
+    const { id } = req.params;
+    const { views } = req.body;
+
+    if (views === undefined || isNaN(views) || views < 0) {
+      return res.status(400).json({ error: 'Valid view count is required' });
+    }
+
+    if (req.app.locals.isConnectedToMongoDB) {
+      const News = require('../models/News');
+      const existingNews = await News.findById(id);
+
+      if (!existingNews) {
+        return res.status(404).json({ error: 'News not found' });
+      }
+
+      // Track action
+      const updatedHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
+      updatedHistory.push(
+        buildHistoryEntry(
+          'updated',
+          req.admin,
+          `View count manually updated from ${existingNews.views} to ${views}`,
+          { from: existingNews.views, to: views }
+        )
+      );
+
+      const news = await News.findByIdAndUpdate(
+        id,
+        {
+          views: views,
+          actionHistory: updatedHistory
+        },
+        { new: true }
+      );
+
+      // Clear cache
+      await clearCache('cache:/api/public/news*');
+
+      res.json({ message: 'View count updated successfully', news });
+    } else {
+      // In-memory update
+      const newsData = req.app.locals.newsData;
+      const newsIndex = newsData.findIndex(n => n._id === id);
+
+      if (newsIndex === -1) {
+        return res.status(404).json({ error: 'News not found' });
+      }
+
+      const existingNews = newsData[newsIndex];
+      existingNews.views = views;
+      
+      if (!Array.isArray(existingNews.actionHistory)) {
+        existingNews.actionHistory = [];
+      }
+      existingNews.actionHistory.push(
+        buildHistoryEntry(
+          'updated',
+          req.admin,
+          `View count manually updated to ${views}`,
+          { to: views }
+        )
+      );
+
+      res.json({ message: 'View count updated successfully', news: existingNews });
+    }
+  } catch (error) {
+    console.error('Error updating view count:', error);
+    res.status(500).json({ error: 'Error updating view count: ' + error.message });
+  }
+}
+
 // Export all functions properly
 module.exports = {
   renderDashboard,
@@ -965,5 +1043,6 @@ module.exports = {
   toggleNewsStatus,
   updateNews,
   deleteNews,
-  uploadMedia
+  uploadMedia,
+  updateViewCount
 };
