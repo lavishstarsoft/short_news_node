@@ -80,7 +80,11 @@ async function invalidateCache(pattern) {
             MATCH: pattern,
             COUNT: 100
         })) {
-            keysFound.push(key);
+            if (Array.isArray(key)) {
+                keysFound.push(...key);
+            } else if (key) {
+                keysFound.push(key);
+            }
             
             // Delete in batches of 100 to stay efficient
             if (keysFound.length >= 100) {

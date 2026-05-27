@@ -1,4 +1,5 @@
 const Ad = require('../models/Ad');
+const AdInteraction = require('../models/AdInteraction');
 const { deleteFromR2 } = require('../config/cloudflare');
 
 // Render ads list page
