@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const adInteractionSchema = new mongoose.Schema({
-    adId: { type: mongoose.Schema.Types.ObjectId, ref: 'Ad', required: true },
+    adId: { type: String, required: true },
     adTitle: { type: String },
     interactionType: { type: String, enum: ['view', 'click'], required: true },
     viewDurationSeconds: { type: Number, default: 0 },
