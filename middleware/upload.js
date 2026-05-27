@@ -7,6 +7,24 @@ const path = require('path');
 const crypto = require('crypto');
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
+
+// Set explicit ffmpeg and ffprobe paths to resolve PM2 environment issues
+const ffmpegPaths = ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg'];
+const ffprobePaths = ['/usr/bin/ffprobe', '/usr/local/bin/ffprobe'];
+
+for (const p of ffmpegPaths) {
+    if (fs.existsSync(p)) {
+        ffmpeg.setFfmpegPath(p);
+        break;
+    }
+}
+for (const p of ffprobePaths) {
+    if (fs.existsSync(p)) {
+        ffmpeg.setFfprobePath(p);
+        break;
+    }
+}
+
 const os = require('os');
 const { promisify } = require('util');
 const writeFile = promisify(fs.writeFile);
