@@ -1534,6 +1534,73 @@
                     countBadge.textContent = currentCount + 1;
                 }
             });
+
+            // ⚡ LAZY DUPLICATE CHECK: Runs in background after page loads
+            document.addEventListener('DOMContentLoaded', async function() {
+                try {
+                    const response = await fetch('/admin/api/pending-news/duplicate-check');
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    if (!data.success || !data.results) return;
+
+                    data.results.forEach(function(result) {
+                        const dc = result.duplicateCheck;
+                        if (!dc || dc.matchCount === 0) return;
+
+                        // Update duplicateDataCache for "View Duplicates" modal
+                        duplicateDataCache[result.newsId] = {
+                            isDuplicate: dc.isDuplicate,
+                            isSuspicious: dc.isSuspicious,
+                            score: dc.score,
+                            matchCount: dc.matchCount,
+                            similarArticles: dc.similarArticles || []
+                        };
+
+                        // Find the card in the DOM
+                        const card = document.querySelector('.news-card[data-id="' + result.newsId + '"]');
+                        if (!card) return;
+
+                        // Add duplicate/suspicious badge dynamically
+                        const badgeGroup = card.querySelector('.badge-group');
+                        if (badgeGroup) {
+                            if (dc.isDuplicate) {
+                                const badge = document.createElement('span');
+                                badge.className = 'badge badge-duplicate';
+                                badge.title = 'High duplicate detected - ' + dc.score + '% match';
+                                badge.textContent = '⚠️ Duplicate (' + dc.score + '%)';
+                                badgeGroup.appendChild(badge);
+                            } else if (dc.isSuspicious) {
+                                const badge = document.createElement('span');
+                                badge.className = 'badge badge-suspicious';
+                                badge.title = 'Suspicious similarity - ' + dc.score + '% match';
+                                badge.textContent = '🔍 Similar (' + dc.score + '%)';
+                                badgeGroup.appendChild(badge);
+                            }
+                        }
+
+                        // Add duplicate warning box dynamically
+                        const cardContent = card.querySelector('.news-card-content');
+                        const cardActions = card.querySelector('.card-actions');
+                        if (cardContent && cardActions) {
+                            const warningDiv = document.createElement('div');
+                            warningDiv.className = 'duplicate-warning';
+                            warningDiv.innerHTML = '<strong>⚠️ ' + dc.matchCount + ' Similar Article' + (dc.matchCount > 1 ? 's' : '') + ' Found</strong><br>Highest match: ' + dc.score + '% similarity';
+                            cardContent.insertBefore(warningDiv, cardActions);
+
+                            // Add "View Duplicates" button
+                            const dupBtn = document.createElement('button');
+                            dupBtn.className = 'btn-duplicate';
+                            dupBtn.onclick = function() { viewDuplicates(result.newsId); };
+                            dupBtn.textContent = '🔍 Duplicates';
+                            cardActions.insertBefore(dupBtn, cardActions.firstChild.nextSibling);
+                        }
+                    });
+
+                    console.log('✅ Lazy duplicate check completed:', data.results.length, 'articles checked');
+                } catch (err) {
+                    console.log('⚠️ Duplicate check failed (non-critical):', err.message || err);
+                }
+            });
         </script>
     </body>
 

@@ -22,7 +22,7 @@ const ReporterApplication = require('../models/ReporterApplication');
 const oneSignalService = require('../services/oneSignalService');
 
 // Import Similarity Detector
-const { checkDuplicate, generateContentHash } = require('../utils/similarityDetector');
+const { checkDuplicate, checkDuplicateFast, generateContentHash } = require('../utils/similarityDetector');
 
 // Import cache clearing functionality
 const { clearCache } = require('../middleware/cache');
@@ -2609,9 +2609,11 @@ async function getReporterProfile(req, res) {
 }
 
 // Render pending news page for editors to review
+// ⚡ OPTIMIZED: No duplicate check at render time — page loads instantly
+// Duplicate check happens lazily via /admin/api/pending-news/duplicate-check
 async function renderPendingNewsPage(req, res) {
   try {
-    // Fetch all pending news (isActive = false AND not rejected)
+    // Fetch pending news with only needed fields (uses compound index)
     const pendingNews = await News.find({
       isActive: false,
       $or: [
@@ -2619,28 +2621,75 @@ async function renderPendingNewsPage(req, res) {
         { rejectionStatus: { $exists: false } }
       ]
     })
+      .select('_id title content category location author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl readFullLink ePaperLink views')
       .sort({ publishedAt: -1 })
+      .limit(100)
       .lean();
 
-    // Fetch all published articles for duplicate comparison
-    const publishedArticles = await News.find({ isActive: true })
+    // Add empty duplicateCheck defaults so the template doesn't break
+    const pendingNewsWithDefaults = pendingNews.map(article => ({
+      ...article,
+      duplicateCheck: {
+        isDuplicate: false,
+        isSuspicious: false,
+        score: 0,
+        matchCount: 0,
+        similarArticles: []
+      }
+    }));
+
+    res.render('pending-news', {
+      pendingNews: pendingNewsWithDefaults || [],
+      title: 'Pending News Review'
+    });
+  } catch (error) {
+    console.error('Error rendering pending news page:', error);
+    res.status(500).send('Error loading pending news');
+  }
+}
+
+// ⚡ Lazy duplicate check API — called in background after page load
+async function getPendingNewsDuplicateCheck(req, res) {
+  try {
+    // Fetch pending news (only title + content needed)
+    const pendingNews = await News.find({
+      isActive: false,
+      $or: [
+        { 'rejectionStatus.isRejected': { $ne: true } },
+        { rejectionStatus: { $exists: false } }
+      ]
+    })
+      .select('_id title content')
+      .sort({ publishedAt: -1 })
+      .limit(100)
+      .lean();
+
+    if (!pendingNews || pendingNews.length === 0) {
+      return res.json({ success: true, results: [] });
+    }
+
+    // Only fetch published articles from last 7 days (not ALL articles)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentPublished = await News.find({
+      isActive: true,
+      publishedAt: { $gte: sevenDaysAgo }
+    })
       .select('_id title content publishedAt author category location')
       .lean();
 
-    // Check each pending article for duplicates
-    const pendingNewsWithDuplicateCheck = pendingNews.map(article => {
-      const duplicateResults = checkDuplicate(
+    // Run optimized fast duplicate check for each pending article
+    const results = pendingNews.map(article => {
+      const duplicateResults = checkDuplicateFast(
         { title: article.title, content: article.content },
-        publishedArticles
+        recentPublished
       );
 
-      // Get top matches
       const topMatches = duplicateResults
         .filter(r => r.similarity.overall >= 50)
         .slice(0, 5);
 
       return {
-        ...article,
+        newsId: article._id.toString(),
         duplicateCheck: {
           isDuplicate: duplicateResults.some(r => r.isDuplicate),
           isSuspicious: duplicateResults.some(r => r.isSuspicious && !r.isDuplicate),
@@ -2651,13 +2700,10 @@ async function renderPendingNewsPage(req, res) {
       };
     });
 
-    res.render('pending-news', {
-      pendingNews: pendingNewsWithDuplicateCheck || [],
-      title: 'Pending News Review'
-    });
+    res.json({ success: true, results });
   } catch (error) {
-    console.error('Error rendering pending news page:', error);
-    res.status(500).send('Error loading pending news');
+    console.error('Error in lazy duplicate check:', error);
+    res.status(500).json({ success: false, error: 'Duplicate check failed' });
   }
 }
 
@@ -3185,6 +3231,7 @@ module.exports = {
   reporterLogin,
   getReporterProfile,
   renderPendingNewsPage,
+  getPendingNewsDuplicateCheck,
   updatePendingNews,
   approveNews,
   rejectNews,

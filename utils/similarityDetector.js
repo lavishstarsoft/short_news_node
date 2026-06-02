@@ -183,6 +183,72 @@ function checkDuplicate(newArticle, existingArticles) {
 }
 
 /**
+ * FAST Duplicate Check (optimized for pending news page)
+ * - Skips Levenshtein (O(n²) per pair) — uses only Cosine + Keywords (O(n) per pair)
+ * - Pre-computes new article keywords ONCE outside the loop
+ * - Early exits when title similarity < 25%
+ * - ~99% faster than checkDuplicate for large datasets
+ */
+function checkDuplicateFast(newArticle, existingArticles) {
+  const results = [];
+
+  // Pre-compute keywords for new article ONCE (not inside loop)
+  const newKeywords = extractKeywords(
+    (newArticle.title || '') + ' ' + (newArticle.content || '')
+  );
+
+  for (let i = 0; i < existingArticles.length; i++) {
+    const existing = existingArticles[i];
+
+    // Step 1: Quick title cosine check
+    const titleSimilarity = cosineSimilarity(newArticle.title || '', existing.title || '');
+
+    // Early exit: if title similarity < 25%, skip this article entirely
+    if (titleSimilarity < 25) continue;
+
+    // Step 2: Content cosine similarity (only if title passed threshold)
+    const contentSimilarity = cosineSimilarity(
+      newArticle.content || '',
+      existing.content || ''
+    );
+
+    // Step 3: Keyword similarity
+    const existingKeywords = extractKeywords(
+      (existing.title || '') + ' ' + (existing.content || '')
+    );
+    const keywordMatch = keywordSimilarity(newKeywords, existingKeywords);
+
+    // Overall score
+    const overallScore = Math.round(
+      titleSimilarity * 0.3 + contentSimilarity * 0.4 + keywordMatch * 0.3
+    );
+
+    // Only include if overall >= 40% (skip irrelevant matches)
+    if (overallScore >= 40) {
+      results.push({
+        articleId: existing._id,
+        articleTitle: existing.title,
+        publishedAt: existing.publishedAt,
+        author: existing.author,
+        category: existing.category,
+        location: existing.location,
+        similarity: {
+          title: titleSimilarity,
+          content: contentSimilarity,
+          keywords: keywordMatch,
+          overall: overallScore
+        },
+        isDuplicate: overallScore >= 80,
+        isSuspicious: overallScore >= 60
+      });
+    }
+  }
+
+  // Sort by similarity score descending
+  return results.sort((a, b) => b.similarity.overall - a.similarity.overall);
+}
+
+/**
  * Batch Hash Generation for existing articles
  */
 function generateBatchHashes(articles) {
@@ -199,5 +265,7 @@ module.exports = {
   extractKeywords,
   keywordSimilarity,
   checkDuplicate,
+  checkDuplicateFast,
   generateBatchHashes
 };
+

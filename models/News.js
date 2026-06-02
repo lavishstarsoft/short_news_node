@@ -121,4 +121,8 @@ newsSchema.pre('save', function (next) {
   next();
 });
 
+// Compound indexes for fast queries
+newsSchema.index({ isActive: 1, 'rejectionStatus.isRejected': 1, publishedAt: -1 }); // Pending news page
+newsSchema.index({ isActive: 1, publishedAt: -1 }); // Published news (duplicate check, feeds)
+
 module.exports = mongoose.model('News', newsSchema);
