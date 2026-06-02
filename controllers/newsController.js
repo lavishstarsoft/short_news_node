@@ -713,10 +713,10 @@ async function updateNews(req, res) {
 
     const newsData = {
       ...req.body,
-      author: req.admin.username,
-      authorId: req.admin.id,
-      authorProfileImage: authorDetails?.profileImage || null,
-      authorConstituency: authorDetails?.constituency || null,
+      author: existingNews.author || req.admin.username,
+      authorId: existingNews.authorId || req.admin.id,
+      authorProfileImage: existingNews.authorProfileImage || authorDetails?.profileImage || null,
+      authorConstituency: existingNews.authorConstituency || authorDetails?.constituency || null,
       actionHistory: updatedHistory,
     };
 
