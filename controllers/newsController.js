@@ -974,22 +974,10 @@ async function updateViewCount(req, res) {
         return res.status(404).json({ error: 'News not found' });
       }
 
-      // Track action
-      const updatedHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
-      updatedHistory.push(
-        buildHistoryEntry(
-          'updated',
-          req.admin,
-          `View count manually updated from ${existingNews.views} to ${views}`,
-          { from: existingNews.views, to: views }
-        )
-      );
-
       const news = await News.findByIdAndUpdate(
         id,
         {
-          views: views,
-          actionHistory: updatedHistory
+          views: views
         },
         { new: true }
       );
@@ -1009,18 +997,6 @@ async function updateViewCount(req, res) {
 
       const existingNews = newsData[newsIndex];
       existingNews.views = views;
-      
-      if (!Array.isArray(existingNews.actionHistory)) {
-        existingNews.actionHistory = [];
-      }
-      existingNews.actionHistory.push(
-        buildHistoryEntry(
-          'updated',
-          req.admin,
-          `View count manually updated to ${views}`,
-          { to: views }
-        )
-      );
 
       res.json({ message: 'View count updated successfully', news: existingNews });
     }
