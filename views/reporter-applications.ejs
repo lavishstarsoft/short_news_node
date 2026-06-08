@@ -234,7 +234,7 @@
 
                                         <!-- Main Content for Web View -->
                                         <div class="data-grid no-print">
-                                            <% Object.keys(app.data).forEach(key => { 
+                                            <% Object.keys(app.data || {}).forEach(key => { 
                                                 const value = app.data[key];
                                                 const isUrl = typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads') || value.includes('pub-'));
                                                 const isImage = isUrl && (value.match(/\.(jpeg|jpg|gif|png|webp)/i));
@@ -272,7 +272,7 @@
                                         <div class="print-only">
                                             <table class="table table-bordered border-dark w-100">
                                                 <tbody>
-                                                    <% Object.keys(app.data).forEach((key, index) => { 
+                                                    <% Object.keys(app.data || {}).forEach((key, index) => { 
                                                         const value = app.data[key];
                                                         const isUrl = typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads') || value.includes('pub-'));
                                                         const isImage = isUrl && (value.match(/\.(jpeg|jpg|gif|png|webp)/i));
