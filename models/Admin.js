@@ -113,6 +113,19 @@ adminSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
+// Find account by username or email (trim + lowercase email for reliable matching)
+adminSchema.statics.findByUsernameOrEmail = function (identifier) {
+  const trimmed = (identifier || '').trim();
+  if (!trimmed) return null;
+
+  return this.findOne({
+    $or: [
+      { username: trimmed },
+      { email: trimmed.toLowerCase() }
+    ]
+  });
+};
+
 // Add login history method
 adminSchema.methods.addLoginHistory = function (ip, userAgent, location, locationDetails = null) {
   this.loginHistory.push({

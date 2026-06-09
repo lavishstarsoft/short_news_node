@@ -2516,17 +2516,16 @@ async function renderR2UsagePage(req, res) {
 // Reporter/Editor API Login (for mobile/Next.js apps)
 async function reporterLogin(req, res) {
   try {
-    const { username, password } = req.body;
+    const trimmedUsername = (req.body.username || '').trim();
+    const trimmedPassword = (req.body.password || '').trim();
 
     // Validate input
-    if (!username || !password) {
+    if (!trimmedUsername || !trimmedPassword) {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
     // Find admin/editor by username or email
-    const admin = await Admin.findOne({
-      $or: [{ username: username }, { email: username }]
-    });
+    const admin = await Admin.findByUsernameOrEmail(trimmedUsername);
 
     if (!admin) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -2543,7 +2542,7 @@ async function reporterLogin(req, res) {
     }
 
     // Compare password
-    const isMatch = await admin.comparePassword(password);
+    const isMatch = await admin.comparePassword(trimmedPassword);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }

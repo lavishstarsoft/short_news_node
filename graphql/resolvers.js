@@ -1265,18 +1265,29 @@ const resolvers = {
         loginEditor: async (_, { username, password }) => {
             try {
                 const Admin = require('../models/Admin');
+                const trimmedUsername = (username || '').trim();
+                const trimmedPassword = (password || '').trim();
+
+                if (!trimmedUsername || !trimmedPassword) {
+                    return {
+                        success: false,
+                        message: 'Username and password are required',
+                        token: null,
+                        editor: null
+                    };
+                }
 
                 // Find editor/reporter by username OR email (support editor and subeditor roles)
                 const editor = await Admin.findOne({
                     $and: [
                         {
                             $or: [
-                                { username: username },
-                                { email: username }  // username parameter can contain email
+                                { username: trimmedUsername },
+                                { email: trimmedUsername.toLowerCase() }
                             ]
                         },
                         {
-                            role: { $in: ['editor', 'subeditor'] }  // Support both editor and subeditor roles
+                            role: { $in: ['editor', 'subeditor'] }
                         }
                     ]
                 });
@@ -1311,7 +1322,7 @@ const resolvers = {
                 }
 
                 // Validate password
-                const isPasswordValid = await editor.comparePassword(password);
+                const isPasswordValid = await editor.comparePassword(trimmedPassword);
                 if (!isPasswordValid) {
                     return {
                         success: false,
