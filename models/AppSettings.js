@@ -27,7 +27,7 @@ const appSettingsSchema = new mongoose.Schema({
   },
   iosUpdateUrl: {
     type: String,
-    default: ''
+    default: 'https://apps.apple.com/app/tehelka-news-daily-news-app/id6772203356'
   },
   updateMessage: {
     type: String,

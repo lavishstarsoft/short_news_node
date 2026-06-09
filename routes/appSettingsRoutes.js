@@ -73,7 +73,7 @@ router.get('/api/public/app-settings', async (req, res) => {
                 iosVersion: '1.0.0',
                 forceUpdate: false,
                 androidUpdateUrl: 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam',
-                iosUpdateUrl: '',
+                iosUpdateUrl: 'https://apps.apple.com/app/tehelka-news-daily-news-app/id6772203356',
                 updateMessage: 'A new version of the app is available. Please update to continue.'
             });
         }

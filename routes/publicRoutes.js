@@ -1681,6 +1681,7 @@ router.post('/api/public/upload-registration-file', uploadMedia.single('media'),
 
 // --- URL Shortener Endpoints ---
 const ShortLink = require('../models/ShortLink');
+const AppSettings = require('../models/AppSettings');
 
 // 1. Generate a short link for a given newsId
 router.post('/api/public/shorten', async (req, res) => {
@@ -1754,18 +1755,19 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
 
     const host = req.get('host') || 'news.tehelkanews.in';
     const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
-    
+
     const newsId = shortLink.newsId;
     const appPackage = 'com.lavish.yellowsingam';
-    const playStoreUrl = `https://play.google.com/store/apps/details?id=${appPackage}`;
+    const settings = await AppSettings.findOne({ key: 'update_flags' });
+    const playStoreUrl = settings?.androidUpdateUrl || `https://play.google.com/store/apps/details?id=${appPackage}`;
+    const appStoreUrl = settings?.iosUpdateUrl || 'https://apps.apple.com/app/tehelka-news-daily-news-app/id6772203356';
+    const logoUrl = `${protocol}://${host}/images/logo.png`;
+    const playStoreBadgeUrl = `${protocol}://${host}/images/google-play-badge.png`;
+    const appStoreBadgeUrl = `${protocol}://${host}/images/app-store-badge.png`;
     const deepLinkUrl = `${protocol}://${host}/news/${newsId}`;
-    const intentUrl = `intent://${host}/news/${newsId}#Intent;scheme=https;package=${appPackage};S.browser_fallback_url=${playStoreUrl};end`;
+    const intentUrl = `intent://${host}/news/${newsId}#Intent;scheme=https;package=${appPackage};S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};end`;
 
-    // Serve a smart HTML page that handles all platforms
-    // This works exactly like Firebase Dynamic Links:
-    // - Android: Instant app open via intent, Play Store fallback
-    // - iOS: App Store redirect
-    // - PC/Desktop: Play Store redirect
+    // Smart redirect page: open app if installed, otherwise show Tehelka News + store links
     res.send(`
 <!DOCTYPE html>
 <html lang="en">
@@ -1776,11 +1778,12 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
   <meta property="og:title" content="Tehelka News" />
   <meta property="og:description" content="Read this news on Tehelka News app" />
   <meta property="og:url" content="${deepLinkUrl}" />
+  <meta property="og:image" content="${logoUrl}" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #000;
+      background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%);
       color: #fff;
       display: flex;
       justify-content: center;
@@ -1788,45 +1791,113 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
       min-height: 100vh;
       text-align: center;
     }
-    .container { padding: 2rem; max-width: 400px; }
-    .logo { width: 120px; height: 120px; margin-bottom: 1.5rem; border-radius: 24px; }
-    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #FFD700; }
-    p { font-size: 0.95rem; color: #999; margin-bottom: 1.5rem; }
+    .container { padding: 2rem; max-width: 420px; width: 100%; }
+    .logo {
+      width: 100%;
+      max-width: 240px;
+      height: auto;
+      margin: 0 auto 1rem;
+      display: block;
+      object-fit: contain;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    h1 {
+      font-size: 1.75rem;
+      margin-bottom: 0.35rem;
+      color: #FF5A36;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .tagline { font-size: 0.95rem; color: #aaa; margin-bottom: 1.5rem; }
     .spinner {
-      width: 40px; height: 40px; margin: 0 auto 1.5rem;
-      border: 3px solid rgba(255,215,0,0.2);
-      border-top-color: #FFD700;
+      width: 36px; height: 36px; margin: 0 auto 1rem;
+      border: 3px solid rgba(255, 90, 54, 0.2);
+      border-top-color: #FF5A36;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .btn {
-      display: inline-block;
-      background: #FFD700;
-      color: #000;
-      padding: 12px 32px;
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 1rem;
-      transition: opacity 0.2s;
+    .status-text { font-size: 0.9rem; color: #888; margin-bottom: 1.5rem; }
+    .store-section { margin-top: 0.5rem; }
+    .store-label {
+      font-size: 0.85rem;
+      color: #999;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
-    .btn:hover { opacity: 0.85; }
+    .store-buttons {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.85rem;
+    }
+    .store-badge-link {
+      display: inline-block;
+      line-height: 0;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .store-badge-link--play {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid rgba(255, 255, 255, 0.55);
+      box-sizing: border-box;
+    }
+    .store-badge-link--play .store-badge {
+      border-radius: 12px;
+    }
+    .store-badge-link:hover {
+      transform: translateY(-1px);
+      opacity: 0.92;
+    }
+    .store-badge {
+      height: 52px;
+      width: auto;
+      max-width: 100%;
+      display: block;
+    }
     .hidden { display: none; }
+    @media (min-width: 640px) {
+      .container { max-width: 560px; }
+      .logo { max-width: 220px; }
+      .store-buttons {
+        flex-direction: row;
+        justify-content: center;
+        align-items: stretch;
+        gap: 1rem;
+      }
+      .store-badge-link { flex: 1; max-width: 240px; }
+      .store-badge {
+        height: 72px;
+        width: 100%;
+        object-fit: contain;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <img src="${protocol}://${host}/uploads/logo.png" alt="News Logo" class="logo" 
+    <img src="${logoUrl}" alt="Tehelka News" class="logo"
          onerror="this.src='/images/placeholder.png'" />
-    <h1>Yellow Singam</h1>
+    <h1>Tehelka News</h1>
+    <p class="tagline">National & worldwide news, instant updates</p>
+
     <div id="loading">
       <div class="spinner"></div>
-      <p>Opening in app...</p>
+      <p class="status-text">Opening in app...</p>
     </div>
-    <div id="fallback" class="hidden">
-      <p>App not found. Get it from Play Store:</p>
-      <a href="${playStoreUrl}" class="btn">📲 Install App</a>
+
+    <div id="store-section" class="store-section">
+      <p class="store-label">Download Tehelka News app</p>
+      <div class="store-buttons">
+        <a href="${playStoreUrl}" class="store-badge-link store-badge-link--play" id="play-store-btn" target="_blank" rel="noopener noreferrer">
+          <img src="${playStoreBadgeUrl}" alt="Get it on Google Play" class="store-badge" />
+        </a>
+        <a href="${appStoreUrl}" class="store-badge-link" id="app-store-btn" target="_blank" rel="noopener noreferrer">
+          <img src="${appStoreBadgeUrl}" alt="Download on the App Store" class="store-badge" />
+        </a>
+      </div>
     </div>
   </div>
 
@@ -1835,33 +1906,24 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
       var userAgent = navigator.userAgent || '';
       var isAndroid = /android/i.test(userAgent);
       var isIOS = /ipad|iphone|ipod/i.test(userAgent);
+      var deepLink = '${deepLinkUrl}';
+      var appStoreUrl = '${appStoreUrl}';
 
       if (isAndroid) {
-        // Try opening the app via intent URL (instant, no visible browser)
         window.location.href = '${intentUrl}';
-        
-        // If app is not installed, intent fallback goes to Play Store automatically
-        // But also show manual button after 2.5 seconds as backup
         setTimeout(function() {
           document.getElementById('loading').classList.add('hidden');
-          document.getElementById('fallback').classList.remove('hidden');
         }, 2500);
-
       } else if (isIOS) {
-        // iOS: redirect to App Store (update with real App ID when available)
-        window.location.href = 'https://apps.apple.com/app/idYOUR_APP_ID';
+        window.location.href = deepLink;
+        setTimeout(function() {
+          window.location.href = appStoreUrl;
+        }, 1500);
         setTimeout(function() {
           document.getElementById('loading').classList.add('hidden');
-          document.getElementById('fallback').classList.remove('hidden');
-          document.querySelector('.btn').href = 'https://apps.apple.com/app/idYOUR_APP_ID';
-          document.querySelector('.btn').textContent = '📲 Install from App Store';
         }, 2500);
-
       } else {
-        // PC/Desktop: Direct to Play Store
         document.getElementById('loading').classList.add('hidden');
-        document.getElementById('fallback').classList.remove('hidden');
-        document.querySelector('#fallback p').textContent = 'Download Yellow Singam app:';
       }
     })();
   </script>
