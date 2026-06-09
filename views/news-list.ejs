@@ -455,7 +455,7 @@
                                         </div>
                                     </div>
                                     <div class="row align-items-center mt-3">
-                                        <div class="col-md-3 mb-2 mb-md-0">
+                                        <div class="col-md-2 mb-2 mb-md-0">
                                             <input type="text" class="form-control" id="searchFilter" name="search"
                                                 placeholder="Search by title..."
                                                 value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
@@ -483,6 +483,15 @@
                                                     selectedStatus==='pending' ) ? 'selected' : '' %>>Pending</option>
                                                 <option value="rejected" <%=(typeof selectedStatus !=='undefined' &&
                                                     selectedStatus==='rejected' ) ? 'selected' : '' %>>Rejected</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2 mb-2 mb-md-0">
+                                            <select class="form-select" id="languageFilter" name="language">
+                                                <option value="">All Languages</option>
+                                                <% const langLabels = typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' }; %>
+                                                <% Object.keys(langLabels).forEach(function(code) { %>
+                                                    <option value="<%= code %>" <%=(typeof selectedLanguage !== 'undefined' && selectedLanguage === code) ? 'selected' : '' %>><%= langLabels[code] %></option>
+                                                <% }); %>
                                             </select>
                                         </div>
                                         <div class="col-md-2 mb-2 mb-md-0">
@@ -518,6 +527,8 @@
                                         value="<%= typeof selectedLocation !== 'undefined' ? selectedLocation : '' %>">
                                     <input type="hidden" id="statusFilterInput" name="status"
                                         value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : '' %>">
+                                    <input type="hidden" id="languageFilterInput" name="language"
+                                        value="<%= typeof selectedLanguage !== 'undefined' ? selectedLanguage : '' %>">
                                     <input type="hidden" id="fromDateFilterInput" name="fromDate"
                                         value="<%= typeof fromDate !== 'undefined' ? fromDate : '' %>">
                                     <input type="hidden" id="toDateFilterInput" name="toDate"
@@ -613,9 +624,15 @@
                                                             </p>
                                                             <div
                                                                 class="d-flex justify-content-between align-items-center mb-2">
-                                                                <small class="text-muted">
-                                                                    <%= news.category %>
-                                                                </small>
+                                                                <div class="d-flex align-items-center gap-2">
+                                                                    <small class="text-muted">
+                                                                        <%= news.category %>
+                                                                    </small>
+                                                                    <% const articleLang = news.language || 'te'; %>
+                                                                    <span class="badge bg-info text-dark" style="font-size: 0.65rem;">
+                                                                        <%= langLabels[articleLang] || 'Telugu' %>
+                                                                    </span>
+                                                                </div>
                                                                 <small class="text-muted">
                                                                     <%= new Date(news.publishedAt).toLocaleDateString()
                                                                         %>
@@ -696,6 +713,7 @@
                                             const paginationSearchQuery = (typeof searchQuery !== 'undefined' && searchQuery) ? searchQuery : '';
                                             const paginationLocation = (typeof selectedLocation !== 'undefined' && selectedLocation) ? selectedLocation : '';
                                             const paginationStatus = (typeof selectedStatus !== 'undefined' && selectedStatus) ? selectedStatus : '';
+                                            const paginationLanguage = (typeof selectedLanguage !== 'undefined' && selectedLanguage) ? selectedLanguage : '';
                                             const paginationFromDate = (typeof fromDate !== 'undefined' && fromDate) ? fromDate : '';
                                             const paginationToDate = (typeof toDate !== 'undefined' && toDate) ? toDate : '';
                                         %>
@@ -713,13 +731,13 @@
                                             <ul class="pagination justify-content-center flex-wrap">
                                                 <!-- First Page -->
                                                 <li class="page-item <%= pagination.currentPage === 1 ? 'disabled' : '' %>">
-                                                    <a class="page-link" href="?page=1<%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
+                                                    <a class="page-link" href="?page=1<%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationLanguage ? '&language=' + paginationLanguage : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
                                                         <i class="fas fa-angle-double-left"></i>
                                                     </a>
                                                 </li>
                                                 <!-- Previous Page -->
                                                 <li class="page-item <%= !pagination.hasPrevPage ? 'disabled' : '' %>">
-                                                    <a class="page-link" href="?page=<%= pagination.currentPage - 1 %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
+                                                    <a class="page-link" href="?page=<%= pagination.currentPage - 1 %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationLanguage ? '&language=' + paginationLanguage : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
                                                         <i class="fas fa-angle-left"></i>
                                                     </a>
                                                 </li>
@@ -740,7 +758,7 @@
 
                                                 for (let i = startPage; i <= endPage; i++) { %>
                                                     <li class="page-item <%= i === pagination.currentPage ? 'active' : '' %>">
-                                                        <a class="page-link" href="?page=<%= i %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
+                                                        <a class="page-link" href="?page=<%= i %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationLanguage ? '&language=' + paginationLanguage : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
                                                             <%= i %>
                                                         </a>
                                                     </li>
@@ -748,13 +766,13 @@
 
                                                 <!-- Next Page -->
                                                 <li class="page-item <%= !pagination.hasNextPage ? 'disabled' : '' %>">
-                                                    <a class="page-link" href="?page=<%= pagination.currentPage + 1 %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
+                                                    <a class="page-link" href="?page=<%= pagination.currentPage + 1 %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationLanguage ? '&language=' + paginationLanguage : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
                                                         <i class="fas fa-angle-right"></i>
                                                     </a>
                                                 </li>
                                                 <!-- Last Page -->
                                                 <li class="page-item <%= pagination.currentPage === pagination.totalPages ? 'disabled' : '' %>">
-                                                    <a class="page-link" href="?page=<%= pagination.totalPages %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
+                                                    <a class="page-link" href="?page=<%= pagination.totalPages %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationLanguage ? '&language=' + paginationLanguage : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
                                                         <i class="fas fa-angle-double-right"></i>
                                                     </a>
                                                 </li>
@@ -954,16 +972,18 @@
                         const searchFilter = document.getElementById('searchFilter');
                         const locationFilter = document.getElementById('locationFilter');
                         const statusFilter = document.getElementById('statusFilter');
+                        const languageFilter = document.getElementById('languageFilter');
                         const fromDateFilter = document.getElementById('fromDateFilter');
                         const toDateFilter = document.getElementById('toDateFilter');
                         const searchFilterInput = document.getElementById('searchFilterInput');
                         const locationFilterInput = document.getElementById('locationFilterInput');
                         const statusFilterInput = document.getElementById('statusFilterInput');
+                        const languageFilterInput = document.getElementById('languageFilterInput');
                         const fromDateFilterInput = document.getElementById('fromDateFilterInput');
                         const toDateFilterInput = document.getElementById('toDateFilterInput');
                         const filterForm = document.getElementById('filterForm');
 
-                        if (searchFilter && locationFilter && statusFilter && fromDateFilter && toDateFilter && filterForm) {
+                        if (searchFilter && locationFilter && statusFilter && languageFilter && fromDateFilter && toDateFilter && filterForm) {
                             // Search on Enter key
                             searchFilter.addEventListener('keypress', function (e) {
                                 if (e.key === 'Enter') {
@@ -985,6 +1005,11 @@
 
                             statusFilter.addEventListener('change', function () {
                                 statusFilterInput.value = this.value;
+                                filterForm.submit();
+                            });
+
+                            languageFilter.addEventListener('change', function () {
+                                languageFilterInput.value = this.value;
                                 filterForm.submit();
                             });
 

@@ -314,6 +314,11 @@
                                                                             <i class="fas fa-map-marker-alt me-1 text-danger opacity-50"></i>
                                                                             <%= editor.location || 'Pan India' %>
                                                                         </div>
+                                                                        <div class="text-muted small mb-1">
+                                                                            <i class="fas fa-language me-1 opacity-50"></i>
+                                                                            <% const editorLangLabels = typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' }; %>
+                                                                            <%= editorLangLabels[editor.workingLanguage || 'te'] || 'Telugu' %>
+                                                                        </div>
                                                                         <div class="text-muted small">
                                                                             <i class="fas fa-envelope me-1 opacity-50"></i>
                                                                             <%= editor.email %>
@@ -470,6 +475,16 @@
                                         </select>
                                     </div>
                                     <div class="col-md-6 mb-3">
+                                        <label class="form-label">News Language</label>
+                                        <select class="form-select" id="editWorkingLanguage">
+                                            <option value="te">Telugu</option>
+                                            <option value="en">English</option>
+                                            <option value="hi">Hindi</option>
+                                            <option value="ta">Tamil</option>
+                                        </select>
+                                        <small class="text-muted">Reporter posts news in this language</small>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
                                         <label class="form-label">Constituency</label>
                                         <input type="text" class="form-control" id="editConstituency">
                                     </div>
@@ -561,6 +576,7 @@
                         document.getElementById('editRole').value = editor.role || 'editor';
                         document.getElementById('editDisplayRole').value = editor.displayRole || '';
                         document.getElementById('editLocation').value = editor.location || '';
+                        document.getElementById('editWorkingLanguage').value = editor.workingLanguage || 'te';
                         document.getElementById('editConstituency').value = editor.constituency || '';
                         document.getElementById('editMobile').value = editor.mobileNumber || '';
 
@@ -577,6 +593,7 @@
                             role: document.getElementById('editRole').value,
                             displayRole: document.getElementById('editDisplayRole').value,
                             location: document.getElementById('editLocation').value,
+                            workingLanguage: document.getElementById('editWorkingLanguage').value,
                             constituency: document.getElementById('editConstituency').value,
                             mobileNumber: document.getElementById('editMobile').value,
                             profileImage: document.getElementById('editProfileImageUrl').value

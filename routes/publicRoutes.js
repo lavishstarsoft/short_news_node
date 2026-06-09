@@ -15,7 +15,7 @@ const { cacheMiddleware, clearCache } = require('../middleware/cache');
 
 // Import upload middleware for profile image upload
 const { uploadMedia } = require('../middleware/upload');
-const path = require('path');
+const { buildNewsLanguageFilter } = require('../utils/newsLanguages');
 const fs = require('fs');
 
 
@@ -24,22 +24,29 @@ const fs = require('fs');
 const handleGetNews = async (req, res) => {
   try {
     let newsList;
+    const { language } = req.query;
 
     // Check if MongoDB is connected
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
 
     if (isConnectedToMongoDB) {
-      // ✅ ROBUST FILTER: Include news where isActive is NOT false
-      // This handles legacy docs correctly
-      newsList = await News.find({
-        isActive: { $ne: false }
-      }).sort({ publishedAt: -1 });
+      const query = { isActive: { $ne: false } };
+      if (language) {
+        Object.assign(query, buildNewsLanguageFilter(language));
+      }
+      newsList = await News.find(query).sort({ publishedAt: -1 });
     } else {
       // Use in-memory storage and filter for active news
       const allNews = req.app.locals.newsData || [];
       newsList = allNews
-        .filter(news => news.isActive !== false)
-        .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)); // Sort by publishedAt descending (newest first)
+        .filter(news => {
+          if (news.isActive === false) return false;
+          if (!language) return true;
+          const normalized = String(language).toLowerCase();
+          const articleLanguage = (news.language || 'te').toLowerCase();
+          return articleLanguage === normalized || (normalized === 'te' && !news.language);
+        })
+        .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
     }
 
     // Transform data for Flutter app with backward compatibility
@@ -62,6 +69,7 @@ const handleGetNews = async (req, res) => {
         thumbnail_url: newsObj.thumbnailUrl || newsObj.mediaUrl || newsObj.imageUrl || '/images/placeholder.png', // Backward compatibility
         category: newsObj.category,
         location: newsObj.location,
+        language: newsObj.language || 'te',
         publishedAt: newsObj.publishedAt,
         published_at: newsObj.publishedAt, // Backward compatibility
         likes: newsObj.likes || 0,

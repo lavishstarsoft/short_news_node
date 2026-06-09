@@ -662,7 +662,17 @@
                                     </select>
                                 </div>
 
-                                <!-- Date Filter -->
+                                <!-- Language Filter -->
+                                <div class="filter-input">
+                                    <label>🌐 Language</label>
+                                    <select id="languageFilter" onchange="applyLanguageFilter()">
+                                        <option value="">All Languages</option>
+                                        <% const pendingLangLabels = typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' }; %>
+                                        <% Object.keys(pendingLangLabels).forEach(function(code) { %>
+                                            <option value="<%= code %>" <%=(typeof selectedLanguage !== 'undefined' && selectedLanguage === code) ? 'selected' : '' %>><%= pendingLangLabels[code] %></option>
+                                        <% }); %>
+                                    </select>
+                                </div>
                                 <div class="filter-input">
                                     <label>📅 Date Range</label>
                                     <select id="dateFilter" onchange="filterNews()">
@@ -700,7 +710,7 @@
                                 <% if (pendingNews && pendingNews.length > 0) { %>
                                     <div class="news-grid" id="newsGrid">
                                         <% pendingNews.forEach((news, index) => { %>
-                                            <div class="news-card" data-id="<%= news._id %>" data-title="<%= news.title.toLowerCase() %>" data-author="<%= news.author.toLowerCase() %>" data-category="<%= (news.category || '').toLowerCase() %>" data-location="<%= (news.location || '').toLowerCase() %>" data-date="<%= new Date(news.publishedAt).getTime() %>">
+                                            <div class="news-card" data-id="<%= news._id %>" data-title="<%= news.title.toLowerCase() %>" data-author="<%= news.author.toLowerCase() %>" data-category="<%= (news.category || '').toLowerCase() %>" data-location="<%= (news.location || '').toLowerCase() %>" data-language="<%= (news.language || 'te').toLowerCase() %>" data-date="<%= new Date(news.publishedAt).getTime() %>">
                                                 <!-- News Image -->
                                                 <% if (news.mediaUrl) { %>
                                                     <div class="news-card-image">
@@ -722,6 +732,7 @@
                                                     <!-- Badges -->
                                                     <div class="badge-group">
                                                         <span class="badge badge-category"><%= news.category || 'Uncategorized' %></span>
+                                                        <span class="badge badge-category"><%= pendingLangLabels[news.language || 'te'] || 'Telugu' %></span>
                                                         <span class="badge badge-pending">⏳ Pending</span>
                                                         <% if (news.duplicateCheck && (news.duplicateCheck.isDuplicate || news.duplicateCheck.isSuspicious)) { %>
                                                             <% if (news.duplicateCheck.isDuplicate) { %>
@@ -955,6 +966,13 @@
                     .replace(/'/g, '&#039;');
             }
 
+            const newsLanguageLabels = <%- JSON.stringify(typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' }) %>;
+
+            function getLanguageLabel(code) {
+                const normalized = (code || 'te').toLowerCase();
+                return newsLanguageLabels[normalized] || 'Telugu';
+            }
+
             function renderSelectOptions(options, selectedValue) {
                 return options.map(opt => {
                     const selected = opt === selectedValue ? 'selected' : '';
@@ -993,6 +1011,8 @@
                 const searchTerm = document.getElementById('searchInput').value.toLowerCase();
                 const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
                 const locationFilter = document.getElementById('locationFilter').value.toLowerCase();
+                const languageFilterEl = document.getElementById('languageFilter');
+                const languageFilter = languageFilterEl ? languageFilterEl.value.toLowerCase() : '';
                 const dateFilter = document.getElementById('dateFilter').value;
 
                 const cards = document.querySelectorAll('.news-card');
@@ -1003,6 +1023,7 @@
                     const author = card.dataset.author;
                     const category = card.dataset.category;
                     const location = card.dataset.location;
+                    const language = card.dataset.language || 'te';
                     const cardDate = parseInt(card.dataset.date);
 
                     // Search filter
@@ -1013,6 +1034,9 @@
 
                     // Location filter
                     const matchesLocation = !locationFilter || location === locationFilter;
+
+                    // Language filter (client-side within loaded results)
+                    const matchesLanguage = !languageFilter || language === languageFilter;
 
                     // Date filter
                     let matchesDate = true;
@@ -1038,7 +1062,7 @@
                         }
                     }
 
-                    if (matchesSearch && matchesCategory && matchesLocation && matchesDate) {
+                    if (matchesSearch && matchesCategory && matchesLocation && matchesLanguage && matchesDate) {
                         card.style.display = '';
                         visibleCount++;
                     } else {
@@ -1050,12 +1074,16 @@
                 document.getElementById('pendingCount').textContent = visibleCount;
             }
 
+            function applyLanguageFilter() {
+                const languageFilter = document.getElementById('languageFilter');
+                const selected = languageFilter ? languageFilter.value : '';
+                const params = new URLSearchParams(window.location.search);
+                params.set('language', selected || 'all');
+                window.location.search = params.toString();
+            }
+
             function resetFilters() {
-                document.getElementById('searchInput').value = '';
-                document.getElementById('categoryFilter').value = '';
-                document.getElementById('locationFilter').value = '';
-                document.getElementById('dateFilter').value = '';
-                filterNews();
+                window.location.href = `${window.location.pathname}?language=all`;
             }
 
             function sortNews(type) {
@@ -1471,6 +1499,7 @@
                 card.dataset.author = (news.author || '').toLowerCase();
                 card.dataset.category = (news.category || '').toLowerCase();
                 card.dataset.location = (news.location || '').toLowerCase();
+                card.dataset.language = (news.language || 'te').toLowerCase();
                 card.dataset.date = publishDate.getTime();
                 
                 let mediaHtml = '';
@@ -1497,6 +1526,7 @@
                         <h3 class="news-card-title">${news.title}</h3>
                         <div class="badge-group">
                             <span class="badge badge-category">${news.category || 'Uncategorized'}</span>
+                            <span class="badge badge-category">${getLanguageLabel(news.language)}</span>
                             <span class="badge badge-pending">⏳ Pending</span>
                         </div>
                         <div class="news-card-meta">

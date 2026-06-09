@@ -10,6 +10,12 @@ const newsSchema = new mongoose.Schema({
   thumbnailUrl: { type: String }, // New field for video thumbnails
   category: { type: String, required: true },
   location: { type: String },
+  language: {
+    type: String,
+    enum: ['te', 'en', 'hi', 'ta'],
+    default: 'te',
+    index: true
+  },
   publishedAt: { type: Date, default: Date.now },
   likes: { type: Number, default: 0 },
   dislikes: { type: Number, default: 0 },

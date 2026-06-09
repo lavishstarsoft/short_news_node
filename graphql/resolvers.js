@@ -15,6 +15,7 @@ const ReporterApplication = require('../models/ReporterApplication');
 const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = require('./cache');
 // Import REST API cache utility for clearing REST cache after GraphQL mutations
 const { clearCache: clearRestCache } = require('../middleware/cache');
+const { buildNewsLanguageFilter, normalizeNewsLanguage } = require('../utils/newsLanguages');
 
 /**
  * Helper to ensure media URLs are absolute
@@ -35,15 +36,19 @@ const getAbsoluteUrl = (path) => {
 const resolvers = {
     Query: {
         // News queries (with Redis caching - 5 minutes TTL)
-        news: async (_, { limit = 50, offset = 0, category, location }) => {
+        news: async (_, { limit = 50, offset = 0, category, location, language }) => {
             try {
                 // Check cache first
-                const variables = { limit, offset, category, location };
+                const variables = { limit, offset, category, location, language };
                 const cached = await getCachedData('news', variables);
                 if (cached) return cached;
 
                 // Cache miss - fetch from DB
                 let query = { isActive: { $ne: false } };
+
+                if (language) {
+                    Object.assign(query, buildNewsLanguageFilter(language));
+                }
 
                 // 🚀 Robust filtering: Only filter if the category/location actually exists in the DB
                 // Telugu: ఒకవేళ పాత యాప్ నుండి వచ్చే ID లు కొత్త DB లో లేకపోతే, ఫిల్టర్ ని ఇగ్నోర్ చేస్తుంది
@@ -311,6 +316,7 @@ const resolvers = {
                     location: editor.location || null,
                     mobileNumber: editor.mobileNumber || null,
                     constituency: editor.constituency || null,
+                    workingLanguage: editor.workingLanguage || 'te',
                     isActive: editor.isActive
                 };
             } catch (error) {
@@ -320,12 +326,20 @@ const resolvers = {
         },
 
         // Get news posted by a specific editor
-        getNewsByEditor: async (_, { editorId, limit }) => {
+        // includeUnpublished: false (default) → public/user app: published only
+        // includeUnpublished: true → reporter app: pending + rejected + published
+        getNewsByEditor: async (_, { editorId, limit, includeUnpublished }) => {
             try {
                 const News = require('../models/News');
 
-                let query = News.find({ authorId: editorId })
-                    .sort({ publishedAt: -1 });
+                const filter = { authorId: editorId };
+
+                if (!includeUnpublished) {
+                    filter.isActive = { $ne: false };
+                    filter['rejectionStatus.isRejected'] = { $ne: true };
+                }
+
+                let query = News.find(filter).sort({ publishedAt: -1 });
 
                 if (limit) {
                     query = query.limit(limit);
@@ -1368,6 +1382,7 @@ const resolvers = {
                         location: editor.location || null,
                         mobileNumber: editor.mobileNumber || null,
                         constituency: editor.constituency || null,
+                        workingLanguage: editor.workingLanguage || 'te',
                         isActive: editor.isActive
                     }
                 };
@@ -1707,7 +1722,7 @@ const resolvers = {
             }
         },
 
-        registerEditor: async (_, { username, email, password, name, displayRole, location, mobileNumber }) => {
+        registerEditor: async (_, { username, email, password, name, displayRole, location, mobileNumber, workingLanguage }) => {
             try {
                 const Admin = require('../models/Admin');
                 const jwt = require('jsonwebtoken');
@@ -1733,6 +1748,7 @@ const resolvers = {
                     displayRole: displayRole || 'Reporter',
                     location: location || null,
                     mobileNumber: mobileNumber || null,
+                    workingLanguage: normalizeNewsLanguage(workingLanguage),
                     isActive: true,
                     isApproved: false
                 });

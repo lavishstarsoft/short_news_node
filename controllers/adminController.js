@@ -11,6 +11,11 @@ const mongoose = require('mongoose');
 const News = require('../models/News');
 const Location = require('../models/Location');
 const Category = require('../models/Category');
+const {
+  normalizeNewsLanguage,
+  buildNewsLanguageFilter,
+  NEWS_LANGUAGE_LABELS
+} = require('../utils/newsLanguages');
 
 // Import the Notification model
 const Notification = require('../models/Notification');
@@ -800,7 +805,12 @@ async function renderEditorsPage(req, res) {
     // Fetch locations for edit dropdown
     const locations = await Location.find().sort({ name: 1 });
 
-    res.render('editors', { admin, editors: editorsWithStats, locations });
+    res.render('editors', {
+      admin,
+      editors: editorsWithStats,
+      locations,
+      newsLanguageLabels: NEWS_LANGUAGE_LABELS
+    });
   } catch (error) {
     console.error('Editors page error:', error);
     res.status(500).send('Error fetching editors');
@@ -1226,7 +1236,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, constituency, mobileNumber, role, profileImage } = req.body;
+    const { name, displayRole, location, constituency, mobileNumber, role, profileImage, workingLanguage } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -1240,6 +1250,7 @@ async function updateEditor(req, res) {
     if (constituency !== undefined) editor.constituency = constituency || null;
     if (mobileNumber !== undefined) editor.mobileNumber = mobileNumber || null;
     if (profileImage !== undefined) editor.profileImage = profileImage || null;
+    if (workingLanguage !== undefined) editor.workingLanguage = normalizeNewsLanguage(workingLanguage);
 
     // Update role if provided (only allow editor or subeditor)
     if (role !== undefined && (role === 'editor' || role === 'subeditor')) {
@@ -1449,7 +1460,7 @@ async function registerEditor(req, res) {
       return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
 
-    const { username, email, password, name, displayRole, location, constituency, mobileNumber, role } = req.body;
+    const { username, email, password, name, displayRole, location, constituency, mobileNumber, role, workingLanguage } = req.body;
 
     // Validate required fields
     if (!username || !email || !password) {
@@ -1477,6 +1488,7 @@ async function registerEditor(req, res) {
       location: location || null,
       constituency: constituency || null,
       mobileNumber: mobileNumber || null,
+      workingLanguage: normalizeNewsLanguage(workingLanguage),
       createdBy: admin._id
     });
 
@@ -2612,15 +2624,36 @@ async function getReporterProfile(req, res) {
 // Duplicate check happens lazily via /admin/api/pending-news/duplicate-check
 async function renderPendingNewsPage(req, res) {
   try {
-    // Fetch pending news with only needed fields (uses compound index)
-    const pendingNews = await News.find({
+    const adminDoc = await Admin.findById(req.admin.id).select('role workingLanguage').lean();
+
+    let selectedLanguage = '';
+    const languageParamProvided = Object.prototype.hasOwnProperty.call(req.query, 'language');
+
+    if (!languageParamProvided) {
+      if (adminDoc?.role === 'subeditor' && adminDoc?.workingLanguage) {
+        selectedLanguage = adminDoc.workingLanguage;
+      }
+    } else if (req.query.language === 'all') {
+      selectedLanguage = '';
+    } else {
+      selectedLanguage = req.query.language || '';
+    }
+
+    const baseQuery = {
       isActive: false,
       $or: [
         { 'rejectionStatus.isRejected': { $ne: true } },
         { rejectionStatus: { $exists: false } }
       ]
-    })
-      .select('_id title content category location author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl readFullLink ePaperLink views')
+    };
+
+    const query = selectedLanguage
+      ? { $and: [baseQuery, buildNewsLanguageFilter(selectedLanguage)] }
+      : baseQuery;
+
+    // Fetch pending news with only needed fields (uses compound index)
+    const pendingNews = await News.find(query)
+      .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl readFullLink ePaperLink views')
       .sort({ publishedAt: -1 })
       .limit(100)
       .lean();
@@ -2639,7 +2672,11 @@ async function renderPendingNewsPage(req, res) {
 
     res.render('pending-news', {
       pendingNews: pendingNewsWithDefaults || [],
-      title: 'Pending News Review'
+      title: 'Pending News Review',
+      newsLanguageLabels: NEWS_LANGUAGE_LABELS,
+      selectedLanguage,
+      admin: req.admin,
+      adminRole: adminDoc?.role || req.admin.role
     });
   } catch (error) {
     console.error('Error rendering pending news page:', error);

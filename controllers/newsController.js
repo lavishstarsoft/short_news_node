@@ -3,6 +3,11 @@ const Location = require('../models/Location');
 const Category = require('../models/Category');
 const Admin = require('../models/Admin'); // Add Admin model for denormalization
 
+const {
+  normalizeNewsLanguage,
+  buildNewsLanguageFilter,
+  NEWS_LANGUAGE_LABELS
+} = require('../utils/newsLanguages');
 const path = require('path');
 const fs = require('fs');
 const util = require('util');
@@ -244,6 +249,7 @@ async function renderNewsListPage(req, res) {
     const selectedAuthorId = req.query.authorId || '';
     const fromDate = req.query.fromDate || '';
     const toDate = req.query.toDate || '';
+    const selectedLanguage = req.query.language || '';
 
     if (req.app.locals.isConnectedToMongoDB) {
       console.log('Using MongoDB'); // Debug log
@@ -253,7 +259,7 @@ async function renderNewsListPage(req, res) {
       let selectedStatus = req.query.status || '';
 
       // Build query based on filters
-      const query = {};
+      let query = {};
 
       // Search filter - search in title (case-insensitive)
       if (searchQuery) {
@@ -297,6 +303,13 @@ async function renderNewsListPage(req, res) {
         query.authorId = req.admin.id;
       } else if (selectedAuthorId) {
         query.authorId = selectedAuthorId;
+      }
+
+      if (selectedLanguage) {
+        const languageFilter = buildNewsLanguageFilter(selectedLanguage);
+        query = Object.keys(query).length === 0
+          ? languageFilter
+          : { $and: [query, languageFilter] };
       }
 
       // Get total count for pagination
@@ -343,10 +356,12 @@ async function renderNewsListPage(req, res) {
         locations,
         selectedLocation,
         selectedStatus,
+        selectedLanguage,
         selectedAuthorId,
         searchQuery,
         fromDate,
         toDate,
+        newsLanguageLabels: NEWS_LANGUAGE_LABELS,
         admin: req.admin,
         pagination: {
           currentPage: page,
@@ -414,6 +429,13 @@ async function renderNewsListPage(req, res) {
         filteredNewsData = filteredNewsData.filter(news => news.authorId === selectedAuthorId);
       }
 
+      if (selectedLanguage) {
+        const normalizedLanguage = normalizeNewsLanguage(selectedLanguage);
+        filteredNewsData = filteredNewsData.filter(news =>
+          normalizeNewsLanguage(news.language) === normalizedLanguage
+        );
+      }
+
       // Sort by published date
       filteredNewsData.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 
@@ -446,10 +468,12 @@ async function renderNewsListPage(req, res) {
         locations: locationData,
         selectedLocation,
         selectedStatus,
+        selectedLanguage,
         selectedAuthorId,
         searchQuery,
         fromDate,
         toDate,
+        newsLanguageLabels: NEWS_LANGUAGE_LABELS,
         admin: req.admin,
         pagination: {
           currentPage: page,
@@ -531,8 +555,17 @@ async function getNewsById(req, res) {
 }
 
 // Render add news page
-function renderAddNewsPage(req, res) {
-  res.render('add-news', { admin: req.admin });
+async function renderAddNewsPage(req, res) {
+  try {
+    const adminDoc = await Admin.findById(req.admin.id).select('workingLanguage').lean();
+    res.render('add-news', {
+      admin: req.admin,
+      defaultLanguage: adminDoc?.workingLanguage || 'te',
+      newsLanguageLabels: NEWS_LANGUAGE_LABELS
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error loading add news page' });
+  }
 }
 
 // Render edit news page
@@ -548,7 +581,13 @@ async function renderEditNewsPage(req, res) {
       return res.status(403).json({ error: 'Access denied. You can only edit your own news.' });
     }
 
-    res.render('add-news', { news, admin: req.admin });
+    const adminDoc = await Admin.findById(req.admin.id).select('workingLanguage').lean();
+    res.render('add-news', {
+      news,
+      admin: req.admin,
+      defaultLanguage: news.language || adminDoc?.workingLanguage || 'te',
+      newsLanguageLabels: NEWS_LANGUAGE_LABELS
+    });
   } catch (error) {
     res.status(500).json({ error: 'Error fetching news for editing' });
   }
@@ -566,7 +605,7 @@ async function createNews(req, res) {
     }
 
     // Fetch author details for denormalization
-    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency');
+    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage');
 
     // Add author information and explicit timestamp to the news
     const newsData = {
@@ -575,6 +614,7 @@ async function createNews(req, res) {
       authorId: req.admin.id,
       authorProfileImage: authorDetails?.profileImage || null,
       authorConstituency: authorDetails?.constituency || null,
+      language: normalizeNewsLanguage(req.body.language || authorDetails?.workingLanguage),
       actionHistory: [
         buildHistoryEntry('created', req.admin, 'News article created', {
           title: req.body.title,
@@ -719,6 +759,10 @@ async function updateNews(req, res) {
       authorConstituency: existingNews.authorConstituency || authorDetails?.constituency || null,
       actionHistory: updatedHistory,
     };
+
+    if (req.body.language !== undefined) {
+      newsData.language = normalizeNewsLanguage(req.body.language);
+    }
 
     // Handle media fields for backward compatibility
     if (req.body.mediaUrl) {

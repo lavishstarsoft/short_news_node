@@ -41,6 +41,11 @@ const adminSchema = new mongoose.Schema({
     type: String,
     default: 'Reporter'
   },
+  workingLanguage: {
+    type: String,
+    enum: ['te', 'en', 'hi', 'ta'],
+    default: 'te'
+  },
   name: {
     type: String,
     default: null

@@ -260,6 +260,22 @@
                                                     </div>
 
                                                     <div class="mb-3">
+                                                        <label for="language" class="form-label">News Language</label>
+                                                        <select class="form-control" id="language" required>
+                                                            <% 
+                                                                const selectedNewsLang = typeof news !== 'undefined'
+                                                                    ? (news.language || 'te')
+                                                                    : (typeof defaultLanguage !== 'undefined' ? defaultLanguage : 'te');
+                                                            %>
+                                                            <option value="te" <%= selectedNewsLang === 'te' ? 'selected' : '' %>>Telugu</option>
+                                                            <option value="en" <%= selectedNewsLang === 'en' ? 'selected' : '' %>>English</option>
+                                                            <option value="hi" <%= selectedNewsLang === 'hi' ? 'selected' : '' %>>Hindi</option>
+                                                            <option value="ta" <%= selectedNewsLang === 'ta' ? 'selected' : '' %>>Tamil</option>
+                                                        </select>
+                                                        <small class="form-text text-muted">Language of this news article</small>
+                                                    </div>
+
+                                                    <div class="mb-3">
                                                         <label for="category" class="form-label">Category</label>
                                                         <select class="form-control" id="category" required>
                                                             <option value="">Loading categories...</option>
@@ -391,6 +407,7 @@
                         const thumbnailUrl = document.getElementById('thumbnailUrl').value;
                         const category = document.getElementById('category').value;
                         const location = document.getElementById('location').value;
+                        const language = document.getElementById('language').value;
 
                         // Validation
                         if (!title || !content || !mediaUrl || !category) {
@@ -414,7 +431,8 @@
                             mediaUrl,
                             mediaType,
                             thumbnailUrl,
-                            category
+                            category,
+                            language
                         };
 
                         try {

@@ -58,6 +58,7 @@ const typeDefs = gql`
     thumbnail_url: String # Backward compatibility
     category: String!
     location: String
+    language: String
     publishedAt: String!
     published_at: String # Backward compatibility
     likes: Int!
@@ -147,7 +148,7 @@ const typeDefs = gql`
 
   type Query {
     # News queries
-    news(limit: Int, offset: Int, category: String, location: String): [News!]!
+    news(limit: Int, offset: Int, category: String, location: String, language: String): [News!]!
     newsById(id: ID!): News
     newsByShortId(shortId: String!): News
     
@@ -177,7 +178,7 @@ const typeDefs = gql`
     # Existing extensions
     getLiveStreamStatus: LiveStreamStatus
     getEditorById(id: ID!): Editor
-    getNewsByEditor(editorId: ID!, limit: Int): [News!]!
+    getNewsByEditor(editorId: ID!, limit: Int, includeUnpublished: Boolean): [News!]!
     getNewsById(id: ID!): News
   }
 
@@ -222,7 +223,7 @@ const typeDefs = gql`
     updateLiveStreamStatus(isLive: Boolean!, url: String): LiveStreamStatus
     loginEditor(username: String!, password: String!): EditorLoginPayload
     updateEditorProfile(editorId: ID!, name: String, displayRole: String, location: String, profileImage: String): EditorProfileUpdatePayload
-    registerEditor(username: String!, email: String!, password: String!, name: String, displayRole: String, location: String, mobileNumber: String): EditorRegisterPayload
+    registerEditor(username: String!, email: String!, password: String!, name: String, displayRole: String, location: String, mobileNumber: String, workingLanguage: String): EditorRegisterPayload
     
     # Dynamic Form Mutations
     submitReporterApplication(data: String!): ApplicationResponse
@@ -284,6 +285,7 @@ const typeDefs = gql`
     location: String
     mobileNumber: String
     constituency: String
+    workingLanguage: String
     isActive: Boolean!
   }
 `;
