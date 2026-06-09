@@ -16,6 +16,33 @@ const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = r
 // Import REST API cache utility for clearing REST cache after GraphQL mutations
 const { clearCache: clearRestCache } = require('../middleware/cache');
 const { buildNewsLanguageFilter, normalizeNewsLanguage } = require('../utils/newsLanguages');
+const jwt = require('jsonwebtoken');
+
+function getAuthenticatedEditorId(req) {
+    if (!req) return null;
+    try {
+        let token = null;
+        const authHeader = req.headers?.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.slice(7);
+        } else if (req.cookies?.token) {
+            token = req.cookies.token;
+        }
+        if (!token) return null;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'short_news_secret_key');
+        if (!decoded?.id) return null;
+        return String(decoded.id);
+    } catch {
+        return null;
+    }
+}
+
+function resolveNewsIsActive(news) {
+    if (news.rejectionStatus?.isRejected) return false;
+    if (news.isActive === true) return true;
+    if (news.isActive === false) return false;
+    return true;
+}
 
 /**
  * Helper to ensure media URLs are absolute
@@ -326,15 +353,22 @@ const resolvers = {
         },
 
         // Get news posted by a specific editor
-        // includeUnpublished: false (default) → public/user app: published only
-        // includeUnpublished: true → reporter app: pending + rejected + published
-        getNewsByEditor: async (_, { editorId, limit, includeUnpublished }) => {
+        // Public/user app: published only (no auth token)
+        // Reporter own profile: all statuses when JWT matches editorId OR includeUnpublished=true
+        getNewsByEditor: async (_, { editorId, limit, includeUnpublished }, context) => {
             try {
                 const News = require('../models/News');
 
-                const filter = { authorId: editorId };
+                const normalizedEditorId = String(editorId);
+                const authenticatedEditorId = getAuthenticatedEditorId(context?.req);
+                const isOwnProfile = Boolean(
+                    authenticatedEditorId && authenticatedEditorId === normalizedEditorId
+                );
+                const showUnpublished = includeUnpublished === true || isOwnProfile;
 
-                if (!includeUnpublished) {
+                const filter = { authorId: normalizedEditorId };
+
+                if (!showUnpublished) {
                     filter.isActive = { $ne: false };
                     filter['rejectionStatus.isRejected'] = { $ne: true };
                 }
@@ -360,7 +394,7 @@ const resolvers = {
                     mediaUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl),
                     mediaType: news.mediaType || 'image',
                     thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
-                    isActive: news.isActive !== false,
+                    isActive: resolveNewsIsActive(news),
                     publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
                     views: news.views || 0,
                     likes: news.likes || 0,
