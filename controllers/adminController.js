@@ -16,6 +16,7 @@ const {
   buildNewsLanguageFilter,
   getLanguageViewData
 } = require('../utils/newsLanguages');
+const { getDefaultLanguageCode } = require('../services/languageRegistry');
 const { normalizeNewsContent } = require('../utils/contentNormalize');
 
 // Import the Notification model
@@ -1661,7 +1662,7 @@ async function renderReportsPage(req, res) {
 // Send notification to all connected clients
 async function sendNotification(req, res) {
   try {
-    const { title, message, newsId, imageUrl, launchUrl, titleColor, messageColor, titleFontSize, platformSettings, priority } = req.body;
+    const { title, message, newsId, imageUrl, launchUrl, titleColor, messageColor, titleFontSize, platformSettings, priority, language } = req.body;
 
     // Validate input
     if (!title || !message) {
@@ -1685,6 +1686,9 @@ async function sendNotification(req, res) {
     const plainTitle = stripHtmlTags(title);
     const plainMessage = stripHtmlTags(message);
 
+    let targetLanguage = language ? normalizeNewsLanguage(language) : null;
+    let linkedNewsItem = null;
+
     console.log('📧 Notification - Original:', title);
     console.log('📧 Notification - Plain text:', plainTitle);
     console.log('📧 Notification - Title Color:', titleColor);
@@ -1693,17 +1697,20 @@ async function sendNotification(req, res) {
     // To prevent mass simultaneous operations (WebSocket + Database + Cache + Push)
     if (newsId) {
       try {
-        const News = require('../models/News');
-        const newsItem = await News.findById(newsId).lean();
-        
-        let referenceDate = newsItem.publishedAt;
-        if (newsItem && newsItem.approvalStatus && newsItem.approvalStatus.approvedAt) {
-          const pubTime = new Date(newsItem.publishedAt).getTime();
-          const appTime = new Date(newsItem.approvalStatus.approvedAt).getTime();
+        linkedNewsItem = await News.findById(newsId).lean();
+
+        if (linkedNewsItem && !targetLanguage) {
+          targetLanguage = normalizeNewsLanguage(linkedNewsItem.language);
+        }
+
+        let referenceDate = linkedNewsItem?.publishedAt;
+        if (linkedNewsItem && linkedNewsItem.approvalStatus && linkedNewsItem.approvalStatus.approvedAt) {
+          const pubTime = new Date(linkedNewsItem.publishedAt).getTime();
+          const appTime = new Date(linkedNewsItem.approvalStatus.approvedAt).getTime();
           referenceDate = new Date(Math.max(pubTime, appTime));
         }
         
-        if (newsItem && referenceDate) {
+        if (linkedNewsItem && referenceDate) {
           const timeSincePublished = Date.now() - new Date(referenceDate).getTime();
           const twoMinutesMs = 2 * 60 * 1000;
           
@@ -1718,6 +1725,12 @@ async function sendNotification(req, res) {
         console.error('Error checking news publishedAt time for notification cooldown:', err);
       }
     }
+
+    if (!targetLanguage) {
+      targetLanguage = getDefaultLanguageCode();
+    }
+
+    console.log(`🌐 Push notification target language: ${targetLanguage}`);
 
     // If newsId is provided but launchUrl is not, automatically set the launch URL to the news detail page
     let finalLaunchUrl = launchUrl;
@@ -1785,8 +1798,7 @@ async function sendNotification(req, res) {
     // Telugu: newsId ఉంటే app లో instant notification కోసం new_news event కూడా పంపుతాము
     if (newsId) {
       try {
-        // Fetch full news details for proper new_news event
-        const newsDetails = await News.findById(newsId).lean();
+        const newsDetails = linkedNewsItem || await News.findById(newsId).lean();
         if (newsDetails) {
           const newsNotificationData = {
             id: newsDetails._id,
@@ -1825,9 +1837,10 @@ async function sendNotification(req, res) {
         titleFontSize: titleFontSize || 'normal', // Pass the selected font size
         platformSettings: finalPlatformSettings,
         priority: priority || 'normal',
+        language: targetLanguage,
         ...notificationData
       });
-      console.log('OneSignal admin notification sent with colors - Title:', titleColor, 'Message:', messageColor);
+      console.log(`OneSignal admin notification sent to news_language=${targetLanguage}`);
     } catch (error) {
       console.error('Error sending OneSignal admin notification:', error);
     }
@@ -1877,7 +1890,8 @@ async function sendNotification(req, res) {
     }
 
     res.json({
-      message: 'Notification sent successfully',
+      message: `Notification sent to ${targetLanguage} language users`,
+      targetLanguage,
       notification: notificationData
     });
   } catch (error) {

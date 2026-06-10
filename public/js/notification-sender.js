@@ -170,6 +170,7 @@
       title: title,
       message: message,
       newsId: currentNotificationNewsItem._id,
+      language: currentNotificationNewsItem.language || null,
       imageUrl: currentNotificationNewsItem.mediaUrl || currentNotificationNewsItem.imageUrl,
       launchUrl: null,
       platformSettings: {},
@@ -193,7 +194,8 @@
       .then(function (data) {
         if (data.error) throw new Error(data.error);
         closeNotificationModal();
-        alert('Notification sent successfully!');
+        const langLabel = data.targetLanguage ? (' (' + data.targetLanguage + ' users only)') : '';
+        alert('Notification sent successfully' + langLabel + '!');
       })
       .catch(function (error) {
         alert('Error: ' + error.message);

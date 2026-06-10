@@ -16,6 +16,7 @@ const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = r
 // Import REST API cache utility for clearing REST cache after GraphQL mutations
 const { clearCache: clearRestCache } = require('../middleware/cache');
 const { buildNewsLanguageFilter, normalizeNewsLanguage } = require('../utils/newsLanguages');
+const { resolveCategoryFilter, resolveLocationFilter } = require('../utils/newsFilters');
 const languageRegistry = require('../services/languageRegistry');
 const jwt = require('jsonwebtoken');
 
@@ -78,24 +79,14 @@ const resolvers = {
                     Object.assign(query, buildNewsLanguageFilter(language));
                 }
 
-                // 🚀 Robust filtering: Only filter if the category/location actually exists in the DB
-                // Telugu: ఒకవేళ పాత యాప్ నుండి వచ్చే ID లు కొత్త DB లో లేకపోతే, ఫిల్టర్ ని ఇగ్నోర్ చేస్తుంది
-                if (category) {
-                    const categoryExists = await Category.findById(category).catch(() => null);
-                    if (categoryExists) {
-                        query.category = category;
-                    } else {
-                        console.log(`ℹ️ Legacy category ID detected (${category}) - showing all news`);
-                    }
+                const resolvedCategory = await resolveCategoryFilter(category);
+                if (resolvedCategory) {
+                    query.category = resolvedCategory;
                 }
 
-                if (location) {
-                    const locationExists = await Location.findById(location).catch(() => null);
-                    if (locationExists) {
-                        query.location = location;
-                    } else {
-                        console.log(`ℹ️ Legacy location ID detected (${location}) - showing all news`);
-                    }
+                const resolvedLocation = await resolveLocationFilter(location);
+                if (resolvedLocation) {
+                    query.location = resolvedLocation;
                 }
 
                 const news = await News.find(query)

@@ -1,5 +1,7 @@
 const OneSignal = require('@onesignal/node-onesignal');
 
+const NEWS_LANGUAGE_TAG = 'news_language';
+
 class OneSignalService {
   constructor() {
     // Initialize OneSignal client
@@ -32,6 +34,34 @@ class OneSignalService {
     } catch (error) {
       console.error('Error initializing OneSignal client:', error);
     }
+  }
+
+  normalizeTargetLanguage(languageCode) {
+    if (!languageCode || typeof languageCode !== 'string') return null;
+    const normalized = languageCode.trim().toLowerCase();
+    return normalized.length >= 2 ? normalized : null;
+  }
+
+  /**
+   * Target push notifications to users who selected this news content language in the app.
+   * App sets OneSignal tag: news_language = te | en | hi | ta
+   */
+  applyLanguageTargeting(notification, languageCode) {
+    const language = this.normalizeTargetLanguage(languageCode);
+    if (!language) {
+      notification.included_segments = ['All'];
+      return null;
+    }
+
+    notification.filters = [
+      {
+        field: 'tag',
+        key: NEWS_LANGUAGE_TAG,
+        relation: '=',
+        value: language
+      }
+    ];
+    return language;
   }
 
   /**
@@ -109,7 +139,7 @@ class OneSignalService {
       notification.contents = { en: message };
       notification.headings = { en: title };
       notification.data = data;
-      notification.included_segments = ['All'];
+      this.applyLanguageTargeting(notification, data.language);
 
       console.log('Sending notification with data:', {
         app_id: notification.app_id,
@@ -161,7 +191,7 @@ class OneSignalService {
       notification.contents = { en: message };
       notification.headings = { en: title };
       notification.data = data;
-      notification.included_segments = ['All'];
+      this.applyLanguageTargeting(notification, data.language);
 
       // Set launch URL for deep linking — this makes notification tap open the specific news
       if (url) {
@@ -268,6 +298,7 @@ class OneSignalService {
         content: news.content,
         mediaUrl: news.mediaUrl,
         mediaType: news.mediaType,
+        language: news.language || 'te',
         // 🎨 TEXT COLORS: Default brand colors for news notifications
         titleColor: '#FF6F00', // Deep Orange for news headlines
         messageColor: '#000000', // Black for news body
@@ -294,7 +325,7 @@ class OneSignalService {
       notification.contents = { en: message };
       notification.headings = { en: title };
       notification.data = data;
-      notification.included_segments = ['All'];
+      this.applyLanguageTargeting(notification, data.language);
       notification.small_icon = 'ic_stat_onesignal_default';
       notification.large_icon = 'tehelka_notif_large';
 
@@ -336,7 +367,10 @@ class OneSignalService {
       notification.contents = { en: message };
       notification.headings = { en: title };
       notification.data = notificationData;
-      notification.included_segments = ['All'];
+      const targetedLanguage = this.applyLanguageTargeting(notification, data.language);
+      if (targetedLanguage) {
+        console.log(`OneSignal targeting news_language=${targetedLanguage}`);
+      }
 
       // Add URL to data payload instead of native url (prevents browser launch)
       if (launchUrl) {
@@ -456,3 +490,4 @@ class OneSignalService {
 }
 
 module.exports = new OneSignalService();
+module.exports.NEWS_LANGUAGE_TAG = NEWS_LANGUAGE_TAG;

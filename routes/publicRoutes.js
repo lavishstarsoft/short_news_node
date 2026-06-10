@@ -16,6 +16,7 @@ const { cacheMiddleware, clearCache } = require('../middleware/cache');
 // Import upload middleware for profile image upload
 const { uploadMedia } = require('../middleware/upload');
 const { buildNewsLanguageFilter } = require('../utils/newsLanguages');
+const { resolveCategoryFilter, resolveLocationFilter } = require('../utils/newsFilters');
 const languageRegistry = require('../services/languageRegistry');
 const fs = require('fs');
 
@@ -115,15 +116,10 @@ router.get('/api/public/news/category/:category', async (req, res) => {
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
 
     if (isConnectedToMongoDB) {
-      // 🚀 Robust filtering for legacy support
-      const Category = require('../models/Category');
-      const categoryExists = await Category.findById(category).catch(() => null);
-
-      let query = { isActive: { $ne: false } };
-      if (categoryExists) {
-        query.category = category;
-      } else {
-        console.log(`ℹ️ REST: Legacy category ID detected (${category}) - showing all news`);
+      const resolvedCategory = await resolveCategoryFilter(decodeURIComponent(category));
+      const query = { isActive: { $ne: false } };
+      if (resolvedCategory) {
+        query.category = resolvedCategory;
       }
 
       newsList = await News.find(query).sort({ publishedAt: -1 });
@@ -188,14 +184,13 @@ router.get('/api/public/news/location/:location', cacheMiddleware(600), async (r
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
 
     if (isConnectedToMongoDB) {
-      // Fetch only active published news from MongoDB with location filter
-      // Include news where isActive is true or not set (implicitly active)
-      newsList = await News.find({
-        $and: [
-          { location: location },
-          { $or: [{ isActive: true }, { isActive: { $exists: false } }] }
-        ]
-      }).sort({ publishedAt: -1 });
+      const resolvedLocation = await resolveLocationFilter(decodeURIComponent(location));
+      const query = { isActive: { $ne: false } };
+      if (resolvedLocation) {
+        query.location = resolvedLocation;
+      }
+
+      newsList = await News.find(query).sort({ publishedAt: -1 });
     } else {
       // Use in-memory storage and filter for active news with location filter
       const allNews = req.app.locals.newsData || [];
@@ -800,7 +795,7 @@ router.post('/api/public/user/profile', async (req, res) => {
 
 // Public API endpoint for fetching active languages (no authentication required)
 // Cached for 30 minutes (1800 seconds)
-router.get('/api/public/languages', cacheMiddleware(1800), async (req, res) => {
+router.get('/api/public/languages', cacheMiddleware(300), async (req, res) => {
   try {
     await languageRegistry.refreshCache();
     const forUserApp =
