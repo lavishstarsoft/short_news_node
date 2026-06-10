@@ -322,6 +322,11 @@ app.locals.googleAuthClient = client;
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+const { renderRichText, renderRichTextExcerpt, stripRichTags } = require('./utils/richTextRenderer');
+app.locals.renderRichText = renderRichText;
+app.locals.renderRichTextExcerpt = renderRichTextExcerpt;
+app.locals.stripRichTags = stripRichTags;
+
 // In-memory storage for news (fallback when MongoDB is not available)
 let newsData = [
   {

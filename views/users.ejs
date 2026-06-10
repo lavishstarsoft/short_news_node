@@ -257,6 +257,13 @@
                     return new Date(value).toLocaleDateString();
                 }
 
+                function renderRichContent(text) {
+                    if (typeof window.renderRichText === 'function') {
+                        return window.renderRichText(text || '');
+                    }
+                    return escapeHtml(text || '');
+                }
+
                 function renderInteractionItems(items, type, limit) {
                     if (!items || items.length === 0) {
                         return '<p class="usr-interaction-empty">No ' + type + ' yet</p>';
@@ -264,7 +271,7 @@
                     let html = '';
                     items.slice(0, limit).forEach(function(item) {
                         html += '<div class="usr-interaction-item">';
-                        html += '<p class="usr-interaction-item-title">' + escapeHtml(item.title || 'Unknown article') + '</p>';
+                        html += '<p class="usr-interaction-item-title rich-text">' + renderRichContent(item.title || 'Unknown article') + '</p>';
                         if (type === 'comments' && item.comment) {
                             html += '<div class="usr-comment-text">' + escapeHtml(item.comment) + '</div>';
                         }

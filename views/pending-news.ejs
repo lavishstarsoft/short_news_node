@@ -150,7 +150,7 @@
                                         <% if (pendingNews && pendingNews.length > 0) { %>
                                             <div class="news-grid" id="newsGrid">
                                                 <% pendingNews.forEach((news) => { %>
-                                                    <article class="news-card" data-id="<%= news._id %>" data-title="<%= news.title.toLowerCase() %>" data-author="<%= news.author.toLowerCase() %>" data-category="<%= (news.category || '').toLowerCase() %>" data-location="<%= (news.location || '').toLowerCase() %>" data-language="<%= (news.language || 'te').toLowerCase() %>" data-date="<%= new Date(news.publishedAt).getTime() %>">
+                                                    <article class="news-card" data-id="<%= news._id %>" data-title="<%= stripRichTags(news.title).toLowerCase() %>" data-author="<%= news.author.toLowerCase() %>" data-category="<%= (news.category || '').toLowerCase() %>" data-location="<%= (news.location || '').toLowerCase() %>" data-language="<%= (news.language || 'te').toLowerCase() %>" data-date="<%= new Date(news.publishedAt).getTime() %>">
                                                         <% if (news.mediaUrl) { %>
                                                             <div class="news-card-image<%= news.mediaType === 'video' ? ' pn-card-media--video' : '' %>">
                                                                 <% if (news.mediaType === 'video') { %>
@@ -162,7 +162,7 @@
                                                         <% } %>
 
                                                         <div class="news-card-content">
-                                                            <h3 class="news-card-title"><%= news.title %></h3>
+                                                            <h3 class="news-card-title rich-text"><%- renderRichText(news.title) %></h3>
 
                                                             <div class="badge-group">
                                                                 <span class="badge badge-category"><%= news.category || 'Uncategorized' %></span>
@@ -187,7 +187,7 @@
                                                                 <div class="meta-item"><i class="fas fa-calendar"></i><span><%= new Date(news.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span></div>
                                                             </div>
 
-                                                            <p class="pn-card-excerpt"><%= news.content.substring(0, 120) %>...</p>
+                                                            <p class="pn-card-excerpt rich-text"><%- renderRichTextExcerpt(news.content, 120) %></p>
 
                                                             <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
                                                                 <div class="duplicate-warning">
@@ -327,6 +327,25 @@
             const CONTENT_MAX = 480;
             const categoryOptions = <%- JSON.stringify([...(pendingNews ? new Set(pendingNews.map(n => n.category).filter(Boolean)) : [])]) %>;
             const locationOptions = <%- JSON.stringify([...(pendingNews ? new Set(pendingNews.map(n => n.location).filter(Boolean)) : [])]) %>;
+
+            function renderRichContent(text) {
+                if (typeof window.renderRichText === 'function') {
+                    return window.renderRichText(text || '');
+                }
+                return escapeHtml(stripTags(text || ''));
+            }
+
+            function renderRichExcerpt(text, maxPlain) {
+                if (typeof window.renderRichText === 'function' && typeof window.stripRichTags === 'function' && typeof window.trimTagsToPlainLimit === 'function') {
+                    const plain = window.stripRichTags(text || '');
+                    if (plain.length <= maxPlain) {
+                        return window.renderRichText(text || '');
+                    }
+                    return window.renderRichText(window.trimTagsToPlainLimit(text || '', maxPlain)) + '…';
+                }
+                const plain = stripTags(text || '');
+                return escapeHtml(plain.length > maxPlain ? plain.substring(0, maxPlain) + '…' : plain);
+            }
 
             function stripTags(text) {
                 if (!text) return '';
@@ -891,7 +910,7 @@
                 const card = document.createElement('div');
                 card.className = 'news-card';
                 card.dataset.id = newsIdStr;
-                card.dataset.title = (news.title || '').toLowerCase();
+                card.dataset.title = stripTags(news.title || '').toLowerCase();
                 card.dataset.author = (news.author || '').toLowerCase();
                 card.dataset.category = (news.category || '').toLowerCase();
                 card.dataset.location = (news.location || '').toLowerCase();
@@ -919,7 +938,7 @@
                 card.innerHTML = `
                     ${mediaHtml}
                     <div class="news-card-content">
-                        <h3 class="news-card-title">${escapeHtml(news.title)}</h3>
+                        <h3 class="news-card-title rich-text">${renderRichContent(news.title)}</h3>
                         <div class="badge-group">
                             <span class="badge badge-category">${escapeHtml(news.category || 'Uncategorized')}</span>
                             <span class="badge pn-badge-lang">${escapeHtml(getLanguageLabel(news.language))}</span>
@@ -930,7 +949,7 @@
                             <div class="meta-item"><i class="fas fa-map-marker-alt"></i><span>${escapeHtml(news.location || 'N/A')}</span></div>
                             <div class="meta-item"><i class="fas fa-calendar"></i><span>${formattedDate}</span></div>
                         </div>
-                        <p class="pn-card-excerpt">${news.content ? escapeHtml(news.content).substring(0, 120) + '...' : ''}</p>
+                        <p class="pn-card-excerpt rich-text">${renderRichExcerpt(news.content, 120)}</p>
                         <div class="card-actions">
                             <button type="button" class="btn-preview" onclick="openPreview('${newsIdStr}')"><i class="fas fa-pen-to-square"></i> Preview</button>
                             <button type="button" class="btn-approve" onclick="approveNews('${newsIdStr}', '${titleStr}')"><i class="fas fa-check"></i> Approve</button>
@@ -997,10 +1016,9 @@
                     dc.similarArticles.slice(0, 3).forEach(function(match, idx) {
                         const score = getOverallSimilarity(match);
                         const title = match.articleTitle || 'Untitled article';
-                        const shortTitle = title.length > 42 ? title.substring(0, 42) + '…' : title;
                         html += '<button type="button" class="dup-match-chip" onclick="viewDuplicates(\'' + newsId + '\', ' + idx + ')">';
                         html += '<span class="dup-match-chip-score">' + score + '%</span>';
-                        html += '<span class="dup-match-chip-title">' + escapeHtml(shortTitle) + '</span>';
+                        html += '<span class="dup-match-chip-title">' + renderRichExcerpt(title, 42) + '</span>';
                         html += '</button>';
                     });
                     if (dc.similarArticles.length > 3) {
@@ -1012,7 +1030,7 @@
             }
 
             function renderNewsText(text) {
-                return escapeHtml(stripTags(text || ''));
+                return renderRichContent(text);
             }
 
             function renderDuplicateComparison(pending, matches, selectedIndex) {
@@ -1036,7 +1054,7 @@
                                 <span class="pn-dup-match-rank">#${idx + 1}</span>
                                 <span class="pn-dup-match-score ${matchTier.className}">${score}%</span>
                             </div>
-                            <div class="pn-dup-match-title">${escapeHtml(title)}</div>
+                            <div class="pn-dup-match-title rich-text">${renderRichContent(title)}</div>
                             <div class="pn-dup-match-meta">
                                 <span><i class="fas fa-user"></i> ${escapeHtml(author)}</span>
                                 <span><i class="fas fa-tag"></i> ${escapeHtml(category)}</span>
@@ -1049,7 +1067,7 @@
                     <div class="pn-dup-summary">
                         <div class="pn-dup-summary-card">
                             <div class="pn-dup-summary-label">Pending submission</div>
-                            <div class="pn-dup-summary-title">${renderNewsText(pending.title)}</div>
+                            <div class="pn-dup-summary-title rich-text">${renderNewsText(pending.title)}</div>
                             <div class="pn-dup-summary-meta">
                                 <span><i class="fas fa-user"></i> ${escapeHtml(pending.author || 'Reporter')}</span>
                                 <span><i class="fas fa-tag"></i> ${escapeHtml(pending.category || 'Uncategorized')}</span>
@@ -1057,7 +1075,7 @@
                         </div>
                         <div class="pn-dup-summary-card pn-dup-summary-card--match">
                             <div class="pn-dup-summary-label">Selected match <span class="pn-dup-tier-badge ${tier.className}">${tier.label}</span></div>
-                            <div class="pn-dup-summary-title">${renderNewsText(selected.articleTitle)}</div>
+                            <div class="pn-dup-summary-title rich-text">${renderNewsText(selected.articleTitle)}</div>
                             <div class="pn-dup-summary-meta">
                                 <span><i class="fas fa-user"></i> ${escapeHtml(selected.author || 'Unknown author')}</span>
                                 <span><i class="fas fa-calendar"></i> ${escapeHtml(matchDate)}</span>
@@ -1089,16 +1107,16 @@
                                 <article class="pn-dup-article pn-dup-article--pending">
                                     <header>
                                         <span class="pn-dup-article-label">Pending</span>
-                                        <h4>${renderNewsText(pending.title)}</h4>
+                                        <h4 class="rich-text">${renderNewsText(pending.title)}</h4>
                                     </header>
-                                    <div class="pn-dup-article-body">${renderNewsText(pending.content)}</div>
+                                    <div class="pn-dup-article-body rich-text">${renderNewsText(pending.content)}</div>
                                 </article>
                                 <article class="pn-dup-article pn-dup-article--published">
                                     <header>
                                         <span class="pn-dup-article-label">Published match</span>
-                                        <h4>${renderNewsText(selected.articleTitle)}</h4>
+                                        <h4 class="rich-text">${renderNewsText(selected.articleTitle)}</h4>
                                     </header>
-                                    <div class="pn-dup-article-body">${renderNewsText(selected.content)}</div>
+                                    <div class="pn-dup-article-body rich-text">${renderNewsText(selected.content)}</div>
                                 </article>
                             </div>
                         </section>

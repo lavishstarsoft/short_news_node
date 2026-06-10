@@ -323,8 +323,8 @@
                             </thead>
                             <tbody>
                                 <% highDuplicates.forEach(article => { %>
-                                    <tr data-type="duplicate" data-title="<%= article.title.toLowerCase() %>">
-                                        <td><strong><%= article.title.substring(0, 50) %>...</strong></td>
+                                    <tr data-type="duplicate" data-title="<%= stripRichTags(article.title).toLowerCase() %>">
+                                        <td><strong class="rich-text"><%- renderRichTextExcerpt(article.title, 50) %></strong></td>
                                         <td><%= article.author %></td>
                                         <td><span class="badge"><%= article.category || 'N/A' %></span></td>
                                         <td><%= new Date(article.publishedAt).toLocaleDateString() %></td>
@@ -371,8 +371,8 @@
                             </thead>
                             <tbody>
                                 <% suspiciousArticles.forEach(article => { %>
-                                    <tr data-type="suspicious" data-title="<%= article.title.toLowerCase() %>">
-                                        <td><strong><%= article.title.substring(0, 50) %>...</strong></td>
+                                    <tr data-type="suspicious" data-title="<%= stripRichTags(article.title).toLowerCase() %>">
+                                        <td><strong class="rich-text"><%- renderRichTextExcerpt(article.title, 50) %></strong></td>
                                         <td><%= article.author %></td>
                                         <td><span class="badge"><%= article.category || 'N/A' %></span></td>
                                         <td><%= new Date(article.publishedAt).toLocaleDateString() %></td>

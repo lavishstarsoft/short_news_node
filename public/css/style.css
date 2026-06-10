@@ -321,6 +321,19 @@ body {
     background-color: #1abc9c !important;
 }
 
+/* Rich text — color/bold tags rendered as styled HTML across dashboard */
+.rich-text strong,
+.rich-content-area strong {
+    font-weight: 700;
+}
+
+.rich-text a,
+.rich-content-area a {
+    color: #2563eb;
+    text-decoration: underline;
+    word-break: break-all;
+}
+
 /* Modal - Android-like dialog */
 .modal-content {
     border-radius: 8px;

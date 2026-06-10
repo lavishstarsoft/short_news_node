@@ -112,7 +112,7 @@
                                                 %>
                                                 <tr>
                                                     <td class="rn-article-cell">
-                                                        <button type="button" class="rn-article-title-link" onclick="viewRejectedArticle('<%= article._id %>')"><%= article.title %></button>
+                                                        <button type="button" class="rn-article-title-link" onclick="viewRejectedArticle('<%= article._id %>')"><span class="rich-text"><%- renderRichText(article.title) %></span></button>
                                                         <div class="rn-article-meta">
                                                             <% if (article.language) { %><%= article.language.toUpperCase() %><% } %>
                                                             <% if (article.views) { %> · <%= article.views %> views<% } %>

@@ -52,8 +52,8 @@
         </div>
       <% } %>
       <div class="news-article-text">
-        <p class="news-article-title"><%= news.title %></p>
-        <p class="news-article-excerpt"><%= news.content %></p>
+        <p class="news-article-title rich-text"><%- renderRichText(news.title) %></p>
+        <p class="news-article-excerpt rich-text"><%- renderRichTextExcerpt(news.content, 100) %></p>
         <span class="news-short-link"><i class="fas fa-link"></i> cbnys.co/<%= shortId %></span>
       </div>
     </div>

@@ -252,8 +252,8 @@
                                                     </span>
                                                 </div>
                                                 <div class="dash-article-body">
-                                                    <h3 class="dash-article-title"><%= news.title %></h3>
-                                                    <p class="dash-article-excerpt"><%= news.content.substring(0, 90) %></p>
+                                                    <h3 class="dash-article-title rich-text"><%- renderRichText(news.title) %></h3>
+                                                    <p class="dash-article-excerpt rich-text"><%- renderRichTextExcerpt(news.content, 90) %></p>
                                                     <div class="dash-article-meta">
                                                         <span><%= news.category %></span>
                                                         <span><%= new Date(news.publishedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) %></span>
