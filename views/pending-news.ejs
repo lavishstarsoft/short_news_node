@@ -298,6 +298,25 @@
             </div>
         </div>
 
+        <!-- Duplicate Review Modal -->
+        <div class="modal-backdrop pn-modal-backdrop" id="duplicateModal" aria-hidden="true">
+            <div class="modal-content pn-dup-modal" role="dialog" aria-labelledby="dupModalTitle">
+                <div class="modal-header pn-modal-header pn-dup-modal-header">
+                    <div>
+                        <h3 id="dupModalTitle">Duplicate review</h3>
+                        <p id="dupModalSubtitle" class="pn-dup-modal-subtitle">Compare this pending submission with matched published articles.</p>
+                    </div>
+                    <button type="button" class="modal-close pn-modal-close" onclick="closeDuplicateModal()" aria-label="Close"><i class="fas fa-xmark"></i></button>
+                </div>
+                <div id="duplicateModalBody" class="pn-dup-modal-body">
+                    <div class="pn-dup-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Loading matches…</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <%- include('partials/footer') %>
 
         <script>
@@ -931,6 +950,236 @@
                 }
             });
 
+            function getOverallSimilarity(match) {
+                if (!match) return 0;
+                if (typeof match.similarity === 'number') return match.similarity;
+                if (match.similarity && typeof match.similarity.overall === 'number') return match.similarity.overall;
+                return 0;
+            }
+
+            function getSimilarityBreakdown(match) {
+                if (!match || typeof match.similarity !== 'object') {
+                    const overall = getOverallSimilarity(match);
+                    return { title: overall, content: overall, keywords: overall, overall };
+                }
+                return {
+                    title: match.similarity.title || 0,
+                    content: match.similarity.content || 0,
+                    keywords: match.similarity.keywords || 0,
+                    overall: match.similarity.overall || 0
+                };
+            }
+
+            function getSimilarityTier(score) {
+                if (score >= 80) return { label: 'Duplicate', className: 'pn-dup-tier--high' };
+                if (score >= 60) return { label: 'Suspicious', className: 'pn-dup-tier--mid' };
+                return { label: 'Similar', className: 'pn-dup-tier--low' };
+            }
+
+            function renderSimilarityBar(label, value) {
+                const safeValue = Math.max(0, Math.min(100, Number(value) || 0));
+                return `
+                    <div class="pn-dup-score-row">
+                        <div class="pn-dup-score-label">${escapeHtml(label)}</div>
+                        <div class="pn-dup-score-track">
+                            <div class="pn-dup-score-fill" style="width:${safeValue}%"></div>
+                        </div>
+                        <div class="pn-dup-score-value">${safeValue}%</div>
+                    </div>
+                `;
+            }
+
+            function buildDuplicateWarningHtml(dc, newsId, includeChips) {
+                let html = '<strong><i class="fas fa-triangle-exclamation"></i> ' + dc.matchCount + ' similar article' + (dc.matchCount > 1 ? 's' : '') + ' found</strong>';
+                html += '<br>Highest match: ' + dc.score + '% similarity';
+                if (includeChips && dc.similarArticles && dc.similarArticles.length) {
+                    html += '<div class="dup-match-chips">';
+                    dc.similarArticles.slice(0, 3).forEach(function(match, idx) {
+                        const score = getOverallSimilarity(match);
+                        const title = match.articleTitle || 'Untitled article';
+                        const shortTitle = title.length > 42 ? title.substring(0, 42) + '…' : title;
+                        html += '<button type="button" class="dup-match-chip" onclick="viewDuplicates(\'' + newsId + '\', ' + idx + ')">';
+                        html += '<span class="dup-match-chip-score">' + score + '%</span>';
+                        html += '<span class="dup-match-chip-title">' + escapeHtml(shortTitle) + '</span>';
+                        html += '</button>';
+                    });
+                    if (dc.similarArticles.length > 3) {
+                        html += '<button type="button" class="dup-match-chip dup-match-chip--more" onclick="viewDuplicates(\'' + newsId + '\')">+' + (dc.similarArticles.length - 3) + ' more</button>';
+                    }
+                    html += '</div>';
+                }
+                return html;
+            }
+
+            function renderNewsText(text) {
+                return escapeHtml(stripTags(text || ''));
+            }
+
+            function renderDuplicateComparison(pending, matches, selectedIndex) {
+                const selected = matches[selectedIndex] || matches[0];
+                const breakdown = getSimilarityBreakdown(selected);
+                const tier = getSimilarityTier(breakdown.overall);
+                const matchDate = selected.publishedAt
+                    ? new Date(selected.publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : 'Unknown date';
+
+                const matchListHtml = matches.map(function(match, idx) {
+                    const score = getOverallSimilarity(match);
+                    const matchTier = getSimilarityTier(score);
+                    const isActive = idx === selectedIndex ? ' is-active' : '';
+                    const title = match.articleTitle || 'Untitled article';
+                    const author = match.author || 'Unknown author';
+                    const category = match.category || 'Uncategorized';
+                    return `
+                        <button type="button" class="pn-dup-match-item${isActive}" onclick="selectDuplicateMatch(${idx})">
+                            <div class="pn-dup-match-item-top">
+                                <span class="pn-dup-match-rank">#${idx + 1}</span>
+                                <span class="pn-dup-match-score ${matchTier.className}">${score}%</span>
+                            </div>
+                            <div class="pn-dup-match-title">${escapeHtml(title)}</div>
+                            <div class="pn-dup-match-meta">
+                                <span><i class="fas fa-user"></i> ${escapeHtml(author)}</span>
+                                <span><i class="fas fa-tag"></i> ${escapeHtml(category)}</span>
+                            </div>
+                        </button>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="pn-dup-summary">
+                        <div class="pn-dup-summary-card">
+                            <div class="pn-dup-summary-label">Pending submission</div>
+                            <div class="pn-dup-summary-title">${renderNewsText(pending.title)}</div>
+                            <div class="pn-dup-summary-meta">
+                                <span><i class="fas fa-user"></i> ${escapeHtml(pending.author || 'Reporter')}</span>
+                                <span><i class="fas fa-tag"></i> ${escapeHtml(pending.category || 'Uncategorized')}</span>
+                            </div>
+                        </div>
+                        <div class="pn-dup-summary-card pn-dup-summary-card--match">
+                            <div class="pn-dup-summary-label">Selected match <span class="pn-dup-tier-badge ${tier.className}">${tier.label}</span></div>
+                            <div class="pn-dup-summary-title">${renderNewsText(selected.articleTitle)}</div>
+                            <div class="pn-dup-summary-meta">
+                                <span><i class="fas fa-user"></i> ${escapeHtml(selected.author || 'Unknown author')}</span>
+                                <span><i class="fas fa-calendar"></i> ${escapeHtml(matchDate)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pn-dup-layout">
+                        <aside class="pn-dup-match-list">
+                            <div class="pn-dup-match-list-head">
+                                <span>Matched published articles</span>
+                                <span class="pn-dup-match-count">${matches.length}</span>
+                            </div>
+                            ${matchListHtml}
+                        </aside>
+
+                        <section class="pn-dup-compare-panel">
+                            <div class="pn-dup-breakdown">
+                                <div class="pn-dup-breakdown-head">
+                                    <strong>Similarity breakdown</strong>
+                                    <span class="pn-dup-tier-badge ${tier.className}">${breakdown.overall}% overall</span>
+                                </div>
+                                ${renderSimilarityBar('Title', breakdown.title)}
+                                ${renderSimilarityBar('Content', breakdown.content)}
+                                ${renderSimilarityBar('Keywords', breakdown.keywords)}
+                            </div>
+
+                            <div class="pn-dup-side-by-side">
+                                <article class="pn-dup-article pn-dup-article--pending">
+                                    <header>
+                                        <span class="pn-dup-article-label">Pending</span>
+                                        <h4>${renderNewsText(pending.title)}</h4>
+                                    </header>
+                                    <div class="pn-dup-article-body">${renderNewsText(pending.content)}</div>
+                                </article>
+                                <article class="pn-dup-article pn-dup-article--published">
+                                    <header>
+                                        <span class="pn-dup-article-label">Published match</span>
+                                        <h4>${renderNewsText(selected.articleTitle)}</h4>
+                                    </header>
+                                    <div class="pn-dup-article-body">${renderNewsText(selected.content)}</div>
+                                </article>
+                            </div>
+                        </section>
+                    </div>
+                `;
+            }
+
+            let duplicateModalState = { newsId: null, pending: null, matches: [], selectedIndex: 0 };
+
+            async function viewDuplicates(newsId, selectedIndex) {
+                const modal = document.getElementById('duplicateModal');
+                const body = document.getElementById('duplicateModalBody');
+                if (!modal || !body) return;
+
+                duplicateModalState = { newsId, pending: null, matches: [], selectedIndex: selectedIndex || 0 };
+                modal.classList.add('active');
+                modal.setAttribute('aria-hidden', 'false');
+                body.innerHTML = '<div class="pn-dup-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading matches…</span></div>';
+
+                try {
+                    const response = await fetch('/admin/api/pending-news/' + newsId + '/duplicate-matches');
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || 'Failed to load duplicate matches');
+                    }
+
+                    const matches = data.duplicateCheck?.similarArticles || [];
+                    if (!matches.length) {
+                        body.innerHTML = '<div class="pn-dup-empty"><i class="fas fa-circle-check"></i><p>No similar articles found for this submission.</p></div>';
+                        return;
+                    }
+
+                    duplicateModalState.pending = data.pendingArticle;
+                    duplicateModalState.matches = matches;
+                    duplicateModalState.selectedIndex = Math.min(selectedIndex || 0, matches.length - 1);
+
+                    duplicateDataCache[newsId] = {
+                        isDuplicate: data.duplicateCheck.isDuplicate,
+                        isSuspicious: data.duplicateCheck.isSuspicious,
+                        score: data.duplicateCheck.score,
+                        matchCount: data.duplicateCheck.matchCount,
+                        similarArticles: matches
+                    };
+
+                    body.innerHTML = renderDuplicateComparison(
+                        data.pendingArticle,
+                        matches,
+                        duplicateModalState.selectedIndex
+                    );
+                } catch (err) {
+                    body.innerHTML = '<div class="pn-dup-empty pn-dup-empty--error"><i class="fas fa-triangle-exclamation"></i><p>' + escapeHtml(err.message || 'Could not load duplicate matches') + '</p></div>';
+                }
+            }
+
+            function selectDuplicateMatch(index) {
+                if (!duplicateModalState.pending || !duplicateModalState.matches.length) return;
+                duplicateModalState.selectedIndex = index;
+                const body = document.getElementById('duplicateModalBody');
+                if (!body) return;
+                body.innerHTML = renderDuplicateComparison(
+                    duplicateModalState.pending,
+                    duplicateModalState.matches,
+                    index
+                );
+            }
+
+            function closeDuplicateModal() {
+                const modal = document.getElementById('duplicateModal');
+                if (!modal) return;
+                modal.classList.remove('active');
+                modal.setAttribute('aria-hidden', 'true');
+            }
+
+            document.getElementById('duplicateModal')?.addEventListener('click', function(e) {
+                if (e.target === this) closeDuplicateModal();
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') closeDuplicateModal();
+            });
+
             // ⚡ LAZY DUPLICATE CHECK: Runs in background after page loads
             document.addEventListener('DOMContentLoaded', async function() {
                 try {
@@ -980,7 +1229,7 @@
                         if (cardContent && cardActions) {
                             const warningDiv = document.createElement('div');
                             warningDiv.className = 'duplicate-warning';
-                            warningDiv.innerHTML = '<strong><i class="fas fa-triangle-exclamation"></i> ' + dc.matchCount + ' similar article' + (dc.matchCount > 1 ? 's' : '') + ' found</strong><br>Highest match: ' + dc.score + '% similarity';
+                            warningDiv.innerHTML = buildDuplicateWarningHtml(dc, result.newsId, true);
                             cardContent.insertBefore(warningDiv, cardActions);
 
                             const dupBtn = document.createElement('button');

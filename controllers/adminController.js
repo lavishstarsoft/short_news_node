@@ -2877,6 +2877,87 @@ async function getPendingNewsDuplicateCheck(req, res) {
   }
 }
 
+// Full duplicate match details for side-by-side review modal
+async function getPendingNewsDuplicateMatches(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid news ID' });
+    }
+
+    const pendingArticle = await News.findById(id)
+      .select('_id title content author category location language publishedAt isActive rejectionStatus')
+      .lean();
+
+    if (!pendingArticle) {
+      return res.status(404).json({ success: false, error: 'Article not found' });
+    }
+
+    if (pendingArticle.isActive) {
+      return res.status(400).json({ success: false, error: 'Only pending articles can be compared here' });
+    }
+
+    if (pendingArticle.rejectionStatus?.isRejected) {
+      return res.status(400).json({ success: false, error: 'Rejected articles cannot be compared here' });
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentPublished = await News.find({
+      isActive: true,
+      publishedAt: { $gte: sevenDaysAgo },
+      _id: { $ne: pendingArticle._id }
+    })
+      .select('_id title content publishedAt author category location language')
+      .lean();
+
+    const duplicateResults = checkDuplicateFast(
+      { title: pendingArticle.title, content: pendingArticle.content },
+      recentPublished
+    );
+
+    const matches = duplicateResults
+      .filter(r => r.similarity.overall >= 50)
+      .slice(0, 10)
+      .map(match => ({
+        articleId: match.articleId,
+        articleTitle: match.articleTitle,
+        content: recentPublished.find(a => a._id.toString() === match.articleId.toString())?.content || '',
+        author: match.author,
+        category: match.category,
+        location: match.location,
+        publishedAt: match.publishedAt,
+        similarity: match.similarity,
+        isDuplicate: match.isDuplicate,
+        isSuspicious: match.isSuspicious
+      }));
+
+    res.json({
+      success: true,
+      pendingArticle: {
+        id: pendingArticle._id,
+        title: pendingArticle.title,
+        content: pendingArticle.content,
+        author: pendingArticle.author,
+        category: pendingArticle.category,
+        location: pendingArticle.location,
+        language: pendingArticle.language,
+        publishedAt: pendingArticle.publishedAt
+      },
+      duplicateCheck: {
+        isDuplicate: duplicateResults.some(r => r.isDuplicate),
+        isSuspicious: duplicateResults.some(r => r.isSuspicious && !r.isDuplicate),
+        score: matches.length > 0 ? matches[0].similarity.overall : 0,
+        matchCount: matches.length,
+        similarArticles: matches
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching pending duplicate matches:', error);
+    res.status(500).json({ success: false, error: 'Failed to load duplicate matches' });
+  }
+}
+
 // Update pending news before approval
 async function updatePendingNews(req, res) {
   try {
@@ -3504,6 +3585,7 @@ module.exports = {
   getReporterProfile,
   renderPendingNewsPage,
   getPendingNewsDuplicateCheck,
+  getPendingNewsDuplicateMatches,
   updatePendingNews,
   approveNews,
   rejectNews,
