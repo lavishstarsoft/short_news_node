@@ -16,6 +16,7 @@ const { cacheMiddleware, clearCache } = require('../middleware/cache');
 // Import upload middleware for profile image upload
 const { uploadMedia } = require('../middleware/upload');
 const { buildNewsLanguageFilter } = require('../utils/newsLanguages');
+const languageRegistry = require('../services/languageRegistry');
 const fs = require('fs');
 
 
@@ -794,6 +795,34 @@ router.post('/api/public/user/profile', async (req, res) => {
   } catch (error) {
     console.error('Error in user profile endpoint:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Public API endpoint for fetching active languages (no authentication required)
+// Cached for 30 minutes (1800 seconds)
+router.get('/api/public/languages', cacheMiddleware(1800), async (req, res) => {
+  try {
+    await languageRegistry.refreshCache();
+    const forUserApp =
+      req.query.forUserApp === 'true' ||
+      req.query.forUserApp === '1' ||
+      req.query.forUserApp === true;
+
+    const languages = forUserApp
+      ? languageRegistry.getUserAppLanguages()
+      : languageRegistry.getActiveLanguages();
+
+    res.json(
+      languages.map((language) => ({
+        code: language.code,
+        name: language.name,
+        nativeName: language.nativeName,
+        isDefault: language.isDefault === true
+      }))
+    );
+  } catch (error) {
+    console.error('Error fetching public languages:', error);
+    res.status(500).json({ error: 'Error fetching languages' });
   }
 });
 

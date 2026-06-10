@@ -4,117 +4,7 @@
 <%- include('partials/header', { title: (typeof news !=='undefined' ? 'Edit News' : 'Add News' ) + ' - Short News Admin'
     }) %>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
-    <style>
-        /* Video thumbnail selection */
-        .thumbnail-option {
-            cursor: pointer;
-            border: 2px solid transparent;
-            border-radius: 4px;
-            transition: all 0.2s;
-        }
-
-        .thumbnail-option:hover {
-            border-color: #007bff;
-        }
-
-        .thumbnail-option.selected {
-            border-color: #007bff;
-            box-shadow: 0 0 0 2px #007bff;
-        }
-
-        .thumbnail-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .thumbnail-img {
-            width: 100%;
-            height: 80px;
-            object-fit: cover;
-            border-radius: 4px;
-        }
-
-        /* Color Toolbar Styles */
-        .color-toolbar {
-            display: flex;
-            align-items: center;
-            background: #f8f9fa;
-            padding: 5px 10px;
-            border: 1px solid #dee2e6;
-            border-bottom: none;
-            border-radius: 4px 4px 0 0;
-        }
-
-        .color-btn {
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            border: 2px solid #fff;
-            box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
-            cursor: pointer;
-            margin-right: 8px;
-            display: inline-block;
-            transition: transform 0.2s;
-        }
-
-        .color-btn:hover {
-            transform: scale(1.2);
-        }
-
-        .color-input-wrapper {
-            position: relative;
-            width: 22px;
-            height: 22px;
-            overflow: hidden;
-            border-radius: 50%;
-            border: 2px solid #fff;
-            box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
-            cursor: pointer;
-        }
-
-        .color-input-wrapper input[type="color"] {
-            position: absolute;
-            top: -5px;
-            left: -5px;
-            width: 32px;
-            height: 32px;
-            cursor: pointer;
-            border: none;
-            padding: 0;
-            background: none;
-        }
-
-        .form-control-with-toolbar {
-            border-top-left-radius: 0;
-            border-top-right-radius: 0;
-        }
-
-        .toolbar-divider {
-            width: 1px;
-            height: 20px;
-            background: #dee2e6;
-            margin: 0 12px;
-        }
-
-        .toolbar-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #495057;
-        }
-
-        .toolbar-btn:hover {
-            background: #e9ecef;
-            color: #212529;
-        }
-    </style>
+    <link rel="stylesheet" href="/css/add-news.css">
     </head>
 
     <body>
@@ -129,215 +19,142 @@
 
                         <!-- Main Content -->
                         <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                            <div class="content-area">
-                                <div class="row justify-content-center">
-                                    <div class="col-lg-8">
-                                        <div class="card">
-                                            <div class="card-body">
-                                                <h3 class="card-title mb-4">
-                                                    <%= typeof news !=='undefined' ? 'Edit News Article'
-                                                        : 'Create New News Article' %>
-                                                </h3>
-                                                <form id="addNewsForm">
-                                                    <input type="hidden" id="newsId"
-                                                        value="<%= typeof news !== 'undefined' ? news._id : '' %>">
-                                                    <div class="mb-3">
-                                                        <label for="title" class="form-label">Title</label>
-                                                        <div class="color-toolbar">
-                                                            <span class="small text-muted me-2"><i
-                                                                    class="fas fa-palette"></i></span>
-                                                            <div class="color-btn" style="background-color: #F44336;"
-                                                                onclick="applyTextColor('title', '#F44336')"></div>
-                                                            <div class="color-btn" style="background-color: #2196F3;"
-                                                                onclick="applyTextColor('title', '#2196F3')"></div>
-                                                            <div class="color-btn" style="background-color: #4CAF50;"
-                                                                onclick="applyTextColor('title', '#4CAF50')"></div>
-                                                            <div class="color-btn" style="background-color: #FF9800;"
-                                                                onclick="applyTextColor('title', '#FF9800')"></div>
-                                                            <div class="color-input-wrapper" title="Custom Color">
-                                                                <input type="color"
-                                                                    onchange="applyTextColor('title', this.value)">
+                            <div class="content-area mt-4 an-page">
+                                <div class="an-page-header">
+                                    <div>
+                                        <h1 class="an-page-title"><%= typeof news !== 'undefined' ? 'Edit Article' : 'Create Article' %></h1>
+                                        <p class="an-page-subtitle">Select text and apply color or bold — formatting shows directly in the field.</p>
+                                    </div>
+                                </div>
+
+                                <form id="addNewsForm">
+                                    <input type="hidden" id="newsId" value="<%= typeof news !== 'undefined' ? news._id : '' %>">
+                                    <textarea id="title" class="d-none" aria-hidden="true"><%= typeof news !== 'undefined' ? news.title : '' %></textarea>
+                                    <textarea id="content" class="d-none" aria-hidden="true"><%= typeof news !== 'undefined' ? news.content : '' %></textarea>
+
+                                    <div class="an-compose-grid">
+                                        <!-- LEFT: Title + Content -->
+                                        <div class="an-col-write">
+                                            <div class="an-panel">
+                                                <div class="an-panel-head"><i class="fas fa-pen me-2"></i>Write article</div>
+                                                <div class="an-panel-body">
+                                                    <div class="an-field">
+                                                        <label class="an-label">Title</label>
+                                                        <div class="an-editor-wrap">
+                                                            <div class="an-toolbar">
+                                                                <span class="an-toolbar-label">Color</span>
+                                                                <button type="button" class="an-color-dot" style="background:#F44336" onclick="applyTextColor('title', '#F44336')"></button>
+                                                                <button type="button" class="an-color-dot" style="background:#2196F3" onclick="applyTextColor('title', '#2196F3')"></button>
+                                                                <button type="button" class="an-color-dot" style="background:#4CAF50" onclick="applyTextColor('title', '#4CAF50')"></button>
+                                                                <button type="button" class="an-color-dot" style="background:#FF9800" onclick="applyTextColor('title', '#FF9800')"></button>
+                                                                <input type="color" class="an-color-picker" onchange="applyTextColor('title', this.value)">
+                                                                <span class="an-toolbar-divider"></span>
+                                                                <button type="button" class="an-tool-btn" onclick="applyBoldText('title')"><i class="fas fa-bold"></i></button>
+                                                                <button type="button" class="an-tool-btn" onclick="removeStyling('title')"><i class="fas fa-eraser"></i></button>
                                                             </div>
-                                                            <div class="toolbar-divider"></div>
-                                                            <div class="toolbar-btn" title="Bold" onclick="applyBoldText('title')">
-                                                                <i class="fas fa-bold"></i>
-                                                            </div>
-                                                            <div class="toolbar-btn" title="Remove Styling" onclick="removeStyling('title')">
-                                                                <i class="fas fa-eraser"></i>
-                                                            </div>
-                                                        </div>
-                                                        <input type="text"
-                                                            class="form-control form-control-with-toolbar" id="title"
-                                                            placeholder="Enter news title"
-                                                            value="<%= typeof news !== 'undefined' ? news.title : '' %>"
-                                                            maxlength="800" oninput="updateCount('title', 62)" required>
-                                                        <div class="form-text text-end">
-                                                            <span id="titleCount">0</span>/62 characters
-                                                        </div>
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <label for="content" class="form-label">Content</label>
-                                                        <div class="color-toolbar">
-                                                            <span class="small text-muted me-2"><i
-                                                                    class="fas fa-palette"></i></span>
-                                                            <div class="color-btn" style="background-color: #F44336;"
-                                                                onclick="applyTextColor('content', '#F44336')"></div>
-                                                            <div class="color-btn" style="background-color: #2196F3;"
-                                                                onclick="applyTextColor('content', '#2196F3')"></div>
-                                                            <div class="color-btn" style="background-color: #4CAF50;"
-                                                                onclick="applyTextColor('content', '#4CAF50')"></div>
-                                                            <div class="color-btn" style="background-color: #FF9800;"
-                                                                onclick="applyTextColor('content', '#FF9800')"></div>
-                                                            <div class="color-input-wrapper" title="Custom Color">
-                                                                <input type="color"
-                                                                    onchange="applyTextColor('content', this.value)">
-                                                            </div>
-                                                            <div class="toolbar-divider"></div>
-                                                            <div class="toolbar-btn" title="Bold" onclick="applyBoldText('content')">
-                                                                <i class="fas fa-bold"></i>
-                                                            </div>
-                                                            <div class="toolbar-btn" title="Remove Styling" onclick="removeStyling('content')">
-                                                                <i class="fas fa-eraser"></i>
-                                                            </div>
-                                                        </div>
-                                                        <textarea class="form-control form-control-with-toolbar"
-                                                            id="content" rows="6" placeholder="Enter news content"
-                                                            maxlength="1200" oninput="updateCount('content', 480)"
-                                                            required><%= typeof news !== 'undefined' ? news.content : '' %></textarea>
-                                                        <div class="form-text text-end">
-                                                            <span id="contentCount">0</span>/480 characters
+                                                            <div id="titleEditor" class="an-rich-editor an-rich-editor-title" contenteditable="true" data-placeholder="Enter news title"></div>
+                                                            <div class="an-char-count" id="titleCountWrap"><span id="titleCount">0</span>/62</div>
                                                         </div>
                                                     </div>
 
-                                                    <!-- Media Upload Section -->
-                                                    <div class="mb-3">
-                                                        <label class="form-label">News Media (Image or Video)</label>
-                                                        <div class="border rounded p-3 mb-3">
-                                                            <div class="d-flex flex-column align-items-center">
-                                                                <div id="mediaPreviewContainer" class="mb-3"
-                                                                    style="width: 100%; aspect-ratio: 1080/900; overflow: hidden; border-radius: 8px; background: #f0f0f0;">
-                                                                    <img id="imagePreview"
-                                                                        src="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '/images/placeholder.png' %>"
-                                                                        onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmZmZmYiPkltYWdlIFVwbG9hZDwvdGV4dD48L3N2Zz4='"
-                                                                        class="rounded" alt="Media Preview"
-                                                                        style="display: block; width: 100%; height: 100%; object-fit: contain;">
-                                                                    <video id="videoPreview" src="" controls
-                                                                        class="rounded" alt="Video Preview"
-                                                                        style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
-                                                                </div>
-                                                                <button type="button"
-                                                                    class="btn btn-outline-primary ripple"
-                                                                    id="uploadMediaButton">
-                                                                    <i class="fas fa-upload me-1"></i> Upload Media
-                                                                    (Select Multiple Images)
-                                                                </button>
-                                                                <input type="file" id="mediaUpload"
-                                                                    accept="image/*,video/*" class="d-none" multiple>
-                                                                <input type="hidden" id="mediaUrl"
-                                                                    value="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '' %>">
-                                                                <input type="hidden" id="mediaType"
-                                                                    value="<%= typeof news !== 'undefined' ? (news.mediaType || 'image') : '' %>">
-                                                                <input type="hidden" id="thumbnailUrl"
-                                                                    value="<%= typeof news !== 'undefined' ? (news.thumbnailUrl || news.mediaUrl || news.imageUrl) : '' %>">
-                                                                <!-- Store multiple images here -->
-                                                                <input type="hidden" id="imageUrls"
-                                                                    value='<%= typeof news !== "undefined" && news.imageUrls ? JSON.stringify(news.imageUrls) : "[]" %>'>
-                                                                <div id="multipleImagesContainer"
-                                                                    class="mt-3 d-flex flex-wrap gap-2">
-                                                                    <!-- Additional images will be shown here -->
-                                                                </div>
+                                                    <div class="an-field">
+                                                        <label class="an-label">Content</label>
+                                                        <div class="an-editor-wrap">
+                                                            <div class="an-toolbar">
+                                                                <span class="an-toolbar-label">Color</span>
+                                                                <button type="button" class="an-color-dot" style="background:#F44336" onclick="applyTextColor('content', '#F44336')"></button>
+                                                                <button type="button" class="an-color-dot" style="background:#2196F3" onclick="applyTextColor('content', '#2196F3')"></button>
+                                                                <button type="button" class="an-color-dot" style="background:#4CAF50" onclick="applyTextColor('content', '#4CAF50')"></button>
+                                                                <button type="button" class="an-color-dot" style="background:#FF9800" onclick="applyTextColor('content', '#FF9800')"></button>
+                                                                <input type="color" class="an-color-picker" onchange="applyTextColor('content', this.value)">
+                                                                <span class="an-toolbar-divider"></span>
+                                                                <button type="button" class="an-tool-btn" onclick="applyBoldText('content')"><i class="fas fa-bold"></i></button>
+                                                                <button type="button" class="an-tool-btn" onclick="removeStyling('content')"><i class="fas fa-eraser"></i></button>
                                                             </div>
-
-                                                            <!-- Video Thumbnail Selection (hidden by default) -->
-                                                            <div id="thumbnailSelection" class="mt-3"
-                                                                style="display: none;">
-                                                                <label class="form-label">Select Thumbnail</label>
-                                                                <div class="thumbnail-grid" id="thumbnailGrid">
-                                                                    <!-- Thumbnails will be populated here -->
-                                                                </div>
-                                                            </div>
+                                                            <div id="contentEditor" class="an-rich-editor an-rich-editor-content" contenteditable="true" data-placeholder="Enter news content"></div>
+                                                            <div class="an-char-count" id="contentCountWrap"><span id="contentCount">0</span>/480</div>
                                                         </div>
                                                     </div>
 
-                                                    <div class="mb-3">
-                                                        <label for="language" class="form-label">News Language</label>
-                                                        <select class="form-control" id="language" required>
-                                                            <% 
-                                                                const selectedNewsLang = typeof news !== 'undefined'
-                                                                    ? (news.language || 'te')
-                                                                    : (typeof defaultLanguage !== 'undefined' ? defaultLanguage : 'te');
-                                                            %>
-                                                            <option value="te" <%= selectedNewsLang === 'te' ? 'selected' : '' %>>Telugu</option>
-                                                            <option value="en" <%= selectedNewsLang === 'en' ? 'selected' : '' %>>English</option>
-                                                            <option value="hi" <%= selectedNewsLang === 'hi' ? 'selected' : '' %>>Hindi</option>
-                                                            <option value="ta" <%= selectedNewsLang === 'ta' ? 'selected' : '' %>>Tamil</option>
-                                                        </select>
-                                                        <small class="form-text text-muted">Language of this news article</small>
+                                                    <div class="an-meta-row">
+                                                        <div class="an-field">
+                                                            <label for="language" class="an-label">Language</label>
+                                                            <select class="an-select" id="language" required>
+                                                                <% const selectedNewsLang = typeof news !== 'undefined' ? (news.language || defaultLanguage || 'te') : (typeof defaultLanguage !== 'undefined' ? defaultLanguage : 'te'); %>
+                                                                <%- include('partials/language-select-options', { selectedValue: selectedNewsLang }) %>
+                                                            </select>
+                                                        </div>
+                                                        <div class="an-field">
+                                                            <label for="category" class="an-label">Category</label>
+                                                            <select class="an-select" id="category" required>
+                                                                <option value="">Select Category</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="an-field">
+                                                            <label for="location" class="an-label">Location <span class="an-label-hint">optional</span></label>
+                                                            <select class="an-select" id="location">
+                                                                <option value="">Select Location (Optional)</option>
+                                                            </select>
+                                                        </div>
                                                     </div>
+                                                </div>
+                                            </div>
 
-                                                    <div class="mb-3">
-                                                        <label for="category" class="form-label">Category</label>
-                                                        <select class="form-control" id="category" required>
-                                                            <option value="">Loading categories...</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <label for="location" class="form-label">Location</label>
-                                                        <select class="form-control" id="location">
-                                                            <option value="">Loading locations...</option>
-                                                        </select>
-                                                    </div>
+                                            <div class="an-form-actions">
+                                                <button type="button" class="an-btn-secondary" onclick="window.location.href='/'"><i class="fas fa-times"></i> Cancel</button>
+                                                <button type="button" class="an-btn-primary" id="saveNewsButton"><i class="fas fa-save"></i> <%= typeof news !== 'undefined' ? 'Update' : 'Publish' %></button>
+                                            </div>
+                                            <div class="d-grid d-md-none mt-3">
+                                                <button type="button" class="an-btn-primary" id="saveNewsButtonMobile"><i class="fas fa-save"></i> <%= typeof news !== 'undefined' ? 'Update' : 'Publish' %></button>
+                                            </div>
+                                        </div>
 
-                                                    <div class="mb-3">
-                                                        <label for="readFullLink" class="form-label">Read Full Article
-                                                            Link
-                                                            (Optional)</label>
-                                                        <input type="url" class="form-control" id="readFullLink"
-                                                            placeholder="https://example.com/full-article"
+                                        <!-- RIGHT: Media + publishing -->
+                                        <div class="an-col-meta">
+                                            <div class="an-panel an-panel-compact">
+                                                <div class="an-panel-head"><i class="fas fa-image me-2"></i>Media</div>
+                                                <div class="an-panel-body">
+                                                    <div class="an-media-compact">
+                                                        <div class="an-media-preview-sm" id="mediaPreviewContainer">
+                                                            <img id="imagePreview"
+                                                                src="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '/images/placeholder.png' %>"
+                                                                onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmZmZmYiPkltYWdlIFVwbG9hZDwvdGV4dD48L3N2Zz4='"
+                                                                alt="Preview">
+                                                            <video id="videoPreview" src="" controls style="display:none;width:100%;height:100%;object-fit:contain;"></video>
+                                                        </div>
+                                                        <button type="button" class="an-upload-btn-sm" id="uploadMediaButton"><i class="fas fa-upload"></i> Upload image / video</button>
+                                                        <input type="file" id="mediaUpload" accept="image/*,video/*" class="d-none" multiple>
+                                                        <input type="hidden" id="mediaUrl" value="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '' %>">
+                                                        <input type="hidden" id="mediaType" value="<%= typeof news !== 'undefined' ? (news.mediaType || 'image') : '' %>">
+                                                        <input type="hidden" id="thumbnailUrl" value="<%= typeof news !== 'undefined' ? (news.thumbnailUrl || news.mediaUrl || news.imageUrl) : '' %>">
+                                                        <input type="hidden" id="imageUrls" value='<%= typeof news !== "undefined" && news.imageUrls ? JSON.stringify(news.imageUrls) : "[]" %>'>
+                                                        <div id="multipleImagesContainer" class="an-thumb-row"></div>
+                                                        <div id="thumbnailSelection" style="display:none;">
+                                                            <label class="an-label" style="margin-top:10px;">Thumbnail</label>
+                                                            <div class="thumbnail-grid" id="thumbnailGrid"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="an-panel">
+                                                <div class="an-panel-head"><i class="fas fa-link me-2"></i>Links</div>
+                                                <div class="an-panel-body">
+                                                    <div class="an-field">
+                                                        <label for="readFullLink" class="an-label">Read full link <span class="an-label-hint">optional</span></label>
+                                                        <input type="url" class="an-input" id="readFullLink" placeholder="https://..."
                                                             value="<%= typeof news !== 'undefined' ? (news.readFullLink || '') : '' %>">
-                                                        <small class="form-text text-muted">Leave empty to use default
-                                                            link</small>
                                                     </div>
-
-                                                    <div class="mb-3">
-                                                        <label for="ePaperLink" class="form-label">ePaper Link
-                                                            (Optional)</label>
-                                                        <input type="url" class="form-control" id="ePaperLink"
-                                                            placeholder="https://epaper.example.com"
+                                                    <div class="an-field">
+                                                        <label for="ePaperLink" class="an-label">ePaper link <span class="an-label-hint">optional</span></label>
+                                                        <input type="url" class="an-input" id="ePaperLink" placeholder="https://..."
                                                             value="<%= typeof news !== 'undefined' ? (news.ePaperLink || '') : '' %>">
-                                                        <small class="form-text text-muted">Leave empty to use default
-                                                            link</small>
                                                     </div>
-
-                                                    <div class="d-grid gap-2 d-md-none">
-                                                        <button type="button" class="btn btn-primary ripple"
-                                                            id="saveNewsButtonMobile">
-                                                            <i class="fas fa-save me-1"></i>
-                                                            <%= typeof news !=='undefined' ? 'Update News' : 'Save News'
-                                                                %>
-                                                        </button>
-                                                        <button type="button" class="btn btn-secondary ripple"
-                                                            onclick="window.location.href='/'">
-                                                            <i class="fas fa-times me-1"></i> Cancel
-                                                        </button>
-                                                    </div>
-                                                    <div class="d-none d-md-flex justify-content-end gap-2 mt-4">
-                                                        <button type="button" class="btn btn-secondary ripple"
-                                                            onclick="window.location.href='/'">
-                                                            <i class="fas fa-times me-1"></i> Cancel
-                                                        </button>
-                                                        <button type="button" class="btn btn-primary ripple"
-                                                            id="saveNewsButton">
-                                                            <i class="fas fa-save me-1"></i>
-                                                            <%= typeof news !=='undefined' ? 'Update News' : 'Save News'
-                                                                %>
-                                                        </button>
-                                                    </div>
-                                                </form>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                </form>
                             </div>
                         </div>
                 </div>
@@ -367,6 +184,7 @@
 
             <%- include('partials/footer') %>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+                <script src="/js/rich-text.js"></script>
                 <script>
                     async function normalizeImageForCrop(file) {
                         if (!file || !file.type) return file;
@@ -399,9 +217,11 @@
 
                     // Add News Function
                     async function saveNews() {
+                        syncAllEditors();
+
                         const newsId = document.getElementById('newsId').value;
-                        const title = document.getElementById('title').value;
-                        const content = document.getElementById('content').value;
+                        const title = document.getElementById('title').value.trim();
+                        const content = document.getElementById('content').value.trim();
                         const mediaUrl = document.getElementById('mediaUrl').value;
                         const mediaType = document.getElementById('mediaType').value;
                         const thumbnailUrl = document.getElementById('thumbnailUrl').value;
@@ -554,7 +374,14 @@
                             if (btn) btn.addEventListener('click', saveNews);
                         });
 
-                        // Initialize character counts
+                        // Rich text editors
+                        initRichEditor('titleEditor', 'title', 62, true, false);
+                        initRichEditor('contentEditor', 'content', 480, false, true);
+
+                        window.onRichEditorChange = function (hiddenId, max) {
+                            updateCount(hiddenId, max);
+                        };
+
                         updateCount('title', 62);
                         updateCount('content', 480);
 
@@ -875,146 +702,58 @@
                         setTimeout(() => toast.remove(), 3000);
                     }
 
-                    // Strip tags for counting
+                    const EDITOR_MAP = {
+                        title: { editorId: 'titleEditor', hiddenId: 'title', max: 62, singleLine: true, singleParagraph: false },
+                        content: { editorId: 'contentEditor', hiddenId: 'content', max: 480, singleLine: false, singleParagraph: true }
+                    };
+
+                    function syncAllEditors() {
+                        syncRichEditor('titleEditor', 'title', 62, true, false);
+                        syncRichEditor('contentEditor', 'content', 480, false, true);
+                    }
+
                     function stripTags(text) {
-                        if (!text) return '';
-                        return text
-                            .replace(/\[c=#[0-9a-fA-F]{6}\]/gi, '')
-                            .replace(/\[\/c\]/gi, '')
-                            .replace(/\[b\]/gi, '')
-                            .replace(/\[\/b\]/gi, '');
+                        return typeof stripRichTags === 'function' ? stripRichTags(text) : (text || '');
                     }
 
-                    // Trim text to a specific plain-text length while keeping tags intact
-                    function trimToPlainLimit(text, max) {
-                        if (!text) return '';
-                        let plainLength = 0;
-                        let result = '';
-                        let i = 0;
-                        while (i < text.length && plainLength < max) {
-                            // Check for color tags
-                            const colorTagMatch = text.substring(i).match(/^\[c=#[0-9a-fA-F]{6}\]|^\[\/c\]/i);
-                            // Check for bold tags
-                            const boldTagMatch = text.substring(i).match(/^\[b\]|^\[\/b\]/i);
-                            
-                            if (colorTagMatch) {
-                                result += colorTagMatch[0];
-                                i += colorTagMatch[0].length;
-                            } else if (boldTagMatch) {
-                                result += boldTagMatch[0];
-                                i += boldTagMatch[0].length;
-                            } else {
-                                result += text[i];
-                                plainLength++;
-                                i++;
-                            }
-                        }
-                        return result;
-                    }
+                    function updateCount(hiddenId, max) {
+                        const hidden = document.getElementById(hiddenId);
+                        const countSpan = document.getElementById(hiddenId + 'Count');
+                        const countWrap = document.getElementById(hiddenId + 'CountWrap');
+                        if (!hidden || !countSpan) return;
 
-                    // Track last valid values to prevent over-typing
-                    let lastValidValues = {};
+                        const current = stripTags(hidden.value).length;
+                        countSpan.textContent = current;
 
-                    // Update character count
-                    function updateCount(id, max) {
-                        const input = document.getElementById(id);
-                        const countSpan = document.getElementById(id + 'Count');
-                        if (input && countSpan) {
-                            let plainText = stripTags(input.value);
-                            let current = plainText.length;
-
-                            if (current > max) {
-                                // If exceeded, trim to the limit
-                                input.value = trimToPlainLimit(input.value, max);
-                                // Recalculate with trimmed value
-                                plainText = stripTags(input.value);
-                                current = plainText.length;
-                            }
-
-                            // Store valid value
-                            lastValidValues[id] = input.value;
-                            countSpan.textContent = current;
-
-                            if (current >= max) {
-                                countSpan.style.color = '#F44336';
-                                countSpan.style.fontWeight = 'bold';
-                            } else {
-                                countSpan.style.color = '';
-                                countSpan.style.fontWeight = '';
-                            }
+                        if (countWrap) {
+                            countWrap.classList.toggle('over', current >= max);
                         }
                     }
 
-                    // Apply text color tags to selection
-                    function applyTextColor(inputId, color) {
-                        const input = document.getElementById(inputId);
-                        const start = input.selectionStart;
-                        const end = input.selectionEnd;
-                        const value = input.value;
-
-                        if (start === end) {
+                    function applyTextColor(fieldKey, color) {
+                        const cfg = EDITOR_MAP[fieldKey];
+                        if (!cfg) return;
+                        if (!applyRichColor(cfg.editorId, cfg.hiddenId, color, cfg.max, cfg.singleLine, cfg.singleParagraph)) {
                             showFeedback('Please select some text first', 'info');
-                            return;
                         }
-
-                        const selectedText = value.substring(start, end);
-                        const newValue = value.substring(0, start) + `[c=${color}]${selectedText}[/c]` + value.substring(end);
-
-                        input.value = newValue;
-                        updateCount(inputId, inputId === 'title' ? 62 : 480);
-
-                        // Set focus back and selection
-                        input.focus();
-                        const newEnd = start + `[c=${color}]`.length + selectedText.length + `[/c]`.length;
-                        input.setSelectionRange(start, newEnd);
                     }
 
-                    function applyBoldText(inputId) {
-                        const input = document.getElementById(inputId);
-                        const start = input.selectionStart;
-                        const end = input.selectionEnd;
-                        const value = input.value;
-
-                        if (start === end) {
+                    function applyBoldText(fieldKey) {
+                        const cfg = EDITOR_MAP[fieldKey];
+                        if (!cfg) return;
+                        if (!applyRichBold(cfg.editorId, cfg.hiddenId, cfg.max, cfg.singleLine, cfg.singleParagraph)) {
                             showFeedback('Please select some text first', 'info');
-                            return;
                         }
-
-                        const selectedText = value.substring(start, end);
-                        const newValue = value.substring(0, start) + `[b]${selectedText}[/b]` + value.substring(end);
-                        input.value = newValue;
-                        updateCount(inputId, inputId === 'title' ? 62 : 480);
-                        input.focus();
                     }
 
-                    function removeStyling(inputId) {
-                        const input = document.getElementById(inputId);
-                        const start = input.selectionStart;
-                        const end = input.selectionEnd;
-                        const value = input.value;
-
-                        if (start === end) {
-                            showFeedback('Please select text with tags to remove styling', 'info');
-                            return;
+                    function removeStyling(fieldKey) {
+                        const cfg = EDITOR_MAP[fieldKey];
+                        if (!cfg) return;
+                        if (!removeRichStyling(cfg.editorId, cfg.hiddenId, cfg.max, cfg.singleLine, cfg.singleParagraph)) {
+                            showFeedback('Please select styled text first', 'info');
                         }
-
-                        const selectedText = value.substring(start, end);
-                        // Remove [c=...] and [b] tags from selection
-                        const cleanedText = selectedText
-                            .replace(/\[c=#[0-9a-fA-F]{6}\]/gi, '')
-                            .replace(/\[\/c\]/gi, '')
-                            .replace(/\[b\]/gi, '')
-                            .replace(/\[\/b\]/gi, '');
-
-                        const newValue = value.substring(0, start) + cleanedText + value.substring(end);
-                        input.value = newValue;
-                        updateCount(inputId, inputId === 'title' ? 62 : 480);
-                        input.focus();
                     }
                 </script>
     </body>
-
-</html>
-</body>
 
 </html>

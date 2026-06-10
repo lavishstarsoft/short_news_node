@@ -1,0 +1,116 @@
+<% 
+  const langLabels = typeof newsLanguageLabels !== 'undefined'
+    ? newsLanguageLabels
+    : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' };
+  const newsId = news._id.toString();
+  const shortId = news.shortId || (newsId.length > 6 ? newsId.substring(newsId.length - 6) : newsId);
+  const mediaUrl = news.mediaUrl || news.imageUrl || '';
+  const isVideo = news.mediaType === 'video';
+
+  let statusKey = 'active';
+  let statusLabel = 'Active';
+  let statusClass = 'news-badge-active';
+  let isPending = false;
+
+  if (news.isActive === false) {
+    if (news.rejectionStatus && news.rejectionStatus.isRejected) {
+      statusKey = 'rejected';
+      statusLabel = 'Rejected';
+      statusClass = 'news-badge-rejected';
+    } else if (news.approvalStatus && news.approvalStatus.isApproved === false) {
+      statusKey = 'pending';
+      statusLabel = 'Pending';
+      statusClass = 'news-badge-pending';
+      isPending = true;
+    } else {
+      statusKey = 'inactive';
+      statusLabel = 'Inactive';
+      statusClass = 'news-badge-inactive';
+    }
+  }
+
+  const articleLang = news.language || 'te';
+  const publishedDate = new Date(news.publishedAt);
+  const showAuthor = typeof admin !== 'undefined' && admin && admin.role !== 'editor';
+%>
+<tr class="news-row"
+    data-status="<%= statusKey %>"
+    onclick="viewNews('<%= newsId %>')">
+  <td>
+    <div class="news-article-cell">
+      <% if (mediaUrl) { %>
+        <% if (isVideo) { %>
+          <div class="news-thumb news-thumb-video d-flex align-items-center justify-content-center" style="background:#1f2937;">
+            <i class="fas fa-play text-white" style="font-size:0.875rem;margin-left:2px;"></i>
+          </div>
+        <% } else { %>
+          <img src="<%= mediaUrl %>" class="news-thumb" alt="" loading="lazy">
+        <% } %>
+      <% } else { %>
+        <div class="news-thumb d-flex align-items-center justify-content-center text-muted">
+          <i class="fas fa-newspaper"></i>
+        </div>
+      <% } %>
+      <div class="news-article-text">
+        <p class="news-article-title"><%= news.title %></p>
+        <p class="news-article-excerpt"><%= news.content %></p>
+        <span class="news-short-link"><i class="fas fa-link"></i> cbnys.co/<%= shortId %></span>
+      </div>
+    </div>
+  </td>
+  <td>
+    <span class="team-badge news-badge-category"><%= news.category || 'General' %></span>
+  </td>
+  <td>
+    <% if (news.location) { %>
+      <span title="<%= news.location %>">
+        <% if (news.locationCode) { %><%= news.locationCode %><% } else { %><%= news.location %><% } %>
+      </span>
+    <% } else { %>
+      <span class="text-muted">—</span>
+    <% } %>
+  </td>
+  <td>
+    <span class="team-badge team-badge-lang"><%= langLabels[articleLang] || articleLang %></span>
+  </td>
+  <td>
+    <span class="team-badge <%= statusClass %>"><%= statusLabel %></span>
+  </td>
+  <td>
+    <div class="news-engage">
+      <span class="news-engage-item views" title="Views"><i class="fas fa-eye"></i><%= news.views || 0 %></span>
+      <span class="news-engage-item likes" title="Likes"><i class="fas fa-thumbs-up"></i><%= news.likes || 0 %></span>
+      <span class="news-engage-item comments" title="Comments"><i class="fas fa-comment"></i><%= news.comments || 0 %></span>
+    </div>
+  </td>
+  <% if (showAuthor) { %>
+  <td>
+    <div class="news-author" title="<%= news.author %>"><%= news.author %></div>
+  </td>
+  <% } %>
+  <td>
+    <div class="news-date"><%= publishedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) %></div>
+    <div class="news-date-sub"><%= publishedDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) %></div>
+  </td>
+  <td class="text-end" onclick="event.stopPropagation()">
+    <div class="dropdown">
+      <button class="team-actions-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="fas fa-ellipsis-vertical"></i>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end team-dropdown-menu">
+        <li><a class="dropdown-item" href="#" onclick="viewNews('<%= newsId %>'); return false;"><i class="fas fa-eye me-2"></i>View details</a></li>
+        <li><a class="dropdown-item" href="#" onclick="editNews('<%= newsId %>'); return false;"><i class="fas fa-pen me-2"></i>Edit article</a></li>
+        <li><a class="dropdown-item" href="#" onclick="sendNotificationForNews('<%= newsId %>'); return false;"><i class="fas fa-bell me-2"></i>Send notification</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+          <a class="dropdown-item" href="#"
+             onclick="<% if (isPending) { %>alert('This news is pending review. Please use the Pending News page to approve it.');<% } else { %>toggleNewsStatus('<%= newsId %>');<% } %> return false;">
+            <i class="fas fa-<%= news.isActive === false ? 'check-circle' : 'pause-circle' %> me-2"></i>
+            <%= isPending ? 'Pending review' : (news.isActive === false ? 'Activate' : 'Deactivate') %>
+          </a>
+        </li>
+        <li><a class="dropdown-item text-danger" href="#" onclick="deleteNews('<%= newsId %>'); return false;"><i class="fas fa-trash me-2"></i>Delete</a></li>
+      </ul>
+    </div>
+  </td>
+</tr>

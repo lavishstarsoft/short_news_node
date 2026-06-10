@@ -6,8 +6,9 @@ const Admin = require('../models/Admin'); // Add Admin model for denormalization
 const {
   normalizeNewsLanguage,
   buildNewsLanguageFilter,
-  NEWS_LANGUAGE_LABELS
+  getLanguageViewData
 } = require('../utils/newsLanguages');
+const { normalizeNewsContent } = require('../utils/contentNormalize');
 const path = require('path');
 const fs = require('fs');
 const util = require('util');
@@ -165,6 +166,15 @@ async function renderDashboard(req, res) {
         });
       }
 
+      const viewsMatch = req.admin.role === 'editor'
+        ? { authorId: req.admin.id }
+        : {};
+      const viewsAgg = await News.aggregate([
+        { $match: viewsMatch },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$views', 0] } } } }
+      ]);
+      const totalViews = viewsAgg[0]?.total || 0;
+
       res.render('index', {
         newsList: newsListWithCodes,
         categories,
@@ -174,6 +184,7 @@ async function renderDashboard(req, res) {
         activeNewsCount,
         inactiveNewsCount,
         pendingNewsCount,
+        totalViews,
         admin: req.admin
       });
     } else {
@@ -220,6 +231,8 @@ async function renderDashboard(req, res) {
         };
       });
 
+      const totalViews = newsData.reduce((sum, news) => sum + (news.views || 0), 0);
+
       res.render('index', {
         newsList: newsListWithCodes,
         categories: categoryData,
@@ -229,6 +242,7 @@ async function renderDashboard(req, res) {
         activeNewsCount,
         inactiveNewsCount,
         pendingNewsCount,
+        totalViews,
         admin: req.admin
       });
     }
@@ -250,6 +264,7 @@ async function renderNewsListPage(req, res) {
     const fromDate = req.query.fromDate || '';
     const toDate = req.query.toDate || '';
     const selectedLanguage = req.query.language || '';
+    const languageViewData = await getLanguageViewData();
 
     if (req.app.locals.isConnectedToMongoDB) {
       console.log('Using MongoDB'); // Debug log
@@ -361,7 +376,7 @@ async function renderNewsListPage(req, res) {
         searchQuery,
         fromDate,
         toDate,
-        newsLanguageLabels: NEWS_LANGUAGE_LABELS,
+        ...languageViewData,
         admin: req.admin,
         pagination: {
           currentPage: page,
@@ -473,7 +488,7 @@ async function renderNewsListPage(req, res) {
         searchQuery,
         fromDate,
         toDate,
-        newsLanguageLabels: NEWS_LANGUAGE_LABELS,
+        ...languageViewData,
         admin: req.admin,
         pagination: {
           currentPage: page,
@@ -558,10 +573,11 @@ async function getNewsById(req, res) {
 async function renderAddNewsPage(req, res) {
   try {
     const adminDoc = await Admin.findById(req.admin.id).select('workingLanguage').lean();
+    const languageViewData = await getLanguageViewData();
     res.render('add-news', {
       admin: req.admin,
-      defaultLanguage: adminDoc?.workingLanguage || 'te',
-      newsLanguageLabels: NEWS_LANGUAGE_LABELS
+      defaultLanguage: adminDoc?.workingLanguage || languageViewData.defaultLanguage,
+      ...languageViewData
     });
   } catch (error) {
     res.status(500).json({ error: 'Error loading add news page' });
@@ -582,11 +598,12 @@ async function renderEditNewsPage(req, res) {
     }
 
     const adminDoc = await Admin.findById(req.admin.id).select('workingLanguage').lean();
+    const languageViewData = await getLanguageViewData();
     res.render('add-news', {
       news,
       admin: req.admin,
-      defaultLanguage: news.language || adminDoc?.workingLanguage || 'te',
-      newsLanguageLabels: NEWS_LANGUAGE_LABELS
+      defaultLanguage: news.language || adminDoc?.workingLanguage || languageViewData.defaultLanguage,
+      ...languageViewData
     });
   } catch (error) {
     res.status(500).json({ error: 'Error fetching news for editing' });
@@ -602,6 +619,13 @@ async function createNews(req, res) {
     }
     if (req.body.content && stripTags(req.body.content).length > 480) {
       return res.status(400).json({ error: 'Content cannot exceed 480 characters' });
+    }
+
+    if (req.body.content) {
+      req.body.content = normalizeNewsContent(req.body.content);
+    }
+    if (req.body.title) {
+      req.body.title = normalizeNewsContent(req.body.title);
     }
 
     // Fetch author details for denormalization
@@ -731,6 +755,13 @@ async function updateNews(req, res) {
     }
     if (req.body.content && stripTags(req.body.content).length > 480) {
       return res.status(400).json({ error: 'Content cannot exceed 480 characters' });
+    }
+
+    if (req.body.content) {
+      req.body.content = normalizeNewsContent(req.body.content);
+    }
+    if (req.body.title) {
+      req.body.title = normalizeNewsContent(req.body.title);
     }
 
     // Fetch author details for denormalization
@@ -1050,6 +1081,123 @@ async function updateViewCount(req, res) {
   }
 }
 
+async function updateLikeCount(req, res) {
+  try {
+    if (req.admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. Only superadmin can edit like counts.' });
+    }
+
+    const { id } = req.params;
+    const { likes } = req.body;
+
+    if (likes === undefined || isNaN(likes) || likes < 0) {
+      return res.status(400).json({ error: 'Valid like count is required' });
+    }
+
+    const news = await News.findByIdAndUpdate(id, { likes: Number(likes) }, { new: true });
+    if (!news) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    await clearCache('cache:/api/public/news*');
+    res.json({ message: 'Like count updated successfully', news });
+  } catch (error) {
+    console.error('Error updating like count:', error);
+    res.status(500).json({ error: 'Error updating like count: ' + error.message });
+  }
+}
+
+async function updateDislikeCount(req, res) {
+  try {
+    if (req.admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. Only superadmin can edit dislike counts.' });
+    }
+
+    const { id } = req.params;
+    const { dislikes } = req.body;
+
+    if (dislikes === undefined || isNaN(dislikes) || dislikes < 0) {
+      return res.status(400).json({ error: 'Valid dislike count is required' });
+    }
+
+    const news = await News.findByIdAndUpdate(id, { dislikes: Number(dislikes) }, { new: true });
+    if (!news) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    await clearCache('cache:/api/public/news*');
+    res.json({ message: 'Dislike count updated successfully', news });
+  } catch (error) {
+    console.error('Error updating dislike count:', error);
+    res.status(500).json({ error: 'Error updating dislike count: ' + error.message });
+  }
+}
+
+async function deleteNewsComment(req, res) {
+  try {
+    if (req.admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. Only superadmin can delete comments.' });
+    }
+
+    const { id, commentId } = req.params;
+    const news = await News.findById(id);
+    if (!news) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    const comment = news.userInteractions?.comments?.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    comment.deleteOne();
+    news.comments = Math.max(0, news.userInteractions.comments.length);
+    news.markModified('userInteractions.comments');
+    await news.save();
+    await clearCache('cache:/api/public/news*');
+
+    res.json({ message: 'Comment deleted successfully', news });
+  } catch (error) {
+    console.error('Error deleting news comment:', error);
+    res.status(500).json({ error: 'Error deleting comment: ' + error.message });
+  }
+}
+
+async function updateNewsComment(req, res) {
+  try {
+    if (req.admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied. Only superadmin can edit comments.' });
+    }
+
+    const { id, commentId } = req.params;
+    const { comment: newComment } = req.body;
+
+    if (!newComment || !String(newComment).trim()) {
+      return res.status(400).json({ error: 'Comment text is required' });
+    }
+
+    const news = await News.findById(id);
+    if (!news) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    const comment = news.userInteractions?.comments?.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    comment.comment = String(newComment).trim();
+    news.markModified('userInteractions.comments');
+    await news.save();
+    await clearCache('cache:/api/public/news*');
+
+    res.json({ message: 'Comment updated successfully', news });
+  } catch (error) {
+    console.error('Error updating news comment:', error);
+    res.status(500).json({ error: 'Error updating comment: ' + error.message });
+  }
+}
+
 // Export all functions properly
 module.exports = {
   renderDashboard,
@@ -1064,5 +1212,9 @@ module.exports = {
   updateNews,
   deleteNews,
   uploadMedia,
-  updateViewCount
+  updateViewCount,
+  updateLikeCount,
+  updateDislikeCount,
+  deleteNewsComment,
+  updateNewsComment
 };

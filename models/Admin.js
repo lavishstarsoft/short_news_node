@@ -43,7 +43,8 @@ const adminSchema = new mongoose.Schema({
   },
   workingLanguage: {
     type: String,
-    enum: ['te', 'en', 'hi', 'ta'],
+    trim: true,
+    lowercase: true,
     default: 'te'
   },
   name: {

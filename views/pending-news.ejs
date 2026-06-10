@@ -2,615 +2,12 @@
 <html lang="en">
 
 <%- include('partials/header', { title: 'Pending News Review' }) %>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-        }
-
-        .dashboard-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.2);
-        }
-
-        .dashboard-header h1 {
-            margin: 0;
-            font-size: 2rem;
-            font-weight: 700;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .dashboard-header p {
-            margin: 0.5rem 0 0 0;
-            opacity: 0.95;
-            font-size: 0.95rem;
-        }
-
-        .search-filter-section {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr auto;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .filter-input {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .filter-input label {
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: #667eea;
-            text-transform: uppercase;
-            margin-bottom: 0.5rem;
-            letter-spacing: 0.5px;
-        }
-
-        .filter-input input,
-        .filter-input select {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-            background: white;
-        }
-
-        .filter-input input:focus,
-        .filter-input select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .filter-buttons {
-            display: flex;
-            gap: 0.75rem;
-            align-items: flex-end;
-            height: 100%;
-        }
-
-        .btn-filter-reset {
-            background: #f0f0f0;
-            color: #333;
-            border: none;
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85rem;
-            transition: all 0.3s ease;
-        }
-
-        .btn-filter-reset:hover {
-            background: #e0e0e0;
-        }
-
-        .pending-count {
-            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-weight: 700;
-            text-align: center;
-            min-width: 140px;
-            height: fit-content;
-        }
-
-        .pending-count .number {
-            font-size: 1.5rem;
-            display: block;
-            margin-bottom: 0.2rem;
-        }
-
-        .pending-count .label {
-            font-size: 0.75rem;
-            opacity: 0.95;
-        }
-
-        /* Sort Options Moved */
-        .sort-options-container {
-            grid-column: 1 / -1;
-            display: flex;
-            gap: 0.75rem;
-            justify-content: flex-start;
-        }
-
-        .sort-options {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .sort-options button {
-            padding: 0.5rem 1rem;
-            border: 1px solid #e0e0e0;
-            background: white;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .sort-options button:hover,
-        .sort-options button.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        /* Responsive */
-        @media (max-width: 1200px) {
-            .search-filter-section {
-                grid-template-columns: 1fr 1fr;
-            }
-
-            .sort-options-container {
-                grid-column: 1 / -1;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .search-filter-section {
-                grid-template-columns: 1fr;
-            }
-
-            .pending-count,
-            .filter-buttons {
-                grid-column: 1 / -1;
-            }
-        }
-
-        /* News Table Container */
-        .table-wrapper {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-            margin-bottom: 2rem;
-        }
-
-        .table-header {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-bottom: 2px solid #e0e0e0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .table-header h3 {
-            margin: 0;
-            color: #333;
-            font-size: 1.15rem;
-        }
-
-        .sort-options {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .sort-options button {
-            padding: 0.5rem 1rem;
-            border: 1px solid #e0e0e0;
-            background: white;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.3s ease;
-        }
-
-        .sort-options button:hover,
-        .sort-options button.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        /* News Grid/Cards */
-        .news-grid {
-            padding: 1.5rem;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .news-card {
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-
-        .news-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-            border-color: #667eea;
-        }
-
-        .news-card-image {
-            width: 100%;
-            height: 180px;
-            background: #f0f0f0;
-            overflow: hidden;
-        }
-
-        .news-card-image img,
-        .news-card-image video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .news-card-content {
-            padding: 1.5rem;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .news-card-title {
-            font-size: 1rem;
-            font-weight: 700;
-            color: #333;
-            margin: 0 0 0.75rem 0;
-            line-height: 1.4;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .news-card-meta {
-            display: flex;
-            gap: 1rem;
-            font-size: 0.85rem;
-            color: #666;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-        }
-
-        .meta-item strong {
-            color: #333;
-            font-weight: 600;
-        }
-
-        .badge-group {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 0.4rem 0.8rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .badge-category {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-
-        .badge-pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .badge-duplicate {
-            background: #f8d7da;
-            color: #721c24;
-            animation: pulse 2s infinite;
-        }
-
-        .badge-suspicious {
-            background: #ffe0b2;
-            color: #e65100;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.7;
-            }
-        }
-
-        .duplicate-warning {
-            background: #fff5f5;
-            border-left: 4px solid #dc3545;
-            padding: 0.75rem;
-            border-radius: 4px;
-            margin: 0.75rem 0;
-            font-size: 0.85rem;
-            color: #721c24;
-        }
-
-        .duplicate-warning strong {
-            color: #dc3545;
-        }
-
-        .card-actions {
-            display: flex;
-            gap: 0.75rem;
-            margin-top: auto;
-        }
-
-        .btn-approve,
-        .btn-reject,
-        .btn-preview {
-            flex: 1;
-            padding: 0.75rem;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.3s ease;
-        }
-
-        .btn-approve {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            color: white;
-        }
-
-        .btn-approve:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
-        }
-
-        .btn-reject {
-            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
-            color: white;
-        }
-
-        .btn-reject:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
-        }
-
-        .btn-preview {
-            background: #667eea;
-            color: white;
-            flex: 0.5;
-        }
-
-        .btn-preview:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-        }
-
-        .btn-duplicate {
-            background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
-            color: white;
-            flex: 0.5;
-        }
-
-        .btn-duplicate:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(111, 66, 193, 0.3);
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: #999;
-        }
-
-        .empty-state-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-
-        .empty-state h3 {
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-
-        /* Preview Modal */
-        .modal-backdrop {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.6);
-            z-index: 1000;
-        }
-
-        .modal-backdrop.active {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            max-width: 700px;
-            max-height: 85vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid #f0f0f0;
-            padding-bottom: 1.5rem;
-        }
-
-        .modal-header h3 {
-            margin: 0;
-            color: #333;
-            font-size: 1.3rem;
-            flex: 1;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 1.8rem;
-            cursor: pointer;
-            color: #999;
-            padding: 0;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-close:hover {
-            color: #333;
-        }
-
-        .modal-meta {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .modal-meta-item {
-            font-size: 0.85rem;
-        }
-
-        .modal-meta-item strong {
-            display: block;
-            color: #667eea;
-            margin-bottom: 0.3rem;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 1rem;
-            margin-top: 2rem;
-            border-top: 2px solid #f0f0f0;
-            padding-top: 1.5rem;
-        }
-
-        .modal-actions button {
-            flex: 1;
-            padding: 1rem;
-            border: none;
-            border-radius: 8px;
-            font-weight: 700;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-
-        .modal-actions .btn-approve {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            color: white;
-        }
-
-        .modal-actions .btn-reject {
-            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
-            color: white;
-        }
-
-        .loading-spinner {
-            text-align: center;
-            padding: 3rem;
-            color: #667eea;
-        }
-
-        .spinner {
-            border: 4px solid #f0f0f0;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .dashboard-header {
-                padding: 1.5rem;
-            }
-
-            .dashboard-header h1 {
-                font-size: 1.5rem;
-            }
-
-            .search-filter-section {
-                flex-direction: column;
-            }
-
-            .search-box {
-                min-width: 100%;
-            }
-
-            .news-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .sort-options {
-                width: 100%;
-            }
-
-            .sort-options button {
-                flex: 1;
-                text-align: center;
-            }
-        }
-    </style>
-    </head>
+    <link rel="stylesheet" href="/css/editors-directory.css">
+    <link rel="stylesheet" href="/css/news-directory.css">
+    <link rel="stylesheet" href="/css/pending-news.css">
 
     <body>
+
         <%- include('partials/top-nav', { pageTitle: 'Pending News Review', backButton: true, backUrl: '/' }) %>
 
             <div class="container-fluid">
@@ -620,305 +17,286 @@
 
                         <!-- Main Content -->
                         <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-                            <!-- Dashboard Header -->
-                            <div class="dashboard-header mt-4">
-                                <h1>📰 Pending News Review</h1>
-                                <p>Manage and approve upcoming stories from your reporters</p>
-                            </div>
+                            <% 
+                                const pendingLangLabels = typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' };
+                                const pnTotal = pendingNews ? pendingNews.length : 0;
+                                let pnWithMedia = 0;
+                                const pnAuthors = new Set();
+                                if (pendingNews && pendingNews.length) {
+                                    pendingNews.forEach(function(n) {
+                                        if (n.mediaUrl) pnWithMedia++;
+                                        if (n.author) pnAuthors.add(n.author);
+                                    });
+                                }
+                                const pnCategories = pendingNews && pendingNews.length ? [...new Set(pendingNews.map(n => n.category).filter(Boolean))].sort() : [];
+                                const pnLocations = pendingNews && pendingNews.length ? [...new Set(pendingNews.map(n => n.location).filter(Boolean))].sort() : [];
+                                const currentLang = typeof selectedLanguage !== 'undefined' ? selectedLanguage : '';
+                            %>
 
-                            <!-- Search & Filter Section -->
-                            <div class="search-filter-section">
-                                <!-- Search Box -->
-                                <div class="filter-input">
-                                    <label>🔍 Search</label>
-                                    <input type="text" id="searchInput" placeholder="Title or reporter..." onkeyup="filterNews()">
+                            <div class="pn-page content-area mt-4">
+                                <div class="team-page-header">
+                                    <div>
+                                        <h1 class="team-page-title">Pending News Review</h1>
+                                        <p class="team-page-subtitle">Review, edit, and approve reporter submissions before they go live.</p>
+                                    </div>
                                 </div>
 
-                                <!-- Category Filter -->
-                                <div class="filter-input">
-                                    <label>📂 Category</label>
-                                    <select id="categoryFilter" onchange="filterNews()">
-                                        <option value="">All Categories</option>
-                                        <% if (pendingNews && pendingNews.length > 0) { %>
-                                            <% const categories = [...new Set(pendingNews.map(n => n.category).filter(Boolean))].sort(); %>
-                                            <% categories.forEach(cat => { %>
-                                                <option value="<%= cat %>"><%= cat %></option>
-                                            <% }); %>
-                                        <% } %>
-                                    </select>
+                                <div class="team-stats">
+                                    <div class="team-stat">
+                                        <div class="team-stat-value"><%= pnTotal %></div>
+                                        <div class="team-stat-label">Total pending</div>
+                                    </div>
+                                    <div class="team-stat">
+                                        <div class="team-stat-value" id="pendingCount"><%= pnTotal %></div>
+                                        <div class="team-stat-label">Matching filters</div>
+                                    </div>
+                                    <div class="team-stat">
+                                        <div class="team-stat-value"><%= pnWithMedia %></div>
+                                        <div class="team-stat-label">With media</div>
+                                    </div>
+                                    <div class="team-stat">
+                                        <div class="team-stat-value"><%= pnAuthors.size %></div>
+                                        <div class="team-stat-label">Reporters</div>
+                                    </div>
                                 </div>
 
-                                <!-- Location Filter -->
-                                <div class="filter-input">
-                                    <label>📍 Location</label>
-                                    <select id="locationFilter" onchange="filterNews()">
-                                        <option value="">All Locations</option>
-                                        <% if (pendingNews && pendingNews.length > 0) { %>
-                                            <% const locations = [...new Set(pendingNews.map(n => n.location).filter(Boolean))].sort(); %>
-                                            <% locations.forEach(loc => { %>
-                                                <option value="<%= loc %>"><%= loc %></option>
-                                            <% }); %>
-                                        <% } %>
-                                    </select>
-                                </div>
-
-                                <!-- Language Filter -->
-                                <div class="filter-input">
-                                    <label>🌐 Language</label>
-                                    <select id="languageFilter" onchange="applyLanguageFilter()">
-                                        <option value="">All Languages</option>
-                                        <% const pendingLangLabels = typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' }; %>
-                                        <% Object.keys(pendingLangLabels).forEach(function(code) { %>
-                                            <option value="<%= code %>" <%=(typeof selectedLanguage !== 'undefined' && selectedLanguage === code) ? 'selected' : '' %>><%= pendingLangLabels[code] %></option>
-                                        <% }); %>
-                                    </select>
-                                </div>
-                                <div class="filter-input">
-                                    <label>📅 Date Range</label>
-                                    <select id="dateFilter" onchange="filterNews()">
-                                        <option value="">All Time</option>
-                                        <option value="today">Today</option>
-                                        <option value="week">This Week</option>
-                                        <option value="month">This Month</option>
-                                    </select>
-                                </div>
-
-                                <!-- Filter Buttons -->
-                                <div class="filter-buttons">
-                                    <button class="btn-filter-reset" onclick="resetFilters()">🔄 Reset</button>
-                                </div>
-
-                                <!-- Pending Count (moved) -->
-                                <div class="pending-count">
-                                    <span class="number" id="pendingCount"><%= pendingNews ? pendingNews.length : 0 %></span>
-                                    <span class="label">Pending</span>
-                                </div>
-                            </div>
-
-                            <!-- Sort Options -->
-                            <div class="sort-options-container">
-                                <label style="margin-right: 1rem; margin-bottom: 0; align-self: center; font-weight: 600; color: #333;">Sort by:</label>
-                                <div class="sort-options">
-                                    <button onclick="sortNews('recent')" class="active" data-sort="recent">📅 Most Recent</button>
-                                    <button onclick="sortNews('oldest')" data-sort="oldest">📅 Oldest</button>
-                                    <button onclick="sortNews('views')" data-sort="views">👁️ High Views</button>
-                                </div>
-                            </div>
-
-                            <!-- News Grid -->
-                            <div class="table-wrapper">
-                                <% if (pendingNews && pendingNews.length > 0) { %>
-                                    <div class="news-grid" id="newsGrid">
-                                        <% pendingNews.forEach((news, index) => { %>
-                                            <div class="news-card" data-id="<%= news._id %>" data-title="<%= news.title.toLowerCase() %>" data-author="<%= news.author.toLowerCase() %>" data-category="<%= (news.category || '').toLowerCase() %>" data-location="<%= (news.location || '').toLowerCase() %>" data-language="<%= (news.language || 'te').toLowerCase() %>" data-date="<%= new Date(news.publishedAt).getTime() %>">
-                                                <!-- News Image -->
-                                                <% if (news.mediaUrl) { %>
-                                                    <div class="news-card-image">
-                                                        <% if (news.mediaType === 'video') { %>
-                                                            <video controls style="width: 100%; height: 100%; object-fit: cover;">
-                                                                <source src="<%= news.mediaUrl %>" type="video/mp4">
-                                                            </video>
-                                                        <% } else { %>
-                                                            <img src="<%= news.mediaUrl %>" alt="<%= news.title %>">
-                                                        <% } %>
-                                                    </div>
-                                                <% } %>
-
-                                                <!-- Card Content -->
-                                                <div class="news-card-content">
-                                                    <!-- Title -->
-                                                    <h3 class="news-card-title"><%= news.title %></h3>
-
-                                                    <!-- Badges -->
-                                                    <div class="badge-group">
-                                                        <span class="badge badge-category"><%= news.category || 'Uncategorized' %></span>
-                                                        <span class="badge badge-category"><%= pendingLangLabels[news.language || 'te'] || 'Telugu' %></span>
-                                                        <span class="badge badge-pending">⏳ Pending</span>
-                                                        <% if (news.duplicateCheck && (news.duplicateCheck.isDuplicate || news.duplicateCheck.isSuspicious)) { %>
-                                                            <% if (news.duplicateCheck.isDuplicate) { %>
-                                                                <span class="badge badge-duplicate" title="High duplicate detected - <%= news.duplicateCheck.score %>% match">
-                                                                    ⚠️ Duplicate (<%= news.duplicateCheck.score %>%)
-                                                                </span>
-                                                            <% } else if (news.duplicateCheck.isSuspicious) { %>
-                                                                <span class="badge badge-suspicious" title="Suspicious similarity - <%= news.duplicateCheck.score %>% match">
-                                                                    🔍 Similar (<%= news.duplicateCheck.score %>%)
-                                                                </span>
-                                                            <% } %>
-                                                        <% } %>
-                                                    </div>
-
-                                                    <!-- Meta Info -->
-                                                    <div class="news-card-meta">
-                                                        <div class="meta-item">
-                                                            <strong>👤</strong>
-                                                            <span><%= news.author %></span>
-                                                        </div>
-                                                        <div class="meta-item">
-                                                            <strong>📍</strong>
-                                                            <span><%= news.location || 'N/A' %></span>
-                                                        </div>
-                                                        <div class="meta-item">
-                                                            <strong>📅</strong>
-                                                            <span><%= new Date(news.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- Content Preview -->
-                                                    <div style="font-size: 0.9rem; color: #666; margin-bottom: 1rem; line-height: 1.4;">
-                                                        <%= news.content.substring(0, 120) %>...
-                                                    </div>
-
-                                                    <!-- Duplicate Warning Box -->
-                                                    <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
-                                                        <div class="duplicate-warning">
-                                                            <strong>⚠️ <%= news.duplicateCheck.matchCount %> Similar Article<%= news.duplicateCheck.matchCount > 1 ? 's' : '' %> Found</strong>
-                                                            <br>Highest match: <%= news.duplicateCheck.score %>% similarity
-                                                        </div>
-                                                    <% } %>
-
-                                                    <!-- Action Buttons -->
-                                                    <div class="card-actions">
-                                                        <button class="btn-preview" onclick="openPreview('<%= news._id %>')">👁️ Preview/Edit</button>
-                                                        <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
-                                                            <button class="btn-duplicate" onclick="viewDuplicates('<%= news._id %>')">🔍 Duplicates</button>
-                                                        <% } %>
-                                                        <button class="btn-approve" onclick='approveNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'>✅ Approve</button>
-                                                        <button class="btn-reject" onclick='rejectNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'>❌ Reject</button>
-                                                    </div>
-                                                </div>
+                                <div class="news-filters-card pn-filters-card">
+                                    <div class="news-filters-top">
+                                        <div class="news-filters-heading">
+                                            <span class="news-filters-icon"><i class="fas fa-sliders"></i></span>
+                                            <div>
+                                                <h2 class="news-filters-title">Filter submissions</h2>
+                                                <p class="news-filters-subtitle">Search and narrow pending articles on this page</p>
                                             </div>
-                                        <% }); %>
+                                        </div>
+                                        <button type="button" class="news-filters-reset" onclick="resetFilters()">
+                                            <i class="fas fa-rotate-left"></i> Reset filters
+                                        </button>
                                     </div>
-                                <% } else { %>
-                                    <div class="empty-state">
-                                        <div class="empty-state-icon">✨</div>
-                                        <h3>No Pending News</h3>
-                                        <p>All submitted stories have been reviewed!</p>
+
+                                    <div class="news-filters-search-row">
+                                        <div class="news-search-field">
+                                            <i class="fas fa-search"></i>
+                                            <input type="text" id="searchInput" class="news-search-input" placeholder="Search by title or reporter..." oninput="filterNews()">
+                                        </div>
                                     </div>
-                                <% } %>
+
+                                    <div class="news-filters-facets">
+                                        <div class="news-facet">
+                                            <label class="news-facet-label" for="categoryFilter"><i class="fas fa-folder"></i> Category</label>
+                                            <div class="news-facet-select-wrap">
+                                                <select id="categoryFilter" class="news-facet-select" onchange="filterNews()">
+                                                    <option value="">All categories</option>
+                                                    <% pnCategories.forEach(function(cat) { %>
+                                                        <option value="<%= cat %>"><%= cat %></option>
+                                                    <% }); %>
+                                                </select>
+                                                <i class="fas fa-chevron-down news-facet-chevron"></i>
+                                            </div>
+                                        </div>
+
+                                        <div class="news-facet">
+                                            <label class="news-facet-label" for="locationFilter"><i class="fas fa-map-marker-alt"></i> Location</label>
+                                            <div class="news-facet-select-wrap">
+                                                <select id="locationFilter" class="news-facet-select" onchange="filterNews()">
+                                                    <option value="">All locations</option>
+                                                    <% pnLocations.forEach(function(loc) { %>
+                                                        <option value="<%= loc %>"><%= loc %></option>
+                                                    <% }); %>
+                                                </select>
+                                                <i class="fas fa-chevron-down news-facet-chevron"></i>
+                                            </div>
+                                        </div>
+
+                                        <div class="news-facet">
+                                            <label class="news-facet-label" for="languageFilter"><i class="fas fa-language"></i> Language</label>
+                                            <div class="news-facet-select-wrap<%= currentLang ? ' is-active' : '' %>">
+                                                <select id="languageFilter" class="news-facet-select" onchange="applyLanguageFilter()">
+                                                    <option value="">All languages</option>
+                                                    <% Object.keys(pendingLangLabels).forEach(function(code) { %>
+                                                        <option value="<%= code %>" <%= currentLang === code ? 'selected' : '' %>><%= pendingLangLabels[code] %></option>
+                                                    <% }); %>
+                                                </select>
+                                                <i class="fas fa-chevron-down news-facet-chevron"></i>
+                                            </div>
+                                        </div>
+
+                                        <div class="news-facet">
+                                            <label class="news-facet-label" for="dateFilter"><i class="fas fa-calendar-alt"></i> Submitted</label>
+                                            <div class="news-facet-select-wrap">
+                                                <select id="dateFilter" class="news-facet-select" onchange="filterNews()">
+                                                    <option value="">All time</option>
+                                                    <option value="today">Today</option>
+                                                    <option value="week">This week</option>
+                                                    <option value="month">This month</option>
+                                                </select>
+                                                <i class="fas fa-chevron-down news-facet-chevron"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pn-toolbar">
+                                    <span class="pn-toolbar-label">Sort by</span>
+                                    <div class="sort-options pn-sort-pills">
+                                        <button type="button" onclick="sortNews('recent')" class="active" data-sort="recent"><i class="fas fa-arrow-down-wide-short"></i> Most recent</button>
+                                        <button type="button" onclick="sortNews('oldest')" data-sort="oldest"><i class="fas fa-arrow-up-wide-short"></i> Oldest</button>
+                                        <button type="button" onclick="sortNews('views')" data-sort="views"><i class="fas fa-chart-line"></i> Title length</button>
+                                    </div>
+                                </div>
+
+                                <div class="team-panel pn-panel">
+                                    <div class="table-wrapper" id="pendingTableWrapper">
+                                        <% if (pendingNews && pendingNews.length > 0) { %>
+                                            <div class="news-grid" id="newsGrid">
+                                                <% pendingNews.forEach((news) => { %>
+                                                    <article class="news-card" data-id="<%= news._id %>" data-title="<%= news.title.toLowerCase() %>" data-author="<%= news.author.toLowerCase() %>" data-category="<%= (news.category || '').toLowerCase() %>" data-location="<%= (news.location || '').toLowerCase() %>" data-language="<%= (news.language || 'te').toLowerCase() %>" data-date="<%= new Date(news.publishedAt).getTime() %>">
+                                                        <% if (news.mediaUrl) { %>
+                                                            <div class="news-card-image<%= news.mediaType === 'video' ? ' pn-card-media--video' : '' %>">
+                                                                <% if (news.mediaType === 'video') { %>
+                                                                    <video controls><source src="<%= news.mediaUrl %>" type="video/mp4"></video>
+                                                                <% } else { %>
+                                                                    <img src="<%= news.mediaUrl %>" alt="<%= news.title %>">
+                                                                <% } %>
+                                                            </div>
+                                                        <% } %>
+
+                                                        <div class="news-card-content">
+                                                            <h3 class="news-card-title"><%= news.title %></h3>
+
+                                                            <div class="badge-group">
+                                                                <span class="badge badge-category"><%= news.category || 'Uncategorized' %></span>
+                                                                <span class="badge pn-badge-lang"><%= pendingLangLabels[news.language || 'te'] || 'Telugu' %></span>
+                                                                <span class="badge badge-pending"><i class="fas fa-clock"></i> Pending</span>
+                                                                <% if (news.duplicateCheck && (news.duplicateCheck.isDuplicate || news.duplicateCheck.isSuspicious)) { %>
+                                                                    <% if (news.duplicateCheck.isDuplicate) { %>
+                                                                        <span class="badge badge-duplicate" title="High duplicate detected - <%= news.duplicateCheck.score %>% match">
+                                                                            <i class="fas fa-clone"></i> Duplicate (<%= news.duplicateCheck.score %>%)
+                                                                        </span>
+                                                                    <% } else if (news.duplicateCheck.isSuspicious) { %>
+                                                                        <span class="badge badge-suspicious" title="Suspicious similarity - <%= news.duplicateCheck.score %>% match">
+                                                                            <i class="fas fa-magnifying-glass"></i> Similar (<%= news.duplicateCheck.score %>%)
+                                                                        </span>
+                                                                    <% } %>
+                                                                <% } %>
+                                                            </div>
+
+                                                            <div class="news-card-meta">
+                                                                <div class="meta-item"><i class="fas fa-user"></i><span><%= news.author %></span></div>
+                                                                <div class="meta-item"><i class="fas fa-map-marker-alt"></i><span><%= news.location || 'N/A' %></span></div>
+                                                                <div class="meta-item"><i class="fas fa-calendar"></i><span><%= new Date(news.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span></div>
+                                                            </div>
+
+                                                            <p class="pn-card-excerpt"><%= news.content.substring(0, 120) %>...</p>
+
+                                                            <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
+                                                                <div class="duplicate-warning">
+                                                                    <strong><i class="fas fa-triangle-exclamation"></i> <%= news.duplicateCheck.matchCount %> similar article<%= news.duplicateCheck.matchCount > 1 ? 's' : '' %> found</strong>
+                                                                    <br>Highest match: <%= news.duplicateCheck.score %>% similarity
+                                                                </div>
+                                                            <% } %>
+
+                                                            <div class="card-actions">
+                                                                <button type="button" class="btn-preview" onclick="openPreview('<%= news._id %>')"><i class="fas fa-pen-to-square"></i> Preview</button>
+                                                                <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
+                                                                    <button type="button" class="btn-duplicate" onclick="viewDuplicates('<%= news._id %>')"><i class="fas fa-clone"></i> Duplicates</button>
+                                                                <% } %>
+                                                                <button type="button" class="btn-approve" onclick='approveNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-check"></i> Approve</button>
+                                                                <button type="button" class="btn-reject" onclick='rejectNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-xmark"></i> Reject</button>
+                                                            </div>
+                                                        </div>
+                                                    </article>
+                                                <% }); %>
+                                            </div>
+                                        <% } else { %>
+                                            <div class="empty-state pn-empty">
+                                                <div class="empty-state-icon pn-empty-icon"><i class="fas fa-circle-check"></i></div>
+                                                <h3>All caught up</h3>
+                                                <p>No pending submissions waiting for review.</p>
+                                            </div>
+                                        <% } %>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                 </div>
             </div>
 
         <!-- Preview Modal -->
-        <div class="modal-backdrop" id="previewModal">
-            <div class="modal-content">
-                <div class="modal-header">
+        <div class="modal-backdrop pn-modal-backdrop" id="previewModal">
+            <div class="modal-content pn-preview-modal">
+                <div class="modal-header pn-modal-header">
                     <h3 id="previewTitle"></h3>
-                    <button class="modal-close" onclick="closePreview()">×</button>
+                    <button type="button" class="modal-close pn-modal-close" onclick="closePreview()" aria-label="Close"><i class="fas fa-xmark"></i></button>
                 </div>
-                <div id="previewBody">
+                <div id="previewBody" class="pn-modal-body">
                     <!-- Content will be loaded here -->
                 </div>
             </div>
         </div>
 
-        <!-- Rejection Modal with Advanced Reasons -->
-        <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+        <!-- Rejection Modal -->
+        <div class="modal fade pn-reject-modal" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-lg">
-                <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
-                    <div class="modal-header" style="border-bottom: 2px solid #f0f0f0; padding: 1.5rem;">
+                <div class="modal-content">
+                    <div class="modal-header">
                         <div>
-                            <h5 class="modal-title" id="rejectModalLabel" style="font-size: 1.3rem; font-weight: 700; color: #333;">❌ Reject News Article</h5>
-                            <p id="rejectNewsTitle" style="color: #666; font-size: 0.9rem; margin-top: 0.5rem; margin-bottom: 0;"></p>
+                            <h5 class="modal-title" id="rejectModalLabel">Reject news article</h5>
+                            <p id="rejectNewsTitle" class="text-muted small mb-0 mt-1"></p>
                         </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 2rem;"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body" style="padding: 1.5rem;">
-                        <!-- Predefined Reasons -->
-                        <div style="margin-bottom: 2rem;">
-                            <label style="font-weight: 700; color: #333; font-size: 0.95rem; margin-bottom: 1rem; display: block;">📋 Select Rejection Reason:</label>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Factually Inaccurate')">
-                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">❌</div>
-                                    <div style="font-weight: 600; color: #333;">Factually Inaccurate</div>
-                                    <div style="font-size: 0.75rem; color: #999;">Contains false information</div>
-                                </button>
-                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Inappropriate Content')">
-                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">🚫</div>
-                                    <div style="font-weight: 600; color: #333;">Inappropriate Content</div>
-                                    <div style="font-size: 0.75rem; color: #999;">Violates guidelines</div>
-                                </button>
-                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Poor Quality')">
-                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">⚠️</div>
-                                    <div style="font-weight: 600; color: #333;">Poor Quality</div>
-                                    <div style="font-size: 0.75rem; color: #999;">Needs improvement</div>
-                                </button>
-                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Plagiarism')">
-                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">🔍</div>
-                                    <div style="font-weight: 600; color: #333;">Plagiarism</div>
-                                    <div style="font-size: 0.75rem; color: #999;">Copied from elsewhere</div>
-                                </button>
-                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Missing Attribution')">
-                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">📝</div>
-                                    <div style="font-weight: 600; color: #333;">Missing Attribution</div>
-                                    <div style="font-size: 0.75rem; color: #999;">Source not cited</div>
-                                </button>
-                                <button type="button" class="rejection-reason-btn" onclick="selectReason('Incomplete Article')">
-                                    <div style="font-size: 1.2rem; margin-bottom: 0.25rem;">📚</div>
-                                    <div style="font-weight: 600; color: #333;">Incomplete Article</div>
-                                    <div style="font-size: 0.75rem; color: #999;">Missing details</div>
-                                </button>
-                            </div>
+                    <div class="modal-body">
+                        <span class="pn-reject-label">Select rejection reason</span>
+                        <div class="pn-reason-grid">
+                            <button type="button" class="rejection-reason-btn" onclick="selectReason('Factually Inaccurate')">
+                                <div style="font-size:1rem;margin-bottom:0.35rem;"><i class="fas fa-circle-xmark"></i></div>
+                                <div style="font-weight:600;color:#333;">Factually inaccurate</div>
+                                <div style="font-size:0.75rem;color:#999;">Contains false information</div>
+                            </button>
+                            <button type="button" class="rejection-reason-btn" onclick="selectReason('Inappropriate Content')">
+                                <div style="font-size:1rem;margin-bottom:0.35rem;"><i class="fas fa-ban"></i></div>
+                                <div style="font-weight:600;color:#333;">Inappropriate content</div>
+                                <div style="font-size:0.75rem;color:#999;">Violates guidelines</div>
+                            </button>
+                            <button type="button" class="rejection-reason-btn" onclick="selectReason('Poor Quality')">
+                                <div style="font-size:1rem;margin-bottom:0.35rem;"><i class="fas fa-triangle-exclamation"></i></div>
+                                <div style="font-weight:600;color:#333;">Poor quality</div>
+                                <div style="font-size:0.75rem;color:#999;">Needs improvement</div>
+                            </button>
+                            <button type="button" class="rejection-reason-btn" onclick="selectReason('Plagiarism')">
+                                <div style="font-size:1rem;margin-bottom:0.35rem;"><i class="fas fa-clone"></i></div>
+                                <div style="font-weight:600;color:#333;">Plagiarism</div>
+                                <div style="font-size:0.75rem;color:#999;">Copied from elsewhere</div>
+                            </button>
+                            <button type="button" class="rejection-reason-btn" onclick="selectReason('Missing Attribution')">
+                                <div style="font-size:1rem;margin-bottom:0.35rem;"><i class="fas fa-link-slash"></i></div>
+                                <div style="font-weight:600;color:#333;">Missing attribution</div>
+                                <div style="font-size:0.75rem;color:#999;">Source not cited</div>
+                            </button>
+                            <button type="button" class="rejection-reason-btn" onclick="selectReason('Incomplete Article')">
+                                <div style="font-size:1rem;margin-bottom:0.35rem;"><i class="fas fa-file-circle-xmark"></i></div>
+                                <div style="font-weight:600;color:#333;">Incomplete article</div>
+                                <div style="font-size:0.75rem;color:#999;">Missing details</div>
+                            </button>
                         </div>
 
-                        <!-- Selected Reason Display -->
-                        <div id="selectedReasonDisplay" style="display: none; background: #f0f7ff; border: 2px solid #667eea; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                            <div style="color: #667eea; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">✓ Selected Reason:</div>
-                            <div id="selectedReasonText" style="color: #333; font-weight: 600; font-size: 0.95rem;"></div>
+                        <div id="selectedReasonDisplay" class="pn-selected-reason">
+                            <div class="pn-selected-reason-label">Selected reason</div>
+                            <div id="selectedReasonText" style="color:#111827;font-weight:600;font-size:0.9375rem;"></div>
                         </div>
 
-                        <!-- Custom Reason Input -->
-                        <div>
-                            <label style="font-weight: 700; color: #333; font-size: 0.95rem; margin-bottom: 0.75rem; display: block;">📝 Additional Details (Optional):</label>
-                            <textarea id="rejectReason" class="form-control" rows="4" placeholder="Add specific details or custom reason..." style="border: 2px solid #e0e0e0; border-radius: 8px; font-size: 0.9rem; padding: 1rem;"></textarea>
-                            <small style="color: #999; margin-top: 0.5rem; display: block;">Provide specific feedback to help the reporter improve their submission</small>
-                        </div>
+                        <span class="pn-reject-label">Additional details (optional)</span>
+                        <textarea id="rejectReason" class="form-control pn-reject-textarea" rows="4" placeholder="Add specific feedback for the reporter..."></textarea>
+                        <small class="text-muted d-block mt-2">This message helps reporters improve future submissions.</small>
                     </div>
-                    <div class="modal-footer" style="border-top: 2px solid #f0f0f0; padding: 1.5rem; background: #f9f9f9;">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-weight: 600;">Cancel</button>
-                        <button type="button" class="btn btn-danger" onclick="confirmReject()" style="border-radius: 8px; font-weight: 600; background: #dc3545; border: none; padding: 0.75rem 2rem;">
-                            🗑️ Reject & Send Feedback
-                        </button>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmReject()"><i class="fas fa-paper-plane"></i> Reject &amp; send feedback</button>
                     </div>
                 </div>
             </div>
         </div>
-
-        <style>
-            .rejection-reason-btn {
-                background: white;
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
-                padding: 1rem;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                text-align: center;
-            }
-
-            .rejection-reason-btn:hover {
-                border-color: #667eea;
-                background: #f8f9ff;
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-            }
-
-            .rejection-reason-btn.active {
-                background: #667eea;
-                border-color: #667eea;
-                color: white;
-            }
-
-            .rejection-reason-btn.active div:nth-child(2),
-            .rejection-reason-btn.active div:nth-child(3) {
-                color: white;
-            }
-
-            .rejection-reason-btn.active div:last-child {
-                color: rgba(255, 255, 255, 0.8);
-            }
-        </style>
 
         <%- include('partials/footer') %>
 
@@ -1109,7 +487,9 @@
 
                 // Update active button
                 document.querySelectorAll('.sort-options button').forEach(btn => btn.classList.remove('active'));
-                event.target.classList.add('active');
+                if (event && event.currentTarget) {
+                    event.currentTarget.classList.add('active');
+                }
             }
 
             function openPreview(newsId) {
@@ -1117,88 +497,85 @@
                 if (!news) return;
 
                 let previewHTML = `
-                    <div class="modal-meta">
-                        <div class="modal-meta-item">
-                            <strong>📝 Reporter</strong>
-                            ${news.author}
+                    <div class="modal-meta pn-modal-meta">
+                        <div class="modal-meta-item pn-modal-meta-item">
+                            <strong>Reporter</strong>
+                            ${escapeHtml(news.author)}
                         </div>
-                        <div class="modal-meta-item">
-                            <strong>📂 Category</strong>
-                            ${news.category}
+                        <div class="modal-meta-item pn-modal-meta-item">
+                            <strong>Category</strong>
+                            ${escapeHtml(news.category)}
                         </div>
-                        <div class="modal-meta-item">
-                            <strong>📍 Location</strong>
-                            ${news.location}
+                        <div class="modal-meta-item pn-modal-meta-item">
+                            <strong>Location</strong>
+                            ${escapeHtml(news.location)}
                         </div>
-                        <div class="modal-meta-item">
-                            <strong>📅 Date</strong>
-                            ${news.publishedAt}
+                        <div class="modal-meta-item pn-modal-meta-item">
+                            <strong>Submitted</strong>
+                            ${escapeHtml(news.publishedAt)}
                         </div>
                     </div>
                 `;
 
                 if (news.mediaUrl) {
                     if (news.mediaType === 'video') {
-                        previewHTML += `<video style="width: 100%; border-radius: 10px; margin: 1rem 0;" controls><source src="${news.mediaUrl}" type="video/mp4">Your browser does not support the video tag.</video>`;
+                        previewHTML += `<video style="width:100%;border-radius:12px;margin:0 0 16px;" controls><source src="${news.mediaUrl}" type="video/mp4"></video>`;
                     } else {
-                        previewHTML += `<img src="${news.mediaUrl}" alt="Preview" style="width: 100%; border-radius: 10px; margin: 1rem 0;">`;
+                        previewHTML += `<img src="${news.mediaUrl}" alt="Preview" style="width:100%;border-radius:12px;margin:0 0 16px;object-fit:cover;max-height:280px;">`;
                     }
                 }
 
                 previewHTML += `
-                    <div style="margin: 1.5rem 0;">
-                        <h5 style="color: #667eea; margin-bottom: 0.75rem;">✍️ Correct & Review Before Approval</h5>
-                        <div style="display: grid; gap: 0.8rem;">
-                            <div>
-                                <label style="font-size: 0.8rem; font-weight: 700; color: #555;">Title</label>
-                                <input id="editTitle-${newsId}" type="text" maxlength="800" value="${escapeHtml(news.title)}" oninput="updateTitleCounter('${newsId}')" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px;">
-                                <div id="editTitleCount-${newsId}" style="font-size: 0.75rem; text-align: right; color: #777;">${stripTags(news.title || '').length}/${TITLE_MAX}</div>
+                    <div class="pn-edit-section">
+                        <h5>Correct &amp; review before approval</h5>
+                        <div class="pn-form-grid">
+                            <div class="pn-field">
+                                <label for="editTitle-${newsId}">Title</label>
+                                <input id="editTitle-${newsId}" type="text" maxlength="800" value="${escapeHtml(news.title)}" oninput="updateTitleCounter('${newsId}')">
+                                <div id="editTitleCount-${newsId}" class="pn-char-count">${stripTags(news.title || '').length}/${TITLE_MAX}</div>
                             </div>
-
-                            <div>
-                                <label style="font-size: 0.8rem; font-weight: 700; color: #555;">Category</label>
-                                <select id="editCategory-${newsId}" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px;">
+                            <div class="pn-field">
+                                <label for="editCategory-${newsId}">Category</label>
+                                <select id="editCategory-${newsId}">
                                     ${renderSelectOptions(categoryOptions, news.category)}
                                 </select>
                             </div>
-
-                            <div>
-                                <label style="font-size: 0.8rem; font-weight: 700; color: #555;">Location</label>
-                                <select id="editLocation-${newsId}" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px;">
+                            <div class="pn-field">
+                                <label for="editLocation-${newsId}">Location</label>
+                                <select id="editLocation-${newsId}">
                                     <option value="">Select location</option>
                                     ${renderSelectOptions(locationOptions, news.location === 'Not specified' ? '' : news.location)}
                                 </select>
                             </div>
-
-                            <div>
-                                <label style="font-size: 0.8rem; font-weight: 700; color: #555;">Content</label>
-                                <textarea id="editContent-${newsId}" rows="6" maxlength="1200" oninput="updateContentCounter('${newsId}')" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px; resize: vertical;">${escapeHtml(news.content)}</textarea>
-                                <div id="editContentCount-${newsId}" style="font-size: 0.75rem; text-align: right; color: #777;">${stripTags(news.content || '').length}/${CONTENT_MAX}</div>
+                            <div class="pn-field">
+                                <label for="editContent-${newsId}">Content</label>
+                                <textarea id="editContent-${newsId}" rows="6" maxlength="1200" oninput="updateContentCounter('${newsId}')">${escapeHtml(news.content)}</textarea>
+                                <div id="editContentCount-${newsId}" class="pn-char-count">${stripTags(news.content || '').length}/${CONTENT_MAX}</div>
                             </div>
                         </div>
                     </div>
                 `;
 
                 if (news.readFullLink || news.ePaperLink) {
-                    previewHTML += `<div style="margin: 1.5rem 0; padding: 1rem; background: #f8f9fa; border-radius: 8px;"><strong>🔗 External Links:</strong><br>`;
-                    if (news.readFullLink) previewHTML += `<a href="${news.readFullLink}" target="_blank" style="color: #667eea; text-decoration: none;">📄 Read Full Article</a><br>`;
-                    if (news.ePaperLink) previewHTML += `<a href="${news.ePaperLink}" target="_blank" style="color: #667eea; text-decoration: none;">📰 ePaper</a>`;
+                    previewHTML += `<div class="pn-modal-links"><strong>External links</strong><br>`;
+                    if (news.readFullLink) previewHTML += `<a href="${news.readFullLink}" target="_blank" rel="noopener">Read full article</a><br>`;
+                    if (news.ePaperLink) previewHTML += `<a href="${news.ePaperLink}" target="_blank" rel="noopener">ePaper</a>`;
                     previewHTML += `</div>`;
                 }
 
                 previewHTML += `
-                    <div class="modal-actions">
-                        <button class="btn-preview" onclick="savePendingChanges('${newsId}', false)">
-                            💾 Save Changes
+                    <div class="modal-actions pn-modal-actions">
+                        <button type="button" class="btn-preview" onclick="savePendingChanges('${newsId}', false)">
+                            <i class="fas fa-floppy-disk"></i> Save changes
                         </button>
-                        <button class="btn-approve" onclick="approveNews('${newsId}', \`${news.title.replace(/`/g, '\\`')}\`); closePreview();">
-                            ✅ Approve & Publish
+                        <button type="button" class="btn-approve" onclick="approveNews('${newsId}', \`${news.title.replace(/`/g, '\\`')}\`); closePreview();">
+                            <i class="fas fa-check"></i> Approve
                         </button>
-                        <button class="btn-approve" onclick="savePendingChanges('${newsId}', true)">
-                            ✅ Save & Approve
+                        <button type="button" class="btn-approve" onclick="savePendingChanges('${newsId}', true)">
+                            <i class="fas fa-check-double"></i> Save &amp; approve
                         </button>
-                        <button class="btn-reject" onclick="rejectNews('${newsId}', \`${news.title.replace(/`/g, '\\`')}\`); closePreview();">
-                            ❌ Reject
+                        <button type="button" class="btn-reject" onclick="rejectNews('${newsId}', \`${news.title.replace(/`/g, '\\`')}\`); closePreview();">
+                            <i class="fas fa-xmark"></i> Reject
                         </button>
                     </div>
                 `;
@@ -1523,33 +900,22 @@
                 card.innerHTML = `
                     ${mediaHtml}
                     <div class="news-card-content">
-                        <h3 class="news-card-title">${news.title}</h3>
+                        <h3 class="news-card-title">${escapeHtml(news.title)}</h3>
                         <div class="badge-group">
-                            <span class="badge badge-category">${news.category || 'Uncategorized'}</span>
-                            <span class="badge badge-category">${getLanguageLabel(news.language)}</span>
-                            <span class="badge badge-pending">⏳ Pending</span>
+                            <span class="badge badge-category">${escapeHtml(news.category || 'Uncategorized')}</span>
+                            <span class="badge pn-badge-lang">${escapeHtml(getLanguageLabel(news.language))}</span>
+                            <span class="badge badge-pending"><i class="fas fa-clock"></i> Pending</span>
                         </div>
                         <div class="news-card-meta">
-                            <div class="meta-item">
-                                <strong>👤</strong>
-                                <span>${news.author || 'Reporter'}</span>
-                            </div>
-                            <div class="meta-item">
-                                <strong>📍</strong>
-                                <span>${news.location || 'N/A'}</span>
-                            </div>
-                            <div class="meta-item">
-                                <strong>📅</strong>
-                                <span>${formattedDate}</span>
-                            </div>
+                            <div class="meta-item"><i class="fas fa-user"></i><span>${escapeHtml(news.author || 'Reporter')}</span></div>
+                            <div class="meta-item"><i class="fas fa-map-marker-alt"></i><span>${escapeHtml(news.location || 'N/A')}</span></div>
+                            <div class="meta-item"><i class="fas fa-calendar"></i><span>${formattedDate}</span></div>
                         </div>
-                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 1rem; line-height: 1.4;">
-                            ${news.content ? escapeHtml(news.content).substring(0, 120) + '...' : ''}
-                        </div>
+                        <p class="pn-card-excerpt">${news.content ? escapeHtml(news.content).substring(0, 120) + '...' : ''}</p>
                         <div class="card-actions">
-                            <button class="btn-preview" onclick="openPreview('${newsIdStr}')">👁️ Preview/Edit</button>
-                            <button class="btn-approve" onclick="approveNews('${newsIdStr}', '${titleStr}')">✅ Approve</button>
-                            <button class="btn-reject" onclick="rejectNews('${newsIdStr}', '${titleStr}')">❌ Reject</button>
+                            <button type="button" class="btn-preview" onclick="openPreview('${newsIdStr}')"><i class="fas fa-pen-to-square"></i> Preview</button>
+                            <button type="button" class="btn-approve" onclick="approveNews('${newsIdStr}', '${titleStr}')"><i class="fas fa-check"></i> Approve</button>
+                            <button type="button" class="btn-reject" onclick="rejectNews('${newsIdStr}', '${titleStr}')"><i class="fas fa-xmark"></i> Reject</button>
                         </div>
                     </div>
                 `;
@@ -1597,13 +963,13 @@
                                 const badge = document.createElement('span');
                                 badge.className = 'badge badge-duplicate';
                                 badge.title = 'High duplicate detected - ' + dc.score + '% match';
-                                badge.textContent = '⚠️ Duplicate (' + dc.score + '%)';
+                                badge.innerHTML = '<i class="fas fa-clone"></i> Duplicate (' + dc.score + '%)';
                                 badgeGroup.appendChild(badge);
                             } else if (dc.isSuspicious) {
                                 const badge = document.createElement('span');
                                 badge.className = 'badge badge-suspicious';
                                 badge.title = 'Suspicious similarity - ' + dc.score + '% match';
-                                badge.textContent = '🔍 Similar (' + dc.score + '%)';
+                                badge.innerHTML = '<i class="fas fa-magnifying-glass"></i> Similar (' + dc.score + '%)';
                                 badgeGroup.appendChild(badge);
                             }
                         }
@@ -1614,14 +980,14 @@
                         if (cardContent && cardActions) {
                             const warningDiv = document.createElement('div');
                             warningDiv.className = 'duplicate-warning';
-                            warningDiv.innerHTML = '<strong>⚠️ ' + dc.matchCount + ' Similar Article' + (dc.matchCount > 1 ? 's' : '') + ' Found</strong><br>Highest match: ' + dc.score + '% similarity';
+                            warningDiv.innerHTML = '<strong><i class="fas fa-triangle-exclamation"></i> ' + dc.matchCount + ' similar article' + (dc.matchCount > 1 ? 's' : '') + ' found</strong><br>Highest match: ' + dc.score + '% similarity';
                             cardContent.insertBefore(warningDiv, cardActions);
 
-                            // Add "View Duplicates" button
                             const dupBtn = document.createElement('button');
+                            dupBtn.type = 'button';
                             dupBtn.className = 'btn-duplicate';
                             dupBtn.onclick = function() { viewDuplicates(result.newsId); };
-                            dupBtn.textContent = '🔍 Duplicates';
+                            dupBtn.innerHTML = '<i class="fas fa-clone"></i> Duplicates';
                             cardActions.insertBefore(dupBtn, cardActions.firstChild.nextSibling);
                         }
                     });

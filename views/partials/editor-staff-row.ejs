@@ -1,0 +1,121 @@
+<% 
+  const editorLangLabels = typeof newsLanguageLabels !== 'undefined'
+    ? newsLanguageLabels
+    : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' };
+  const hasLanguageSet = editor.workingLanguage && String(editor.workingLanguage).trim() !== '';
+  const initials = (editor.name || editor.username).split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+  const isSubEditor = editor.role === 'subeditor';
+  const displayTitle = (editor.displayRole || '').trim();
+%>
+<div id="editor-row-<%= editor._id %>"
+    class="staff-card staff-row <%= isSubEditor ? 'staff-card-sub' : 'staff-card-reporter' %>"
+    data-role="<%= editor.role %>"
+    data-language="<%= editor.workingLanguage || '' %>"
+    data-search="<%= ((editor.name || '') + ' ' + (editor.username || '') + ' ' + (editor.email || '') + ' ' + (editor.location || '') + ' ' + (editor.displayRole || '')).toLowerCase() %>">
+
+    <div class="staff-card-grid">
+        <!-- Profile -->
+        <div class="staff-card-profile">
+            <% if (editor.profileImage) { %>
+                <img src="<%= editor.profileImage %>" class="staff-avatar" alt="<%= editor.name || editor.username %>">
+            <% } else { %>
+                <div class="staff-avatar staff-avatar-fallback <%= isSubEditor ? 'staff-avatar-sub' : 'staff-avatar-reporter' %>">
+                    <%= initials %>
+                </div>
+            <% } %>
+            <div class="staff-card-identity min-w-0">
+                <div class="staff-card-name text-truncate"><%= editor.name || editor.username %></div>
+                <div class="staff-card-username text-truncate">@<%= editor.username %></div>
+                <% if (displayTitle) { %>
+                    <div class="staff-card-title text-truncate"><%= displayTitle %></div>
+                <% } %>
+                <div class="staff-card-email text-truncate" title="<%= editor.email %>"><%= editor.email %></div>
+            </div>
+        </div>
+
+        <!-- Role -->
+        <div class="staff-card-block">
+            <div class="staff-block-label">Role</div>
+            <span class="staff-role-chip <%= isSubEditor ? 'staff-role-chip-sub' : 'staff-role-chip-reporter' %>">
+                <%= isSubEditor ? 'Sub-Editor' : 'Reporter' %>
+            </span>
+        </div>
+
+        <!-- Location & Language -->
+        <div class="staff-card-block">
+            <div class="staff-block-label">Coverage</div>
+            <div class="staff-chip-row">
+                <span class="staff-info-chip">
+                    <i class="fas fa-map-marker-alt"></i><%= editor.location || 'Pan India' %>
+                </span>
+                <% if (hasLanguageSet) { %>
+                    <span class="staff-info-chip staff-info-chip-lang">
+                        <i class="fas fa-language"></i><%= editorLangLabels[editor.workingLanguage] || editor.workingLanguage %>
+                    </span>
+                <% } else { %>
+                    <span class="staff-info-chip staff-info-chip-warn">
+                        <i class="fas fa-exclamation-circle"></i>Language not set
+                    </span>
+                <% } %>
+            </div>
+        </div>
+
+        <!-- Performance -->
+        <div class="staff-card-block staff-card-metrics-block">
+            <div class="staff-block-label d-flex justify-content-between align-items-center">
+                <span>Performance</span>
+                <button type="button" class="staff-insights-link" onclick="showEditorInsightsById('<%= editor._id %>')">
+                    Insights <i class="fas fa-arrow-right ms-1"></i>
+                </button>
+            </div>
+            <div class="staff-metric-grid">
+                <div class="staff-metric-box staff-metric-today">
+                    <div class="metric-label">Today</div>
+                    <div class="metric-value"><%= editor.newsStats?.today || 0 %></div>
+                </div>
+                <div class="staff-metric-box staff-metric-weekly">
+                    <div class="metric-label">7 Days</div>
+                    <div class="metric-value"><%= editor.newsStats?.weekly || 0 %></div>
+                </div>
+                <div class="staff-metric-box staff-metric-published">
+                    <div class="metric-label">Published</div>
+                    <div class="metric-value"><%= editor.newsStats?.published || 0 %></div>
+                </div>
+                <div class="staff-metric-box staff-metric-range" id="range-pill-<%= editor._id %>" onclick="document.getElementById('picker-<%= editor._id %>')._flatpickr.open()" title="Pick date range">
+                    <div class="metric-label">Range</div>
+                    <div class="metric-value"><span id="count-<%= editor._id %>">0</span></div>
+                </div>
+                <input type="text" id="picker-<%= editor._id %>" class="range-picker-input" style="visibility:hidden;position:absolute;width:0;height:0;" data-id="<%= editor._id %>">
+            </div>
+        </div>
+
+        <!-- Status -->
+        <div class="staff-card-block staff-card-status-block">
+            <div class="staff-block-label">Status</div>
+            <span class="staff-status-pill <%= editor.isActive ? 'staff-status-active' : 'staff-status-locked' %>">
+                <span class="status-dot <%= editor.isActive ? 'status-dot-active' : 'status-dot-inactive' %>"></span>
+                <%= editor.isActive ? 'Active' : 'Locked' %>
+            </span>
+            <button type="button" class="staff-status-action"
+                    onclick="toggleEditorStatus('<%= editor._id %>', <%= editor.isActive ? 'true' : 'false' %>)">
+                <%= editor.isActive ? 'Lock' : 'Unlock' %>
+            </button>
+        </div>
+
+        <!-- Actions -->
+        <div class="staff-card-actions">
+            <button type="button" class="staff-action-btn" onclick="window.location.href='/admin/performance-analytics?authorId=<%= editor._id %>'" title="Analytics">
+                <i class="fas fa-chart-line"></i>
+            </button>
+            <button type="button" class="staff-action-btn" onclick="openEditEditorModal('<%= editor._id %>')" title="Edit profile">
+                <i class="fas fa-pen-to-square"></i>
+            </button>
+            <button type="button" class="staff-action-btn" onclick="openPasswordModal('<%= editor._id %>')" title="Change password">
+                <i class="fas fa-shield-halved"></i>
+            </button>
+            <button type="button" class="staff-action-btn staff-action-btn-danger" onclick="deleteEditor('<%= editor._id %>')" title="Remove user">
+                <i class="fas fa-trash-can"></i>
+            </button>
+        </div>
+    </div>
+</div>

@@ -1,532 +1,487 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<%- include('partials/header', { title: 'Intelligent Ads Management - Short News Admin' }) %>
-    <style>
-        /* Dashboard cards */
-        .dashboard-card {
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
-        }
+<%- include('partials/header', { title: 'Intelligent Ads - Short News Admin' }) %>
+<link rel="stylesheet" href="/css/editors-directory.css">
+<link rel="stylesheet" href="/css/intelligence-hub.css">
 
-        .dashboard-card:hover {
-            transform: translateY(-5px);
-        }
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Intelligent Ads', backButton: true, backUrl: '/', actions: [{
+        id: 'manageCampaignsBtn', icon: 'fas fa-layer-group', text: 'Campaigns', url: '/ads/ads', class: 'btn-primary'
+    }] }) %>
 
-        /* Chart container */
-        .chart-container {
-            height: 300px;
-            position: relative;
-        }
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar', { activePage: 'intelligent-ads' }) %>
 
-        /* Settings section */
-        .settings-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
+            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                <% 
+                    const iahAds = typeof adsList !== 'undefined' ? adsList : [];
+                    const iahTotal = typeof totalAds !== 'undefined' ? totalAds : iahAds.length;
+                    const iahActive = typeof activeAds !== 'undefined' ? activeAds : 0;
+                    const iahInactive = typeof inactiveAds !== 'undefined' ? inactiveAds : 0;
+                    const iahActivePct = iahTotal > 0 ? Math.round((iahActive / iahTotal) * 100) : 0;
+                    const iahPosStats = typeof positionStats !== 'undefined' ? positionStats : {};
+                    let iahMaxPosCount = 0;
+                    Object.keys(iahPosStats).forEach(function(k) {
+                        if (iahPosStats[k] > iahMaxPosCount) iahMaxPosCount = iahPosStats[k];
+                    });
+                    const iahAdminName = typeof admin !== 'undefined' && admin ? (admin.username || admin.name || 'User') : 'User';
+                %>
+                <div class="iah-page content-area mt-4">
+                    <header class="iah-hero">
+                        <div>
+                            <p class="iah-eyebrow"><i class="fas fa-brain"></i> Smart delivery engine</p>
+                            <h1 class="iah-hero-title">Intelligent Monetization Analytics</h1>
+                            <p class="iah-hero-sub">Welcome back, <%= iahAdminName %>. Track impressions, optimize frequency caps, and tune in-feed placement intelligence across your campaign inventory.</p>
+                            <div class="mt-3">
+                                <span class="iah-live-badge"><span class="iah-live-dot"></span> Auto-refresh every 30s</span>
+                            </div>
+                        </div>
+                        <div class="iah-hero-actions">
+                            <button type="button" class="iah-btn-outline" onclick="refreshAnalytics()"><i class="fas fa-sync"></i> Sync now</button>
+                            <a href="/ads/add-ad" class="team-btn-primary"><i class="fas fa-plus"></i> New campaign</a>
+                        </div>
+                    </header>
 
-        /* Stats card */
-        .stats-card {
-            text-align: center;
-            padding: 1rem;
-        }
+                    <div class="iah-kpi-grid">
+                        <div class="iah-kpi">
+                            <div class="iah-kpi-value"><%= iahTotal.toLocaleString('en-IN') %></div>
+                            <div class="iah-kpi-label">Total campaigns</div>
+                            <div class="iah-kpi-meta">Inventory size</div>
+                        </div>
+                        <div class="iah-kpi">
+                            <div class="iah-kpi-value"><%= iahActive.toLocaleString('en-IN') %></div>
+                            <div class="iah-kpi-label">Live serving</div>
+                            <div class="iah-kpi-meta"><%= iahActivePct %>% active</div>
+                        </div>
+                        <div class="iah-kpi">
+                            <div class="iah-kpi-value"><%= iahInactive.toLocaleString('en-IN') %></div>
+                            <div class="iah-kpi-label">Paused</div>
+                            <div class="iah-kpi-meta">Not in rotation</div>
+                        </div>
+                        <div class="iah-kpi">
+                            <div class="iah-kpi-value" id="totalImpressions">—</div>
+                            <div class="iah-kpi-label">Impressions</div>
+                            <div class="iah-kpi-meta">All-time views</div>
+                        </div>
+                        <div class="iah-kpi">
+                            <div class="iah-kpi-value" id="iahTotalClicks">—</div>
+                            <div class="iah-kpi-label">Clicks</div>
+                            <div class="iah-kpi-meta">Engagement total</div>
+                        </div>
+                        <div class="iah-kpi">
+                            <div class="iah-kpi-value" id="iahCtrKpi">—</div>
+                            <div class="iah-kpi-label">Avg CTR</div>
+                            <div class="iah-kpi-meta">Click-through rate</div>
+                        </div>
+                    </div>
 
-        .stats-card .number {
-            font-size: 2rem;
-            font-weight: 700;
-        }
-
-        .stats-card .label {
-            font-size: 0.9rem;
-            color: #6c757d;
-        }
-
-        /* Auto-refresh indicator */
-        .auto-refresh-indicator {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #007bff;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 20px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            display: none;
-            z-index: 1000;
-        }
-    </style>
-    </head>
-
-    <body>
-        <%- include('partials/top-nav', { pageTitle: 'Intelligent Ads' , backButton: true, backUrl: '/' , actions: [] })
-            %>
-
-            <div class="container-fluid">
-                <div class="row">
-                    <!-- Sidebar -->
-                    <%- include('partials/sidebar', { activePage: 'intelligent-ads' }) %>
-
-                        <!-- Main Content -->
-                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                            <div class="content-area">
-                                <!-- Dashboard Overview -->
-                                <div class="row mb-4">
-                                    <div class="col-md-3 mb-3">
-                                        <div class="card dashboard-card bg-primary text-white">
-                                            <div class="card-body stats-card">
-                                                <div class="number">
-                                                    <%= totalAds %>
-                                                </div>
-                                                <div class="label">Total Ads</div>
-                                            </div>
-                                        </div>
+                    <div class="iah-panel">
+                        <div class="iah-panel-head">
+                            <h2 class="iah-panel-title"><i class="fas fa-chart-line me-2"></i>Performance intelligence</h2>
+                            <div class="iah-panel-actions">
+                                <button type="button" class="iah-btn-sm" onclick="refreshAnalytics()"><i class="fas fa-sync"></i> Refresh</button>
+                                <button type="button" class="iah-btn-sm iah-btn-sm--danger" onclick="resetAnalytics()"><i class="fas fa-trash-alt"></i> Reset data</button>
+                            </div>
+                        </div>
+                        <div class="iah-analytics-grid">
+                            <div class="iah-chart-wrap">
+                                <p class="iah-section-label">Impressions vs clicks by campaign</p>
+                                <div class="iah-chart-container">
+                                    <canvas id="performanceChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="iah-insights">
+                                <div class="iah-metric-stack">
+                                    <div class="iah-metric-box">
+                                        <div class="iah-metric-box-value" id="totalClicks">0</div>
+                                        <div class="iah-metric-box-label">Total clicks</div>
                                     </div>
-                                    <div class="col-md-3 mb-3">
-                                        <div class="card dashboard-card bg-success text-white">
-                                            <div class="card-body stats-card">
-                                                <div class="number">
-                                                    <%= activeAds %>
-                                                </div>
-                                                <div class="label">Active Ads</div>
-                                            </div>
-                                        </div>
+                                    <div class="iah-metric-box">
+                                        <div class="iah-metric-box-value" id="avgCtr">0%</div>
+                                        <div class="iah-metric-box-label">Average CTR</div>
                                     </div>
-                                    <div class="col-md-3 mb-3">
-                                        <div class="card dashboard-card bg-secondary text-white">
-                                            <div class="card-body stats-card">
-                                                <div class="number">
-                                                    <%= inactiveAds %>
-                                                </div>
-                                                <div class="label">Inactive Ads</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3 mb-3">
-                                        <div class="card dashboard-card bg-info text-white">
-                                            <div class="card-body stats-card">
-                                                <div class="number" id="totalImpressions">0</div>
-                                                <div class="label">Impressions</div>
-                                            </div>
-                                        </div>
+                                    <div class="iah-metric-box">
+                                        <div class="iah-metric-box-value" id="avgViewsPerUser">0</div>
+                                        <div class="iah-metric-box-label">Avg views / user</div>
                                     </div>
                                 </div>
-
-                                <!-- Analytics Section -->
-                                <div class="row mb-4">
-                                    <div class="col-12">
-                                        <div class="card dashboard-card">
-                                            <div
-                                                class="card-header bg-white d-flex justify-content-between align-items-center">
-                                                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Ad Performance
-                                                    Analytics
-                                                </h5>
-                                                <div>
-                                                    <button class="btn btn-outline-primary btn-sm me-2"
-                                                        onclick="refreshAnalytics()">
-                                                        <i class="fas fa-sync me-1"></i> Refresh Data
-                                                    </button>
-                                                    <button class="btn btn-outline-danger btn-sm"
-                                                        onclick="resetAnalytics()">
-                                                        <i class="fas fa-trash me-1"></i> Reset Data
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div class="card-body">
-                                                <div class="row">
-                                                    <div class="col-md-8">
-                                                        <div class="chart-container">
-                                                            <canvas id="performanceChart"></canvas>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-4">
-                                                        <h6>Top Performing Ads</h6>
-                                                        <div id="topAdsList">
-                                                            <!-- Top ads will be populated here -->
-                                                        </div>
-                                                        <div class="mt-3">
-                                                            <h6>Summary</h6>
-                                                            <div id="analyticsSummary">
-                                                                <p>Total Clicks: <span id="totalClicks">0</span></p>
-                                                                <p>Average CTR: <span id="avgCtr">0%</span></p>
-                                                                <p>Avg Views/User: <span id="avgViewsPerUser">0</span>
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Settings Section -->
-                                <div class="row mb-4">
-                                    <div class="col-12">
-                                        <div class="settings-section">
-                                            <h5 class="mb-3"><i class="fas fa-cog me-2"></i>Intelligent Ad Settings</h5>
-
-                                            <div class="row">
-                                                <div class="col-md-6 mb-3">
-                                                    <label class="form-label">Default Max Views Per Day</label>
-                                                    <input type="number" class="form-control" id="maxViewsPerDay"
-                                                        value="3" min="1" max="10">
-                                                    <div class="form-text">Maximum number of times an ad can be shown to
-                                                        a user
-                                                        per day</div>
-                                                </div>
-                                                <div class="col-md-6 mb-3">
-                                                    <label class="form-label">Default Cooldown Period (Hours)</label>
-                                                    <input type="number" class="form-control" id="cooldownPeriodHours"
-                                                        value="24" min="1" max="168">
-                                                    <div class="form-text">Minimum time between showing the same ad to a
-                                                        user
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="row">
-                                                <div class="col-md-6 mb-3">
-                                                    <label class="form-label">Position Interval Distribution</label>
-                                                    <div id="positionStats">
-                                                        <% Object.keys(positionStats).forEach(interval=> { %>
-                                                            <div class="d-flex justify-content-between">
-                                                                <span>Every <%= interval %> items:</span>
-                                                                <span>
-                                                                    <%= positionStats[interval] %> ads
-                                                                </span>
-                                                            </div>
-                                                            <% }); %>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-6 mb-3">
-                                                    <label class="form-label">Frequency Control</label>
-                                                    <div class="form-check form-switch mb-2">
-                                                        <input class="form-check-input" type="checkbox"
-                                                            id="enableFrequencyControl" checked>
-                                                        <label class="form-check-label"
-                                                            for="enableFrequencyControl">Enable
-                                                            intelligent frequency control</label>
-                                                    </div>
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input" type="checkbox"
-                                                            id="enableUserBehaviorTracking" checked>
-                                                        <label class="form-check-label"
-                                                            for="enableUserBehaviorTracking">Enable
-                                                            user behavior tracking</label>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="d-flex gap-2">
-                                                <button class="btn btn-primary" onclick="saveSettings()">
-                                                    <i class="fas fa-save me-1"></i> Save Settings
-                                                </button>
-                                                <button class="btn btn-outline-secondary" onclick="resetSettings()">
-                                                    <i class="fas fa-undo me-1"></i> Reset to Defaults
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- AdMob Integration Section -->
-                                <div class="row mb-4">
-                                    <div class="col-12">
-                                        <div class="settings-section">
-                                            <h5 class="mb-3"><i class="fas fa-ad me-2"></i>AdMob Integration</h5>
-
-                                            <div class="row">
-                                                <div class="col-md-6 mb-3">
-                                                    <label class="form-label">Default AdMob App ID</label>
-                                                    <input type="text" class="form-control" id="defaultAdMobAppId"
-                                                        placeholder="ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy">
-                                                    <div class="form-text">Default AdMob App ID for all ads (can be
-                                                        overridden
-                                                        per ad)</div>
-                                                </div>
-                                                <div class="col-md-6 mb-3">
-                                                    <label class="form-label">Default AdMob Unit ID</label>
-                                                    <input type="text" class="form-control" id="defaultAdMobUnitId"
-                                                        placeholder="ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy">
-                                                    <div class="form-text">Default AdMob Unit ID for all ads (can be
-                                                        overridden
-                                                        per ad)</div>
-                                                </div>
-                                            </div>
-
-                                            <div class="alert alert-info">
-                                                <i class="fas fa-info-circle me-2"></i>
-                                                <strong>Note:</strong> AdMob can be enabled individually for each ad
-                                                when
-                                                creating/editing ads.
-                                                Go to <a href="/ads/add-ad" class="alert-link">Add Ad</a> page to
-                                                configure
-                                                AdMob for specific ads.
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Ads List -->
-                                <div class="row">
-                                    <div class="col-12">
-                                        <div class="card dashboard-card">
-                                            <div
-                                                class="card-header bg-white d-flex justify-content-between align-items-center">
-                                                <h5 class="mb-0"><i class="fas fa-ad me-2"></i>Managed Ads</h5>
-                                                <button class="btn btn-primary btn-sm"
-                                                    onclick="window.location.href='/ads/ads'">
-                                                    <i class="fas fa-edit me-1"></i> Manage Ads
-                                                </button>
-                                            </div>
-                                            <div class="card-body">
-                                                <% if (adsList.length===0) { %>
-                                                    <div class="text-center py-5">
-                                                        <i class="fas fa-ad fa-3x text-muted mb-3"></i>
-                                                        <h4 class="text-muted">No ads found</h4>
-                                                        <p class="text-muted">Create some ads to manage them
-                                                            intelligently</p>
-                                                        <button class="btn btn-primary"
-                                                            onclick="window.location.href='/ads/add-ad'">
-                                                            <i class="fas fa-plus me-2"></i>Add Ad
-                                                        </button>
-                                                    </div>
-                                                    <% } else { %>
-                                                        <div class="table-responsive">
-                                                            <table class="table table-hover">
-                                                                <thead>
-                                                                    <tr>
-                                                                        <th>Title</th>
-                                                                        <th>Status</th>
-                                                                        <th>Position</th>
-                                                                        <th>Created</th>
-                                                                        <th>Actions</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    <% adsList.forEach(function(ad) { %>
-                                                                        <tr>
-                                                                            <td>
-                                                                                <div class="d-flex align-items-center">
-                                                                                    <% if (ad.imageUrl) { %>
-                                                                                        <img src="<%= ad.imageUrl %>"
-                                                                                            alt="<%= ad.title %>"
-                                                                                            class="rounded me-2"
-                                                                                            style="width: 40px; height: 40px; object-fit: cover;">
-                                                                                        <% } else { %>
-                                                                                            <div class="bg-light rounded me-2 d-flex align-items-center justify-content-center"
-                                                                                                style="width: 40px; height: 40px;">
-                                                                                                <i
-                                                                                                    class="fas fa-image text-muted"></i>
-                                                                                            </div>
-                                                                                            <% } %>
-                                                                                                <div>
-                                                                                                    <div>
-                                                                                                        <%= ad.title.substring(0,
-                                                                                                            30) %>
-                                                                                                    </div>
-                                                                                                    <small
-                                                                                                        class="text-muted">
-                                                                                                        <%= ad.content ?
-                                                                                                            ad.content.substring(0,
-                                                                                                            40) : '' %>
-                                                                                                    </small>
-                                                                                                </div>
-                                                                                </div>
-                                                                            </td>
-                                                                            <td>
-                                                                                <span
-                                                                                    class="badge <%= ad.isActive === false ? 'bg-secondary' : 'bg-success' %>">
-                                                                                    <%= ad.isActive===false ? 'Inactive'
-                                                                                        : 'Active' %>
-                                                                                </span>
-                                                                            </td>
-                                                                            <td>Every <%= ad.positionInterval || 3 %>
-                                                                                    items</td>
-                                                                            <td>
-                                                                                <%= new
-                                                                                    Date(ad.createdAt).toLocaleDateString()
-                                                                                    %>
-                                                                            </td>
-                                                                            <td>
-                                                                                <div class="d-flex gap-1">
-                                                                                    <button
-                                                                                        class="btn btn-sm btn-outline-primary"
-                                                                                        onclick="viewAd('<%= ad._id %>')">
-                                                                                        <i class="fas fa-eye"></i>
-                                                                                    </button>
-                                                                                    <button
-                                                                                        class="btn btn-sm btn-outline-secondary"
-                                                                                        onclick="editAd('<%= ad._id %>')">
-                                                                                        <i class="fas fa-edit"></i>
-                                                                                    </button>
-                                                                                    <button
-                                                                                        class="btn btn-sm btn-outline-<%= ad.isActive === false ? 'success' : 'secondary' %>"
-                                                                                        onclick="toggleAdStatus('<%= ad._id %>')">
-                                                                                        <i
-                                                                                            class="fas fa-<%= ad.isActive === false ? 'check' : 'times' %>"></i>
-                                                                                    </button>
-                                                                                </div>
-                                                                            </td>
-                                                                        </tr>
-                                                                        <% }); %>
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                        <% } %>
-                                            </div>
-                                        </div>
+                                <div>
+                                    <p class="iah-section-label">Top performers</p>
+                                    <div class="iah-leaderboard" id="topAdsList">
+                                        <div class="iah-empty-note">Loading analytics...</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="iah-split-grid">
+                        <div class="iah-panel">
+                            <div class="iah-panel-head">
+                                <h2 class="iah-panel-title"><i class="fas fa-sliders-h me-2"></i>Frequency intelligence</h2>
+                            </div>
+                            <div class="iah-settings-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="iah-field">
+                                            <label for="maxViewsPerDay">Default max views / day</label>
+                                            <input type="number" id="maxViewsPerDay" value="3" min="1" max="10">
+                                            <div class="iah-field-hint">Cap how often the same user sees one campaign daily.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="iah-field">
+                                            <label for="cooldownPeriodHours">Cooldown period (hours)</label>
+                                            <input type="number" id="cooldownPeriodHours" value="24" min="1" max="168">
+                                            <div class="iah-field-hint">Minimum gap before showing the same campaign again.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="iah-switch-row">
+                                    <div>
+                                        <div class="iah-switch-label">Intelligent frequency control</div>
+                                        <div class="iah-switch-desc">Automatically throttle over-exposed campaigns.</div>
+                                    </div>
+                                    <label class="iah-switch">
+                                        <input type="checkbox" id="enableFrequencyControl" checked>
+                                        <span class="iah-switch-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="iah-switch-row">
+                                    <div>
+                                        <div class="iah-switch-label">User behavior tracking</div>
+                                        <div class="iah-switch-desc">Learn engagement patterns to improve delivery timing.</div>
+                                    </div>
+                                    <label class="iah-switch">
+                                        <input type="checkbox" id="enableUserBehaviorTracking" checked>
+                                        <span class="iah-switch-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="d-flex gap-2 mt-3">
+                                    <button type="button" class="iah-btn-sm iah-btn-sm--primary" onclick="saveSettings()"><i class="fas fa-save"></i> Save settings</button>
+                                    <button type="button" class="iah-btn-sm" onclick="resetSettings()"><i class="fas fa-undo"></i> Reset defaults</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="iah-panel">
+                            <div class="iah-panel-head">
+                                <h2 class="iah-panel-title"><i class="fas fa-mobile-alt me-2"></i>AdMob integration</h2>
+                            </div>
+                            <div class="iah-settings-body">
+                                <div class="iah-field">
+                                    <label for="defaultAdMobAppId">Default AdMob App ID</label>
+                                    <input type="text" id="defaultAdMobAppId" placeholder="ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy">
+                                </div>
+                                <div class="iah-field">
+                                    <label for="defaultAdMobUnitId">Default AdMob Unit ID</label>
+                                    <input type="text" id="defaultAdMobUnitId" placeholder="ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy">
+                                </div>
+                                <div class="iah-info-banner">
+                                    <i class="fas fa-info-circle"></i>
+                                    <span>AdMob can be enabled per campaign when creating or editing. Use the <a href="/ads/add-ad">campaign composer</a> for unit-level overrides.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="iah-panel">
+                        <div class="iah-panel-head">
+                            <h2 class="iah-panel-title"><i class="fas fa-stream me-2"></i>Placement distribution</h2>
+                        </div>
+                        <div class="iah-settings-body">
+                            <% if (Object.keys(iahPosStats).length === 0) { %>
+                            <div class="iah-empty-note">No placement data yet. Create campaigns to see interval distribution.</div>
+                            <% } else { %>
+                            <div class="iah-position-bars">
+                                <% Object.keys(iahPosStats).sort(function(a,b){ return Number(a)-Number(b); }).forEach(function(interval) { 
+                                    const count = iahPosStats[interval];
+                                    const pct = iahMaxPosCount > 0 ? Math.round((count / iahMaxPosCount) * 100) : 0;
+                                %>
+                                <div class="iah-position-row">
+                                    <span>Every <%= interval %> items</span>
+                                    <div class="iah-position-bar"><span style="width:<%= pct %>%"></span></div>
+                                    <strong><%= count %></strong>
+                                </div>
+                                <% }); %>
+                            </div>
+                            <% } %>
+                        </div>
+                    </div>
+
+                    <div class="iah-panel">
+                        <div class="iah-panel-head">
+                            <h2 class="iah-panel-title"><i class="fas fa-list me-2"></i>Managed campaigns</h2>
+                            <a href="/ads/ads" class="iah-btn-sm iah-btn-sm--primary"><i class="fas fa-external-link-alt"></i> Open campaign center</a>
+                        </div>
+                        <% if (iahAds.length === 0) { %>
+                        <div class="iah-empty">
+                            <div class="iah-empty-icon"><i class="fas fa-chart-pie"></i></div>
+                            <h4 style="margin:0 0 8px;color:#111827;">No campaigns to analyze</h4>
+                            <p style="color:#6b7280;margin:0 0 16px;">Create campaigns to unlock performance tracking and smart delivery.</p>
+                            <a href="/ads/add-ad" class="team-btn-primary"><i class="fas fa-plus"></i> Create campaign</a>
+                        </div>
+                        <% } else { %>
+                        <div class="iah-table-wrap">
+                            <table class="iah-table">
+                                <thead>
+                                    <tr>
+                                        <th>Campaign</th>
+                                        <th>Status</th>
+                                        <th>Placement</th>
+                                        <th>Priority</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% iahAds.forEach(function(ad) {
+                                        const priority = ad.priority || 'medium';
+                                    %>
+                                    <tr>
+                                        <td>
+                                            <div class="iah-creative">
+                                                <% if (ad.imageUrl) { %>
+                                                <img src="<%= ad.imageUrl %>" alt="" class="iah-thumb">
+                                                <% } else { %>
+                                                <span class="iah-thumb iah-thumb--empty"><i class="fas fa-image"></i></span>
+                                                <% } %>
+                                                <div>
+                                                    <div class="iah-creative-title"><%= ad.title || 'Untitled' %></div>
+                                                    <div class="iah-creative-sub"><%= ad.content ? ad.content.substring(0, 50) : 'No description' %></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="iah-pill <%= ad.isActive === false ? 'iah-pill--paused' : 'iah-pill--live' %>">
+                                                <%= ad.isActive === false ? 'Paused' : 'Live' %>
+                                            </span>
+                                        </td>
+                                        <td>Every <%= ad.positionInterval || 3 %> items</td>
+                                        <td><%= priority.charAt(0).toUpperCase() + priority.slice(1) %></td>
+                                        <td><%= new Date(ad.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) %></td>
+                                        <td>
+                                            <div class="iah-actions">
+                                                <button type="button" class="iah-action-btn" title="Edit" onclick="editAd('<%= ad._id %>')"><i class="fas fa-pen"></i></button>
+                                                <button type="button" class="iah-action-btn" title="<%= ad.isActive === false ? 'Activate' : 'Pause' %>" onclick="toggleAdStatus('<%= ad._id %>')">
+                                                    <i class="fas fa-<%= ad.isActive === false ? 'play' : 'pause' %>"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <% }); %>
+                                </tbody>
+                            </table>
+                        </div>
+                        <% } %>
+                    </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Auto-refresh indicator -->
-            <div class="auto-refresh-indicator" id="autoRefreshIndicator">
-                <i class="fas fa-sync fa-spin me-2"></i> Updating analytics...
-            </div>
+    <div class="iah-toast" id="autoRefreshIndicator"><i class="fas fa-sync fa-spin"></i> Syncing analytics...</div>
 
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-            <%- include('partials/footer') %>
-                <script>
-                    let performanceChart;
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <%- include('partials/footer') %>
+    <script id="adsData" type="application/json"><%- JSON.stringify(iahAds) %></script>
+    <script>
+        window.adsList = JSON.parse(document.getElementById('adsData').textContent);
+        const adsList = window.adsList;
+        let performanceChart;
 
-                    document.addEventListener('DOMContentLoaded', function () {
-                        setupMobileMenu();
-                        initializeCharts();
-                        loadAnalyticsData();
+        document.addEventListener('DOMContentLoaded', function () {
+            setupMobileMenu();
+            initializeCharts();
+            loadAnalyticsData();
+            setInterval(function () {
+                showAutoRefreshIndicator();
+                loadAnalyticsData();
+            }, 30000);
+        });
 
-                        setInterval(function () {
-                            showAutoRefreshIndicator();
-                            loadAnalyticsData();
-                        }, 30000);
-                    });
+        function initializeCharts() {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            performanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Impressions',
+                        data: [],
+                        backgroundColor: 'rgba(99, 102, 241, 0.65)',
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        borderWidth: 0,
+                        borderRadius: 6,
+                        maxBarThickness: 36
+                    }, {
+                        label: 'Clicks',
+                        data: [],
+                        backgroundColor: 'rgba(16, 185, 129, 0.65)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        borderWidth: 0,
+                        borderRadius: 6,
+                        maxBarThickness: 36
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 12, padding: 16, font: { size: 11, weight: '600' } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 10 } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(226, 232, 240, 0.8)' },
+                            ticks: { font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
 
-                    function initializeCharts() {
-                        const ctx = document.getElementById('performanceChart').getContext('2d');
-                        performanceChart = new Chart(ctx, {
-                            type: 'bar',
-                            data: {
-                                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                                datasets: [{
-                                    label: 'Impressions',
-                                    data: [1200, 1900, 1500, 2200, 1800, 2500],
-                                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                                    borderColor: 'rgba(54, 162, 235, 1)',
-                                    borderWidth: 1
-                                }, {
-                                    label: 'Clicks',
-                                    data: [60, 95, 75, 110, 90, 125],
-                                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                                    borderColor: 'rgba(255, 99, 132, 1)',
-                                    borderWidth: 1
-                                }]
-                            },
-                            options: {
-                                scales: { y: { beginAtZero: true } }
-                            }
+        window.loadAnalyticsData = function () {
+            fetch('/intelligent-ads/analytics')
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    document.getElementById('totalImpressions').textContent = data.totalImpressions.toLocaleString('en-IN');
+                    document.getElementById('totalClicks').textContent = data.totalClicks.toLocaleString('en-IN');
+                    document.getElementById('iahTotalClicks').textContent = data.totalClicks.toLocaleString('en-IN');
+                    document.getElementById('avgCtr').textContent = data.ctr.toFixed(2) + '%';
+                    document.getElementById('iahCtrKpi').textContent = data.ctr.toFixed(2) + '%';
+                    document.getElementById('avgViewsPerUser').textContent = data.avgViewsPerUser.toFixed(2);
+
+                    const topAdsList = document.getElementById('topAdsList');
+                    topAdsList.innerHTML = '';
+                    if (!data.topPerformingAds || data.topPerformingAds.length === 0) {
+                        topAdsList.innerHTML = '<div class="iah-empty-note">No performance data yet. Impressions will appear as users interact with campaigns.</div>';
+                    } else {
+                        data.topPerformingAds.forEach(function (ad, index) {
+                            const row = document.createElement('div');
+                            row.className = 'iah-leader-row';
+                            const rankClass = index < 3 ? ' iah-leader-rank--' + (index + 1) : '';
+                            row.innerHTML =
+                                '<span class="iah-leader-rank' + rankClass + '">' + (index + 1) + '</span>' +
+                                '<span class="iah-leader-title" title="' + (ad.title || '') + '">' + (ad.title || 'Untitled') + '</span>' +
+                                '<span class="iah-leader-stats">' + ad.impressions.toLocaleString('en-IN') + ' views · ' + ad.clicks + ' clicks · ' + ad.ctr.toFixed(2) + '%</span>';
+                            topAdsList.appendChild(row);
                         });
                     }
 
-                    window.loadAnalyticsData = function () {
-                        fetch('/intelligent-ads/analytics')
-                            .then(response => response.json())
-                            .then(data => {
-                                document.getElementById('totalImpressions').textContent = data.totalImpressions.toLocaleString();
-                                document.getElementById('totalClicks').textContent = data.totalClicks.toLocaleString();
-                                document.getElementById('avgCtr').textContent = data.ctr.toFixed(2) + '%';
-                                document.getElementById('avgViewsPerUser').textContent = data.avgViewsPerUser.toFixed(2);
-
-                                const topAdsList = document.getElementById('topAdsList');
-                                topAdsList.innerHTML = '';
-                                data.topPerformingAds.forEach(ad => {
-                                    const adElement = document.createElement('div');
-                                    adElement.className = 'd-flex justify-content-between mb-2';
-                                    adElement.innerHTML = `<span>${ad.title}</span><span>${ad.impressions} views, ${ad.clicks} clicks (${ad.ctr.toFixed(2)}%)</span>`;
-                                    topAdsList.appendChild(adElement);
-                                });
-                                hideAutoRefreshIndicator();
-                            })
-                            .catch(error => {
-                                console.error('Error loading analytics data:', error);
-                                hideAutoRefreshIndicator();
-                            });
-                    };
-
-                    window.refreshAnalytics = function () {
-                        showAutoRefreshIndicator();
-                        loadAnalyticsData();
-                    };
-
-                    window.resetAnalytics = function () {
-                        if (confirm('Are you sure you want to reset all ad analytics data?')) {
-                            fetch('/intelligent-ads/analytics/reset', { method: 'POST' })
-                                .then(response => response.json())
-                                .then(data => {
-                                    alert(data.message);
-                                    loadAnalyticsData();
-                                })
-                                .catch(error => alert('Error resetting analytics data'));
-                        }
-                    };
-
-                    window.saveSettings = function () {
-                        alert('Settings saved successfully!');
-                    };
-
-                    window.resetSettings = function () {
-                        document.getElementById('maxViewsPerDay').value = 3;
-                        document.getElementById('cooldownPeriodHours').value = 24;
-                        document.getElementById('enableFrequencyControl').checked = true;
-                        document.getElementById('enableUserBehaviorTracking').checked = true;
-                        alert('Settings reset to defaults!');
-                    };
-
-                    window.viewAd = function (adId) { alert('Viewing ad: ' + adId); };
-                    window.editAd = function (adId) { window.location.href = '/ads/edit-ad/' + adId; };
-                    window.toggleAdStatus = function (adId) { alert('Toggling ad status: ' + adId); };
-
-                    function showAutoRefreshIndicator() {
-                        const indicator = document.getElementById('autoRefreshIndicator');
-                        if (indicator) indicator.style.display = 'block';
-                    }
-
-                    function hideAutoRefreshIndicator() {
-                        const indicator = document.getElementById('autoRefreshIndicator');
-                        if (indicator) {
-                            setTimeout(() => { indicator.style.display = 'none'; }, 1000);
-                        }
-                    }
-
-                    function setupMobileMenu() {
-                        const menuToggle = document.getElementById('menuToggle');
-                        const sidebar = document.getElementById('sidebar');
-                        const mainContent = document.getElementById('mainContent');
-
-                        if (menuToggle && sidebar) {
-                            menuToggle.addEventListener('click', function (e) {
-                                e.stopPropagation();
-                                sidebar.classList.toggle('active');
-                                mainContent.classList.toggle('sidebar-active');
-                            });
-                        }
-
-                        document.addEventListener('click', function (event) {
-                            if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('active') && !sidebar.contains(event.target) && event.target !== menuToggle) {
-                                sidebar.classList.remove('active');
-                                if (mainContent) mainContent.classList.remove('sidebar-active');
-                            }
+                    if (performanceChart) {
+                        const items = data.topPerformingAds || [];
+                        performanceChart.data.labels = items.map(function (ad) {
+                            const title = ad.title || 'Campaign';
+                            return title.length > 18 ? title.substring(0, 18) + '…' : title;
                         });
+                        performanceChart.data.datasets[0].data = items.map(function (ad) { return ad.impressions; });
+                        performanceChart.data.datasets[1].data = items.map(function (ad) { return ad.clicks; });
+                        performanceChart.update();
                     }
-                </script>
-    </body>
 
-</html>
+                    hideAutoRefreshIndicator();
+                })
+                .catch(function (error) {
+                    console.error('Error loading analytics data:', error);
+                    hideAutoRefreshIndicator();
+                });
+        };
+
+        window.refreshAnalytics = function () {
+            showAutoRefreshIndicator();
+            loadAnalyticsData();
+        };
+
+        window.resetAnalytics = function () {
+            if (!confirm('Reset all campaign analytics data? This cannot be undone.')) return;
+            fetch('/intelligent-ads/analytics/reset', { method: 'POST' })
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    alert(data.message);
+                    loadAnalyticsData();
+                })
+                .catch(function () { alert('Error resetting analytics data'); });
+        };
+
+        window.saveSettings = function () {
+            alert('Settings saved successfully!');
+        };
+
+        window.resetSettings = function () {
+            document.getElementById('maxViewsPerDay').value = 3;
+            document.getElementById('cooldownPeriodHours').value = 24;
+            document.getElementById('enableFrequencyControl').checked = true;
+            document.getElementById('enableUserBehaviorTracking').checked = true;
+            alert('Settings reset to defaults!');
+        };
+
+        window.editAd = function (adId) {
+            window.location.href = '/ads/edit-ad/' + adId;
+        };
+
+        window.toggleAdStatus = function (adId) {
+            const adItem = adsList.find(function (ad) { return String(ad._id) === String(adId); });
+            if (!adItem) return;
+            fetch('/ads/ads/' + adId + '/toggle-status', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isActive: !adItem.isActive })
+            })
+                .then(async function (response) {
+                    if (response.ok) location.reload();
+                    const errorData = await response.json().catch(function () { return {}; });
+                    alert('Error: ' + (errorData.error || 'Failed to toggle status'));
+                })
+                .catch(function (error) {
+                    alert('Network error: ' + error.message);
+                });
+        };
+
+        function showAutoRefreshIndicator() {
+            const indicator = document.getElementById('autoRefreshIndicator');
+            if (indicator) indicator.classList.add('is-visible');
+        }
+
+        function hideAutoRefreshIndicator() {
+            const indicator = document.getElementById('autoRefreshIndicator');
+            if (indicator) {
+                setTimeout(function () { indicator.classList.remove('is-visible'); }, 900);
+            }
+        }
+
+        function setupMobileMenu() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+
+            if (menuToggle && sidebar) {
+                menuToggle.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    sidebar.classList.toggle('active');
+                    mainContent.classList.toggle('sidebar-active');
+                });
+            }
+
+            document.addEventListener('click', function (event) {
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('active') &&
+                    !sidebar.contains(event.target) && event.target !== menuToggle &&
+                    (!menuToggle || !menuToggle.contains(event.target))) {
+                    sidebar.classList.remove('active');
+                    if (mainContent) mainContent.classList.remove('sidebar-active');
+                }
+            });
+        }
+    </script>
 </body>
 
 </html>

@@ -110,6 +110,13 @@ const typeDefs = gql`
     isActive: Boolean
   }
 
+  type NewsLanguage {
+    code: String!
+    name: String!
+    nativeName: String!
+    isDefault: Boolean!
+  }
+
   type User {
     id: ID!
     googleId: String!
@@ -159,6 +166,9 @@ const typeDefs = gql`
     # Location queries
     locations: [Location!]!
     locationById(id: ID!): Location
+
+    # Language queries
+    getActiveLanguages(forUserApp: Boolean): [NewsLanguage!]!
     
     # User queries
     user(id: ID!): User

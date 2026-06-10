@@ -63,6 +63,10 @@ router.post('/api/news', requireAuth, newsController.createNews);
 // Move toggle-status route to be more specific and avoid conflicts
 router.put('/api/news/:id/toggle-status', requireAuth, newsController.toggleNewsStatus);
 router.put('/api/news/:id/views', requireAuth, newsController.updateViewCount);
+router.put('/api/news/:id/likes', requireAuth, newsController.updateLikeCount);
+router.put('/api/news/:id/dislikes', requireAuth, newsController.updateDislikeCount);
+router.put('/api/news/:id/comments/:commentId', requireAuth, newsController.updateNewsComment);
+router.delete('/api/news/:id/comments/:commentId', requireAuth, newsController.deleteNewsComment);
 router.put('/api/news/:id', requireAuth, newsController.updateNews);
 router.delete('/api/news/:id', requireAuth, newsController.deleteNews);
 

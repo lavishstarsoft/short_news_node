@@ -1,304 +1,341 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<%- include('partials/header', { title: 'Register Editor' }) %>
+<%- include('partials/header', { title: 'Register Team Member' }) %>
+<link rel="stylesheet" href="/css/editors-directory.css">
+<link rel="stylesheet" href="/css/team-register.css">
 
-    <style>
-        .register-container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Add Team Member', backButton: true, backUrl: '/editors' }) %>
 
-        .register-card {
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-            border: none;
-            margin-bottom: 20px;
-            background: white;
-        }
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar', { activePage: 'register-editor' }) %>
 
-        .register-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 15px 15px 0 0 !important;
-            padding: 30px;
-        }
+            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                <div class="reg-page content-area mt-4">
+                    <header class="reg-hero">
+                        <div>
+                            <p class="reg-eyebrow"><i class="fas fa-user-plus"></i> Team onboarding</p>
+                            <h1 class="reg-hero-title">Register new team member</h1>
+                            <p class="reg-hero-sub">Create a reporter or sub-editor account with the right role, language, and regional coverage — they'll be ready to publish in minutes.</p>
+                        </div>
+                        <a href="/editors" class="reg-hero-link"><i class="fas fa-users"></i> Team directory</a>
+                    </header>
 
-        .btn-register {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-        }
+                    <div id="alertContainer"></div>
 
-        .btn-register:hover {
-            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-        }
+                    <% if (typeof error !== 'undefined' && error) { %>
+                    <div class="reg-alert reg-alert--error"><i class="fas fa-exclamation-circle"></i><span><%= error %></span></div>
+                    <% } %>
+                    <% if (typeof success !== 'undefined' && success) { %>
+                    <div class="reg-alert reg-alert--success"><i class="fas fa-check-circle"></i><span><%= success %></span></div>
+                    <% } %>
 
-        .btn-logout {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-            border: none;
-        }
-
-        .btn-logout:hover {
-            background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
-        }
-
-        /* Mobile-specific styles */
-        @media (max-width: 767.98px) {
-            .register-container {
-                padding: 0;
-            }
-
-            .register-header {
-                padding: 20px 15px;
-            }
-
-            .register-card {
-                border-radius: 0;
-                box-shadow: none;
-                margin-bottom: 16px;
-            }
-
-            .card-body {
-                padding: 16px;
-            }
-        }
-
-        @media (min-width: 768px) {
-            .register-header {
-                padding: 40px;
-            }
-
-            .register-card {
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-                transition: all 0.3s cubic-bezier(.25, .8, .25, 1);
-                margin-bottom: 30px;
-            }
-
-            .register-card:hover {
-                box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
-            }
-
-            .card-body {
-                padding: 24px;
-            }
-
-            h4 {
-                font-size: 20px;
-                margin-bottom: 20px;
-                padding-bottom: 10px;
-            }
-        }
-
-        /* Larger screens */
-        @media (min-width: 992px) {
-            .register-container {
-                padding: 30px;
-            }
-
-            .register-header {
-                padding: 50px;
-            }
-        }
-    </style>
-    </head>
-
-    <body>
-        <%- include('partials/top-nav', { pageTitle: 'Register Editor' , backButton: true, backUrl: '/editors' }) %>
-
-            <div class="container-fluid">
-                <div class="row">
-                    <!-- Sidebar - Hidden on mobile, visible on desktop -->
-                    <%- include('partials/sidebar', { activePage: 'register-editor' }) %>
-
-                        <!-- Main Content -->
-                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-                            <div class="content-area">
-                                <div class="card register-card">
-                                    <div class="card-header register-header">
-                                        <div class="text-center">
-                                            <h2><i class="fas fa-user-plus me-2"></i>Register New Editor</h2>
-                                            <p class="mb-0">Create a new editor account to contribute news articles</p>
+                    <div class="reg-layout">
+                        <div class="reg-form-panel">
+                            <form id="registerEditorForm" action="/register-editor" method="POST" novalidate>
+                                <section class="reg-form-section">
+                                    <div class="reg-section-head">
+                                        <span class="reg-section-icon reg-section-icon--account"><i class="fas fa-key"></i></span>
+                                        <div>
+                                            <h2 class="reg-section-title">Account credentials</h2>
+                                            <p class="reg-section-desc">Login details for the new member</p>
                                         </div>
                                     </div>
-                                    <div class="card-body">
-                                        <% if (typeof error !=='undefined' && error) { %>
-                                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                                <i class="fas fa-exclamation-circle me-2"></i>
-                                                <%= error %>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="alert"
-                                                        aria-label="Close"></button>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="username">Username <span class="reg-required">*</span></label>
+                                                <input type="text" id="username" name="username" required autocomplete="off" placeholder="e.g. ravi_reporter">
                                             </div>
-                                            <% } %>
-
-                                                <% if (typeof success !=='undefined' && success) { %>
-                                                    <div class="alert alert-success alert-dismissible fade show"
-                                                        role="alert">
-                                                        <i class="fas fa-check-circle me-2"></i>
-                                                        <%= success %>
-                                                            <button type="button" class="btn-close"
-                                                                data-bs-dismiss="alert" aria-label="Close"></button>
-                                                    </div>
-                                                    <% } %>
-
-                                                        <form id="registerEditorForm" action="/register-editor"
-                                                            method="POST">
-                                                            <div class="row">
-                                                                <div class="col-md-6 mb-3">
-                                                                    <label for="username"
-                                                                        class="form-label">Username</label>
-                                                                    <input type="text" class="form-control"
-                                                                        id="username" name="username" required>
-                                                                </div>
-                                                                <div class="col-md-6 mb-3">
-                                                                    <label for="email" class="form-label">Email</label>
-                                                                    <input type="email" class="form-control" id="email"
-                                                                        name="email" required>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row">
-                                                                <div class="col-md-6 mb-3">
-                                                                    <label for="password" class="form-label">Password</label>
-                                                                    <input type="password" class="form-control"
-                                                                        id="password" name="password" required minlength="6">
-                                                                </div>
-                                                                <div class="col-md-6 mb-3">
-                                                                    <label for="name" class="form-label">Full Name</label>
-                                                                    <input type="text" class="form-control"
-                                                                        id="name" name="name">
-                                                                </div>
-                                                            </div>
-                                                            <div class="row">
-                                                                <div class="col-md-6 mb-3">
-                                                                    <label for="role" class="form-label">Role</label>
-                                                                    <select class="form-select" id="role" name="role" required>
-                                                                        <option value="editor">Reporter</option>
-                                                                        <option value="subeditor">Sub-Editor</option>
-                                                                    </select>
-                                                                    <small class="text-muted">
-                                                                        Reporter: Basic access | Sub-Editor: Extended access
-                                                                    </small>
-                                                                </div>
-                                                                <div class="col-md-6 mb-3">
-                                                                    <label for="displayRole" class="form-label">Display Role</label>
-                                                                    <input type="text" class="form-control"
-                                                                        id="displayRole" name="displayRole" placeholder="e.g., Sports Reporter, District Correspondent">
-                                                                </div>
-                                                            </div>
-                                                            <div class="row">
-                                                                <div class="col-md-6 mb-3">
-                                                                    <label for="location" class="form-label">Location</label>
-                                                                    <input type="text" class="form-control"
-                                                                        id="location" name="location">
-                                                                </div>
-                                                                <div class="col-md-6 mb-3">
-                                                                    <label for="constituency" class="form-label">Constituency</label>
-                                                                    <input type="text" class="form-control"
-                                                                        id="constituency" name="constituency">
-                                                                </div>
-                                                            </div>
-                                                            <div class="row">
-                                                                <div class="col-md-6 mb-3">
-                                                                    <label for="workingLanguage" class="form-label">News Language</label>
-                                                                    <select class="form-select" id="workingLanguage" name="workingLanguage" required>
-                                                                        <option value="te">Telugu</option>
-                                                                        <option value="en">English</option>
-                                                                        <option value="hi">Hindi</option>
-                                                                        <option value="ta">Tamil</option>
-                                                                    </select>
-                                                                    <small class="text-muted">Reporter posts news in this language</small>
-                                                                </div>
-                                                                <div class="col-md-6 mb-3">
-                                                                    <label for="mobileNumber" class="form-label">Mobile Number</label>
-                                                                    <input type="tel" class="form-control"
-                                                                        id="mobileNumber" name="mobileNumber">
-                                                                </div>
-                                                            </div>
-                                                            <button type="submit" class="btn btn-register btn-lg w-100 text-white">
-                                                                <i class="fas fa-user-plus me-1"></i>Register Editor
-                                                            </button>
-                                                        </form>
-
-                                                        <!-- Alert for messages -->
-                                                        <div id="alertContainer" class="mt-3"></div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="email">Email address <span class="reg-required">*</span></label>
+                                                <input type="email" id="email" name="email" required placeholder="name@newsroom.com">
+                                            </div>
+                                        </div>
                                     </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="password">Password <span class="reg-required">*</span></label>
+                                                <div class="reg-password-wrap">
+                                                    <input type="password" id="password" name="password" required minlength="6" placeholder="Minimum 6 characters">
+                                                    <button type="button" class="reg-password-toggle" id="togglePassword" aria-label="Show password"><i class="fas fa-eye"></i></button>
+                                                </div>
+                                                <div class="reg-field-hint">Use at least 6 characters. Share securely with the member.</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="name">Full name</label>
+                                                <input type="text" id="name" name="name" placeholder="Display name in bylines">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="reg-form-section">
+                                    <div class="reg-section-head">
+                                        <span class="reg-section-icon reg-section-icon--role"><i class="fas fa-id-badge"></i></span>
+                                        <div>
+                                            <h2 class="reg-section-title">Role &amp; permissions</h2>
+                                            <p class="reg-section-desc">Choose access level for this member</p>
+                                        </div>
+                                    </div>
+                                    <div class="reg-role-cards" id="roleCards">
+                                        <button type="button" class="reg-role-card is-selected" data-role="editor">
+                                            <div class="reg-role-card-title"><i class="fas fa-pen-nib me-1"></i> Reporter</div>
+                                            <div class="reg-role-card-desc">Create and submit news articles. Basic publishing access.</div>
+                                        </button>
+                                        <button type="button" class="reg-role-card" data-role="subeditor">
+                                            <div class="reg-role-card-title"><i class="fas fa-user-check me-1"></i> Sub-Editor</div>
+                                            <div class="reg-role-card-desc">Extended access to review, edit, and manage content workflow.</div>
+                                        </button>
+                                    </div>
+                                    <select class="d-none" id="role" name="role" required>
+                                        <option value="editor" selected>Reporter</option>
+                                        <option value="subeditor">Sub-Editor</option>
+                                    </select>
+                                    <div class="reg-field mt-3">
+                                        <label for="displayRole">Display role label</label>
+                                        <input type="text" id="displayRole" name="displayRole" placeholder="e.g. Sports Reporter, District Correspondent">
+                                        <div class="reg-field-hint">Shown publicly on articles and team directory</div>
+                                    </div>
+                                </section>
+
+                                <section class="reg-form-section">
+                                    <div class="reg-section-head">
+                                        <span class="reg-section-icon reg-section-icon--region"><i class="fas fa-map-marker-alt"></i></span>
+                                        <div>
+                                            <h2 class="reg-section-title">Regional &amp; language</h2>
+                                            <p class="reg-section-desc">Coverage area and publishing language</p>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="location">Location</label>
+                                                <% if (typeof locations !== 'undefined' && locations.length) { %>
+                                                <select id="location" name="location">
+                                                    <option value="">Select location</option>
+                                                    <% locations.forEach(function(loc) { %>
+                                                    <option value="<%= loc.name %>"><%= loc.name %><% if (loc.code) { %> (<%= loc.code %>)<% } %></option>
+                                                    <% }); %>
+                                                </select>
+                                                <% } else { %>
+                                                <input type="text" id="location" name="location" placeholder="District or city">
+                                                <% } %>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="constituency">Constituency</label>
+                                                <input type="text" id="constituency" name="constituency" placeholder="Assembly constituency">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="workingLanguage">News language <span class="reg-required">*</span></label>
+                                                <select id="workingLanguage" name="workingLanguage" required>
+                                                    <%- include('partials/language-select-options', { selectedValue: defaultLanguage || 'te' }) %>
+                                                </select>
+                                                <div class="reg-field-hint">Primary language for this member's articles</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="mobileNumber">Mobile number</label>
+                                                <input type="tel" id="mobileNumber" name="mobileNumber" placeholder="+91 98765 43210">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <div class="reg-form-footer">
+                                    <button type="submit" class="reg-submit-btn" id="submitBtn">
+                                        <i class="fas fa-user-plus"></i> Create team member
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <aside class="reg-aside">
+                            <div class="reg-preview-card">
+                                <div class="reg-preview-avatar" id="previewAvatar">?</div>
+                                <div class="reg-preview-name" id="previewName">New member</div>
+                                <div class="reg-preview-meta" id="previewEmail">email@example.com</div>
+                                <div class="reg-preview-pills">
+                                    <span class="reg-preview-pill reg-preview-pill--role" id="previewRole">Reporter</span>
+                                    <span class="reg-preview-pill" id="previewLang">Telugu</span>
+                                    <span class="reg-preview-pill" id="previewLocation" style="display:none;"></span>
                                 </div>
                             </div>
-                        </div>
+
+                            <div class="reg-permissions-card">
+                                <div class="reg-permissions-head"><i class="fas fa-shield-alt me-1"></i> Access preview</div>
+                                <div class="reg-permissions-body" id="permissionsList">
+                                    <div class="reg-perm-item"><i class="fas fa-check"></i><span>Create and submit news articles</span></div>
+                                    <div class="reg-perm-item"><i class="fas fa-check"></i><span>Manage own published content</span></div>
+                                    <div class="reg-perm-item is-muted" data-perm="subeditor"><i class="fas fa-times"></i><span>Review pending submissions</span></div>
+                                    <div class="reg-perm-item is-muted" data-perm="subeditor"><i class="fas fa-times"></i><span>Approve or reject articles</span></div>
+                                </div>
+                            </div>
+
+                            <div class="reg-tip-card">
+                                <i class="fas fa-lightbulb me-1"></i>
+                                After registration, share login credentials securely. The member can update their profile from the admin panel.
+                            </div>
+                        </aside>
+                    </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <%- include('partials/footer') %>
+    <%- include('partials/footer') %>
+    <script>
+        (function () {
+            const form = document.getElementById('registerEditorForm');
+            const roleSelect = document.getElementById('role');
+            const roleCards = document.querySelectorAll('.reg-role-card');
+            const alertContainer = document.getElementById('alertContainer');
+            const submitBtn = document.getElementById('submitBtn');
+            const langSelect = document.getElementById('workingLanguage');
 
-            <script>
-                document.getElementById('registerEditorForm').addEventListener('submit', async function(e) {
-                    e.preventDefault();
+            function updatePreview() {
+                const name = document.getElementById('name').value.trim();
+                const username = document.getElementById('username').value.trim();
+                const email = document.getElementById('email').value.trim();
+                const locationEl = document.getElementById('location');
+                const location = locationEl ? locationEl.value.trim() : '';
+                const displayRole = document.getElementById('displayRole').value.trim();
+                const role = roleSelect.value;
 
-                    const form = e.target;
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    const alertContainer = document.getElementById('alertContainer');
+                const displayName = name || username || 'New member';
+                document.getElementById('previewName').textContent = displayName;
+                document.getElementById('previewEmail').textContent = email || 'email@example.com';
+                document.getElementById('previewAvatar').textContent = displayName.split(/[\s._-]+/).filter(Boolean).map(function (n) { return n[0]; }).join('').toUpperCase().substring(0, 2) || '?';
 
-                    // Disable button and show loading
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Registering...';
+                document.getElementById('previewRole').textContent = displayRole || (role === 'subeditor' ? 'Sub-Editor' : 'Reporter');
 
-                    // Get form data
-                    const formData = new FormData(form);
-                    const data = {};
-                    formData.forEach((value, key) => data[key] = value);
+                const langText = langSelect.options[langSelect.selectedIndex]?.text || 'Telugu';
+                document.getElementById('previewLang').textContent = langText;
 
-                    try {
-                        const response = await fetch('/register-editor', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify(data)
-                        });
+                const locPill = document.getElementById('previewLocation');
+                if (location) {
+                    locPill.textContent = location;
+                    locPill.style.display = 'inline-flex';
+                } else {
+                    locPill.style.display = 'none';
+                }
 
-                        const result = await response.json();
-
-                        if (response.ok) {
-                            // Success
-                            alertContainer.innerHTML = `
-                                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                    <i class="fas fa-check-circle me-2"></i>
-                                    ${result.message} - ${result.editor.role === 'subeditor' ? 'Sub-Editor' : 'Reporter'} created!
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                </div>
-                            `;
-
-                            // Clear form
-                            form.reset();
-
-                            // Redirect to editors page after 2 seconds
-                            setTimeout(() => {
-                                window.location.href = '/editors';
-                            }, 2000);
-                        } else {
-                            // Error
-                            alertContainer.innerHTML = `
-                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                    <i class="fas fa-exclamation-circle me-2"></i>
-                                    ${result.error}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                </div>
-                            `;
-                        }
-                    } catch (error) {
-                        alertContainer.innerHTML = `
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                <i class="fas fa-exclamation-circle me-2"></i>
-                                An error occurred. Please try again.
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        `;
-                    } finally {
-                        // Re-enable button
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="fas fa-user-plus me-1"></i>Register Editor';
+                document.querySelectorAll('[data-perm="subeditor"]').forEach(function (el) {
+                    if (role === 'subeditor') {
+                        el.classList.remove('is-muted');
+                        el.querySelector('i').className = 'fas fa-check';
+                    } else {
+                        el.classList.add('is-muted');
+                        el.querySelector('i').className = 'fas fa-times';
                     }
                 });
-            </script>
-    </body>
+            }
+
+            roleCards.forEach(function (card) {
+                card.addEventListener('click', function () {
+                    roleCards.forEach(function (c) { c.classList.remove('is-selected'); });
+                    card.classList.add('is-selected');
+                    roleSelect.value = card.getAttribute('data-role');
+                    updatePreview();
+                });
+            });
+
+            ['username', 'name', 'email', 'displayRole', 'location', 'constituency'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', updatePreview);
+                if (el && el.tagName === 'SELECT') el.addEventListener('change', updatePreview);
+            });
+            if (langSelect) langSelect.addEventListener('change', updatePreview);
+            const locationSelect = document.getElementById('location');
+            if (locationSelect && locationSelect.tagName === 'SELECT') locationSelect.addEventListener('change', updatePreview);
+
+            document.getElementById('togglePassword').addEventListener('click', function () {
+                const input = document.getElementById('password');
+                const icon = this.querySelector('i');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.className = 'fas fa-eye-slash';
+                } else {
+                    input.type = 'password';
+                    icon.className = 'fas fa-eye';
+                }
+            });
+
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
+
+                const formData = new FormData(form);
+                const data = {};
+                formData.forEach(function (value, key) { data[key] = value; });
+
+                try {
+                    const response = await fetch('/register-editor', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        alertContainer.innerHTML = '<div class="reg-alert reg-alert--success"><i class="fas fa-check-circle"></i><span>' + result.message + ' — ' + (result.editor.role === 'subeditor' ? 'Sub-Editor' : 'Reporter') + ' created! Redirecting...</span></div>';
+                        form.reset();
+                        roleCards.forEach(function (c) { c.classList.remove('is-selected'); });
+                        document.querySelector('.reg-role-card[data-role="editor"]').classList.add('is-selected');
+                        roleSelect.value = 'editor';
+                        updatePreview();
+                        setTimeout(function () { window.location.href = '/editors'; }, 1800);
+                    } else {
+                        alertContainer.innerHTML = '<div class="reg-alert reg-alert--error"><i class="fas fa-exclamation-circle"></i><span>' + (result.error || 'Registration failed') + '</span></div>';
+                    }
+                } catch (err) {
+                    alertContainer.innerHTML = '<div class="reg-alert reg-alert--error"><i class="fas fa-exclamation-circle"></i><span>An error occurred. Please try again.</span></div>';
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-user-plus"></i> Create team member';
+                }
+            });
+
+            updatePreview();
+            setupMobileMenu();
+        })();
+
+        function setupMobileMenu() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            if (menuToggle && sidebar) {
+                menuToggle.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    sidebar.classList.toggle('active');
+                    mainContent.classList.toggle('sidebar-active');
+                });
+            }
+            document.addEventListener('click', function (event) {
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('active') &&
+                    !sidebar.contains(event.target) && event.target !== menuToggle &&
+                    (!menuToggle || !menuToggle.contains(event.target))) {
+                    sidebar.classList.remove('active');
+                    if (mainContent) mainContent.classList.remove('sidebar-active');
+                }
+            });
+        }
+    </script>
+</body>
 
 </html>

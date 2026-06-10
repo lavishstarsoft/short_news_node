@@ -1,0 +1,289 @@
+                            <% 
+                                const dashTotal = typeof totalNewsCount !== 'undefined' ? totalNewsCount : (typeof newsList !== 'undefined' ? newsList.length : 0);
+                                const dashActive = typeof activeNewsCount !== 'undefined' ? activeNewsCount : 0;
+                                const dashInactive = typeof inactiveNewsCount !== 'undefined' ? inactiveNewsCount : 0;
+                                const dashPending = typeof pendingNewsCount !== 'undefined' ? pendingNewsCount : 0;
+                                const dashToday = typeof todaysNewsCount !== 'undefined' ? todaysNewsCount : 0;
+                                const dashViews = typeof totalViews !== 'undefined' ? totalViews : 0;
+                                const dashActivePct = dashTotal > 0 ? Math.round((dashActive / dashTotal) * 100) : 0;
+                                const dashPendingPct = dashTotal > 0 ? Math.round((dashPending / dashTotal) * 100) : 0;
+                                const dashInactivePct = dashTotal > 0 ? Math.round((dashInactive / dashTotal) * 100) : 0;
+                                let dashRecentLikes = 0, dashRecentComments = 0;
+                                if (typeof newsList !== 'undefined' && newsList.length) {
+                                    newsList.forEach(function(n) {
+                                        dashRecentLikes += (n.likes || 0);
+                                        dashRecentComments += (n.comments || 0);
+                                    });
+                                }
+                                const dashIsEditor = typeof admin !== 'undefined' && admin && admin.role === 'editor';
+                                const dashAdminName = typeof admin !== 'undefined' && admin ? (admin.username || admin.name || 'User') : 'User';
+                            %>
+                            <div class="dash-page content-area mt-4">
+                                <header class="dash-hero">
+                                    <div>
+                                        <p class="dash-eyebrow"><i class="fas fa-signal"></i> Operations Command Center</p>
+                                        <h1 class="dash-hero-title">News Intelligence Dashboard</h1>
+                                        <p class="dash-hero-sub">Welcome back, <%= dashAdminName %>. Monitor your content pipeline, live broadcast, and regional distribution in one place.</p>
+                                    </div>
+                                    <div class="dash-quick-actions">
+                                        <a href="/add-news" class="team-btn-primary"><i class="fas fa-plus"></i> New article</a>
+                                        <a href="/news-list" class="dash-btn-outline"><i class="fas fa-newspaper"></i> News library</a>
+                                        <% if (!dashIsEditor) { %>
+                                        <a href="/admin/pending-news" class="dash-btn-outline"><i class="fas fa-clock"></i> Pending (<%= dashPending %>)</a>
+                                        <% } %>
+                                    </div>
+                                </header>
+
+                                <div class="dash-kpi-grid">
+                                    <div class="dash-kpi">
+                                        <div class="dash-kpi-top">
+                                            <div>
+                                                <div class="dash-kpi-value"><%= dashTotal.toLocaleString('en-IN') %></div>
+                                                <div class="dash-kpi-label">Total articles</div>
+                                            </div>
+                                            <span class="dash-kpi-icon dash-kpi-icon--indigo"><i class="fas fa-layer-group"></i></span>
+                                        </div>
+                                        <div class="dash-kpi-bar"><span style="width:100%"></span></div>
+                                        <div class="dash-kpi-meta">Full archive</div>
+                                    </div>
+                                    <div class="dash-kpi">
+                                        <div class="dash-kpi-top">
+                                            <div>
+                                                <div class="dash-kpi-value"><%= dashActive.toLocaleString('en-IN') %></div>
+                                                <div class="dash-kpi-label">Live &amp; active</div>
+                                            </div>
+                                            <span class="dash-kpi-icon dash-kpi-icon--green"><i class="fas fa-circle-check"></i></span>
+                                        </div>
+                                        <div class="dash-kpi-bar"><span style="width:<%= dashActivePct %>%"></span></div>
+                                        <div class="dash-kpi-meta"><%= dashActivePct %>% of total</div>
+                                    </div>
+                                    <div class="dash-kpi">
+                                        <div class="dash-kpi-top">
+                                            <div>
+                                                <div class="dash-kpi-value"><%= dashPending.toLocaleString('en-IN') %></div>
+                                                <div class="dash-kpi-label">Awaiting review</div>
+                                            </div>
+                                            <span class="dash-kpi-icon dash-kpi-icon--amber"><i class="fas fa-hourglass-half"></i></span>
+                                        </div>
+                                        <div class="dash-kpi-bar"><span style="width:<%= dashPendingPct %>%"></span></div>
+                                        <div class="dash-kpi-meta"><%= dashPendingPct %>% pending queue</div>
+                                    </div>
+                                    <div class="dash-kpi">
+                                        <div class="dash-kpi-top">
+                                            <div>
+                                                <div class="dash-kpi-value"><%= dashToday.toLocaleString('en-IN') %></div>
+                                                <div class="dash-kpi-label">Published today</div>
+                                            </div>
+                                            <span class="dash-kpi-icon dash-kpi-icon--sky"><i class="fas fa-calendar-day"></i></span>
+                                        </div>
+                                        <div class="dash-kpi-bar"><span style="width:<%= dashTotal > 0 ? Math.min(100, Math.round((dashToday / dashTotal) * 100)) : 0 %>%"></span></div>
+                                        <div class="dash-kpi-meta">Today's output</div>
+                                    </div>
+                                    <div class="dash-kpi">
+                                        <div class="dash-kpi-top">
+                                            <div>
+                                                <div class="dash-kpi-value"><%= dashViews.toLocaleString('en-IN') %></div>
+                                                <div class="dash-kpi-label">Total views</div>
+                                            </div>
+                                            <span class="dash-kpi-icon dash-kpi-icon--violet"><i class="fas fa-eye"></i></span>
+                                        </div>
+                                        <div class="dash-kpi-bar"><span style="width:<%= Math.min(100, dashActivePct + 10) %>%"></span></div>
+                                        <div class="dash-kpi-meta">Reader reach</div>
+                                    </div>
+                                    <div class="dash-kpi">
+                                        <div class="dash-kpi-top">
+                                            <div>
+                                                <div class="dash-kpi-value"><%= dashInactive.toLocaleString('en-IN') %></div>
+                                                <div class="dash-kpi-label">Inactive</div>
+                                            </div>
+                                            <span class="dash-kpi-icon dash-kpi-icon--slate"><i class="fas fa-pause-circle"></i></span>
+                                        </div>
+                                        <div class="dash-kpi-bar"><span style="width:<%= dashInactivePct %>%"></span></div>
+                                        <div class="dash-kpi-meta"><%= dashInactivePct %>% offline</div>
+                                    </div>
+                                </div>
+
+                                <section class="dash-pipeline" aria-label="Content pipeline">
+                                    <div class="dash-pipeline-head">
+                                        <div>
+                                            <h2><i class="fas fa-diagram-project"></i> Content pipeline</h2>
+                                            <p>End-to-end flow from submission to publication</p>
+                                        </div>
+                                    </div>
+                                    <div class="dash-pipeline-flow">
+                                        <div class="dash-flow-node">
+                                            <strong><%= dashTotal.toLocaleString('en-IN') %></strong>
+                                            <span>Total</span>
+                                        </div>
+                                        <div class="dash-flow-arrow"><i class="fas fa-chevron-right"></i></div>
+                                        <div class="dash-flow-node dash-flow-node--active">
+                                            <strong><%= dashActive.toLocaleString('en-IN') %></strong>
+                                            <span>Active</span>
+                                        </div>
+                                        <div class="dash-flow-arrow"><i class="fas fa-chevron-right"></i></div>
+                                        <div class="dash-flow-node dash-flow-node--pending">
+                                            <strong><%= dashPending.toLocaleString('en-IN') %></strong>
+                                            <span>Pending</span>
+                                        </div>
+                                        <div class="dash-flow-arrow"><i class="fas fa-chevron-right"></i></div>
+                                        <div class="dash-flow-node dash-flow-node--today">
+                                            <strong><%= dashToday.toLocaleString('en-IN') %></strong>
+                                            <span>Today</span>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <div class="dash-split">
+                                    <section class="dash-panel dash-live-panel">
+                                        <div class="dash-panel-head">
+                                            <div>
+                                                <h3><i class="fab fa-youtube" style="color:#dc2626"></i> Live broadcast control</h3>
+                                                <p>YouTube live stream for the mobile app</p>
+                                            </div>
+                                        </div>
+                                        <div class="dash-panel-body">
+                                            <div class="dash-live-status">
+                                                <span class="dash-live-badge" id="liveStreamBadge"><i class="fas fa-circle"></i> OFFLINE</span>
+                                                <div class="dash-live-toggle form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="liveStreamToggle" role="switch">
+                                                    <label class="form-check-label" for="liveStreamToggle" id="liveStreamStatusLabel">OFF</label>
+                                                </div>
+                                            </div>
+                                            <div class="collapse show" id="liveStreamConfig">
+                                                <label class="form-label small mb-2" style="color:rgba(255,255,255,0.7)">YouTube URL</label>
+                                                <div class="input-group dash-live-input-wrap mb-2">
+                                                    <span class="input-group-text"><i class="fab fa-youtube"></i></span>
+                                                    <input type="text" class="form-control" id="liveStreamUrl" placeholder="https://www.youtube.com/watch?v=...">
+                                                    <button class="btn" type="button" onclick="saveLiveStreamConfig()">Update</button>
+                                                </div>
+                                                <div class="dash-live-hints">
+                                                    <span><i class="fas fa-check text-success"></i> Video <code>.../watch?v=ID</code></span>
+                                                    <span><i class="fas fa-check text-success"></i> Live <code>.../live/ID</code></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section class="dash-panel">
+                                        <div class="dash-panel-head">
+                                            <div>
+                                                <h3><i class="fas fa-chart-pie"></i> Engagement snapshot</h3>
+                                                <p>From latest <%= typeof newsList !== 'undefined' ? newsList.length : 0 %> articles on dashboard</p>
+                                            </div>
+                                        </div>
+                                        <div class="dash-panel-body">
+                                            <div class="dash-insight-grid">
+                                                <div class="dash-insight-item">
+                                                    <strong><%= dashRecentLikes.toLocaleString('en-IN') %></strong>
+                                                    <span>Likes</span>
+                                                </div>
+                                                <div class="dash-insight-item">
+                                                    <strong><%= dashRecentComments.toLocaleString('en-IN') %></strong>
+                                                    <span>Comments</span>
+                                                </div>
+                                                <div class="dash-insight-item">
+                                                    <strong><%= dashViews.toLocaleString('en-IN') %></strong>
+                                                    <span>Total views</span>
+                                                </div>
+                                                <div class="dash-insight-item">
+                                                    <strong><%= dashToday.toLocaleString('en-IN') %></strong>
+                                                    <span>Today</span>
+                                                </div>
+                                            </div>
+                                            <div class="dash-donut-wrap">
+                                                <div class="dash-donut" style="--active-pct: <%= dashActivePct %>%; --pending-pct: <%= dashPendingPct %>%;">
+                                                    <div class="dash-donut-inner"><%= dashActivePct %>%</div>
+                                                </div>
+                                                <div class="dash-legend">
+                                                    <div class="dash-legend-item"><span class="dash-legend-dot" style="background:#10b981"></span> Active (<%= dashActive %>)</div>
+                                                    <div class="dash-legend-item"><span class="dash-legend-dot" style="background:#f59e0b"></span> Pending (<%= dashPending %>)</div>
+                                                    <div class="dash-legend-item"><span class="dash-legend-dot" style="background:#e5e7eb"></span> Other (<%= Math.max(0, dashTotal - dashActive - dashPending) %>)</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
+                                </div>
+
+                                <section class="dash-section">
+                                    <div class="dash-section-head">
+                                        <div>
+                                            <h2>Regional coverage</h2>
+                                            <p>Top locations by article volume</p>
+                                        </div>
+                                        <a href="/locations" class="dash-link-btn"><i class="fas fa-map"></i> Manage locations</a>
+                                    </div>
+                                    <div class="dash-loc-panel">
+                                        <div id="locationsContainer">
+                                            <div class="dash-loading">
+                                                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                                                <p class="mt-2 mb-0">Loading locations...</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="dash-section">
+                                    <div class="dash-section-head">
+                                        <div>
+                                            <h2>Recent articles</h2>
+                                            <p>Latest submissions — click to view full analytics</p>
+                                        </div>
+                                        <a href="/news-list" class="dash-link-btn"><i class="fas fa-arrow-right"></i> View all</a>
+                                    </div>
+                                    <div class="dash-news-panel">
+                                        <div class="dash-articles-grid">
+                                            <% (typeof newsList !== 'undefined' ? newsList : []).forEach(function(news) { %>
+                                            <article class="dash-article news-card" onclick="openNewsDetail('<%= news._id %>')">
+                                                <div class="dash-article-media">
+                                                    <% if (news.mediaUrl) { %>
+                                                        <% if (news.mediaType === 'video') { %>
+                                                            <video src="<%= news.mediaUrl %>" onclick="event.stopPropagation()" controls></video>
+                                                        <% } else { %>
+                                                            <img src="<%= news.mediaUrl || news.imageUrl %>" alt="<%= news.title %>">
+                                                        <% } %>
+                                                    <% } else { %>
+                                                        <div class="dash-article-media--empty"><i class="fas fa-image"></i></div>
+                                                    <% } %>
+                                                    <% if (news.location && news.locationCode) { %>
+                                                        <span class="dash-article-chip"><i class="fas fa-map-marker-alt"></i> <%= news.locationCode %></span>
+                                                    <% } %>
+                                                    <span class="dash-article-status <%= news.isActive === false ? 'dash-article-status--off' : 'dash-article-status--on' %>">
+                                                        <%= news.isActive === false ? 'Inactive' : 'Active' %>
+                                                    </span>
+                                                </div>
+                                                <div class="dash-article-body">
+                                                    <h3 class="dash-article-title"><%= news.title %></h3>
+                                                    <p class="dash-article-excerpt"><%= news.content.substring(0, 90) %></p>
+                                                    <div class="dash-article-meta">
+                                                        <span><%= news.category %></span>
+                                                        <span><%= new Date(news.publishedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) %></span>
+                                                        <% if (!dashIsEditor) { %><span><i class="fas fa-user"></i> <%= news.author %></span><% } %>
+                                                    </div>
+                                                    <div class="dash-article-engage">
+                                                        <span class="dash-engage-pill"><i class="fas fa-thumbs-up"></i> <%= news.likes || 0 %></span>
+                                                        <span class="dash-engage-pill"><i class="fas fa-comment"></i> <%= news.comments || 0 %></span>
+                                                        <span class="dash-engage-pill"><i class="fas fa-eye"></i> <%= news.views || 0 %></span>
+                                                    </div>
+                                                    <div class="dash-article-actions">
+                                                        <% if (news.isActive !== false) { %>
+                                                        <button type="button" class="btn btn-sm btn-warning ripple" title="Send notification" onclick="sendNotificationForNews('<%= news._id %>'); event.stopPropagation();">
+                                                            <i class="fas fa-bell"></i>
+                                                        </button>
+                                                        <% } %>
+                                                        <button type="button" class="btn btn-sm btn-<%= news.isActive === false ? 'success' : 'outline-secondary' %> ripple" onclick="toggleNewsStatus('<%= news._id %>'); event.stopPropagation();">
+                                                            <i class="fas fa-<%= news.isActive === false ? 'check' : 'pause' %>"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-primary ripple" onclick="editNews('<%= news._id %>'); event.stopPropagation();">
+                                                            <i class="fas fa-pen"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger ripple" onclick="deleteNews('<%= news._id %>'); event.stopPropagation();">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </article>
+                                            <% }); %>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>

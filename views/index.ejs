@@ -3,173 +3,10 @@
 
 <%- include('partials/header', { title: 'Dashboard' }) %>
 
-    <style>
-        .location-card {
-            transition: all 0.3s ease;
-            border: none;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Rejected Toast */
-        .rejected-toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #dc3545;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 10000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-        .rejected-toast.show {
-            opacity: 1;
-            visibility: visible;
-            bottom: 50px;
-        }
-
-        .location-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        .location-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: white;
-            margin: 0 auto 15px;
-            background-color: #28a745;
-        }
-
-        /* News content preview - exactly 3 lines */
-        .news-content-preview {
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            line-height: 1.4;
-            max-height: calc(1.4em * 3);
-        }
-
-        /* Remove padding on mobile for locations section */
-        @media (max-width: 767.98px) {
-            .locations-section-no-padding {
-                padding-left: 0 !important;
-                padding-right: 0 !important;
-            }
-
-            .locations-section-no-padding .card {
-                margin-left: 4px;
-                margin-right: 4px;
-            }
-        }
-
-        /* News card hover effect */
-        .news-card {
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .news-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        /* News detail modal */
-        .news-detail-content img,
-        .news-detail-content video {
-            max-height: 400px;
-            object-fit: cover;
-        }
-
-        /* Make action buttons not trigger card click */
-        .news-card .btn {
-            pointer-events: auto;
-        }
-
-        /* Mobile header icons */
-        .mobile-header-icons {
-            display: flex;
-            gap: 10px;
-        }
-
-        /* Interaction stats card */
-        .stats-card {
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Detail view styles */
-        .detail-section {
-            margin-bottom: 1.5rem;
-        }
-
-        .detail-section-header {
-            border-bottom: 1px solid #eee;
-            padding-bottom: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .interaction-item {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .interaction-item:last-child {
-            border-bottom: none;
-        }
-
-        .comment-item {
-            padding: 1rem;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .comment-item:last-child {
-            border-bottom: none;
-        }
-
-        /* Scrollable sections */
-        .scrollable-section {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        /* Keep dashboard cards in a single row */
-        .stats-container {
-            display: flex;
-            flex-wrap: nowrap;
-            gap: 12px;
-            overflow-x: auto;
-            padding-bottom: 4px;
-        }
-
-        .stats-container .stats-card {
-            min-width: 180px;
-            flex: 1 0 180px;
-        }
-
-        .stats-container::-webkit-scrollbar {
-            height: 6px;
-        }
-
-        .stats-container::-webkit-scrollbar-thumb {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-        }
-    </style>
-    </head>
+    <link rel="stylesheet" href="/css/editors-directory.css">
+    <link rel="stylesheet" href="/css/news-directory.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
+    <link rel="stylesheet" href="/css/notification-modal.css">
 
     <body>
         <%- include('partials/top-nav', { pageTitle: 'Dashboard' }) %>
@@ -181,235 +18,7 @@
 
                         <!-- Main Content -->
                         <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                            <div class="content-area">
-                                <!-- Live Stream Control -->
-                                <div class="card mb-4 shadow-sm border-0"
-                                    style="background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%); color: white;">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <h5 class="card-title text-white mb-1"><i
-                                                        class="fas fa-broadcast-tower me-2"></i>Live Stream Control</h5>
-                                                <p class="mb-0 opacity-75 small">Manage YouTube Live Streaming status
-                                                </p>
-                                            </div>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="liveStreamToggle"
-                                                    style="width: 3em; height: 1.5em; cursor: pointer;">
-                                                <label class="form-check-label ms-2 fw-bold" for="liveStreamToggle"
-                                                    id="liveStreamStatusLabel">OFF</label>
-                                            </div>
-                                        </div>
-                                        <div class="mt-3 collapse show" id="liveStreamConfig">
-                                            <div class="d-flex justify-content-between align-items-end mb-2">
-                                                <label class="form-label text-white small mb-0">YouTube URL (Live Stream or Video)</label>
-                                                <span class="badge bg-dark small" style="font-size: 0.7rem;">Format: https://www.youtube.com/watch?v=...</span>
-                                            </div>
-                                            <div class="input-group mb-2">
-                                                <span class="input-group-text border-0 bg-white text-danger"><i
-                                                        class="fab fa-youtube"></i></span>
-                                                <input type="text" class="form-control border-0" id="liveStreamUrl"
-                                                    placeholder="Paste YouTube link here..."
-                                                    style="box-shadow: none;">
-                                                <button class="btn btn-dark" type="button"
-                                                    onclick="saveLiveStreamConfig()">Update</button>
-                                            </div>
-                                            <div class="p-2 rounded mt-2" style="background: rgba(0,0,0,0.3); font-size: 0.7rem; border: 1px dashed rgba(255,255,255,0.1);">
-                                                <div class="d-flex flex-wrap gap-3 text-white-50">
-                                                    <span><i class="fas fa-check-circle text-success me-1"></i>Video: <code class="text-warning">.../watch?v=ID</code></span>
-                                                    <span><i class="fas fa-check-circle text-success me-1"></i>Live: <code class="text-warning">.../live/ID</code></span>
-                                                    <span><i class="fas fa-times-circle text-danger me-1"></i>No Channel Links (youtube.com/@...)</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Stats Cards -->
-                                <div class="stats-container">
-                                    <div class="card text-white bg-primary stats-card">
-                                        <div class="card-body">
-                                            <h5 class="card-title text-white">Total News</h5>
-                                            <h2>
-                                                <%= typeof totalNewsCount !=='undefined' ? totalNewsCount : (typeof
-                                                    newsList !=='undefined' ? newsList.length : 0) %>
-                                            </h2>
-                                        </div>
-                                    </div>
-                                    <div class="card text-white bg-success stats-card">
-                                        <div class="card-body">
-                                            <h5 class="card-title text-white">Active News</h5>
-                                            <h2>
-                                                <%= typeof activeNewsCount !=='undefined' ? activeNewsCount : (typeof
-                                                    newsList !=='undefined' ? newsList.filter(n=> n.isActive !==
-                                                    false).length : 0) %>
-                                            </h2>
-                                        </div>
-                                    </div>
-                                    <div class="card text-white bg-secondary stats-card">
-                                        <div class="card-body">
-                                            <h5 class="card-title text-white">Inactive News</h5>
-                                            <h2>
-                                                <%= typeof inactiveNewsCount !=='undefined' ? inactiveNewsCount :
-                                                    (typeof newsList !=='undefined' ? newsList.filter(n=> n.isActive ===
-                                                    false).length :
-                                                    0) %>
-                                            </h2>
-                                        </div>
-                                    </div>
-                                    <div class="card text-white bg-info stats-card">
-                                        <div class="card-body">
-                                            <h5 class="card-title text-white">Pending News</h5>
-                                            <h2>
-                                                <%= typeof pendingNewsCount !=='undefined' ? pendingNewsCount :
-                                                    (typeof newsList !=='undefined' ? newsList.filter(n=> n.isActive ===
-                                                    false && !(n.rejectionStatus && n.rejectionStatus.isRejected)).length :
-                                                    0) %>
-                                            </h2>
-                                        </div>
-                                    </div>
-                                    <div class="card text-white bg-warning stats-card">
-                                        <div class="card-body">
-                                            <h5 class="card-title text-white">Today's News</h5>
-                                            <h2>
-                                                <%= typeof todaysNewsCount !=='undefined' ? todaysNewsCount : 0 %>
-                                            </h2>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Locations Section -->
-                                <div class="row mb-4 mx-md-0 locations-section-no-padding">
-                                    <div class="col-12 px-0">
-                                        <div
-                                            class="d-flex justify-content-between align-items-center mb-3 mx-2 mx-md-0">
-                                            <h3 class="mb-0">Locations</h3>
-                                            <button type="button" class="btn btn-sm btn-outline-primary"
-                                                onclick="window.location.href='/locations'">
-                                                <i class="fas fa-map-marker-alt"></i> Manage Locations
-                                            </button>
-                                        </div>
-
-                                        <div class="row mx-0" id="locationsContainer">
-                                            <div class="col-12 text-center">
-                                                <div class="spinner-border text-primary" role="status">
-                                                    <span class="visually-hidden">Loading...</span>
-                                                </div>
-                                                <p class="mt-2">Loading locations...</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- News List -->
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h3 class="mb-0">Recent News</h3>
-                                    <button type="button" class="btn btn-sm btn-outline-primary d-md-none ripple"
-                                        onclick="window.location.href='/add-news'">
-                                        <i class="fas fa-plus"></i> Add
-                                    </button>
-                                </div>
-
-                                <div class="row row-cols-1 row-cols-md-3 g-3">
-                                    <% newsList.forEach(function(news) { %>
-                                        <div class="col">
-                                            <div class="news-card h-100" onclick="openNewsDetail('<%= news._id %>')"
-                                                style="cursor: pointer; position: relative;">
-                                                <div style="position: relative;">
-                                                    <% if (news.mediaType==='video' ) { %>
-                                                        <video src="<%= news.mediaUrl %>" class="card-img-top"
-                                                            style="height: 200px; object-fit: cover;" controls></video>
-                                                        <% } else { %>
-                                                            <img src="<%= news.mediaUrl || news.imageUrl %>"
-                                                                class="card-img-top" alt="<%= news.title %>">
-                                                            <% } %>
-                                                                <% if (news.location) { %>
-                                                                    <div
-                                                                        style="position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.7); color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.8rem;">
-                                                                        <i class="fas fa-map-marker-alt me-1"></i>
-                                                                        <% if (news.locationCode) { %>
-                                                                            <%= news.locationCode %>
-                                                                                <% } %>
-                                                                    </div>
-                                                                    <% } %>
-                                                                        <!-- Active status indicator -->
-                                                                        <div
-                                                                            style="position: absolute; top: 10px; right: 10px;">
-                                                                            <span
-                                                                                class="badge <%= news.isActive === false ? 'bg-secondary' : 'bg-success' %>">
-                                                                                <%= news.isActive===false ? 'Inactive'
-                                                                                    : 'Active' %>
-                                                                            </span>
-                                                                        </div>
-                                                </div>
-                                                <div class="card-body">
-                                                    <h5 class="card-title">
-                                                        <%= news.title.substring(0, 30) %>
-                                                    </h5>
-                                                    <p class="card-text news-content-preview">
-                                                        <%= news.content.substring(0, 60) %>
-                                                    </p>
-                                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                                        <small class="text-muted">
-                                                            <%= news.category %>
-                                                        </small>
-                                                        <small class="text-muted">
-                                                            <%= new Date(news.publishedAt).toLocaleString() %>
-                                                        </small>
-                                                    </div>
-                                                    <% if (typeof admin !=='undefined' && admin && admin.role
-                                                        !=='editor' ) { %>
-                                                        <div
-                                                            class="d-flex justify-content-between align-items-center mb-2">
-                                                            <small class="text-muted">
-                                                                <i class="fas fa-user me-1"></i>
-                                                                <%= news.author %>
-                                                            </small>
-                                                        </div>
-                                                        <% } %>
-                                                            <!-- Interaction counts -->
-                                                            <div class="d-flex justify-content-between mb-2">
-                                                                <small class="text-muted">
-                                                                    <i class="fas fa-thumbs-up text-primary me-1"></i>
-                                                                    <%= news.likes || 0 %>
-                                                                </small>
-                                                                <small class="text-muted">
-                                                                    <i class="fas fa-thumbs-down text-danger me-1"></i>
-                                                                    <%= news.dislikes || 0 %>
-                                                                </small>
-                                                                <small class="text-muted">
-                                                                    <i class="fas fa-comment text-success me-1"></i>
-                                                                    <%= news.comments || 0 %>
-                                                                </small>
-                                                            </div>
-                                                            <div class="d-flex gap-2 flex-nowrap">
-                                                                <button
-                                                                    class="btn btn-sm btn-<%= news.isActive === false ? 'success' : 'secondary' %> ripple"
-                                                                    onclick="toggleNewsStatus('<%= news._id %>'); event.stopPropagation();">
-                                                                    <i
-                                                                        class="fas fa-<%= news.isActive === false ? 'check' : 'times' %>"></i>
-                                                                    <span class="d-none d-sm-inline">
-                                                                        <%= news.isActive===false ? 'Activate'
-                                                                            : 'Deactivate' %>
-                                                                    </span>
-                                                                </button>
-                                                                <button class="btn btn-sm btn-primary ripple"
-                                                                    onclick="editNews('<%= news._id %>'); event.stopPropagation();">
-                                                                    <i class="fas fa-edit"></i>
-                                                                    <span class="d-none d-sm-inline"> Edit</span>
-                                                                </button>
-                                                                <button class="btn btn-sm btn-danger ripple"
-                                                                    onclick="deleteNews('<%= news._id %>'); event.stopPropagation();">
-                                                                    <i class="fas fa-trash"></i>
-                                                                    <span class="d-none d-sm-inline"> Delete</span>
-                                                                </button>
-                                                            </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <% }); %>
-                                </div>
-                            </div>
+                            <%- include('partials/dashboard-main') %>
                         </div>
                 </div>
             </div>
@@ -571,6 +180,9 @@
                             </div>
                         </div>
                         <div class="modal-footer">
+                            <button type="button" class="btn btn-warning" id="dashSendNotifBtn" onclick="sendNotificationForNews(dashboardViewNewsId)" style="display:none;">
+                                <i class="fas fa-bell"></i> Send notification
+                            </button>
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                         </div>
                     </div>
@@ -579,10 +191,12 @@
 
             <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
             <script src="/js/main.js"></script>
+            <script src="/js/notification-sender.js"></script>
             <script id="newsData" type="application/json"><%- JSON.stringify(newsList) %></script>
             <script>
-                // Make newsList available globally
-                const newsList = JSON.parse(document.getElementById('newsData').textContent);
+                window.newsList = JSON.parse(document.getElementById('newsData').textContent);
+                const newsList = window.newsList;
+                let dashboardViewNewsId = null;
             </script>
             <script>
                 // Wait for DOM to be fully loaded
@@ -659,41 +273,30 @@
 
                     if (locations.length === 0) {
                         container.innerHTML = `
-                    <div class="col-12 text-center">
-                        <p class="text-muted">No locations found</p>
-                        <button class="btn btn-primary" onclick="window.location.href='/locations'">
-                            <i class="fas fa-plus me-2"></i>Add Location
-                        </button>
+                    <div class="dash-loading">
+                        <p class="mb-2 text-muted">No locations found</p>
+                        <a href="/locations" class="dash-link-btn"><i class="fas fa-plus"></i> Add location</a>
                     </div>
                 `;
                         return;
                     }
 
-                    // Show only first 4 locations
                     const displayLocations = locations.slice(0, 4);
+                    const maxCount = Math.max(...displayLocations.map(loc => loc.newsCount || 0), 1);
 
                     container.innerHTML = `
-                <div class="row mx-0">
-                    ${displayLocations.map(location => `
-                        <div class="col-6 col-md-6 col-lg-3 mb-4 px-2">
-                            <div class="card location-card h-100">
-                                <div class="card-body text-center">
-                                    <div class="location-icon">
-                                        <i class="fas fa-map-marker-alt"></i>
-                                    </div>
-                                    <h5 class="card-title">${location.name}</h5>
-                                    <p class="card-text">
-                                        <span class="badge ${location.isActive ? 'bg-success' : 'bg-secondary'}">
-                                            ${location.isActive ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </p>
-                                    <p class="card-text">
-                                        <small class="text-muted">${location.newsCount || 0} News Articles</small>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
+                <div class="dash-loc-grid">
+                    ${displayLocations.map(location => {
+                        const pct = Math.round(((location.newsCount || 0) / maxCount) * 100);
+                        return `
+                        <div class="dash-loc-card location-card">
+                            <div class="dash-loc-icon"><i class="fas fa-map-marker-alt"></i></div>
+                            <h5 class="dash-loc-name">${location.name}</h5>
+                            <p class="dash-loc-count">${location.newsCount || 0} articles</p>
+                            <div class="dash-loc-bar"><span style="width:${pct}%"></span></div>
+                            <span class="dash-loc-badge ${location.isActive ? 'dash-loc-badge--on' : 'dash-loc-badge--off'}">${location.isActive ? 'Active' : 'Inactive'}</span>
+                        </div>`;
+                    }).join('')}
                 </div>
             `;
                 }
@@ -735,7 +338,9 @@
 
                 // Open news detail modal
                 async function openNewsDetail(newsId) {
-                    // Find the news item in the newsList array
+                    dashboardViewNewsId = newsId;
+                    const notifBtn = document.getElementById('dashSendNotifBtn');
+
                     let newsItem = newsList.find(news => news._id === newsId);
 
                     if (!newsItem) {
@@ -894,6 +499,11 @@
                             commentsList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No comments yet</small></div>';
                         }
 
+                        if (notifBtn) {
+                            const isActiveArticle = newsItem.isActive !== false;
+                            notifBtn.style.display = isActiveArticle ? 'inline-flex' : 'none';
+                        }
+
                         // Show modal
                         const modal = new bootstrap.Modal(document.getElementById('newsDetailModal'));
                         modal.show();
@@ -995,12 +605,19 @@
                     document.getElementById('liveStreamToggle').addEventListener('change', function () {
                         const isLive = this.checked;
                         document.getElementById('liveStreamStatusLabel').textContent = isLive ? 'LIVE' : 'OFF';
-                        // Auto-save on toggle? Maybe wait for explicit update if we want to change URL too.
-                        // But user might just want to toggle. Let's auto-save status, but URL update is specific.
-                        // Actually, let's just update both when toggle changes or button is clicked.
+                        updateLiveStreamBadge(isLive);
                         saveLiveStreamConfig();
                     });
                 });
+
+                function updateLiveStreamBadge(isLive) {
+                    const badge = document.getElementById('liveStreamBadge');
+                    if (!badge) return;
+                    badge.classList.toggle('is-live', isLive);
+                    badge.innerHTML = isLive
+                        ? '<i class="fas fa-circle"></i> LIVE ON AIR'
+                        : '<i class="fas fa-circle"></i> OFFLINE';
+                }
 
                 async function loadLiveStreamStatus() {
                     const query = `
@@ -1027,6 +644,7 @@
 
                             toggle.checked = status.isLive;
                             label.textContent = status.isLive ? 'LIVE' : 'OFF';
+                            updateLiveStreamBadge(status.isLive);
                             urlInput.value = status.url || '';
                         }
                     } catch (error) {
@@ -1058,9 +676,9 @@
                         });
                         const result = await response.json();
                         if (result.data && result.data.updateLiveStreamStatus) {
-                            alert('Live Stream updated successfully!');
                             const status = result.data.updateLiveStreamStatus;
                             document.getElementById('liveStreamStatusLabel').textContent = status.isLive ? 'LIVE' : 'OFF';
+                            updateLiveStreamBadge(status.isLive);
                         } else {
                             alert('Failed to update. Check console.');
                             console.error('Update failed:', result);
@@ -1071,6 +689,8 @@
                     }
                 }
             </script>
+
+            <%- include('partials/notification-modal') %>
 
             <%- include('partials/footer') %>
     </body>

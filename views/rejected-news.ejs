@@ -1,324 +1,389 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<%- include('partials/header', { title: 'Rejected News' }) %>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+<%- include('partials/header', { title: 'Rejected News Queue' }) %>
+    <link rel="stylesheet" href="/css/rejected-queue.css">
+    <link rel="stylesheet" href="/css/news-directory.css">
+    </head>
 
-        body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-        }
+    <body>
+        <%- include('partials/top-nav', { pageTitle: 'Rejected News', backButton: true, backUrl: '/' }) %>
 
-        .dashboard-header {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-            color: white;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.2);
-        }
+            <div class="container-fluid">
+                <div class="row">
+                    <%- include('partials/sidebar', { activePage: 'rejected-news' }) %>
 
-        .dashboard-header h1 {
-            margin: 0;
-            font-size: 2rem;
-            font-weight: 700;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-        }
+                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                            <div class="content-area mt-4 rn-page">
+                                <% 
+                                    const articles = rejectedNews || [];
+                                    const pageSummary = typeof summary !== 'undefined' ? summary : { total: articles.length, thisWeek: 0, withFeedback: 0, filtered: articles.length };
+                                    const reasons = typeof rejectionReasons !== 'undefined' ? rejectionReasons : [];
+                                    const cats = typeof categories !== 'undefined' ? categories : [];
+                                    const totalRows = (typeof pagination !== 'undefined' && pagination.totalRows !== undefined) ? pagination.totalRows : articles.length;
+                                    const currentPage = (typeof pagination !== 'undefined' && pagination.currentPage) ? pagination.currentPage : 1;
+                                    const totalPages = (typeof pagination !== 'undefined' && pagination.totalPages) ? pagination.totalPages : 1;
+                                    const pageLimit = (typeof pagination !== 'undefined' && pagination.limit) ? pagination.limit : articles.length;
+                                    const currentSearch = (typeof searchQuery !== 'undefined' && searchQuery) ? searchQuery : '';
+                                    const currentReason = (typeof reasonFilter !== 'undefined' && reasonFilter) ? reasonFilter : '';
+                                    const currentCategory = (typeof categoryFilter !== 'undefined' && categoryFilter) ? categoryFilter : '';
 
-        .dashboard-header p {
-            margin: 0.5rem 0 0 0;
-            opacity: 0.95;
-            font-size: 0.95rem;
-        }
+                                    let paginationQuery = '';
+                                    if (currentSearch) paginationQuery += '&search=' + encodeURIComponent(currentSearch);
+                                    if (currentReason) paginationQuery += '&reason=' + encodeURIComponent(currentReason);
+                                    if (currentCategory) paginationQuery += '&category=' + encodeURIComponent(currentCategory);
+                                %>
 
-        .stats-box {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-            margin-bottom: 2rem;
-            text-align: center;
-            border-left: 4px solid #dc3545;
-        }
+                                <div class="rn-hero">
+                                    <div>
+                                        <p class="rn-eyebrow"><i class="fas fa-ban"></i> Editorial queue</p>
+                                        <h1 class="rn-hero-title">Rejected Articles</h1>
+                                        <p class="rn-hero-sub">Audit declined submissions — review reasons, editor feedback, and rejection patterns across the newsroom.</p>
+                                    </div>
+                                </div>
 
-        .stats-number {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #dc3545;
-        }
+                                <div class="rn-stats">
+                                    <div class="rn-stat">
+                                        <div class="rn-stat-value"><%= pageSummary.total %></div>
+                                        <div class="rn-stat-label">Total rejected</div>
+                                    </div>
+                                    <div class="rn-stat">
+                                        <div class="rn-stat-value"><%= pageSummary.thisWeek %></div>
+                                        <div class="rn-stat-label">This week</div>
+                                    </div>
+                                    <div class="rn-stat">
+                                        <div class="rn-stat-value"><%= pageSummary.withFeedback %></div>
+                                        <div class="rn-stat-label">With feedback</div>
+                                    </div>
+                                    <div class="rn-stat">
+                                        <div class="rn-stat-value"><%= reasons.length %></div>
+                                        <div class="rn-stat-label">Rejection reasons</div>
+                                    </div>
+                                </div>
 
-        .stats-label {
-            font-size: 0.9rem;
-            color: #666;
-            margin-top: 0.5rem;
-        }
-
-        .table-wrapper {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-            overflow: hidden;
-            margin-bottom: 2rem;
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .table th {
-            background: #f5f5f5;
-            padding: 1rem;
-            text-align: left;
-            font-weight: 700;
-            color: #333;
-            border-bottom: 2px solid #e0e0e0;
-            font-size: 0.9rem;
-        }
-
-        .table td {
-            padding: 1rem;
-            border-bottom: 1px solid #f0f0f0;
-            font-size: 0.9rem;
-        }
-
-        .table tbody tr:hover {
-            background: #f9f9f9;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 0.4rem 0.8rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .badge-rejected {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .badge-category {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-
-        .reason-cell {
-            max-width: 300px;
-        }
-
-        .reason-title {
-            font-weight: 700;
-            color: #dc3545;
-            margin-bottom: 0.25rem;
-        }
-
-        .reason-feedback {
-            font-size: 0.85rem;
-            color: #666;
-            font-style: italic;
-        }
-
-        .rejection-date {
-            font-size: 0.85rem;
-            color: #999;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: #999;
-        }
-
-        .empty-state-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-
-        .empty-state h3 {
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-
-        .filter-section {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-        }
-
-        .filter-input {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            max-width: 300px;
-        }
-
-        .filter-input label {
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: #dc3545;
-            text-transform: uppercase;
-            margin-bottom: 0.5rem;
-            letter-spacing: 0.5px;
-        }
-
-        .filter-input input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-            background: white;
-        }
-
-        .filter-input input:focus {
-            outline: none;
-            border-color: #dc3545;
-            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
-        }
-
-        @media (max-width: 768px) {
-            .dashboard-header {
-                padding: 1.5rem;
-            }
-
-            .dashboard-header h1 {
-                font-size: 1.5rem;
-            }
-
-            .table {
-                font-size: 0.8rem;
-            }
-
-            .table th,
-            .table td {
-                padding: 0.75rem;
-            }
-        }
-    </style>
-</head>
-
-<body>
-    <%- include('partials/top-nav', { pageTitle: 'Rejected News', backButton: true, backUrl: '/' }) %>
-
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <%- include('partials/sidebar', { activePage: 'rejected-news' }) %>
-
-            <!-- Main Content -->
-            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-                <!-- Dashboard Header -->
-                <div class="dashboard-header mt-4">
-                    <h1>🚫 Rejected News</h1>
-                    <p>Review articles that were rejected during the editorial process</p>
-                </div>
-
-                <!-- Stats Box -->
-                <div class="stats-box">
-                    <div class="stats-number"><%= totalRejected %></div>
-                    <div class="stats-label">Total Rejected Articles</div>
-                </div>
-
-                <!-- Filter Section -->
-                <div class="filter-section">
-                    <div class="filter-input">
-                        <label>🔍 Search</label>
-                        <input type="text" id="searchInput" placeholder="Article title or author..." onkeyup="filterTable()">
-                    </div>
-                </div>
-
-                <!-- Rejected News Table -->
-                <% if (rejectedNews && rejectedNews.length > 0) { %>
-                    <div class="table-wrapper">
-                        <table class="table" id="rejectedTable">
-                            <thead>
-                                <tr>
-                                    <th>Title</th>
-                                    <th>Author</th>
-                                    <th>Category</th>
-                                    <th>Location</th>
-                                    <th>Rejection Reason & Feedback</th>
-                                    <th>Rejected At</th>
-                                    <th>Rejected By</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% rejectedNews.forEach(article => { %>
-                                    <tr data-title="<%= article.title.toLowerCase() %>" data-author="<%= (article.author || '').toLowerCase() %>">
-                                        <td><strong><%= article.title.substring(0, 50) %>...</strong></td>
-                                        <td><%= article.author || 'N/A' %></td>
-                                        <td><span class="badge badge-category"><%= article.category || 'N/A' %></span></td>
-                                        <td><%= article.location || 'N/A' %></td>
-                                        <td class="reason-cell">
-                                            <% if (article.rejectionStatus) { %>
-                                                <div class="reason-title">
-                                                    <%= article.rejectionStatus.reason %>
-                                                </div>
-                                                <% if (article.rejectionStatus.feedback) { %>
-                                                    <div class="reason-feedback">
-                                                        <%= article.rejectionStatus.feedback.substring(0, 100) %>
-                                                        <% if (article.rejectionStatus.feedback.length > 100) { %>
-                                                            <span title="<%= article.rejectionStatus.feedback %>">...</span>
-                                                        <% } %>
-                                                    </div>
-                                                <% } %>
+                                <div class="rn-panel">
+                                    <div class="rn-panel-toolbar">
+                                        <form class="rn-search-form" method="GET" action="/admin/rejected-news">
+                                            <div class="rn-search-wrap">
+                                                <i class="fas fa-search"></i>
+                                                <input type="text" name="search" class="rn-search" placeholder="Search title, author, reason, feedback..." value="<%= currentSearch %>">
+                                            </div>
+                                            <button type="submit" class="rn-search-btn"><i class="fas fa-filter"></i> Search</button>
+                                            <% if (currentSearch || currentReason || currentCategory) { %>
+                                                <a href="/admin/rejected-news" class="rn-clear-btn">Clear</a>
                                             <% } %>
-                                        </td>
-                                        <td>
-                                            <div class="rejection-date">
-                                                <%= new Date(article.rejectionStatus.rejectedAt).toLocaleDateString() %>
-                                            </div>
-                                            <div class="rejection-date" style="font-size: 0.8rem;">
-                                                <%= new Date(article.rejectionStatus.rejectedAt).toLocaleTimeString() %>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div><strong><%= article.rejectionStatus.rejectedBy %></strong></div>
-                                            <div style="font-size: 0.8rem; color: #dc3545;"><%= article.rejectionStatus.rejectedByRole || 'Editor' %></div>
-                                        </td>
-                                    </tr>
-                                <% }); %>
-                            </tbody>
-                        </table>
-                    </div>
-                <% } else { %>
-                    <div class="empty-state">
-                        <div class="empty-state-icon">✨</div>
-                        <h3>No Rejected Articles</h3>
-                        <p>Great! All submitted articles are either published or pending review.</p>
-                    </div>
-                <% } %>
+                                        </form>
+
+                                        <form method="GET" action="/admin/rejected-news" class="d-flex gap-2 flex-wrap">
+                                            <% if (currentSearch) { %><input type="hidden" name="search" value="<%= currentSearch %>"><% } %>
+                                            <select name="reason" class="rn-filter-select" onchange="this.form.submit()">
+                                                <option value="">All reasons</option>
+                                                <% reasons.forEach(function(reason) { %>
+                                                    <option value="<%= reason %>" <%= currentReason === reason ? 'selected' : '' %>><%= reason %></option>
+                                                <% }); %>
+                                            </select>
+                                            <select name="category" class="rn-filter-select" onchange="this.form.submit()">
+                                                <option value="">All categories</option>
+                                                <% cats.forEach(function(cat) { %>
+                                                    <option value="<%= cat %>" <%= currentCategory === cat ? 'selected' : '' %>><%= cat %></option>
+                                                <% }); %>
+                                            </select>
+                                        </form>
+                                    </div>
+
+                                    <% if (articles.length > 0) { %>
+                                    <div class="rn-table-wrap">
+                                        <table class="rn-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Article</th>
+                                                    <th>Author</th>
+                                                    <th>Category</th>
+                                                    <th>Rejection</th>
+                                                    <th>Rejected</th>
+                                                    <th>Reviewer</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <% articles.forEach(function(article) {
+                                                    const rejection = article.rejectionStatus || {};
+                                                    const rejectedAt = rejection.rejectedAt ? new Date(rejection.rejectedAt) : null;
+                                                %>
+                                                <tr>
+                                                    <td class="rn-article-cell">
+                                                        <button type="button" class="rn-article-title-link" onclick="viewRejectedArticle('<%= article._id %>')"><%= article.title %></button>
+                                                        <div class="rn-article-meta">
+                                                            <% if (article.language) { %><%= article.language.toUpperCase() %><% } %>
+                                                            <% if (article.views) { %> · <%= article.views %> views<% } %>
+                                                        </div>
+                                                    </td>
+                                                    <td><span class="rn-author"><%= article.author || 'N/A' %></span></td>
+                                                    <td>
+                                                        <span class="rn-pill rn-pill-category"><%= article.category || 'N/A' %></span>
+                                                        <% if (article.location) { %>
+                                                            <span class="rn-pill rn-pill-location"><%= article.location %></span>
+                                                        <% } %>
+                                                    </td>
+                                                    <td>
+                                                        <% if (rejection.reason) { %>
+                                                            <div class="rn-reason-box">
+                                                                <p class="rn-reason-title"><%= rejection.reason %></p>
+                                                                <% if (rejection.feedback) { %>
+                                                                    <p class="rn-reason-feedback"><%= rejection.feedback %></p>
+                                                                <% } %>
+                                                            </div>
+                                                        <% } else { %>
+                                                            <span class="rn-reason-empty">No reason recorded</span>
+                                                        <% } %>
+                                                    </td>
+                                                    <td>
+                                                        <% if (rejectedAt) { %>
+                                                            <div class="rn-date"><%= rejectedAt.toLocaleDateString() %></div>
+                                                            <div class="rn-date-time"><%= rejectedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) %></div>
+                                                        <% } else { %>
+                                                            <span class="rn-reason-empty">—</span>
+                                                        <% } %>
+                                                    </td>
+                                                    <td class="rn-reviewer-cell">
+                                                        <div class="rn-reviewer-name"><%= rejection.rejectedBy || 'Unknown' %></div>
+                                                        <% if (rejection.rejectedByRole) { %>
+                                                            <span class="rn-reviewer-role"><%= rejection.rejectedByRole %></span>
+                                                        <% } %>
+                                                    </td>
+                                                    <td>
+                                                        <button type="button" class="rn-view-btn" onclick="viewRejectedArticle('<%= article._id %>')">
+                                                            <i class="fas fa-newspaper"></i> View news
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                <% }); %>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="rn-pagination">
+                                        <div class="rn-pagination-info">
+                                            Showing <%= totalRows === 0 ? 0 : ((currentPage - 1) * pageLimit) + 1 %>–<%= Math.min(currentPage * pageLimit, totalRows) %> of <%= totalRows %> articles
+                                            <% if (totalPages > 1) { %> · Page <%= currentPage %> of <%= totalPages %><% } %>
+                                        </div>
+                                        <% if (totalPages > 1) { %>
+                                        <div class="rn-pagination-nav">
+                                            <a class="rn-page-btn <%= currentPage === 1 ? 'disabled' : '' %>" href="?page=1<%= paginationQuery %>" aria-label="First page"><i class="fas fa-angles-left"></i></a>
+                                            <a class="rn-page-btn <%= currentPage === 1 ? 'disabled' : '' %>" href="?page=<%= currentPage - 1 %><%= paginationQuery %>" aria-label="Previous page"><i class="fas fa-angle-left"></i></a>
+                                            <% 
+                                                let startPage = Math.max(1, currentPage - 2);
+                                                let endPage = Math.min(totalPages, currentPage + 2);
+                                                if (endPage - startPage < 4) {
+                                                    if (startPage === 1) endPage = Math.min(totalPages, startPage + 4);
+                                                    else startPage = Math.max(1, endPage - 4);
+                                                }
+                                                for (let i = startPage; i <= endPage; i++) { %>
+                                            <a class="rn-page-btn <%= i === currentPage ? 'active' : '' %>" href="?page=<%= i %><%= paginationQuery %>"><%= i %></a>
+                                            <% } %>
+                                            <a class="rn-page-btn <%= currentPage === totalPages ? 'disabled' : '' %>" href="?page=<%= currentPage + 1 %><%= paginationQuery %>" aria-label="Next page"><i class="fas fa-angle-right"></i></a>
+                                            <a class="rn-page-btn <%= currentPage === totalPages ? 'disabled' : '' %>" href="?page=<%= totalPages %><%= paginationQuery %>" aria-label="Last page"><i class="fas fa-angles-right"></i></a>
+                                        </div>
+                                        <% } %>
+                                    </div>
+                                    <% } else { %>
+                                    <div class="rn-empty">
+                                        <div class="rn-empty-icon"><i class="fas fa-check"></i></div>
+                                        <h3>No rejected articles</h3>
+                                        <p><% if (currentSearch || currentReason || currentCategory) { %>No matches for your filters.<% } else { %>All submissions are published or pending review.<% } %></p>
+                                    </div>
+                                    <% } %>
+                                </div>
+                            </div>
+                        </div>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <script>
-        function filterTable() {
-            const searchInput = document.getElementById('searchInput').value.toLowerCase();
-            const table = document.getElementById('rejectedTable');
+            <!-- Article Preview Modal -->
+            <div class="modal fade" id="rejectDetailModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="rn-modal-header">
+                            <div>
+                                <h2 class="rn-modal-title" id="rejectModalTitle">Article preview</h2>
+                                <p class="rn-modal-sub" id="rejectModalSub"></p>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-4" id="rejectModalBody">
+                            <div class="rn-preview-loading"><i class="fas fa-spinner fa-spin me-2"></i>Loading article...</div>
+                        </div>
+                        <div class="modal-footer">
+                            <a href="#" id="rejectEditLink" class="btn btn-outline-primary" style="display:none;">
+                                <i class="fas fa-pen me-1"></i> Edit article
+                            </a>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            if (!table) return;
+            <script src="/js/rich-text.js"></script>
+            <script>
+                window.rejectedArticlesData = <%- JSON.stringify(articles.map(function(a) {
+                    return {
+                        _id: a._id,
+                        title: a.title,
+                        author: a.author || '',
+                        category: a.category || '',
+                        location: a.location || '',
+                        language: a.language || '',
+                        views: a.views || 0,
+                        rejectionStatus: a.rejectionStatus || {}
+                    };
+                })) %>;
 
-            const rows = table.querySelectorAll('tbody tr');
-            rows.forEach(row => {
-                const title = row.getAttribute('data-title');
-                const author = row.getAttribute('data-author');
+                let rejectDetailModalInstance = null;
 
-                const matchesSearch = title.includes(searchInput) || author.includes(searchInput);
-                row.style.display = matchesSearch ? '' : 'none';
-            });
-        }
-    </script>
+                function escapeHtml(str) {
+                    if (typeof window.escapeHtml === 'function' && window.escapeHtml !== escapeHtml) {
+                        return window.escapeHtml(str);
+                    }
+                    if (!str) return '';
+                    return String(str)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;');
+                }
 
-</body>
+                function formatDateTime(value) {
+                    if (!value) return '—';
+                    const d = new Date(value);
+                    return d.toLocaleDateString() + ' at ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                }
+
+                function renderRichContent(text) {
+                    if (typeof window.renderRichText === 'function') {
+                        return window.renderRichText(text || '');
+                    }
+                    return escapeHtml(text || '').replace(/\n/g, '<br>');
+                }
+
+                function renderRejectedMedia(newsItem) {
+                    const images = [];
+                    if (Array.isArray(newsItem.imageUrls)) {
+                        newsItem.imageUrls.filter(Boolean).forEach(function(url) { images.push(url); });
+                    }
+                    const primary = newsItem.mediaUrl || newsItem.imageUrl || newsItem.thumbnailUrl;
+                    if (primary && images.indexOf(primary) === -1) {
+                        images.unshift(primary);
+                    }
+
+                    if (newsItem.mediaType === 'video' && primary) {
+                        return '<div class="rn-preview-media"><video controls playsinline preload="metadata"><source src="' +
+                            escapeHtml(primary) + '" type="video/mp4"></video></div>';
+                    }
+
+                    if (images.length > 1) {
+                        return '<div class="rn-preview-media"><div class="rn-preview-media-gallery">' +
+                            images.map(function(url, index) {
+                                return '<img src="' + escapeHtml(url) + '" alt="Photo ' + (index + 1) + '" loading="lazy">';
+                            }).join('') + '</div></div>';
+                    }
+
+                    if (images.length === 1) {
+                        return '<div class="rn-preview-media"><img src="' + escapeHtml(images[0]) + '" alt="Article image" loading="lazy"></div>';
+                    }
+
+                    return '';
+                }
+
+                function buildRejectionSidebar(article, rejection) {
+                    return '<div class="rn-preview-sidebar">' +
+                        '<div class="rn-feedback-block">' +
+                            '<h4><i class="fas fa-ban me-1"></i> ' + escapeHtml(rejection.reason || 'Rejected') + '</h4>' +
+                            '<p>' + escapeHtml(rejection.feedback || 'No additional feedback was provided.') + '</p>' +
+                        '</div>' +
+                        '<div class="rn-detail-grid" style="grid-template-columns:1fr;">' +
+                            '<div class="rn-detail-item"><div class="rn-detail-label">Rejected by</div><div class="rn-detail-value">' + escapeHtml(rejection.rejectedBy || 'Unknown') + '</div></div>' +
+                            '<div class="rn-detail-item"><div class="rn-detail-label">Role</div><div class="rn-detail-value">' + escapeHtml(rejection.rejectedByRole || 'Editor') + '</div></div>' +
+                            '<div class="rn-detail-item"><div class="rn-detail-label">Rejected at</div><div class="rn-detail-value">' + formatDateTime(rejection.rejectedAt) + '</div></div>' +
+                            '<div class="rn-detail-item"><div class="rn-detail-label">Author</div><div class="rn-detail-value">' + escapeHtml(article.author || 'N/A') + '</div></div>' +
+                            '<div class="rn-detail-item"><div class="rn-detail-label">Views</div><div class="rn-detail-value">' + (article.views || 0).toLocaleString() + '</div></div>' +
+                        '</div>' +
+                    '</div>';
+                }
+
+                function renderArticlePreview(newsItem) {
+                    const rejection = newsItem.rejectionStatus || {};
+                    const published = newsItem.publishedAt ? new Date(newsItem.publishedAt).toLocaleString() : '—';
+
+                    document.getElementById('rejectModalTitle').textContent = 'Rejected article';
+                    document.getElementById('rejectModalSub').textContent =
+                        stripPlainText(newsItem.title || '') +
+                        (newsItem.author ? ' · ' + newsItem.author : '');
+
+                    const editLink = document.getElementById('rejectEditLink');
+                    editLink.href = '/edit-news/' + newsItem._id;
+                    editLink.style.display = 'inline-flex';
+
+                    document.getElementById('rejectModalBody').innerHTML =
+                        '<div class="rn-preview-layout">' +
+                            '<div class="rn-preview-main">' +
+                                renderRejectedMedia(newsItem) +
+                                '<div class="rn-preview-meta">' +
+                                    '<span class="rn-preview-pill rejected"><i class="fas fa-ban"></i> Rejected</span>' +
+                                    '<span class="rn-preview-pill"><i class="fas fa-tag"></i> ' + escapeHtml(newsItem.category || 'General') + '</span>' +
+                                    (newsItem.location ? '<span class="rn-preview-pill"><i class="fas fa-map-marker-alt"></i> ' + escapeHtml(newsItem.location) + '</span>' : '') +
+                                    (newsItem.language ? '<span class="rn-preview-pill">' + escapeHtml(String(newsItem.language).toUpperCase()) + '</span>' : '') +
+                                    '<span class="rn-preview-pill"><i class="far fa-clock"></i> ' + published + '</span>' +
+                                '</div>' +
+                                '<h1 class="rn-preview-title rich-content-area">' + renderRichContent(newsItem.title) + '</h1>' +
+                                '<div class="rn-preview-content rich-content-area">' + renderRichContent(newsItem.content) + '</div>' +
+                            '</div>' +
+                            buildRejectionSidebar(newsItem, rejection) +
+                        '</div>';
+                }
+
+                function stripPlainText(text) {
+                    if (typeof window.stripRichTags === 'function') {
+                        return window.stripRichTags(text || '');
+                    }
+                    return String(text || '').replace(/\[[^\]]*\]/g, '');
+                }
+
+                async function viewRejectedArticle(id) {
+                    const cached = window.rejectedArticlesData.find(function(a) { return String(a._id) === String(id); });
+                    const modalEl = document.getElementById('rejectDetailModal');
+                    document.getElementById('rejectModalBody').innerHTML =
+                        '<div class="rn-preview-loading"><i class="fas fa-spinner fa-spin me-2"></i>Loading article...</div>';
+                    document.getElementById('rejectModalTitle').textContent = cached ? stripPlainText(cached.title) : 'Article preview';
+                    document.getElementById('rejectModalSub').textContent = cached ? (cached.author || '') : '';
+                    document.getElementById('rejectEditLink').style.display = 'none';
+
+                    if (!rejectDetailModalInstance) {
+                        rejectDetailModalInstance = new bootstrap.Modal(modalEl);
+                    }
+                    rejectDetailModalInstance.show();
+
+                    try {
+                        const response = await fetch('/news/api/news/' + id);
+                        if (!response.ok) {
+                            throw new Error('Could not load article');
+                        }
+                        const newsItem = await response.json();
+                        renderArticlePreview(newsItem);
+                    } catch (error) {
+                        console.error(error);
+                        document.getElementById('rejectModalBody').innerHTML =
+                            '<div class="rn-empty"><div class="rn-empty-icon"><i class="fas fa-exclamation-triangle"></i></div>' +
+                            '<h3>Unable to load article</h3><p>Please try again or open the edit page directly.</p></div>';
+                        if (cached) {
+                            const editLink = document.getElementById('rejectEditLink');
+                            editLink.href = '/edit-news/' + id;
+                            editLink.style.display = 'inline-flex';
+                        }
+                    }
+                }
+            </script>
+
+            <%- include('partials/footer') %>
+    </body>
 
 </html>

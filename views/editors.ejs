@@ -5,172 +5,8 @@
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <link rel="stylesheet" href="/css/editors-directory.css">
     <style>
-        :root {
-            --primary: #4f46e5;
-            --primary-light: #eef2ff;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --slate-50: #f8fafc;
-            --slate-100: #f1f5f9;
-            --slate-200: #e2e8f0;
-            --slate-400: #94a3b8;
-            --slate-600: #475569;
-            --slate-900: #0f172a;
-            --radius-xl: 20px;
-            --radius-lg: 12px;
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
-
-        body {
-            background-color: var(--slate-100);
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            color: var(--slate-900);
-        }
-
-        .main-content {
-            padding-bottom: 50px;
-        }
-
-        .editors-card {
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-lg);
-            border: 1px solid var(--slate-200);
-            background: white;
-            overflow: hidden;
-            margin-bottom: 30px;
-        }
-
-        .editors-header {
-            background: var(--slate-900);
-            color: white;
-            padding: 35px 30px;
-            border-bottom: none;
-        }
-
-        .table {
-            --bs-table-hover-bg: var(--slate-50);
-            margin-bottom: 0;
-        }
-
-        .table th {
-            text-transform: uppercase;
-            font-size: 0.7rem;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            color: var(--slate-600);
-            padding: 18px 24px;
-            border-bottom: 2px solid var(--slate-100);
-            background: var(--slate-50);
-        }
-
-        .table td {
-            padding: 20px 24px;
-            vertical-align: middle;
-            border-bottom: 1px solid var(--slate-100);
-        }
-
-        .avatar-circle {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1rem;
-            color: white;
-            background: linear-gradient(135deg, var(--primary) 0%, #818cf8 100%);
-            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
-        }
-
-        .btn-register {
-            background: white;
-            color: var(--slate-900);
-            border: none;
-            padding: 10px 22px;
-            border-radius: 10px;
-            font-weight: 700;
-            box-shadow: var(--shadow-md);
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .btn-register:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-            background: var(--slate-50);
-        }
-
-        .stats-pill {
-            display: inline-flex;
-            align-items: center;
-            padding: 5px 14px;
-            border-radius: 8px;
-            font-size: 0.72rem;
-            font-weight: 700;
-            margin-right: 6px;
-            margin-bottom: 6px;
-        }
-
-        .stats-today { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-        .stats-weekly { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
-        .stats-submitted { background: var(--slate-100); color: var(--slate-600); }
-        .stats-published { background: #dcfce7; color: #166534; }
-        .stats-range { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; cursor: pointer; transition: all 0.2s; }
-        .stats-range:hover { background: #fecaca; }
-        .stats-range i { font-size: 0.8rem; }
-
-        .leaderboard-card {
-            background: white;
-            border: 1px solid var(--slate-200);
-            border-radius: 18px;
-            padding: 20px;
-            transition: all 0.3s ease;
-        }
-
-        .leaderboard-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-lg);
-            border-color: var(--primary);
-        }
-
-        .rank-badge {
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 0.9rem;
-        }
-
-        .rank-1 { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-        .rank-2 { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
-        .rank-3 { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
-
-        .btn-action {
-            width: 38px;
-            height: 38px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 12px;
-            transition: all 0.2s;
-            border: 1px solid var(--slate-200);
-            background: white;
-            color: var(--slate-600);
-        }
-
-        .btn-action:hover {
-            background: var(--slate-900);
-            color: white;
-            border-color: var(--slate-900);
-        }
-
         .feedback-message {
             position: fixed;
             top: 25px;
@@ -180,27 +16,16 @@
             color: white;
             font-weight: 600;
             z-index: 9999;
-            box-shadow: var(--shadow-lg);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
             transform: translateX(200%);
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-
         .feedback-message.show { transform: translateX(0); }
-        .feedback-message.success { background-color: var(--success); }
-        .feedback-message.error { background-color: var(--danger); }
-
-        @media (max-width: 992px) {
-            .editors-container { padding: 0 15px; }
-            .table-responsive { font-size: 0.82rem; }
-        }
-
-        /* Cropper CSS for circular mask */
-        .cropper-view-box,
-        .cropper-face {
-            border-radius: 50%;
-        }
-        /* The cropper mask is square by default, the CSS above makes it circular */
+        .feedback-message.success { background-color: #10b981; }
+        .feedback-message.error { background-color: #ef4444; }
+        .cropper-view-box, .cropper-face { border-radius: 50%; }
     </style>
+
     </head>
 
     <body>
@@ -214,187 +39,105 @@
                         <!-- Main Content -->
                         <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
                             <div class="content-area mt-4">
-                                <!-- Weekly Leaderboard -->
-                                <div class="row mb-4">
-                                    <div class="col-12">
-                                        <div class="card panel border-0 shadow-sm rounded-4">
-                                            <div class="card-body p-4">
-                                                <div class="d-flex align-items-center mb-4">
-                                                    <div class="bg-warning bg-opacity-10 p-2 rounded-3 me-3">
-                                                        <i class="fas fa-trophy text-warning fs-4"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h5 class="mb-1 fw-bold">Weekly Performance Leaderboard</h5>
-                                                        <p class="text-muted small mb-0">Top reporters based on last 7 days activity</p>
-                                                    </div>
-                                                </div>
-                                                <div class="row g-3">
-                                                    <% 
-                                                        const topEditors = [...editors].sort((a, b) => (b.newsStats?.weekly || 0) - (a.newsStats?.weekly || 0)).slice(0, 4);
-                                                        topEditors.forEach((editor, index) => { 
-                                                    %>
-                                                        <div class="col-md-3">
-                                                            <div class="leaderboard-card p-3 h-100">
-                                                                <div class="d-flex align-items-center justify-content-between mb-2">
-                                                                    <div class="rank-badge rank-<%= index + 1 %>">
-                                                                        <%= index + 1 %>
-                                                                    </div>
-                                                                    <span class="badge bg-primary rounded-pill"><%= editor.newsStats?.weekly || 0 %> posts</span>
-                                                                </div>
-                                                                <div class="fw-bold text-dark truncate-text"><%= editor.name || editor.username %></div>
-                                                                <div class="text-muted small mb-2"><%= editor.location || 'N/A' %></div>
-                                                                <div class="progress" style="height: 6px;">
-                                                                    <div class="progress-bar bg-success" role="progressbar" 
-                                                                        style="width: <%= Math.min(100, (editor.newsStats?.weekly || 0) * 10) %>%"></div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    <% }) %>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <% 
+                                    const allStaff = editors || [];
+                                    const reporterList = allStaff.filter(e => e.role === 'editor');
+                                    const subEditorList = allStaff.filter(e => e.role === 'subeditor');
+                                    const activeCount = allStaff.filter(e => e.isActive !== false).length;
+                                    const editorLangLabels = typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' };
+                                %>
 
-                                <div class="card editors-card">
-                                    <div class="card-header editors-header">
-                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                            <div>
-                                                <h2 class="mb-1 fw-bold"><i class="fas fa-users-cog me-2 text-primary"></i>Editors Management</h2>
-                                                <p class="mb-0 text-white-50">Manage reporter accounts, permissions and track real-time performance</p>
-                                            </div>
-                                            <button class="btn btn-register ripple" onclick="window.location.href='/register-editor'">
-                                                <i class="fas fa-plus-circle me-1"></i>New Editor
-                                            </button>
+                                <div class="team-page">
+                                    <div class="team-page-header">
+                                        <div>
+                                            <h1 class="team-page-title">Team Directory</h1>
+                                            <p class="team-page-subtitle">Manage reporters and sub-editors — search, filter, and track performance.</p>
+                                        </div>
+                                        <a href="/register-editor" class="team-btn-primary">
+                                            <i class="fas fa-plus"></i> Add member
+                                        </a>
+                                    </div>
+
+                                    <div class="team-stats">
+                                        <div class="team-stat">
+                                            <div class="team-stat-value"><%= allStaff.length %></div>
+                                            <div class="team-stat-label">Total members</div>
+                                        </div>
+                                        <div class="team-stat">
+                                            <div class="team-stat-value"><%= reporterList.length %></div>
+                                            <div class="team-stat-label">Reporters</div>
+                                        </div>
+                                        <div class="team-stat">
+                                            <div class="team-stat-value"><%= subEditorList.length %></div>
+                                            <div class="team-stat-label">Sub-editors</div>
+                                        </div>
+                                        <div class="team-stat">
+                                            <div class="team-stat-value"><%= activeCount %></div>
+                                            <div class="team-stat-label">Active</div>
                                         </div>
                                     </div>
-                                    <div class="card-body p-0">
-                                        <% if (editors && editors.length > 0) { %>
-                                            <div class="table-responsive">
-                                                <table class="table table-hover align-middle">
-                                                    <thead class="bg-light">
-                                                        <tr>
-                                                            <th>Reporter Profile</th>
-                                                            <th>Permissions</th>
-                                                            <th>Location & Contact</th>
-                                                            <th>Post Insights</th>
-                                                            <th>SLA Status</th>
-                                                            <th class="text-end">Actions</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <% editors.forEach(function(editor) { 
-                                                            const initials = (editor.name || editor.username).split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-                                                        %>
-                                                            <tr id="editor-row-<%= editor._id %>" class="transition-all">
-                                                                <td>
-                                                                    <div class="d-flex align-items-center">
-                                                                        <% if (editor.profileImage) { %>
-                                                                            <img src="<%= editor.profileImage %>" class="rounded-circle me-3" style="width: 44px; height: 44px; object-fit: cover; border: 2px solid white; box-shadow: var(--shadow-sm);">
-                                                                        <% } else { %>
-                                                                            <div class="avatar-circle me-3">
-                                                                                <%= initials %>
-                                                                            </div>
-                                                                        <% } %>
-                                                                        <div>
-                                                                            <div class="fw-bold text-dark"><%= editor.name || editor.username %></div>
-                                                                            <div class="text-muted small">@<%= editor.username %></div>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                                <td>
-                                                                    <span class="badge rounded-pill <%= editor.role === 'subeditor' ? 'bg-primary' : 'bg-info' %> bg-opacity-10 text-<%= editor.role === 'subeditor' ? 'primary' : 'info' %> px-3">
-                                                                        <%= editor.role === 'subeditor' ? 'Sub-Editor' : 'Reporter' %>
-                                                                    </span>
-                                                                    <div class="text-muted small px-1 mt-1"><%= editor.displayRole || 'Field Staff' %></div>
-                                                                </td>
-                                                                <td>
-                                                                    <div class="d-flex flex-column">
-                                                                        <div class="text-dark fw-medium small mb-1">
-                                                                            <i class="fas fa-map-marker-alt me-1 text-danger opacity-50"></i>
-                                                                            <%= editor.location || 'Pan India' %>
-                                                                        </div>
-                                                                        <div class="text-muted small mb-1">
-                                                                            <i class="fas fa-language me-1 opacity-50"></i>
-                                                                            <% const editorLangLabels = typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' }; %>
-                                                                            <%= editorLangLabels[editor.workingLanguage || 'te'] || 'Telugu' %>
-                                                                        </div>
-                                                                        <div class="text-muted small">
-                                                                            <i class="fas fa-envelope me-1 opacity-50"></i>
-                                                                            <%= editor.email %>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                                <td>
-                                                                    <div class="d-flex flex-wrap gap-2 mb-2">
-                                                                        <span class="stats-pill stats-today" title="Posts Today">
-                                                                            <i class="fas fa-calendar-day me-1"></i>Today: <%= editor.newsStats?.today || 0 %>
-                                                                        </span>
-                                                                        <span class="stats-pill stats-weekly" title="Weekly Reach">
-                                                                            <i class="fas fa-chart-line me-1"></i>7D: <%= editor.newsStats?.weekly || 0 %>
-                                                                        </span>
-                                                                        <span class="stats-pill stats-range" id="range-pill-<%= editor._id %>" title="Click to select Date Range" onclick="document.getElementById('picker-<%= editor._id %>')._flatpickr.open()">
-                                                                            <i class="fas fa-calendar-alt me-1"></i>Range: <span id="count-<%= editor._id %>">0</span>
-                                                                        </span>
-                                                                        <input type="text" id="picker-<%= editor._id %>" class="range-picker-input" style="visibility: hidden; position: absolute; width: 0; height: 0;" data-id="<%= editor._id %>">
-                                                                    </div>
-                                                                    <div class="d-flex flex-wrap gap-1">
-                                                                        <span class="stats-pill stats-submitted">S: <%= editor.newsStats?.submitted || 0 %></span>
-                                                                        <span class="stats-pill stats-published">P: <%= editor.newsStats?.published || 0 %></span>
-                                                                    </div>
-                                                                    <button class="btn btn-insights btn-sm mt-1" onclick="showEditorInsights('<%= editor._id %>', '<%= editor.name || editor.username %>', '<%= JSON.stringify(editor.newsStats?.monthlyTrend || []) %>')">
-                                                                        <i class="fas fa-chart-line me-1"></i>Insights
-                                                                    </button>
-                                                                </td>
-                                                                <td>
-                                                                    <div class="d-flex flex-column gap-2">
-                                                                        <div class="d-flex align-items-center gap-2">
-                                                                            <span class="badge <%= editor.isActive ? 'bg-success' : 'bg-danger' %> p-1 rounded-circle" style="width:8px; height:8px;"></span>
-                                                                            <span class="small fw-semibold <%= editor.isActive ? 'text-success' : 'text-danger' %>">
-                                                                                <%= editor.isActive ? 'Active' : 'Account Locked' %>
-                                                                            </span>
-                                                                        </div>
-                                                                        <button class="btn btn-sm <%= editor.isActive ? 'btn-outline-warning' : 'btn-outline-success' %> border-0 py-0 text-start ps-0" 
-                                                                                onclick="toggleEditorStatus('<%= editor._id %>', <%= editor.isActive ? 'true' : 'false' %>)">
-                                                                            <i class="fas <%= editor.isActive ? 'fa-lock' : 'fa-unlock' %> me-1"></i>
-                                                                            <%= editor.isActive ? 'Lock' : 'Unlock' %>
-                                                                        </button>
-                                                                    </div>
-                                                                </td>
-                                                                <td class="text-end">
-                                                                    <div class="d-flex flex-column gap-2">
-                                                        <button class="btn btn-sm btn-outline-primary" onclick="window.location.href='/admin/performance-analytics?authorId=<%= editor._id %>'">
-                                                            Details
-                                                        </button>
-                                                    </div>
-                                                                    <div class="d-flex justify-content-end gap-2">
-                                                                        <button class="btn btn-action btn-outline-primary" onclick="openEditEditorModal('<%= editor._id %>')" title="Edit Profile">
-                                                                            <i class="fas fa-pen-to-square"></i>
-                                                                        </button>
-                                                                        <button class="btn btn-action btn-outline-warning" onclick="openPasswordModal('<%= editor._id %>')" title="Security Settings">
-                                                                            <i class="fas fa-shield-halved"></i>
-                                                                        </button>
-                                                                        <button class="btn btn-action btn-outline-danger" onclick="deleteEditor('<%= editor._id %>')" title="Terminate Account">
-                                                                            <i class="fas fa-user-xmark"></i>
-                                                                        </button>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                        <% }); %>
-                                                    </tbody>
-                                                </table>
+
+                                    <% if (allStaff.length > 0) { %>
+                                    <div class="team-panel">
+                                        <div class="team-panel-toolbar">
+                                            <div class="team-search-wrap">
+                                                <i class="fas fa-search"></i>
+                                                <input type="text" id="staffSearchInput" class="team-search" placeholder="Search name, email, location...">
                                             </div>
-                                            <script id="editorsData"
-                                                type="application/json"><%- JSON.stringify(editors) %></script>
-                                            <% } else { %>
-                                                <div class="text-center py-5">
-                                                    <i class="fas fa-users text-muted fa-3x mb-3"></i>
-                                                    <p class="text-muted">No editors registered yet.</p>
-                                                    <a href="/register-editor" class="btn btn-primary">Add First
-                                                        Editor</a>
-                                                </div>
-                                                <% } %>
+                                            <select id="staffLanguageFilter" class="team-filter-select">
+                                                <option value="">All languages</option>
+                                                <% Object.keys(editorLangLabels).forEach(function(code) { %>
+                                                    <option value="<%= code %>"><%= editorLangLabels[code] %></option>
+                                                <% }); %>
+                                                <option value="__unset__">Not set</option>
+                                            </select>
+                                            <div class="team-segments" role="tablist">
+                                                <button type="button" class="team-segment active" data-staff-filter="all">All<span class="team-segment-count"><%= allStaff.length %></span></button>
+                                                <button type="button" class="team-segment" data-staff-filter="editor">Reporters<span class="team-segment-count"><%= reporterList.length %></span></button>
+                                                <button type="button" class="team-segment" data-staff-filter="subeditor">Sub-editors<span class="team-segment-count"><%= subEditorList.length %></span></button>
+                                            </div>
+                                        </div>
+
+                                        <div class="team-table-wrap">
+                                            <table class="team-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Member</th>
+                                                        <th>Role</th>
+                                                        <th>Location</th>
+                                                        <th>Language</th>
+                                                        <th>Today</th>
+                                                        <th>7 Days</th>
+                                                        <th>Published</th>
+                                                        <th>Range</th>
+                                                        <th>Status</th>
+                                                        <th></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="teamDirectoryBody">
+                                                    <% allStaff.forEach(function(editor) { %>
+                                                        <%- include('partials/editor-directory-row', { editor: editor, newsLanguageLabels: editorLangLabels }) %>
+                                                    <% }) %>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <div class="team-footer-note">
+                                            Showing <strong id="teamVisibleCount"><%= allStaff.length %></strong> of <%= allStaff.length %> members · Click Range to pick custom dates
+                                        </div>
                                     </div>
+
+                                    <script id="editorsData" type="application/json"><%- JSON.stringify(allStaff) %></script>
+                                    <% } else { %>
+                                    <div class="team-panel">
+                                        <div class="team-empty">
+                                            <div class="team-empty-icon"><i class="fas fa-users"></i></div>
+                                            <h5 class="fw-bold text-dark mb-2">No team members yet</h5>
+                                            <p class="mb-4">Register your first reporter or sub-editor to get started.</p>
+                                            <a href="/register-editor" class="team-btn-primary">Register first member</a>
+                                        </div>
+                                    </div>
+                                    <% } %>
                                 </div>
                             </div>
                         </div>
@@ -477,10 +220,7 @@
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">News Language</label>
                                         <select class="form-select" id="editWorkingLanguage">
-                                            <option value="te">Telugu</option>
-                                            <option value="en">English</option>
-                                            <option value="hi">Hindi</option>
-                                            <option value="ta">Tamil</option>
+                                            <%- include('partials/language-select-options', { selectedValue: 'te' }) %>
                                         </select>
                                         <small class="text-muted">Reporter posts news in this language</small>
                                     </div>
@@ -550,7 +290,65 @@
                                 console.error('Error parsing editors data:', e);
                             }
                         }
+                        initStaffFilters();
                     });
+
+                    function initStaffFilters() {
+                        const searchInput = document.getElementById('staffSearchInput');
+                        const languageFilter = document.getElementById('staffLanguageFilter');
+                        const segments = document.querySelectorAll('.team-segment');
+                        const visibleCountEl = document.getElementById('teamVisibleCount');
+                        let activeRole = 'all';
+
+                        function applyStaffFilters() {
+                            const query = (searchInput?.value || '').trim().toLowerCase();
+                            const lang = languageFilter?.value || '';
+                            let visible = 0;
+
+                            document.querySelectorAll('.staff-row').forEach(row => {
+                                const role = row.dataset.role;
+                                const rowLang = row.dataset.language || '';
+                                const haystack = row.dataset.search || '';
+
+                                const roleMatch = activeRole === 'all' || role === activeRole;
+                                const searchMatch = !query || haystack.includes(query);
+                                const langMatch = !lang || (lang === '__unset__' ? !rowLang : rowLang === lang);
+                                const show = roleMatch && searchMatch && langMatch;
+
+                                row.style.display = show ? '' : 'none';
+                                if (show) visible += 1;
+                            });
+
+                            if (visibleCountEl) visibleCountEl.textContent = visible;
+                        }
+
+                        segments.forEach(segment => {
+                            segment.addEventListener('click', function () {
+                                segments.forEach(item => item.classList.remove('active'));
+                                segment.classList.add('active');
+                                activeRole = segment.dataset.staffFilter || 'all';
+                                applyStaffFilters();
+                            });
+                        });
+
+                        if (searchInput) searchInput.addEventListener('input', applyStaffFilters);
+                        if (languageFilter) languageFilter.addEventListener('change', applyStaffFilters);
+
+                        applyStaffFilters();
+                    }
+
+                    function showEditorInsightsById(id) {
+                        const editor = editors.find(e => e._id === id);
+                        if (!editor) {
+                            showFeedback('Editor data not found', 'error');
+                            return;
+                        }
+                        showEditorInsights(
+                            id,
+                            editor.name || editor.username,
+                            JSON.stringify(editor.newsStats?.monthlyTrend || [])
+                        );
+                    }
 
                     // Open Edit Modal
                     function openEditEditorModal(editorId) {

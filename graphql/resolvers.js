@@ -16,6 +16,7 @@ const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = r
 // Import REST API cache utility for clearing REST cache after GraphQL mutations
 const { clearCache: clearRestCache } = require('../middleware/cache');
 const { buildNewsLanguageFilter, normalizeNewsLanguage } = require('../utils/newsLanguages');
+const languageRegistry = require('../services/languageRegistry');
 const jwt = require('jsonwebtoken');
 
 function getAuthenticatedEditorId(req) {
@@ -242,6 +243,25 @@ const resolvers = {
             } catch (error) {
                 console.error('Error fetching location by ID:', error);
                 throw new Error('Failed to fetch location');
+            }
+        },
+
+        getActiveLanguages: async (_, { forUserApp }) => {
+            try {
+                await languageRegistry.refreshCache();
+                const languages = forUserApp
+                    ? languageRegistry.getUserAppLanguages()
+                    : languageRegistry.getActiveLanguages();
+
+                return languages.map((language) => ({
+                    code: language.code,
+                    name: language.name,
+                    nativeName: language.nativeName,
+                    isDefault: language.isDefault === true
+                }));
+            } catch (error) {
+                console.error('Error fetching active languages:', error);
+                throw new Error('Failed to fetch languages');
             }
         },
 

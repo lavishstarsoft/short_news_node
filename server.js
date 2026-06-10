@@ -162,6 +162,8 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const viralVideosRoutes = require('./routes/viralVideosRoutes');
 const longVideosRoutes = require('./routes/longVideosRoutes');
 const locationRoutes = require('./routes/locationRoutes');
+const languageRoutes = require('./routes/languageRoutes');
+const languageRegistry = require('./services/languageRegistry');
 const adminRoutes = require('./routes/adminRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const adRoutes = require('./routes/adRoutes'); // Add this line for ads routes
@@ -495,7 +497,10 @@ mongoose.connect(mongoUri, {
 
     // Create default admin after MongoDB connection is established
     console.log('MongoDB is connected, creating default admin...');
-    return createDefaultAdmin();
+    return createDefaultAdmin()
+      .then(() => languageRegistry.seedDefaultLanguages())
+      .then(() => languageRegistry.syncReporterDefaultLanguages())
+      .then(() => languageRegistry.refreshCache());
   })
   .catch((err) => {
     console.log('Failed to connect to MongoDB, using in-memory storage instead');
@@ -685,6 +690,7 @@ app.use('/categories', categoryRoutes);
 app.use('/viral-videos', viralVideosRoutes);
 app.use('/long-videos', longVideosRoutes);
 app.use('/locations', locationRoutes);
+app.use('/languages', languageRoutes);
 app.use('/ads', adRoutes); // Add this line for ads routes
 app.use('/intelligent-ads', intelligentAdRoutes); // Add this line for intelligent ads routes
 app.use('/cache', cacheRoutes); // Cache management routes

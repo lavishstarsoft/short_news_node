@@ -143,6 +143,15 @@
                             <span class="nav-text">Locations</span>
                         </a>
                     </li>
+                    <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
+                        admin.role==='superadmin' )) { %>
+                        <li class="nav-item">
+                            <a class="nav-link ripple <%= activePage === 'languages' ? 'active' : '' %>" href="/languages">
+                                <i class="fas fa-language me-3"></i>
+                                <span class="nav-text">Languages</span>
+                            </a>
+                        </li>
+                    <% } %>
                     <li class="nav-item">
                         <a class="nav-link ripple <%= activePage === 'reports' ? 'active' : '' %>"
                             href="/admin/reports">

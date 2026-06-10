@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<%- include('partials/header', { title: 'Languages' }) %>
+
+<style>
+    .language-card {
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .add-language-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 50px;
+        padding: 12px 30px;
+        color: white;
+        font-weight: 500;
+    }
+
+    .modal-content {
+        border-radius: 15px;
+        border: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+.badge-default {
+        background: #166534;
+        color: #ffffff !important;
+        font-weight: 700;
+    }
+
+    .badge-status-active {
+        background: #166534 !important;
+        color: #ffffff !important;
+        font-weight: 700;
+    }
+
+    .badge-status-inactive {
+        background: #64748b !important;
+        color: #ffffff !important;
+        font-weight: 700;
+    }
+
+    .badge-user-visible {
+        background: #0369a1 !important;
+        color: #ffffff !important;
+        font-weight: 700;
+    }
+
+    .badge-user-hidden {
+        background: #64748b !important;
+        color: #ffffff !important;
+        font-weight: 700;
+    }
+
+    .reporter-link {
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .reporter-link:hover {
+        text-decoration: underline;
+    }
+</style>
+</head>
+
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Languages Management', backButton: true, backUrl: '/' }) %>
+
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar', { activePage: 'languages' }) %>
+
+            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                <div class="content-area">
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="stats-card">
+                                <h5 class="mb-1">Total Languages</h5>
+                                <h2 id="totalLanguages">0</h2>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stats-card">
+                                <h5 class="mb-1">Active</h5>
+                                <h2 id="activeLanguages">0</h2>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stats-card">
+                                <h5 class="mb-1">User App Visible</h5>
+                                <h2 id="userAppLanguages">0</h2>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h3 class="mb-1">Languages Management</h3>
+                            <p class="text-muted mb-0">Control which languages appear in the user app, admin panel, and reporter assignments.</p>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary me-2" onclick="syncReporterLanguages()">
+                            <i class="fas fa-sync me-2"></i>Sync Reporter Languages
+                        </button>
+                        <button type="button" class="btn add-language-btn ripple" onclick="openAddLanguageModal()">
+                            <i class="fas fa-plus me-2"></i>Add Language
+                        </button>
+                    </div>
+
+                    <div class="card language-card">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Code</th>
+                                            <th>Name</th>
+                                            <th>Native Name</th>
+                                            <th>Status</th>
+                                            <th>User App</th>
+                                            <th>Default</th>
+                                            <th>News</th>
+                                            <th>Reporters <small class="text-muted">(click)</small></th>
+                                            <th>Sub-Editors <small class="text-muted">(click)</small></th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="languagesTableBody">
+                                        <tr>
+                                            <td colspan="10" class="text-center py-4">Loading languages...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="languageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="languageModalLabel">Add Language</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="languageForm">
+                        <input type="hidden" id="languageId">
+                        <div class="mb-3">
+                            <label for="languageCode" class="form-label">Language Code *</label>
+                            <input type="text" class="form-control" id="languageCode" maxlength="10" required>
+                            <div class="form-text">Short code, e.g. te, en, hi</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="languageName" class="form-label">English Name *</label>
+                            <input type="text" class="form-control" id="languageName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="languageNativeName" class="form-label">Native Name *</label>
+                            <input type="text" class="form-control" id="languageNativeName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="languageSortOrder" class="form-label">Sort Order</label>
+                            <input type="number" class="form-control" id="languageSortOrder" value="0">
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="languageActive" checked>
+                            <label class="form-check-label" for="languageActive">Active</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="languageShowInUserApp" checked>
+                            <label class="form-check-label" for="languageShowInUserApp">Show in User App</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="languageDefault">
+                            <label class="form-check-label" for="languageDefault">Set as Default</label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveLanguage()">Save Language</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="reportersModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reportersModalLabel">Assigned Reporters</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="reportersModalBody">
+                    <p class="text-muted mb-0">No reporters assigned.</p>
+                </div>
+                <div class="modal-footer">
+                    <a href="/editors" class="btn btn-outline-primary">Open Editors Page</a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete this language?</p>
+                    <p class="text-danger"><strong>This action cannot be undone.</strong></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let languages = [];
+        let deleteLanguageId = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            loadLanguages();
+            setupMobileMenu();
+        });
+
+        function setupMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const menuToggle = document.querySelector('.menu-toggle');
+
+            if (menuToggle && sidebar) {
+                menuToggle.addEventListener('click', function () {
+                    sidebar.classList.toggle('active');
+                    if (mainContent) {
+                        mainContent.classList.toggle('sidebar-active');
+                    }
+                });
+            }
+        }
+
+        async function loadLanguages() {
+            try {
+                const response = await fetch('/languages/api/languages', {
+                    headers: { Accept: 'application/json' }
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                languages = await response.json();
+                renderLanguages();
+                loadStats();
+            } catch (error) {
+                console.error('Error loading languages:', error);
+                document.getElementById('languagesTableBody').innerHTML =
+                    `<tr><td colspan="10" class="text-center text-danger py-4">${error.message}</td></tr>`;
+            }
+        }
+
+        function loadStats() {
+            document.getElementById('totalLanguages').textContent = languages.length;
+            document.getElementById('activeLanguages').textContent = languages.filter(l => l.isActive).length;
+            document.getElementById('userAppLanguages').textContent = languages.filter(l => l.isActive && l.showInUserApp).length;
+        }
+
+        function renderStaffCount(count, languageCode, role) {
+            if (!count) return '0';
+            return `<button type="button" class="btn btn-link btn-sm p-0 reporter-link" onclick="showReporters('${languageCode}', '${role}')" title="View list">${count}</button>`;
+        }
+
+        function renderLanguages() {
+            if (!languages.length) {
+                document.getElementById('languagesTableBody').innerHTML =
+                    '<tr><td colspan="10" class="text-center py-4">No languages found</td></tr>';
+                return;
+            }
+
+            document.getElementById('languagesTableBody').innerHTML = languages.map(language => `
+                <tr>
+                    <td><code>${language.code}</code></td>
+                    <td>${language.name}</td>
+                    <td>${language.nativeName}</td>
+                    <td>
+                        <span class="badge ${language.isActive ? 'badge-status-active' : 'badge-status-inactive'}">
+                            ${language.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge ${language.showInUserApp ? 'badge-user-visible' : 'badge-user-hidden'}">
+                            ${language.showInUserApp ? 'Visible' : 'Hidden'}
+                        </span>
+                    </td>
+                    <td>
+                        ${language.isDefault ? '<span class="badge badge-default">Default</span>' : '-'}
+                    </td>
+                    <td>${language.newsCount || 0}</td>
+                    <td>${renderStaffCount(language.editorCount || 0, language.code, 'editor')}</td>
+                    <td>${renderStaffCount(language.subeditorCount || 0, language.code, 'subeditor')}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="openEditLanguageModal('${language._id}')">Edit</button>
+                            ${language.isDefault ? '' : `<button class="btn btn-outline-success" onclick="setDefaultLanguage('${language._id}')">Default</button>`}
+                            ${language.isDefault ? '' : `<button class="btn btn-outline-warning" onclick="toggleLanguage('${language._id}')">${language.isActive ? 'Disable' : 'Enable'}</button>`}
+                            ${language.isDefault ? '' : `<button class="btn btn-outline-danger" onclick="openDeleteModal('${language._id}')">Delete</button>`}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function showReporters(languageCode, roleFilter) {
+            const language = languages.find(item => item.code === languageCode);
+            if (!language) return;
+
+            const allStaff = language.reporters || [];
+            const reporters = roleFilter
+                ? allStaff.filter(item => item.role === roleFilter)
+                : allStaff;
+
+            const roleLabel = roleFilter === 'editor'
+                ? 'Reporters'
+                : roleFilter === 'subeditor'
+                    ? 'Sub-Editors'
+                    : 'Staff';
+
+            document.getElementById('reportersModalLabel').textContent =
+                `${language.name} ${roleLabel} (${reporters.length})`;
+
+            if (!reporters.length) {
+                document.getElementById('reportersModalBody').innerHTML =
+                    `<p class="text-muted mb-0">No ${roleLabel.toLowerCase()} assigned to this language.</p>`;
+            } else {
+                document.getElementById('reportersModalBody').innerHTML = `
+                    <p class="text-muted">${roleLabel} with <strong>News Language = ${language.name}</strong> in Editors settings.</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Username</th>
+                                    <th>Display Role</th>
+                                    <th>Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${reporters.map(reporter => `
+                                    <tr>
+                                        <td>${reporter.name || reporter.username}</td>
+                                        <td><code>${reporter.username}</code></td>
+                                        <td>${reporter.displayRole || (reporter.role === 'subeditor' ? 'Sub Editor' : 'Reporter')}</td>
+                                        <td>${reporter.role === 'subeditor' ? 'Sub-Editor' : 'Reporter'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            new bootstrap.Modal(document.getElementById('reportersModal')).show();
+        }
+
+        function openAddLanguageModal() {
+            document.getElementById('languageModalLabel').textContent = 'Add Language';
+            document.getElementById('languageId').value = '';
+            document.getElementById('languageCode').disabled = false;
+            document.getElementById('languageForm').reset();
+            document.getElementById('languageActive').checked = true;
+            document.getElementById('languageShowInUserApp').checked = true;
+            document.getElementById('languageDefault').checked = false;
+            new bootstrap.Modal(document.getElementById('languageModal')).show();
+        }
+
+        function openEditLanguageModal(id) {
+            const language = languages.find(item => item._id === id);
+            if (!language) return;
+
+            document.getElementById('languageModalLabel').textContent = 'Edit Language';
+            document.getElementById('languageId').value = language._id;
+            document.getElementById('languageCode').value = language.code;
+            document.getElementById('languageCode').disabled = false;
+            document.getElementById('languageName').value = language.name;
+            document.getElementById('languageNativeName').value = language.nativeName;
+            document.getElementById('languageSortOrder').value = language.sortOrder || 0;
+            document.getElementById('languageActive').checked = language.isActive !== false;
+            document.getElementById('languageShowInUserApp').checked = language.showInUserApp !== false;
+            document.getElementById('languageDefault').checked = language.isDefault === true;
+            new bootstrap.Modal(document.getElementById('languageModal')).show();
+        }
+
+        async function saveLanguage() {
+            const id = document.getElementById('languageId').value;
+            const payload = {
+                code: document.getElementById('languageCode').value.trim(),
+                name: document.getElementById('languageName').value.trim(),
+                nativeName: document.getElementById('languageNativeName').value.trim(),
+                sortOrder: Number(document.getElementById('languageSortOrder').value || 0),
+                isActive: document.getElementById('languageActive').checked,
+                showInUserApp: document.getElementById('languageShowInUserApp').checked,
+                isDefault: document.getElementById('languageDefault').checked
+            };
+
+            const url = id ? `/languages/api/languages/${id}` : '/languages/api/languages';
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    alert(data.error || 'Failed to save language');
+                    return;
+                }
+
+                const modalEl = document.getElementById('languageModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) modalInstance.hide();
+                await loadLanguages();
+            } catch (error) {
+                alert(error.message || 'Failed to save language');
+            }
+        }
+
+        async function toggleLanguage(id) {
+            const response = await fetch(`/languages/api/languages/${id}/toggle`, {
+                method: 'PATCH',
+                headers: { Accept: 'application/json' }
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.error || 'Failed to update language');
+                return;
+            }
+            await loadLanguages();
+        }
+
+        async function setDefaultLanguage(id) {
+            const response = await fetch(`/languages/api/languages/${id}/default`, {
+                method: 'PATCH',
+                headers: { Accept: 'application/json' }
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.error || 'Failed to set default language');
+                return;
+            }
+            await loadLanguages();
+        }
+
+        function openDeleteModal(id) {
+            deleteLanguageId = id;
+            new bootstrap.Modal(document.getElementById('deleteModal')).show();
+        }
+
+        async function confirmDelete() {
+            if (!deleteLanguageId) return;
+            const response = await fetch(`/languages/api/languages/${deleteLanguageId}`, {
+                method: 'DELETE',
+                headers: { Accept: 'application/json' }
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.error || 'Failed to delete language');
+                return;
+            }
+
+            const modalEl = document.getElementById('deleteModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+            deleteLanguageId = null;
+            await loadLanguages();
+        }
+
+        async function syncReporterLanguages() {
+            try {
+                const response = await fetch('/languages/api/sync-reporter-languages', {
+                    method: 'POST',
+                    headers: { Accept: 'application/json' }
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    alert(data.error || 'Failed to sync reporter languages');
+                    return;
+                }
+                alert(data.message || 'Reporter languages synced');
+                await loadLanguages();
+            } catch (error) {
+                alert(error.message || 'Failed to sync reporter languages');
+            }
+        }
+    </script>
+
+    <%- include('partials/footer') %>
+</body>
+
+</html>

@@ -1,0 +1,99 @@
+<div id="notificationRichModal" class="notification-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="notifModalTitle">
+    <div class="notification-modal">
+        <div class="notification-modal-header">
+            <div class="notif-header-brand">
+                <span class="notif-header-icon" aria-hidden="true"><i class="fas fa-bell"></i></span>
+                <div>
+                    <h5 id="notifModalTitle">Send push notification</h5>
+                    <p>Compose, preview, and broadcast instantly</p>
+                </div>
+            </div>
+            <button type="button" class="notif-close-btn" onclick="closeNotificationModal()" aria-label="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="notification-modal-body">
+            <div class="notif-layout">
+                <aside class="notif-preview-panel">
+                    <div class="notif-phone" aria-hidden="true">
+                        <div class="notif-phone-status">
+                            <span>9:41</span>
+                            <span class="notif-phone-icons"><i class="fas fa-signal"></i><i class="fas fa-wifi"></i><i class="fas fa-battery-full"></i></span>
+                        </div>
+                        <div class="preview-notification">
+                            <div class="preview-icon">
+                                <i class="fas fa-newspaper"></i>
+                            </div>
+                            <div class="preview-content">
+                                <div class="preview-app-row">
+                                    <span class="preview-app-name">Short News</span>
+                                    <span class="preview-app-time">now</span>
+                                </div>
+                                <div class="preview-title" id="previewTitle" style="color:#FF6F00;">Title Preview</div>
+                                <div class="preview-message" id="previewMessage">Message preview will appear here...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <span class="notif-preview-caption"><i class="fas fa-mobile-alt"></i> Live device preview</span>
+                </aside>
+
+                <div class="notif-form-panel">
+                    <div class="notif-field">
+                        <div class="notif-field-head">
+                            <label for="notifTitleInput">Title</label>
+                            <span class="notif-char-count" id="notifTitleCount">0/100</span>
+                        </div>
+                        <input type="text" id="notifTitleInput" class="notif-input" placeholder="Headline users will see..." maxlength="100" oninput="updateNotifPreview()">
+                    </div>
+
+                    <div class="notif-field">
+                        <div class="notif-field-head">
+                            <label for="notifMessageInput">Message</label>
+                            <span class="notif-char-count" id="notifMessageCount">0 chars</span>
+                        </div>
+                        <textarea id="notifMessageInput" class="notif-input notif-textarea" placeholder="Notification message..." rows="4" oninput="updateNotifPreview()"></textarea>
+                    </div>
+
+                    <details class="notif-style-panel" open>
+                        <summary class="notif-style-summary">
+                            <span><i class="fas fa-palette"></i> Title styling</span>
+                            <i class="fas fa-chevron-down notif-style-chevron"></i>
+                        </summary>
+                        <div class="notif-style-body">
+                            <div class="notif-style-row">
+                                <span class="notif-style-label">Color</span>
+                                <div class="color-presets" id="titleColorPresets">
+                                    <button type="button" class="color-btn selected" style="background:#FF6F00;" data-color="#FF6F00" onclick="selectTitleColor(this)" title="Orange"></button>
+                                    <button type="button" class="color-btn" style="background:#E53935;" data-color="#E53935" onclick="selectTitleColor(this)" title="Red"></button>
+                                    <button type="button" class="color-btn" style="background:#1E88E5;" data-color="#1E88E5" onclick="selectTitleColor(this)" title="Blue"></button>
+                                    <button type="button" class="color-btn" style="background:#43A047;" data-color="#43A047" onclick="selectTitleColor(this)" title="Green"></button>
+                                    <button type="button" class="color-btn" style="background:#8E24AA;" data-color="#8E24AA" onclick="selectTitleColor(this)" title="Purple"></button>
+                                    <label class="custom-color-picker" title="Custom color">
+                                        <input type="color" id="customTitleColor" value="#FF6F00" onchange="selectCustomTitleColor(this.value)">
+                                        <span><i class="fas fa-plus"></i></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="notif-style-row">
+                                <span class="notif-style-label">Size</span>
+                                <div class="font-size-btns" id="titleFontSizePresets">
+                                    <button type="button" class="font-size-btn small" data-size="small" onclick="selectTitleFontSize(this)">S</button>
+                                    <button type="button" class="font-size-btn normal selected" data-size="normal" onclick="selectTitleFontSize(this)">M</button>
+                                    <button type="button" class="font-size-btn large" data-size="large" onclick="selectTitleFontSize(this)">L</button>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <div class="notification-modal-footer">
+            <button type="button" class="btn-cancel-notif" onclick="closeNotificationModal()">Cancel</button>
+            <button type="button" class="btn-send-notif" id="sendNotifBtn" onclick="confirmSendNotification()">
+                <i class="fas fa-paper-plane"></i> Send push
+            </button>
+        </div>
+    </div>
+</div>

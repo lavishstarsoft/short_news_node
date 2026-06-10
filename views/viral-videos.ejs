@@ -1,89 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<%- include('partials/header', { title: 'Viral Videos - Short News Admin' }) %>
-    <style>
-        .video-card {
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s;
-            margin-bottom: 20px;
-        }
-
-        .video-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .video-preview {
-            width: 100%;
-            height: 300px;
-            object-fit: cover;
-            background: #000;
-        }
-
-        .add-video-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 50px;
-            padding: 12px 30px;
-            color: white;
-            font-weight: 500;
-        }
-    </style>
+<%- include('partials/header', { title: 'Viral Video Studio' }) %>
+    <link rel="stylesheet" href="/css/viral-studio.css">
     </head>
 
     <body>
-        <%- include('partials/top-nav', { pageTitle: 'Viral Videos' , backButton: true, backUrl: '/' , actions: [ {
-            id: 'addVideoBtn' , icon: 'fas fa-plus' , text: 'Add Video' , onClick: 'openAddVideoModal()' ,
-            class: 'btn-primary' } ] }) %>
+        <%- include('partials/top-nav', { pageTitle: 'Viral Videos', backButton: true, backUrl: '/' }) %>
 
             <div class="container-fluid">
                 <div class="row">
-                    <!-- Sidebar -->
                     <%- include('partials/sidebar', { activePage: 'viral-videos' }) %>
 
-                        <!-- Main Content -->
                         <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                            <div class="content-area">
-                                <!-- Stats Cards -->
-                                <div class="row mb-4">
-                                    <div class="col-md-4">
-                                        <div class="card stats-card bg-primary text-white">
-                                            <div class="card-body">
-                                                <h5>Total Videos</h5>
-                                                <h2 id="totalVideos">0</h2>
-                                            </div>
-                                        </div>
+                            <div class="content-area mt-4 vv-page">
+                                <div class="vv-hero">
+                                    <div>
+                                        <p class="vv-eyebrow"><i class="fas fa-bolt"></i> Short-form studio</p>
+                                        <h1 class="vv-hero-title">Viral Video Hub</h1>
+                                        <p class="vv-hero-sub">Upload, curate, and publish short-form clips for the mobile feed — track views, engagement, and live status.</p>
                                     </div>
-                                    <div class="col-md-4">
-                                        <div class="card stats-card bg-success text-white">
-                                            <div class="card-body">
-                                                <h5>Active Videos</h5>
-                                                <h2 id="activeVideos">0</h2>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="card stats-card bg-info text-white">
-                                            <div class="card-body">
-                                                <h5>Total Views</h5>
-                                                <h2 id="totalViews">0</h2>
-                                            </div>
-                                        </div>
+                                    <div class="vv-hero-actions">
+                                        <button type="button" class="vv-btn-primary" onclick="openAddVideoModal()">
+                                            <i class="fas fa-plus"></i> Add video
+                                        </button>
                                     </div>
                                 </div>
 
-                                <!-- Videos Grid -->
-                                <div class="row" id="videosGrid">
-                                    <div class="col-12 text-center py-5">
-                                        <i class="fas fa-video fa-3x text-muted mb-3"></i>
-                                        <h4 class="text-muted">No viral videos yet</h4>
-                                        <p class="text-muted">Add your first viral video to get started</p>
-                                        <button class="btn btn-primary" onclick="openAddVideoModal()">
-                                            <i class="fas fa-plus me-2"></i>Add Video
-                                        </button>
+                                <div class="vv-stats">
+                                    <div class="vv-stat">
+                                        <div class="vv-stat-value" id="totalVideos">0</div>
+                                        <div class="vv-stat-label">Total videos</div>
+                                    </div>
+                                    <div class="vv-stat">
+                                        <div class="vv-stat-value" id="activeVideos">0</div>
+                                        <div class="vv-stat-label">Live now</div>
+                                    </div>
+                                    <div class="vv-stat">
+                                        <div class="vv-stat-value" id="totalViews">0</div>
+                                        <div class="vv-stat-label">Total views</div>
+                                    </div>
+                                    <div class="vv-stat">
+                                        <div class="vv-stat-value" id="totalLikes">0</div>
+                                        <div class="vv-stat-label">Total likes</div>
+                                    </div>
+                                </div>
+
+                                <div class="vv-panel">
+                                    <div class="vv-panel-toolbar">
+                                        <div class="vv-search-wrap">
+                                            <i class="fas fa-search"></i>
+                                            <input type="text" id="videoSearchInput" class="vv-search" placeholder="Search title, author, category...">
+                                        </div>
+                                        <select id="categoryFilter" class="vv-filter-select">
+                                            <option value="">All categories</option>
+                                        </select>
+                                        <div class="vv-segments" role="tablist">
+                                            <button type="button" class="vv-segment active" data-status="">All</button>
+                                            <button type="button" class="vv-segment" data-status="active">Live</button>
+                                            <button type="button" class="vv-segment" data-status="inactive">Hidden</button>
+                                        </div>
+                                    </div>
+
+                                    <div id="videosGrid" class="vv-grid">
+                                        <div class="vv-empty" style="grid-column: 1 / -1;">
+                                            <div class="vv-empty-icon"><i class="fas fa-spinner fa-spin"></i></div>
+                                            <h3>Loading videos...</h3>
+                                        </div>
+                                    </div>
+
+                                    <div class="vv-pagination" id="videosPagination" style="display:none;">
+                                        <div class="vv-pagination-info" id="paginationInfo"></div>
+                                        <div class="vv-pagination-nav" id="paginationNav"></div>
                                     </div>
                                 </div>
                             </div>
@@ -91,31 +79,42 @@
                 </div>
             </div>
 
-            <!-- Add Video Modal -->
-            <div class="modal fade" id="addVideoModal" tabindex="-1">
-                <div class="modal-dialog modal-lg">
+            <!-- Add / Edit Video Modal -->
+            <div class="modal fade" id="addVideoModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
                     <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Add Viral Video</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <div class="vv-modal-header">
+                            <div>
+                                <h2 class="vv-modal-title" id="videoModalTitle">Add viral video</h2>
+                                <p class="vv-modal-sub">Upload a clip or link external short-form content.</p>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <div class="modal-body">
+                        <div class="modal-body px-4 py-3">
                             <form id="videoForm">
                                 <div class="mb-3">
-                                    <label class="form-label">Title *</label>
-                                    <input type="text" class="form-control" id="videoTitle" required>
+                                    <label class="vv-form-label" for="videoTitle">Title *</label>
+                                    <input type="text" class="form-control vv-form-control" id="videoTitle" required placeholder="Catchy headline for the clip">
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Description</label>
-                                    <textarea class="form-control" id="videoDescription" rows="3"></textarea>
+                                    <label class="vv-form-label" for="videoDescription">Description</label>
+                                    <textarea class="form-control vv-form-control" id="videoDescription" rows="3" placeholder="Optional caption or context"></textarea>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Upload Video File</label>
-                                    <input type="file" class="form-control" id="videoFile" accept="video/*">
+                                    <label class="vv-form-label">Video file</label>
+                                    <div class="vv-upload-zone">
+                                        <i class="fas fa-cloud-upload-alt d-block"></i>
+                                        <input type="file" class="form-control vv-form-control" id="videoFile" accept="video/*">
+                                        <div class="vv-upload-hint">MP4, MOV, WebM — or leave empty when editing</div>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Category</label>
-                                    <select class="form-control" id="videoCategory">
+                                    <label class="vv-form-label" for="videoUrl">External URL (optional)</label>
+                                    <input type="url" class="form-control vv-form-control" id="videoUrl" placeholder="YouTube Shorts, Instagram Reel, Vimeo...">
+                                </div>
+                                <div class="mb-0">
+                                    <label class="vv-form-label" for="videoCategory">Category</label>
+                                    <select class="form-control vv-form-control" id="videoCategory">
                                         <option value="viral">Viral</option>
                                         <option value="trending">Trending</option>
                                         <option value="entertainment">Entertainment</option>
@@ -125,7 +124,9 @@
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" onclick="saveVideo()">Save Video</button>
+                            <button type="button" class="btn btn-danger" onclick="saveVideo()">
+                                <i class="fas fa-save me-1"></i> Save video
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -134,34 +135,71 @@
             <%- include('partials/footer') %>
                 <script>
                     let currentVideoId = null;
+                    let currentPage = 1;
+                    let currentStatus = '';
+                    let currentSearch = '';
+                    let currentCategory = '';
+                    let searchDebounce = null;
+                    let cachedCategories = [];
+                    let videosCache = {};
 
                     document.addEventListener('DOMContentLoaded', function () {
                         setupMobileMenu();
-                        loadVideos();
+                        setupFilters();
+                        loadVideos(1);
                     });
+
+                    function setupFilters() {
+                        document.getElementById('videoSearchInput').addEventListener('input', function (e) {
+                            clearTimeout(searchDebounce);
+                            searchDebounce = setTimeout(function () {
+                                currentSearch = e.target.value.trim();
+                                loadVideos(1);
+                            }, 350);
+                        });
+
+                        document.getElementById('categoryFilter').addEventListener('change', function (e) {
+                            currentCategory = e.target.value;
+                            loadVideos(1);
+                        });
+
+                        document.querySelectorAll('.vv-segment').forEach(function (btn) {
+                            btn.addEventListener('click', function () {
+                                document.querySelectorAll('.vv-segment').forEach(function (b) { b.classList.remove('active'); });
+                                btn.classList.add('active');
+                                currentStatus = btn.dataset.status || '';
+                                loadVideos(1);
+                            });
+                        });
+                    }
 
                     window.openAddVideoModal = function () {
                         currentVideoId = null;
                         document.getElementById('videoForm').reset();
-                        document.querySelector('.modal-title').textContent = 'Add Viral Video';
+                        document.getElementById('videoModalTitle').textContent = 'Add viral video';
                         new bootstrap.Modal(document.getElementById('addVideoModal')).show();
+                    };
+
+                    window.editVideoById = function (id) {
+                        if (videosCache[id]) editVideo(videosCache[id]);
                     };
 
                     window.editVideo = function (video) {
                         currentVideoId = video._id;
-                        document.querySelector('.modal-title').textContent = 'Edit Viral Video';
-
-                        document.getElementById('videoTitle').value = video.title;
+                        document.getElementById('videoModalTitle').textContent = 'Edit viral video';
+                        document.getElementById('videoTitle').value = video.title || '';
                         document.getElementById('videoDescription').value = video.content || '';
-                        document.getElementById('videoCategory').value = video.category;
-
+                        document.getElementById('videoCategory').value = video.category || 'viral';
+                        document.getElementById('videoUrl').value = video.videoUrl || '';
+                        document.getElementById('videoFile').value = '';
                         new bootstrap.Modal(document.getElementById('addVideoModal')).show();
                     };
 
                     window.saveVideo = async function () {
-                        const title = document.getElementById('videoTitle').value;
-                        const description = document.getElementById('videoDescription').value;
+                        const title = document.getElementById('videoTitle').value.trim();
+                        const description = document.getElementById('videoDescription').value.trim();
                         const category = document.getElementById('videoCategory').value;
+                        const videoUrl = document.getElementById('videoUrl').value.trim();
 
                         if (!title) {
                             alert('Please enter a title');
@@ -170,10 +208,10 @@
 
                         try {
                             let mediaUrl = '';
-
                             const fileInput = document.getElementById('videoFile');
-                            if (!currentVideoId && !fileInput.files.length) {
-                                alert('Please select a video file');
+
+                            if (!currentVideoId && !fileInput.files.length && !videoUrl) {
+                                alert('Please upload a video file or provide an external URL');
                                 return;
                             }
 
@@ -181,46 +219,40 @@
                                 showLoader('Uploading video...');
                                 const formData = new FormData();
                                 formData.append('media', fileInput.files[0]);
-
-                                const uploadResponse = await fetch('/news/upload-media', {
-                                    method: 'POST',
-                                    body: formData
-                                });
-
+                                const uploadResponse = await fetch('/news/upload-media', { method: 'POST', body: formData });
                                 if (!uploadResponse.ok) throw new Error('Failed to upload video');
                                 const uploadData = await uploadResponse.json();
                                 mediaUrl = uploadData.mediaUrl;
                             }
 
                             showLoader(currentVideoId ? 'Updating video...' : 'Saving video...');
-                            const newsData = {
+                            const payload = {
                                 title,
                                 content: description,
                                 category,
                                 mediaType: 'video',
-                                ...(mediaUrl && { mediaUrl })
+                                ...(mediaUrl && { mediaUrl }),
+                                ...(videoUrl && { videoUrl })
                             };
 
                             let url = '/viral-videos/api/videos';
                             let method = 'POST';
-
                             if (currentVideoId) {
-                                url = `/viral-videos/api/videos/${currentVideoId}`;
+                                url = '/viral-videos/api/videos/' + currentVideoId;
                                 method = 'PUT';
                             }
 
                             const response = await fetch(url, {
                                 method: method,
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(newsData)
+                                body: JSON.stringify(payload)
                             });
 
                             hideLoader();
                             if (response.ok) {
-                                alert(currentVideoId ? 'Video updated successfully!' : 'Video added successfully!');
                                 bootstrap.Modal.getInstance(document.getElementById('addVideoModal')).hide();
                                 document.getElementById('videoForm').reset();
-                                loadVideos();
+                                loadVideos(currentPage);
                             } else {
                                 const error = await response.json();
                                 alert('Error saving video: ' + (error.error || 'Unknown error'));
@@ -233,19 +265,18 @@
                     };
 
                     window.deleteVideo = async function (id) {
-                        if (!confirm('Are you sure you want to delete this video?')) return;
+                        if (!confirm('Delete this video permanently?')) return;
                         try {
                             showLoader('Deleting video...');
-                            const response = await fetch(`/viral-videos/api/videos/${id}`, { method: 'DELETE' });
+                            const response = await fetch('/viral-videos/api/videos/' + id, { method: 'DELETE' });
                             hideLoader();
-                            if (response.ok) loadVideos();
+                            if (response.ok) loadVideos(currentPage);
                             else {
                                 const error = await response.json();
                                 alert('Error: ' + (error.error || 'Unknown error'));
                             }
                         } catch (error) {
                             hideLoader();
-                            console.error('Error:', error);
                             alert('Error deleting video');
                         }
                     };
@@ -253,95 +284,222 @@
                     window.toggleVideoStatus = async function (id) {
                         try {
                             showLoader('Updating status...');
-                            const response = await fetch(`/viral-videos/api/videos/${id}/toggle-status`, { method: 'PUT' });
+                            const response = await fetch('/viral-videos/api/videos/' + id + '/toggle-status', { method: 'PUT' });
                             hideLoader();
-                            if (response.ok) loadVideos();
+                            if (response.ok) loadVideos(currentPage);
                             else {
                                 const error = await response.json();
                                 alert('Error: ' + (error.error || 'Unknown error'));
                             }
                         } catch (error) {
                             hideLoader();
-                            console.error('Error:', error);
                             alert('Error toggling status');
                         }
                     };
 
-                    function loadVideos() {
-                        fetch('/viral-videos/api/videos')
-                            .then(res => res.json())
-                            .then(data => {
+                    function buildApiUrl(page) {
+                        const params = new URLSearchParams();
+                        params.set('page', page);
+                        params.set('limit', '12');
+                        if (currentSearch) params.set('search', currentSearch);
+                        if (currentStatus) params.set('status', currentStatus);
+                        if (currentCategory) params.set('category', currentCategory);
+                        return '/viral-videos/api/videos?' + params.toString();
+                    }
+
+                    function loadVideos(page) {
+                        currentPage = page;
+                        fetch(buildApiUrl(page))
+                            .then(function (res) { return res.json(); })
+                            .then(function (data) {
                                 const videos = data.videos || [];
-                                document.getElementById('totalVideos').textContent = videos.length;
-                                document.getElementById('activeVideos').textContent = videos.filter(v => v.isActive).length;
+                                const stats = data.stats || {};
+                                const pagination = data.pagination || { currentPage: 1, totalPages: 1, totalVideos: 0, limit: 12 };
 
-                                const grid = document.getElementById('videosGrid');
-                                if (videos.length === 0) {
-                                    grid.innerHTML = `
-                            <div class="col-12 text-center py-5">
-                                <i class="fas fa-video fa-3x text-muted mb-3"></i>
-                                <h4 class="text-muted">No viral videos yet</h4>
-                                <button class="btn btn-primary" onclick="openAddVideoModal()">Add Video</button>
-                            </div>
-                        `;
-                                } else {
-                                    grid.innerHTML = videos.map(video => {
-                                        const statusBadge = video.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
-                                        const statusBtn = video.isActive
-                                            ? `<button class="btn btn-sm btn-outline-warning" onclick="toggleVideoStatus('${video._id}')"><i class="fas fa-ban"></i></button>`
-                                            : `<button class="btn btn-sm btn-outline-success" onclick="toggleVideoStatus('${video._id}')"><i class="fas fa-check"></i></button>`;
+                                document.getElementById('totalVideos').textContent = (stats.total || 0).toLocaleString();
+                                document.getElementById('activeVideos').textContent = (stats.active || 0).toLocaleString();
+                                document.getElementById('totalViews').textContent = (stats.totalViews || 0).toLocaleString();
+                                document.getElementById('totalLikes').textContent = (stats.totalLikes || 0).toLocaleString();
 
-                                        let videoEmbed = '';
-                                        if (video.mediaUrl) videoEmbed = `<video class="video-preview" src="${video.mediaUrl}" controls></video>`;
-                                        else if (video.videoUrl) videoEmbed = getVideoEmbed(video.videoUrl);
-
-                                        const videoJson = JSON.stringify(video).replace(/'/g, "&#39;");
-
-                                        return `
-                                <div class="col-md-4">
-                                    <div class="video-card card">
-                                        ${videoEmbed}
-                                        <div class="card-body">
-                                            <div class="d-flex justify-content-between mb-2">
-                                                <h5 class="card-title text-truncate" style="max-width: 70%;">${video.title}</h5>
-                                                ${statusBadge}
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center mt-3">
-                                                <span class="badge bg-primary">${video.category}</span>
-                                                <div class="btn-group">
-                                                    ${statusBtn}
-                                                    <button class="btn btn-sm btn-outline-primary" onclick='editVideo(${videoJson})'><i class="fas fa-edit"></i></button>
-                                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteVideo('${video._id}')"><i class="fas fa-trash"></i></button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                                    }).join('');
-                                }
+                                updateCategoryFilter(data.categories || []);
+                                renderVideosGrid(videos);
+                                renderPagination(pagination);
                             })
-                            .catch(err => {
+                            .catch(function (err) {
                                 console.error('Error loading videos:', err);
-                                document.getElementById('videosGrid').innerHTML = '<div class="col-12 text-center py-5"><h4 class="text-danger">Error loading videos</h4></div>';
+                                document.getElementById('videosGrid').innerHTML =
+                                    '<div class="vv-empty" style="grid-column:1/-1;"><div class="vv-empty-icon"><i class="fas fa-exclamation-triangle"></i></div><h3>Error loading videos</h3><p>Please refresh the page.</p></div>';
                             });
                     }
 
-                    function getVideoEmbed(url) {
+                    function updateCategoryFilter(categories) {
+                        const select = document.getElementById('categoryFilter');
+                        const merged = [...new Set([...cachedCategories, ...categories])].filter(Boolean).sort();
+                        cachedCategories = merged;
+                        const current = select.value;
+                        select.innerHTML = '<option value="">All categories</option>' +
+                            merged.map(function (cat) {
+                                return '<option value="' + escapeAttr(cat) + '">' + escapeHtml(cat) + '</option>';
+                            }).join('');
+                        select.value = merged.includes(current) ? current : currentCategory;
+                    }
+
+                    function renderVideosGrid(videos) {
+                        const grid = document.getElementById('videosGrid');
+                        if (!videos.length) {
+                            grid.innerHTML =
+                                '<div class="vv-empty" style="grid-column:1/-1;">' +
+                                '<div class="vv-empty-icon"><i class="fas fa-video"></i></div>' +
+                                '<h3>No videos found</h3>' +
+                                '<p>' + (currentSearch || currentStatus || currentCategory ? 'Try adjusting your filters.' : 'Add your first viral clip to get started.') + '</p>' +
+                                '<button type="button" class="vv-btn-primary" onclick="openAddVideoModal()"><i class="fas fa-plus"></i> Add video</button>' +
+                                '</div>';
+                            return;
+                        }
+
+                        grid.innerHTML = videos.map(function (video) {
+                            videosCache[video._id] = video;
+                            const statusClass = video.isActive ? 'live' : 'draft';
+                            const statusLabel = video.isActive ? 'Live' : 'Hidden';
+                            const toggleClass = video.isActive ? 'warning' : 'success';
+                            const toggleIcon = video.isActive ? 'fa-eye-slash' : 'fa-eye';
+                            const toggleLabel = video.isActive ? 'Hide' : 'Live';
+                            const toggleTitle = video.isActive ? 'Hide video' : 'Publish video';
+                            const published = video.publishedAt ? new Date(video.publishedAt).toLocaleDateString() : '—';
+                            const views = (video.views || 0).toLocaleString();
+                            const likes = (video.likes || 0).toLocaleString();
+                            const comments = (video.comments || 0).toLocaleString();
+                            const mediaHtml = getVideoEmbedHtml(video);
+
+                            return '<article class="vv-card">' +
+                                '<div class="vv-media-stage">' +
+                                    '<div class="vv-media-frame">' +
+                                        mediaHtml +
+                                        '<div class="vv-media-overlay"></div>' +
+                                        '<span class="vv-status-pill ' + statusClass + '"><i class="fas fa-circle" style="font-size:5px"></i> ' + statusLabel + '</span>' +
+                                        '<span class="vv-views-pill"><i class="fas fa-eye"></i> ' + views + ' views</span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="vv-card-body">' +
+                                    '<h3 class="vv-card-title">' + escapeHtml(video.title) + '</h3>' +
+                                    '<div class="vv-card-meta">' +
+                                        '<span class="vv-category-pill">' + escapeHtml(video.category || 'viral') + '</span>' +
+                                        '<span class="vv-card-date">' + published + '</span>' +
+                                    '</div>' +
+                                    '<div class="vv-author"><i class="fas fa-user-circle"></i> ' + escapeHtml(video.author || 'Admin') + '</div>' +
+                                    '<div class="vv-metrics">' +
+                                        '<div class="vv-metric"><span class="vv-metric-value">' + likes + '</span><span class="vv-metric-label">Likes</span></div>' +
+                                        '<div class="vv-metric"><span class="vv-metric-value">' + comments + '</span><span class="vv-metric-label">Comments</span></div>' +
+                                        '<div class="vv-metric"><span class="vv-metric-value">' + views + '</span><span class="vv-metric-label">Views</span></div>' +
+                                    '</div>' +
+                                    '<div class="vv-card-actions">' +
+                                        '<button type="button" class="vv-action-btn ' + toggleClass + '" title="' + toggleTitle + '" onclick="toggleVideoStatus(\'' + video._id + '\')"><i class="fas ' + toggleIcon + '"></i><span>' + toggleLabel + '</span></button>' +
+                                        '<button type="button" class="vv-action-btn" title="Edit" onclick="editVideoById(\'' + video._id + '\')"><i class="fas fa-pen"></i><span>Edit</span></button>' +
+                                        '<button type="button" class="vv-action-btn danger" title="Delete" onclick="deleteVideo(\'' + video._id + '\')"><i class="fas fa-trash"></i><span>Delete</span></button>' +
+                                    '</div>' +
+                                '</div>' +
+                            '</article>';
+                        }).join('');
+                    }
+
+                    function renderPagination(pagination) {
+                        const wrap = document.getElementById('videosPagination');
+                        const info = document.getElementById('paginationInfo');
+                        const nav = document.getElementById('paginationNav');
+                        const total = pagination.totalVideos || 0;
+                        const page = pagination.currentPage || 1;
+                        const limit = pagination.limit || 12;
+                        const totalPages = pagination.totalPages || 1;
+
+                        if (totalPages <= 1 && total === 0) {
+                            wrap.style.display = 'none';
+                            return;
+                        }
+
+                        wrap.style.display = 'flex';
+                        const start = total === 0 ? 0 : ((page - 1) * limit) + 1;
+                        const end = Math.min(page * limit, total);
+                        info.textContent = 'Showing ' + start + '–' + end + ' of ' + total + ' videos' +
+                            (totalPages > 1 ? ' · Page ' + page + ' of ' + totalPages : '');
+
+                        if (totalPages <= 1) {
+                            nav.innerHTML = '';
+                            return;
+                        }
+
+                        let startPage = Math.max(1, page - 2);
+                        let endPage = Math.min(totalPages, page + 2);
+                        if (endPage - startPage < 4) {
+                            if (startPage === 1) endPage = Math.min(totalPages, startPage + 4);
+                            else startPage = Math.max(1, endPage - 4);
+                        }
+
+                        let html = '';
+                        html += pageBtn(1, '<i class="fas fa-angles-left"></i>', page === 1, false);
+                        html += pageBtn(page - 1, '<i class="fas fa-angle-left"></i>', page === 1, false);
+                        for (let i = startPage; i <= endPage; i++) {
+                            html += pageBtn(i, String(i), false, i === page);
+                        }
+                        html += pageBtn(page + 1, '<i class="fas fa-angle-right"></i>', page === totalPages, false);
+                        html += pageBtn(totalPages, '<i class="fas fa-angles-right"></i>', page === totalPages, false);
+                        nav.innerHTML = html;
+
+                        nav.querySelectorAll('.vv-page-btn').forEach(function (btn) {
+                            btn.addEventListener('click', function () {
+                                const target = parseInt(btn.dataset.page, 10);
+                                if (!btn.disabled && target >= 1 && target <= totalPages) {
+                                    loadVideos(target);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }
+                            });
+                        });
+                    }
+
+                    function pageBtn(page, label, disabled, active) {
+                        return '<button type="button" class="vv-page-btn' + (active ? ' active' : '') + '" data-page="' + page + '"' + (disabled ? ' disabled' : '') + '>' + label + '</button>';
+                    }
+
+                    function getVideoEmbedHtml(video) {
+                        if (video.mediaUrl) {
+                            return '<video src="' + escapeAttr(video.mediaUrl) + '" controls preload="metadata" playsinline></video>';
+                        }
+                        if (video.thumbnailUrl && !video.videoUrl) {
+                            return '<img src="' + escapeAttr(video.thumbnailUrl) + '" alt="">';
+                        }
+                        if (video.videoUrl) return getExternalEmbed(video.videoUrl);
+                        return '<div class="vv-media-fallback"><i class="fas fa-video"></i></div>';
+                    }
+
+                    function getExternalEmbed(url) {
                         if (url.includes('youtube.com/shorts/')) {
                             const videoId = url.split('shorts/')[1].split('?')[0];
-                            return `<iframe class="video-preview" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
+                            return '<iframe src="https://www.youtube.com/embed/' + escapeAttr(videoId) + '" allowfullscreen></iframe>';
                         }
                         if (url.includes('youtube.com/watch?v=') || url.includes('youtu.be/')) {
                             let videoId = url.includes('youtu.be/') ? url.split('youtu.be/')[1].split('?')[0] : url.split('v=')[1].split('&')[0];
-                            return `<iframe class="video-preview" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
+                            return '<iframe src="https://www.youtube.com/embed/' + escapeAttr(videoId) + '" allowfullscreen></iframe>';
                         }
-                        if (url.includes('instagram.com/reel/')) return `<iframe class="video-preview" src="${url}embed/" frameborder="0" allowfullscreen></iframe>`;
+                        if (url.includes('instagram.com/reel/')) {
+                            return '<iframe src="' + escapeAttr(url) + 'embed/" allowfullscreen></iframe>';
+                        }
                         if (url.includes('vimeo.com/')) {
                             const videoId = url.split('vimeo.com/')[1].split('?')[0];
-                            return `<iframe class="video-preview" src="https://player.vimeo.com/video/${videoId}" frameborder="0" allowfullscreen></iframe>`;
+                            return '<iframe src="https://player.vimeo.com/video/' + escapeAttr(videoId) + '" allowfullscreen></iframe>';
                         }
-                        return `<div class="video-preview d-flex align-items-center justify-content-center bg-dark"><a href="${url}" target="_blank" class="text-white"><i class="fas fa-external-link-alt fa-3x"></i></a></div>`;
+                        return '<div class="vv-media-fallback"><a href="' + escapeAttr(url) + '" target="_blank" rel="noopener" style="color:#fff"><i class="fas fa-external-link-alt fa-2x"></i></a></div>';
+                    }
+
+                    function escapeHtml(str) {
+                        if (!str) return '';
+                        return String(str)
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;');
+                    }
+
+                    function escapeAttr(str) {
+                        return escapeHtml(str).replace(/'/g, '&#39;');
                     }
 
                     function setupMobileMenu() {
@@ -366,8 +524,5 @@
                     }
                 </script>
     </body>
-
-</html>
-</body>
 
 </html>

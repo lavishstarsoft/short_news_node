@@ -2,381 +2,448 @@
 <html lang="en">
 
 <%- include('partials/header', { title: 'Ads Management - Short News Admin' }) %>
-    <style>
-        /* Ad content preview - exactly 3 lines */
-        .ad-content-preview {
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            line-height: 1.4;
-            max-height: calc(1.4em * 3);
-        }
+<link rel="stylesheet" href="/css/editors-directory.css">
+<link rel="stylesheet" href="/css/campaign-directory.css">
 
-        /* Ad card hover effect */
-        .ad-card {
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Ads Management', backButton: true, backUrl: '/', actions: [{
+        id: 'addAdBtn', icon: 'fas fa-plus', text: 'Add Ad', url: '/ads/add-ad', class: 'btn-primary'
+    }] }) %>
 
-        .ad-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-        }
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar', { activePage: 'ads' }) %>
 
-        /* Ad detail modal */
-        .ad-detail-content img {
-            max-height: 400px;
-            object-fit: cover;
-        }
+            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                <% 
+                    const adsItems = typeof adsList !== 'undefined' ? adsList : [];
+                    const adsTotal = adsItems.length;
+                    let adsActive = 0, adsInactive = 0, adsAdMob = 0, adsAvgInterval = 0;
+                    adsItems.forEach(function(ad) {
+                        if (ad.isActive !== false) adsActive++;
+                        else adsInactive++;
+                        if (ad.useAdMob) adsAdMob++;
+                        adsAvgInterval += (ad.positionInterval || 3);
+                    });
+                    if (adsTotal > 0) adsAvgInterval = Math.round(adsAvgInterval / adsTotal);
+                    const adsActivePct = adsTotal > 0 ? Math.round((adsActive / adsTotal) * 100) : 0;
+                    const adsSelectedStatus = typeof selectedStatus !== 'undefined' ? selectedStatus : '';
+                    const adsIsEditor = typeof admin !== 'undefined' && admin && admin.role === 'editor';
+                    const adsAdminName = typeof admin !== 'undefined' && admin ? (admin.username || admin.name || 'User') : 'User';
+                %>
+                <div class="ads-page content-area mt-4">
+                    <header class="ads-hero">
+                        <div>
+                            <p class="ads-eyebrow"><i class="fas fa-bullhorn"></i> Monetization Hub</p>
+                            <h1 class="ads-hero-title">Ads Campaign Center</h1>
+                            <p class="ads-hero-sub">Welcome back, <%= adsAdminName %>. Manage in-feed placements, monitor live inventory, and control delivery frequency from one command center.</p>
+                        </div>
+                        <div class="ads-hero-actions">
+                            <a href="/intelligent-ads" class="ads-btn-outline"><i class="fas fa-chart-line"></i> Analytics</a>
+                            <a href="/ads/add-ad" class="team-btn-primary"><i class="fas fa-plus"></i> New campaign</a>
+                        </div>
+                    </header>
 
-        /* Make action buttons not trigger card click */
-        .ad-card .btn {
-            pointer-events: auto;
-        }
+                    <div class="ads-kpi-grid">
+                        <div class="ads-kpi">
+                            <div>
+                                <div class="ads-kpi-value"><%= adsTotal.toLocaleString('en-IN') %></div>
+                                <div class="ads-kpi-label">Total campaigns</div>
+                                <div class="ads-kpi-meta">Full inventory</div>
+                            </div>
+                            <span class="ads-kpi-icon ads-kpi-icon--amber"><i class="fas fa-layer-group"></i></span>
+                        </div>
+                        <div class="ads-kpi">
+                            <div>
+                                <div class="ads-kpi-value"><%= adsActive.toLocaleString('en-IN') %></div>
+                                <div class="ads-kpi-label">Live &amp; serving</div>
+                                <div class="ads-kpi-meta"><%= adsActivePct %>% of inventory</div>
+                            </div>
+                            <span class="ads-kpi-icon ads-kpi-icon--green"><i class="fas fa-signal"></i></span>
+                        </div>
+                        <div class="ads-kpi">
+                            <div>
+                                <div class="ads-kpi-value"><%= adsInactive.toLocaleString('en-IN') %></div>
+                                <div class="ads-kpi-label">Paused</div>
+                                <div class="ads-kpi-meta">Not in rotation</div>
+                            </div>
+                            <span class="ads-kpi-icon ads-kpi-icon--slate"><i class="fas fa-pause-circle"></i></span>
+                        </div>
+                        <div class="ads-kpi">
+                            <div>
+                                <div class="ads-kpi-value"><%= adsAdMob.toLocaleString('en-IN') %></div>
+                                <div class="ads-kpi-label">AdMob integrated</div>
+                                <div class="ads-kpi-meta">Avg interval: <%= adsAvgInterval %> items</div>
+                            </div>
+                            <span class="ads-kpi-icon ads-kpi-icon--violet"><i class="fas fa-mobile-alt"></i></span>
+                        </div>
+                    </div>
 
-        /* Filter section */
-        .filter-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-        }
-    </style>
-    </head>
-
-    <body>
-        <%- include('partials/top-nav', { pageTitle: 'Ads Management' , backButton: true, backUrl: '/' , actions: [ {
-            id: 'addAdBtn' , icon: 'fas fa-plus' , text: 'Add Ad' , url: '/ads/add-ad' , class: 'btn-primary' } ] }) %>
-
-            <div class="container-fluid">
-                <div class="row">
-                    <!-- Sidebar -->
-                    <%- include('partials/sidebar', { activePage: 'ads' }) %>
-
-                        <!-- Main Content -->
-                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                            <div class="content-area">
-                                <!-- Filter Section -->
-                                <div class="filter-section">
-                                    <div class="row align-items-center">
-                                        <div class="col-md-12">
-                                            <h3 class="mb-0">Filter Ads</h3>
-                                        </div>
-                                    </div>
-                                    <div class="row align-items-center mt-3">
-                                        <div class="col-md-4 mb-2 mb-md-0">
-                                            <select class="form-select" id="statusFilter" name="status">
-                                                <option value="">All Status</option>
-                                                <option value="active" <%=(typeof selectedStatus !=='undefined' &&
-                                                    selectedStatus==='active' ) ? 'selected' : '' %>>Active</option>
-                                                <option value="inactive" <%=(typeof selectedStatus !=='undefined' &&
-                                                    selectedStatus==='inactive' ) ? 'selected' : '' %>>Inactive</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="d-flex gap-2">
-                                                <button type="submit" class="btn btn-primary" form="filterForm">
-                                                    <i class="fas fa-filter"></i> Filter
-                                                </button>
-                                                <a href="/ads" class="btn btn-outline-secondary">
-                                                    <i class="fas fa-times"></i> Clear
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
+                    <div class="ads-filters-card">
+                        <div class="ads-filters-row">
+                            <div class="ads-filters-left">
+                                <span class="ads-filters-label">Status</span>
+                                <div class="ads-status-pills">
+                                    <button type="button" class="ads-status-pill <%= !adsSelectedStatus ? 'active' : '' %>" data-status="">All</button>
+                                    <button type="button" class="ads-status-pill ads-status-pill--active <%= adsSelectedStatus === 'active' ? 'active' : '' %>" data-status="active">Active</button>
+                                    <button type="button" class="ads-status-pill ads-status-pill--inactive <%= adsSelectedStatus === 'inactive' ? 'active' : '' %>" data-status="inactive">Inactive</button>
                                 </div>
+                                <div class="ads-search-wrap">
+                                    <i class="fas fa-search"></i>
+                                    <input type="search" id="adsSearchInput" class="ads-search-input" placeholder="Search title or copy..." autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="ads-results-meta">
+                                Showing <strong id="adsVisibleCount"><%= adsTotal %></strong> of <strong><%= adsTotal %></strong> campaigns
+                            </div>
+                        </div>
+                    </div>
 
-                                <form id="filterForm" class="d-none" method="GET">
-                                    <input type="hidden" id="statusFilterInput" name="status"
-                                        value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : '' %>">
-                                </form>
+                    <form id="filterForm" class="d-none" method="GET" action="/ads/ads">
+                        <input type="hidden" id="statusFilterInput" name="status" value="<%= adsSelectedStatus %>">
+                    </form>
 
-                                <!-- Ads List -->
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h3 class="mb-0">All Ads</h3>
-                                    <span class="badge bg-primary">
-                                        <%= adsList.length %> ads
+                    <div class="ads-panel">
+                        <div class="ads-panel-head">
+                            <h2 class="ads-panel-title"><i class="fas fa-table me-2"></i>Campaign inventory</h2>
+                        </div>
+
+                        <% if (adsTotal === 0) { %>
+                        <div class="ads-empty">
+                            <div class="ads-empty-icon"><i class="fas fa-ad"></i></div>
+                            <h4>No campaigns yet</h4>
+                            <p>Create your first in-feed ad placement or connect AdMob to start monetizing.</p>
+                            <a href="/ads/add-ad" class="team-btn-primary"><i class="fas fa-plus"></i> Create campaign</a>
+                        </div>
+                        <% } else { %>
+                        <div class="ads-table-wrap">
+                            <table class="ads-table">
+                                <thead>
+                                    <tr>
+                                        <th>Creative</th>
+                                        <th>Status</th>
+                                        <th>Placement</th>
+                                        <th>Priority</th>
+                                        <th>Type</th>
+                                        <% if (!adsIsEditor) { %><th>Owner</th><% } %>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adsTableBody">
+                                    <% adsItems.forEach(function(ad) {
+                                        const adPriority = ad.priority || 'medium';
+                                        const adSearchText = ((ad.title || '') + ' ' + (ad.content || '') + ' ' + (ad.author || '')).toLowerCase();
+                                    %>
+                                    <tr class="ads-row" data-ad-id="<%= ad._id %>" data-search="<%= adSearchText.replace(/"/g, '&quot;') %>" onclick="viewAd('<%= ad._id %>')">
+                                        <td>
+                                            <div class="ads-creative-cell">
+                                                <% if (ad.imageUrl) { %>
+                                                <img src="<%= ad.imageUrl %>" alt="" class="ads-thumb">
+                                                <% } else { %>
+                                                <span class="ads-thumb ads-thumb--empty"><i class="fas fa-image"></i></span>
+                                                <% } %>
+                                                <div class="ads-creative-text">
+                                                    <p class="ads-creative-title"><%= ad.title || 'Untitled campaign' %></p>
+                                                    <p class="ads-creative-excerpt"><%= ad.content || 'No description' %></p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="ads-pill <%= ad.isActive === false ? 'ads-pill--paused' : 'ads-pill--live' %>">
+                                                <i class="fas fa-circle" style="font-size:0.45rem;"></i>
+                                                <%= ad.isActive === false ? 'Paused' : 'Live' %>
+                                            </span>
+                                        </td>
+                                        <td><span class="ads-mono">Every <%= ad.positionInterval || 3 %> items</span></td>
+                                        <td><span class="ads-pill ads-pill--<%= adPriority %>"><%= adPriority.charAt(0).toUpperCase() + adPriority.slice(1) %></span></td>
+                                        <td><span class="ads-pill <%= ad.useAdMob ? 'ads-pill--admob' : 'ads-pill--custom' %>"><%= ad.useAdMob ? 'AdMob' : 'Custom' %></span></td>
+                                        <% if (!adsIsEditor) { %>
+                                        <td><%= ad.author || '—' %></td>
+                                        <% } %>
+                                        <td><%= new Date(ad.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) %></td>
+                                        <td>
+                                            <div class="ads-actions" onclick="event.stopPropagation();">
+                                                <button type="button" class="ads-action-btn ads-action-btn--toggle" title="<%= ad.isActive === false ? 'Activate' : 'Pause' %>" onclick="toggleAdStatus('<%= ad._id %>')">
+                                                    <i class="fas fa-<%= ad.isActive === false ? 'play' : 'pause' %>"></i>
+                                                </button>
+                                                <button type="button" class="ads-action-btn ads-action-btn--edit" title="Edit" onclick="editAd('<%= ad._id %>')">
+                                                    <i class="fas fa-pen"></i>
+                                                </button>
+                                                <button type="button" class="ads-action-btn ads-action-btn--delete" title="Delete" onclick="deleteAd('<%= ad._id %>')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <% }); %>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="ads-cards-grid" id="adsCardsGrid">
+                            <% adsItems.forEach(function(ad) {
+                                const adPriority = ad.priority || 'medium';
+                                const adSearchText = ((ad.title || '') + ' ' + (ad.content || '') + ' ' + (ad.author || '')).toLowerCase();
+                            %>
+                            <article class="ads-card" data-ad-id="<%= ad._id %>" data-search="<%= adSearchText.replace(/"/g, '&quot;') %>" onclick="viewAd('<%= ad._id %>')">
+                                <div class="ads-card-media <%= ad.imageUrl ? '' : 'ads-card-media--empty' %>">
+                                    <% if (ad.imageUrl) { %>
+                                    <img src="<%= ad.imageUrl %>" alt="<%= ad.title %>">
+                                    <% } else { %>
+                                    <i class="fas fa-image"></i>
+                                    <% } %>
+                                    <span class="ads-card-status ads-pill <%= ad.isActive === false ? 'ads-pill--paused' : 'ads-pill--live' %>">
+                                        <%= ad.isActive === false ? 'Paused' : 'Live' %>
                                     </span>
                                 </div>
-
-                                <% if (adsList.length===0) { %>
-                                    <div class="text-center py-5">
-                                        <i class="fas fa-ad fa-3x text-muted mb-3"></i>
-                                        <h4 class="text-muted">No ads found</h4>
-                                        <p class="text-muted">Try changing your filter criteria or add a new ad</p>
-                                        <button class="btn btn-primary" onclick="window.location.href='/ads/add-ad'">
-                                            <i class="fas fa-plus me-2"></i>Add Ad
+                                <div class="ads-card-body">
+                                    <h3 class="ads-card-title"><%= ad.title || 'Untitled campaign' %></h3>
+                                    <div class="ads-card-meta">
+                                        <span class="ads-pill ads-pill--<%= adPriority %>"><%= adPriority %></span>
+                                        <span class="ads-mono">Every <%= ad.positionInterval || 3 %></span>
+                                        <span class="ads-pill <%= ad.useAdMob ? 'ads-pill--admob' : 'ads-pill--custom' %>"><%= ad.useAdMob ? 'AdMob' : 'Custom' %></span>
+                                    </div>
+                                    <p class="ads-creative-excerpt"><%= ad.content || 'No description' %></p>
+                                    <div class="ads-card-actions" onclick="event.stopPropagation();">
+                                        <button type="button" class="ads-action-btn ads-action-btn--toggle" onclick="toggleAdStatus('<%= ad._id %>')">
+                                            <i class="fas fa-<%= ad.isActive === false ? 'play' : 'pause' %>"></i><span><%= ad.isActive === false ? 'Activate' : 'Pause' %></span>
+                                        </button>
+                                        <button type="button" class="ads-action-btn ads-action-btn--edit" onclick="editAd('<%= ad._id %>')">
+                                            <i class="fas fa-pen"></i><span>Edit</span>
+                                        </button>
+                                        <button type="button" class="ads-action-btn ads-action-btn--delete" onclick="deleteAd('<%= ad._id %>')">
+                                            <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
-                                    <% } else { %>
-                                        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                                            <% adsList.forEach(function(ad) { %>
-                                                <div class="col">
-                                                    <div class="card ad-card h-100" onclick="viewAd('<%= ad._id %>')"
-                                                        style="cursor: pointer;">
-                                                        <div style="position: relative;">
-                                                            <% if (ad.imageUrl) { %>
-                                                                <img src="<%= ad.imageUrl %>" class="card-img-top"
-                                                                    alt="<%= ad.title %>"
-                                                                    style="height: 200px; object-fit: cover;">
-                                                                <% } else { %>
-                                                                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center"
-                                                                        style="height: 200px;">
-                                                                        <i class="fas fa-image fa-3x text-muted"></i>
-                                                                    </div>
-                                                                    <% } %>
-                                                                        <!-- Active status indicator -->
-                                                                        <div
-                                                                            style="position: absolute; top: 10px; right: 10px;">
-                                                                            <span
-                                                                                class="badge <%= ad.isActive === false ? 'bg-secondary' : 'bg-success' %>">
-                                                                                <%= ad.isActive===false ? 'Inactive'
-                                                                                    : 'Active' %>
-                                                                            </span>
-                                                                        </div>
-                                                        </div>
-                                                        <div class="card-body">
-                                                            <h5 class="card-title">
-                                                                <%= (ad.title || '' ).substring(0, 30) %>
-                                                            </h5>
-                                                            <p class="card-text ad-content-preview">
-                                                                <%= ad.content ? ad.content.substring(0, 60) : '' %>
-                                                            </p>
-                                                            <div
-                                                                class="d-flex justify-content-between align-items-center mb-2">
-                                                                <small class="text-muted">Position: Every <%=
-                                                                        ad.positionInterval || 3 %> items</small>
-                                                                <small class="text-muted">
-                                                                    <%= new Date(ad.createdAt).toLocaleDateString() %>
-                                                                </small>
-                                                            </div>
-                                                            <% if (typeof admin !=='undefined' && admin && admin.role
-                                                                !=='editor' ) { %>
-                                                                <div
-                                                                    class="d-flex justify-content-between align-items-center mb-2">
-                                                                    <small class="text-muted">
-                                                                        <i class="fas fa-user me-1"></i>
-                                                                        <%= ad.author %>
-                                                                    </small>
-                                                                </div>
-                                                                <% } %>
-                                                                    <div class="d-flex gap-2 flex-nowrap">
-                                                                        <button
-                                                                            class="btn btn-sm btn-<%= ad.isActive === false ? 'success' : 'secondary' %> ripple"
-                                                                            onclick="toggleAdStatus('<%= ad._id %>'); event.stopPropagation();">
-                                                                            <i
-                                                                                class="fas fa-<%= ad.isActive === false ? 'check' : 'times' %>"></i>
-                                                                            <span class="d-none d-sm-inline">
-                                                                                <%= ad.isActive===false ? 'Activate'
-                                                                                    : 'Deactivate' %>
-                                                                            </span>
-                                                                        </button>
-                                                                        <button class="btn btn-sm btn-primary ripple"
-                                                                            onclick="editAd('<%= ad._id %>'); event.stopPropagation();">
-                                                                            <i class="fas fa-edit"></i>
-                                                                            <span class="d-none d-sm-inline">
-                                                                                Edit</span>
-                                                                        </button>
-                                                                        <button class="btn btn-sm btn-danger ripple"
-                                                                            onclick="deleteAd('<%= ad._id %>'); event.stopPropagation();">
-                                                                            <i class="fas fa-trash"></i>
-                                                                            <span class="d-none d-sm-inline">
-                                                                                Delete</span>
-                                                                        </button>
-                                                                    </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <% }); %>
-                                        </div>
-                                        <% } %>
-                            </div>
-                        </div>
-                </div>
-            </div>
-
-            <!-- Ad Detail Modal -->
-            <div class="modal fade" id="adDetailModal" tabindex="-1" aria-labelledby="adDetailModalLabel"
-                aria-hidden="true">
-                <div class="modal-dialog modal-xl">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="adDetailModalLabel">Ad Details</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="ad-detail-content">
-                                <div class="row">
-                                    <div class="col-lg-8">
-                                        <div id="adDetailImageContainer" class="mb-3">
-                                            <img id="adDetailImage" src="" class="img-fluid rounded" alt="Ad Image"
-                                                style="width: 100%; max-height: 400px; object-fit: cover;">
-                                        </div>
-                                        <h3 id="adDetailTitle" class="mb-3"></h3>
-                                        <div class="d-flex flex-wrap gap-3 mb-3">
-                                            <span id="adDetailPosition" class="badge bg-primary"></span>
-                                            <span id="adDetailDate" class="badge bg-secondary"></span>
-                                            <span id="adDetailStatus" class="badge bg-info"></span>
-                                        </div>
-                                        <p id="adDetailContent" class="mb-4"></p>
-                                        <div class="mb-3">
-                                            <label class="form-label"><strong>Link URL:</strong></label>
-                                            <p id="adDetailLinkUrl" class="mb-0"></p>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-4">
-                                        <!-- Author Information -->
-                                        <div class="card mb-4">
-                                            <div class="card-header bg-light">
-                                                <h6 class="mb-0"><i class="fas fa-user-edit me-2"></i>Published By</h6>
-                                            </div>
-                                            <div class="card-body">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="me-3">
-                                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center"
-                                                            style="width: 50px; height: 50px;">
-                                                            <i class="fas fa-user fa-lg text-muted"></i>
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <h6 class="mb-0" id="adDetailAuthor">-</h6>
-                                                        <small class="text-muted">Editor/Admin</small>
-                                                        <div class="small text-muted" id="adDetailAuthorId"></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
-                            </div>
+                            </article>
+                            <% }); %>
                         </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        </div>
+                        <% } %>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <%- include('partials/footer') %>
-                <script id="adsData" type="application/json"><%- JSON.stringify(adsList) %></script>
-                <script>
-                    // Make adsList available globally
-                    const adsList = JSON.parse(document.getElementById('adsData').textContent);
+    <!-- Ad Detail Modal -->
+    <div class="modal fade ads-modal" id="adDetailModal" tabindex="-1" aria-labelledby="adDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="adDetailModalLabel"><i class="fas fa-bullhorn me-2"></i>Campaign details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="ads-modal-layout">
+                        <div>
+                            <div id="adDetailImageContainer" class="ads-modal-media">
+                                <img id="adDetailImage" src="" alt="Campaign creative">
+                            </div>
+                            <h3 id="adDetailTitle" class="ads-modal-title"></h3>
+                            <div class="ads-modal-pills">
+                                <span id="adDetailStatus" class="ads-pill ads-pill--live"></span>
+                                <span id="adDetailPosition" class="ads-pill ads-pill--medium"></span>
+                                <span id="adDetailPriority" class="ads-pill ads-pill--medium"></span>
+                                <span id="adDetailType" class="ads-pill ads-pill--custom"></span>
+                            </div>
+                            <p id="adDetailContent" class="ads-modal-content"></p>
+                            <div class="ads-modal-link-label">Destination URL</div>
+                            <div class="ads-modal-link" id="adDetailLinkUrl">—</div>
+                        </div>
+                        <aside class="ads-modal-sidebar">
+                            <div class="ads-modal-card">
+                                <div class="ads-modal-card-head"><i class="fas fa-user-edit me-1"></i> Published by</div>
+                                <div class="ads-modal-card-body">
+                                    <div class="ads-modal-author">
+                                        <div class="ads-modal-avatar" id="adDetailAuthorAvatar">?</div>
+                                        <div>
+                                            <div style="font-weight:700;color:#111827;" id="adDetailAuthor">—</div>
+                                            <div style="font-size:0.78rem;color:#6b7280;" id="adDetailAuthorId"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ads-modal-card">
+                                <div class="ads-modal-card-head"><i class="fas fa-sliders-h me-1"></i> Delivery settings</div>
+                                <div class="ads-modal-card-body">
+                                    <div class="ads-modal-meta-row"><span>Created</span><strong id="adDetailDate">—</strong></div>
+                                    <div class="ads-modal-meta-row"><span>Max views/day</span><strong id="adDetailMaxViews">—</strong></div>
+                                    <div class="ads-modal-meta-row"><span>Cooldown</span><strong id="adDetailCooldown">—</strong></div>
+                                    <div class="ads-modal-meta-row"><span>Frequency control</span><strong id="adDetailFrequency">—</strong></div>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-dark" id="adDetailEditBtn"><i class="fas fa-pen me-1"></i> Edit campaign</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                    // Wait for DOM to be fully loaded
-                    document.addEventListener('DOMContentLoaded', function () {
-                        // Filter form handling
-                        const statusFilter = document.getElementById('statusFilter');
-                        const statusFilterInput = document.getElementById('statusFilterInput');
-                        const filterForm = document.getElementById('filterForm');
+    <%- include('partials/footer') %>
+    <script id="adsData" type="application/json"><%- JSON.stringify(adsList) %></script>
+    <script>
+        window.adsList = JSON.parse(document.getElementById('adsData').textContent);
+        const adsList = window.adsList;
 
-                        if (statusFilter) {
-                            statusFilter.addEventListener('change', function () {
-                                statusFilterInput.value = this.value;
-                                filterForm.submit();
-                            });
-                        }
+        document.addEventListener('DOMContentLoaded', function () {
+            const statusFilterInput = document.getElementById('statusFilterInput');
+            const filterForm = document.getElementById('filterForm');
+            const searchInput = document.getElementById('adsSearchInput');
+            const visibleCountEl = document.getElementById('adsVisibleCount');
 
-                        setupMobileMenu();
-                    });
+            document.querySelectorAll('.ads-status-pill').forEach(function (pill) {
+                pill.addEventListener('click', function () {
+                    const nextStatus = this.getAttribute('data-status') || '';
+                    statusFilterInput.value = nextStatus;
+                    filterForm.submit();
+                });
+            });
 
-                    // Open ad detail modal
-                    window.viewAd = function (adId) {
-                        const adItem = adsList.find(ad => ad._id === adId);
-                        if (adItem) {
-                            document.getElementById('adDetailImage').src = adItem.imageUrl || '/images/placeholder.png';
-                            document.getElementById('adDetailImage').alt = adItem.title;
-                            document.getElementById('adDetailTitle').textContent = adItem.title;
-                            document.getElementById('adDetailContent').textContent = adItem.content || '';
-                            document.getElementById('adDetailLinkUrl').textContent = adItem.linkUrl || 'No link';
-                            document.getElementById('adDetailAuthor').textContent = adItem.author;
-                            document.getElementById('adDetailAuthorId').textContent = `ID: ${adItem.authorId}`;
-                            document.getElementById('adDetailDate').textContent = new Date(adItem.createdAt).toLocaleString();
-                            document.getElementById('adDetailPosition').textContent = `Position: Every ${adItem.positionInterval || 3} items`;
-                            document.getElementById('adDetailStatus').textContent = adItem.isActive ? 'Active' : 'Inactive';
-                            document.getElementById('adDetailStatus').className = `badge ${adItem.isActive ? 'bg-success' : 'bg-secondary'}`;
+            function applyAdsSearch() {
+                const query = (searchInput?.value || '').trim().toLowerCase();
+                let visible = 0;
+                document.querySelectorAll('.ads-row, .ads-card').forEach(function (el) {
+                    const haystack = el.getAttribute('data-search') || '';
+                    const match = !query || haystack.indexOf(query) !== -1;
+                    el.classList.toggle('is-hidden', !match);
+                    if (match) visible++;
+                });
+                if (visibleCountEl) visibleCountEl.textContent = String(visible);
+            }
 
-                            const modal = new bootstrap.Modal(document.getElementById('adDetailModal'));
-                            modal.show();
-                        }
-                    };
+            if (searchInput) {
+                searchInput.addEventListener('input', applyAdsSearch);
+            }
 
-                    // Edit ad function
-                    window.editAd = function (adId) {
-                        window.location.href = `/ads/edit-ad/${adId}`;
-                    };
+            setupMobileMenu();
+        });
 
-                    // Delete ad function
-                    window.deleteAd = function (adId) {
-                        if (confirm('Are you sure you want to delete this ad?')) {
-                            fetch(`/ads/ads/${adId}`, { method: 'DELETE' })
-                                .then(response => {
-                                    if (response.ok) location.reload();
-                                    else return response.json().then(errorData => {
-                                        throw new Error(errorData.error || 'Failed to delete ad');
-                                    });
-                                })
-                                .catch(error => {
-                                    console.error('Error:', error);
-                                    alert('Error: ' + error.message);
-                                });
-                        }
-                    };
+        window.viewAd = function (adId) {
+            const adItem = adsList.find(function (ad) { return String(ad._id) === String(adId); });
+            if (!adItem) return;
 
-                    // Toggle ad active status function
-                    window.toggleAdStatus = function (adId) {
-                        const adItem = adsList.find(ad => ad._id === adId);
-                        if (adItem) {
-                            fetch(`/ads/ads/${adId}/toggle-status`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ isActive: !adItem.isActive })
-                            })
-                                .then(async response => {
-                                    if (response.ok) location.reload();
-                                    else {
-                                        const errorData = await response.json().catch(() => ({}));
-                                        alert('Error: ' + (errorData.error || 'Failed to toggle ad status'));
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Network error:', error);
-                                    alert('Network error: ' + error.message);
-                                });
-                        }
-                    };
+            const imageContainer = document.getElementById('adDetailImageContainer');
+            if (adItem.imageUrl) {
+                imageContainer.className = 'ads-modal-media';
+                imageContainer.innerHTML = '';
+                const img = document.createElement('img');
+                img.id = 'adDetailImage';
+                img.src = adItem.imageUrl;
+                img.alt = adItem.title || 'Campaign';
+                imageContainer.appendChild(img);
+            } else {
+                imageContainer.className = 'ads-modal-media ads-modal-media--empty';
+                imageContainer.innerHTML = '<i class="fas fa-image"></i>';
+            }
 
-                    // Mobile menu setup
-                    function setupMobileMenu() {
-                        const menuToggle = document.getElementById('menuToggle');
-                        const sidebar = document.getElementById('sidebar');
-                        const mainContent = document.getElementById('mainContent');
+            document.getElementById('adDetailTitle').textContent = adItem.title || 'Untitled campaign';
+            document.getElementById('adDetailContent').textContent = adItem.content || 'No description provided.';
 
-                        if (menuToggle && sidebar) {
-                            menuToggle.addEventListener('click', function (e) {
-                                e.stopPropagation();
-                                sidebar.classList.toggle('active');
-                                mainContent.classList.toggle('sidebar-active');
-                            });
-                        }
+            const statusEl = document.getElementById('adDetailStatus');
+            const isLive = adItem.isActive !== false;
+            statusEl.textContent = isLive ? 'Live' : 'Paused';
+            statusEl.className = 'ads-pill ' + (isLive ? 'ads-pill--live' : 'ads-pill--paused');
 
-                        document.addEventListener('click', function (event) {
-                            if (window.innerWidth < 768 &&
-                                sidebar && sidebar.classList.contains('active') &&
-                                !sidebar.contains(event.target) &&
-                                event.target !== menuToggle &&
-                                !menuToggle.contains(event.target)) {
-                                sidebar.classList.remove('active');
-                                if (mainContent) mainContent.classList.remove('sidebar-active');
-                            }
-                        });
+            const positionEl = document.getElementById('adDetailPosition');
+            positionEl.textContent = 'Every ' + (adItem.positionInterval || 3) + ' items';
+            positionEl.className = 'ads-pill ads-pill--medium';
+
+            const priority = adItem.priority || 'medium';
+            const priorityEl = document.getElementById('adDetailPriority');
+            priorityEl.textContent = priority.charAt(0).toUpperCase() + priority.slice(1);
+            priorityEl.className = 'ads-pill ads-pill--' + priority;
+
+            const typeEl = document.getElementById('adDetailType');
+            typeEl.textContent = adItem.useAdMob ? 'AdMob' : 'Custom';
+            typeEl.className = 'ads-pill ' + (adItem.useAdMob ? 'ads-pill--admob' : 'ads-pill--custom');
+
+            document.getElementById('adDetailLinkUrl').textContent = adItem.linkUrl || 'No destination URL';
+            document.getElementById('adDetailAuthor').textContent = adItem.author || '—';
+            document.getElementById('adDetailAuthorId').textContent = adItem.authorId ? 'ID ' + adItem.authorId : '';
+            document.getElementById('adDetailDate').textContent = new Date(adItem.createdAt).toLocaleString('en-IN');
+            document.getElementById('adDetailMaxViews').textContent = String(adItem.maxViewsPerDay != null ? adItem.maxViewsPerDay : 3);
+            document.getElementById('adDetailCooldown').textContent = (adItem.cooldownPeriodHours != null ? adItem.cooldownPeriodHours : 24) + ' hours';
+            document.getElementById('adDetailFrequency').textContent = adItem.frequencyControlEnabled !== false ? 'Enabled' : 'Disabled';
+
+            const authorRaw = (adItem.author || '?').trim();
+            const initials = authorRaw.split(/[\s._-]+/).filter(Boolean).map(function (n) { return n[0]; }).join('').toUpperCase().substring(0, 2) || '?';
+            document.getElementById('adDetailAuthorAvatar').textContent = initials;
+
+            document.getElementById('adDetailEditBtn').onclick = function () { editAd(adId); };
+
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('adDetailModal')).show();
+        };
+
+        window.editAd = function (adId) {
+            window.location.href = '/ads/edit-ad/' + adId;
+        };
+
+        window.deleteAd = function (adId) {
+            if (!confirm('Delete this campaign permanently?')) return;
+            fetch('/ads/ads/' + adId, { method: 'DELETE' })
+                .then(function (response) {
+                    if (response.ok) {
+                        location.reload();
+                        return;
                     }
-                </script>
-    </body>
+                    return response.json().then(function (errorData) {
+                        throw new Error(errorData.error || 'Failed to delete ad');
+                    });
+                })
+                .catch(function (error) {
+                    alert('Error: ' + error.message);
+                });
+        };
 
-</html>
+        window.toggleAdStatus = function (adId) {
+            const adItem = adsList.find(function (ad) { return String(ad._id) === String(adId); });
+            if (!adItem) return;
+            fetch('/ads/ads/' + adId + '/toggle-status', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isActive: !adItem.isActive })
+            })
+                .then(async function (response) {
+                    if (response.ok) location.reload();
+                    const errorData = await response.json().catch(function () { return {}; });
+                    alert('Error: ' + (errorData.error || 'Failed to toggle ad status'));
+                })
+                .catch(function (error) {
+                    alert('Network error: ' + error.message);
+                });
+        };
+
+        function setupMobileMenu() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+
+            if (menuToggle && sidebar) {
+                menuToggle.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    sidebar.classList.toggle('active');
+                    mainContent.classList.toggle('sidebar-active');
+                });
+            }
+
+            document.addEventListener('click', function (event) {
+                if (window.innerWidth < 768 &&
+                    sidebar && sidebar.classList.contains('active') &&
+                    !sidebar.contains(event.target) &&
+                    event.target !== menuToggle &&
+                    !menuToggle.contains(event.target)) {
+                    sidebar.classList.remove('active');
+                    if (mainContent) mainContent.classList.remove('sidebar-active');
+                }
+            });
+        }
+    </script>
 </body>
 
 </html>

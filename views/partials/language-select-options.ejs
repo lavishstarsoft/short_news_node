@@ -1,0 +1,18 @@
+<%
+  const fallbackLabels = { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' };
+  const langOpts = typeof languageOptions !== 'undefined' && languageOptions.length
+    ? languageOptions
+    : Object.keys(typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : fallbackLabels).map(function(code) {
+        const labels = typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : fallbackLabels;
+        return { code: code, name: labels[code] };
+      });
+  const selectedLang = typeof selectedValue !== 'undefined'
+    ? selectedValue
+    : (typeof defaultLanguage !== 'undefined' ? defaultLanguage : 'te');
+%>
+<% langOpts.forEach(function(lang) {
+  const code = lang.code || lang;
+  const name = lang.name || (typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels[code] : code);
+%>
+<option value="<%= code %>" <%= selectedLang === code ? 'selected' : '' %>><%= name %></option>
+<% }); %>

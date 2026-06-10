@@ -2,48 +2,14 @@
 <html lang="en">
 
 <%- include('partials/header', { title: 'News List' }) %>
+    <link rel="stylesheet" href="/css/editors-directory.css">
+    <link rel="stylesheet" href="/css/news-directory.css">
+    <link rel="stylesheet" href="/css/news-detail-modal.css">
+    <link rel="stylesheet" href="/css/notification-modal.css">
     <style>
-        /* News content preview - exactly 3 lines */
-        .news-content-preview {
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            line-height: 1.4;
-            max-height: calc(1.4em * 3);
-        }
+        /* News detail modal — styles in news-detail-modal.css */
 
-        /* News card hover effect */
-        .news-card {
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .news-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        /* News detail modal */
-        .news-detail-content img,
-        .news-detail-content video {
-            max-height: 400px;
-            object-fit: cover;
-        }
-
-        /* Make action buttons not trigger card click */
-        .news-card .btn {
-            pointer-events: auto;
-        }
-
-        /* Interaction stats card */
-        .stats-card {
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Detail view styles */
+        /* Detail view styles (legacy helpers) */
         .detail-section {
             margin-bottom: 1.5rem;
         }
@@ -78,356 +44,6 @@
             overflow-y: auto;
         }
 
-        /* Filter section */
-        .filter-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        /* Enhanced Notification Modal Styles */
-        .notification-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(5px);
-        }
-
-        .notification-modal-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .notification-modal {
-            background: white;
-            border-radius: 20px;
-            width: 95%;
-            max-width: 550px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            transform: scale(0.9) translateY(20px);
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        .notification-modal-overlay.active .notification-modal {
-            transform: scale(1) translateY(0);
-        }
-
-        .notification-modal-header {
-            background: linear-gradient(135deg, #FF6F00 0%, #FF8F00 100%);
-            color: white;
-            padding: 20px 24px;
-            border-radius: 20px 20px 0 0;
-            text-align: center;
-        }
-
-        .notification-modal-header h5 {
-            margin: 0;
-            font-size: 1.3rem;
-            font-weight: 700;
-        }
-
-        .notification-modal-body {
-            padding: 20px 24px;
-        }
-
-        /* Simple Input Section */
-        .notif-section {
-            margin-bottom: 20px;
-        }
-
-        .notif-section-label {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .notif-section-label i {
-            color: #FF6F00;
-        }
-
-        .notif-input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            font-size: 1rem;
-            transition: border-color 0.2s;
-            box-sizing: border-box;
-        }
-
-        .notif-input:focus {
-            outline: none;
-            border-color: #FF6F00;
-        }
-
-        .notif-textarea {
-            min-height: 80px;
-            resize: vertical;
-            font-family: inherit;
-        }
-
-        /* Color Picker Section */
-        .color-section {
-            background: #f8fafc;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 20px;
-        }
-
-        .color-section-title {
-            font-weight: 600;
-            color: #444;
-            margin-bottom: 12px;
-            font-size: 0.9rem;
-        }
-
-        .color-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-        }
-
-        .color-row:last-child {
-            margin-bottom: 0;
-        }
-
-        .color-row-label {
-            min-width: 80px;
-            font-size: 0.85rem;
-            color: #555;
-            font-weight: 500;
-        }
-
-        /* Preset Color Buttons */
-        .color-presets {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .color-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            border: 3px solid transparent;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
-        }
-
-        .color-btn:hover {
-            transform: scale(1.15);
-        }
-
-        .color-btn.selected {
-            border-color: #333;
-            box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
-        }
-
-        .color-btn::after {
-            content: '✓';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 14px;
-            font-weight: bold;
-            opacity: 0;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-        }
-
-        .color-btn.selected::after {
-            opacity: 1;
-        }
-
-        .custom-color-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-left: 8px;
-            padding-left: 8px;
-            border-left: 1px solid #ddd;
-        }
-
-        .custom-color-input {
-            width: 32px;
-            height: 32px;
-            padding: 0;
-            border: 2px solid #ddd;
-            border-radius: 50%;
-            cursor: pointer;
-            background: none;
-        }
-
-        .custom-color-label {
-            font-size: 0.75rem;
-            color: #666;
-        }
-
-        /* Font Size Section */
-        .font-size-btns {
-            display: flex;
-            gap: 8px;
-        }
-
-        .font-size-btn {
-            padding: 8px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            background: white;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 500;
-        }
-
-        .font-size-btn:hover {
-            border-color: #FF6F00;
-        }
-
-        .font-size-btn.selected {
-            background: #FF6F00;
-            color: white;
-            border-color: #FF6F00;
-        }
-
-        .font-size-btn.small { font-size: 0.8rem; }
-        .font-size-btn.normal { font-size: 1rem; }
-        .font-size-btn.large { font-size: 1.2rem; }
-
-        /* Live Preview */
-        .preview-section {
-            background: #1a1a2e;
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 20px;
-        }
-
-        .preview-label {
-            color: #888;
-            font-size: 0.75rem;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .preview-notification {
-            background: #16213e;
-            border-radius: 12px;
-            padding: 14px;
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-        }
-
-        .preview-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #FF6F00, #FF8F00);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .preview-icon img {
-            width: 24px;
-            height: 24px;
-        }
-
-        .preview-content {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .preview-title {
-            font-weight: 600;
-            margin-bottom: 4px;
-            word-wrap: break-word;
-            line-height: 1.3;
-        }
-
-        .preview-message {
-            font-size: 0.9rem;
-            opacity: 0.9;
-            word-wrap: break-word;
-            line-height: 1.4;
-        }
-
-        .preview-time {
-            color: #666;
-            font-size: 0.7rem;
-            margin-top: 6px;
-        }
-
-        .notification-modal-footer {
-            padding: 0 24px 24px;
-            display: flex;
-            gap: 12px;
-        }
-
-        .notification-modal-footer button {
-            flex: 1;
-            padding: 14px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-cancel-notif {
-            background: #f1f5f9;
-            border: none;
-            color: #64748b;
-        }
-
-        .btn-cancel-notif:hover {
-            background: #e2e8f0;
-        }
-
-        .btn-send-notif {
-            background: linear-gradient(135deg, #FF6F00 0%, #FF8F00 100%);
-            border: none;
-            color: white;
-            box-shadow: 0 4px 12px rgba(255, 111, 0, 0.3);
-        }
-
-        .btn-send-notif:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 111, 0, 0.4);
-        }
-
-        .btn-send-notif:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .char-count {
-            font-size: 0.75rem;
-            color: #94a3b8;
-        }
-
         /* Styling tags visualization in editor */
         .rich-content-area b { font-weight: bold; }
         .rich-content-area font { }
@@ -446,525 +62,485 @@
 
                         <!-- Main Content -->
                         <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                            <div class="content-area">
-                                <!-- Filter Section -->
-                                <div class="filter-section">
-                                    <div class="row align-items-center">
-                                        <div class="col-md-12">
-                                            <h3 class="mb-0">Filter News</h3>
-                                        </div>
-                                    </div>
-                                    <div class="row align-items-center mt-3">
-                                        <div class="col-md-2 mb-2 mb-md-0">
-                                            <input type="text" class="form-control" id="searchFilter" name="search"
-                                                placeholder="Search by title..."
-                                                value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
-                                        </div>
-                                        <div class="col-md-2 mb-2 mb-md-0">
-                                            <select class="form-select" id="locationFilter" name="location">
-                                                <option value="">All Locations</option>
-                                                <% locations.forEach(function(location) { %>
-                                                    <option value="<%= location.name %>" <%=(typeof selectedLocation
-                                                        !=='undefined' && selectedLocation===location.name) ? 'selected'
-                                                        : '' %>
-                                                        ><%= location.name %>
-                                                    </option>
-                                                    <% }); %>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-2 mb-2 mb-md-0">
-                                            <select class="form-select" id="statusFilter" name="status">
-                                                <option value="">All Status</option>
-                                                <option value="active" <%=(typeof selectedStatus !=='undefined' &&
-                                                    selectedStatus==='active' ) ? 'selected' : '' %>>Active</option>
-                                                <option value="inactive" <%=(typeof selectedStatus !=='undefined' &&
-                                                    selectedStatus==='inactive' ) ? 'selected' : '' %>>Inactive</option>
-                                                <option value="pending" <%=(typeof selectedStatus !=='undefined' &&
-                                                    selectedStatus==='pending' ) ? 'selected' : '' %>>Pending</option>
-                                                <option value="rejected" <%=(typeof selectedStatus !=='undefined' &&
-                                                    selectedStatus==='rejected' ) ? 'selected' : '' %>>Rejected</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-2 mb-2 mb-md-0">
-                                            <select class="form-select" id="languageFilter" name="language">
-                                                <option value="">All Languages</option>
-                                                <% const langLabels = typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' }; %>
-                                                <% Object.keys(langLabels).forEach(function(code) { %>
-                                                    <option value="<%= code %>" <%=(typeof selectedLanguage !== 'undefined' && selectedLanguage === code) ? 'selected' : '' %>><%= langLabels[code] %></option>
-                                                <% }); %>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-2 mb-2 mb-md-0">
-                                            <input type="date" class="form-control" id="fromDateFilter" name="fromDate"
-                                                title="From Date"
-                                                value="<%= typeof fromDate !== 'undefined' ? fromDate : '' %>">
-                                        </div>
-                                        <div class="col-md-2 mb-2 mb-md-0">
-                                            <input type="date" class="form-control" id="toDateFilter" name="toDate"
-                                                title="To Date"
-                                                value="<%= typeof toDate !== 'undefined' ? toDate : '' %>">
-                                        </div>
-                                        <div class="col-md-1">
-                                            <div class="d-flex gap-2">
-                                                <button type="submit" class="btn btn-primary" form="filterForm"
-                                                    title="Search">
-                                                    <i class="fas fa-search"></i>
-                                                </button>
-                                                <a href="/news-list<%= selectedAuthorIdSafe ? '?authorId=' + selectedAuthorIdSafe : '' %>" class="btn btn-outline-secondary" title="Clear">
-                                                    <i class="fas fa-times"></i>
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="content-area mt-4">
+                                <% 
+                                    const langLabels = typeof newsLanguageLabels !== 'undefined'
+                                        ? newsLanguageLabels
+                                        : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' };
+                                    const totalNews = (typeof pagination !== 'undefined' && pagination.totalNews) ? pagination.totalNews : newsList.length;
+                                    const currentPage = (typeof pagination !== 'undefined' && pagination.currentPage) ? pagination.currentPage : 1;
+                                    const totalPages = (typeof pagination !== 'undefined' && pagination.totalPages) ? pagination.totalPages : 1;
+                                    const pageLimit = (typeof pagination !== 'undefined' && pagination.limit) ? pagination.limit : newsList.length;
+                                    const showAuthorCol = typeof admin !== 'undefined' && admin && admin.role !== 'editor';
+
+                                    let pageActive = 0, pagePending = 0, pageViews = 0;
+                                    newsList.forEach(function(n) {
+                                        pageViews += (n.views || 0);
+                                        if (n.isActive !== false) {
+                                            pageActive++;
+                                        } else if (n.rejectionStatus && n.rejectionStatus.isRejected) {
+                                            /* rejected */
+                                        } else if (n.approvalStatus && n.approvalStatus.isApproved === false) {
+                                            pagePending++;
+                                        }
+                                    });
+
+                                    const paginationSearchQuery = (typeof searchQuery !== 'undefined' && searchQuery) ? searchQuery : '';
+                                    const paginationLocation = (typeof selectedLocation !== 'undefined' && selectedLocation) ? selectedLocation : '';
+                                    const paginationStatus = (typeof selectedStatus !== 'undefined' && selectedStatus) ? selectedStatus : '';
+                                    const paginationLanguage = (typeof selectedLanguage !== 'undefined' && selectedLanguage) ? selectedLanguage : '';
+                                    const paginationFromDate = (typeof fromDate !== 'undefined' && fromDate) ? fromDate : '';
+                                    const paginationToDate = (typeof toDate !== 'undefined' && toDate) ? toDate : '';
+                                    let paginationQuery = '';
+                                    if (selectedAuthorIdSafe) paginationQuery += '&authorId=' + selectedAuthorIdSafe;
+                                    if (paginationSearchQuery) paginationQuery += '&search=' + encodeURIComponent(paginationSearchQuery);
+                                    if (paginationLocation) paginationQuery += '&location=' + paginationLocation;
+                                    if (paginationStatus) paginationQuery += '&status=' + paginationStatus;
+                                    if (paginationLanguage) paginationQuery += '&language=' + paginationLanguage;
+                                    if (paginationFromDate) paginationQuery += '&fromDate=' + paginationFromDate;
+                                    if (paginationToDate) paginationQuery += '&toDate=' + paginationToDate;
+
+                                    const currentSearch = paginationSearchQuery;
+                                    const currentLocation = paginationLocation;
+                                    const currentStatus = paginationStatus;
+                                    const currentLanguage = paginationLanguage;
+                                    const currentFromDate = paginationFromDate;
+                                    const currentToDate = paginationToDate;
+
+                                    function newsFilterUrl(overrides) {
+                                        const parts = [];
+                                        const authorId = Object.prototype.hasOwnProperty.call(overrides, 'authorId') ? overrides.authorId : selectedAuthorIdSafe;
+                                        const search = Object.prototype.hasOwnProperty.call(overrides, 'search') ? overrides.search : currentSearch;
+                                        const location = Object.prototype.hasOwnProperty.call(overrides, 'location') ? overrides.location : currentLocation;
+                                        const status = Object.prototype.hasOwnProperty.call(overrides, 'status') ? overrides.status : currentStatus;
+                                        const language = Object.prototype.hasOwnProperty.call(overrides, 'language') ? overrides.language : currentLanguage;
+                                        const from = Object.prototype.hasOwnProperty.call(overrides, 'fromDate') ? overrides.fromDate : currentFromDate;
+                                        const to = Object.prototype.hasOwnProperty.call(overrides, 'toDate') ? overrides.toDate : currentToDate;
+
+                                        if (authorId) parts.push('authorId=' + encodeURIComponent(authorId));
+                                        if (search) parts.push('search=' + encodeURIComponent(search));
+                                        if (location) parts.push('location=' + encodeURIComponent(location));
+                                        if (status) parts.push('status=' + encodeURIComponent(status));
+                                        if (language) parts.push('language=' + encodeURIComponent(language));
+                                        if (from) parts.push('fromDate=' + encodeURIComponent(from));
+                                        if (to) parts.push('toDate=' + encodeURIComponent(to));
+                                        return parts.length ? '/news-list?' + parts.join('&') : '/news-list';
+                                    }
+
+                                    const hasActiveFilters = !!(currentSearch || currentLocation || currentStatus || currentLanguage || currentFromDate || currentToDate);
+                                    const statusLabels = { active: 'Active', inactive: 'Inactive', pending: 'Pending', rejected: 'Rejected' };
+                                %>
 
                                 <form id="filterForm" class="d-none" method="GET">
-                                    <input type="hidden" id="authorFilterInput" name="authorId"
-                                        value="<%= selectedAuthorIdSafe %>">
-                                    <input type="hidden" id="searchFilterInput" name="search"
-                                        value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
-                                    <input type="hidden" id="locationFilterInput" name="location"
-                                        value="<%= typeof selectedLocation !== 'undefined' ? selectedLocation : '' %>">
-                                    <input type="hidden" id="statusFilterInput" name="status"
-                                        value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : '' %>">
-                                    <input type="hidden" id="languageFilterInput" name="language"
-                                        value="<%= typeof selectedLanguage !== 'undefined' ? selectedLanguage : '' %>">
-                                    <input type="hidden" id="fromDateFilterInput" name="fromDate"
-                                        value="<%= typeof fromDate !== 'undefined' ? fromDate : '' %>">
-                                    <input type="hidden" id="toDateFilterInput" name="toDate"
-                                        value="<%= typeof toDate !== 'undefined' ? toDate : '' %>">
+                                    <input type="hidden" id="authorFilterInput" name="authorId" value="<%= selectedAuthorIdSafe %>">
+                                    <input type="hidden" id="searchFilterInput" name="search" value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+                                    <input type="hidden" id="locationFilterInput" name="location" value="<%= typeof selectedLocation !== 'undefined' ? selectedLocation : '' %>">
+                                    <input type="hidden" id="statusFilterInput" name="status" value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : '' %>">
+                                    <input type="hidden" id="languageFilterInput" name="language" value="<%= typeof selectedLanguage !== 'undefined' ? selectedLanguage : '' %>">
+                                    <input type="hidden" id="fromDateFilterInput" name="fromDate" value="<%= typeof fromDate !== 'undefined' ? fromDate : '' %>">
+                                    <input type="hidden" id="toDateFilterInput" name="toDate" value="<%= typeof toDate !== 'undefined' ? toDate : '' %>">
                                 </form>
 
-                                <!-- News List -->
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h3 class="mb-0">All News Articles</h3>
-                                    <span class="badge bg-primary">
-                                        <%= newsList.length %> articles
-                                    </span>
-                                </div>
-
-                                <% if (newsList.length===0) { %>
-                                    <div class="text-center py-5">
-                                        <i class="fas fa-newspaper fa-3x text-muted mb-3"></i>
-                                        <h4 class="text-muted">No news articles found</h4>
-                                        <p class="text-muted">Try changing your filter criteria or add a new news
-                                            article</p>
-                                        <button class="btn btn-primary" onclick="window.location.href='/add-news'"
-                                            title="Add News">
-                                            <i class="fas fa-plus"></i>
-                                        </button>
+                                <div class="news-page">
+                                    <div class="team-page-header">
+                                        <div>
+                                            <h1 class="team-page-title">News Library</h1>
+                                            <p class="team-page-subtitle">Browse, filter, and manage all published articles in one place.</p>
+                                        </div>
+                                        <a href="/add-news" class="team-btn-primary">
+                                            <i class="fas fa-plus"></i> New article
+                                        </a>
                                     </div>
-                                    <% } else { %>
-                                        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                                            <% newsList.forEach(function(news) { %>
-                                                <div class="col">
-                                                    <div class="card news-card h-100"
-                                                        onclick="viewNews('<%= news._id %>')" style="cursor: pointer;">
-                                                        <div style="position: relative;">
-                                                            <% if (news.mediaType==='video' ) { %>
-                                                                <video src="<%= news.mediaUrl %>" class="card-img-top"
-                                                                    style="height: 200px; object-fit: cover;"
-                                                                    controls></video>
-                                                                <% } else { %>
-                                                                    <img src="<%= news.mediaUrl || news.imageUrl %>"
-                                                                        class="card-img-top" alt="<%= news.title %>"
-                                                                        style="height: 200px; object-fit: cover;">
-                                                                    <% } %>
-                                                                        <% if (news.location) { %>
-                                                                            <div
-                                                                                style="position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.7); color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.8rem;">
-                                                                                <i
-                                                                                    class="fas fa-map-marker-alt me-1"></i>
-                                                                                <% if (news.locationCode) { %>
-                                                                                    <%= news.locationCode %>
-                                                                                        <% } %>
-                                                                            </div>
-                                                                            <% } %>
-                                                                                <!-- Short ID badge -->
-                                                                                <div
-                                                                                    style="position: absolute; bottom: 10px; right: 10px; background: rgba(255, 255, 255, 0.9); color: #333; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; border: 1px solid #ddd;">
-                                                                                    cbnys.co/<%= news.shortId ||
-                                                                                        (news._id.toString().length> 6 ?
-                                                                                        news._id.toString().substring(news._id.toString().length
-                                                                                        - 6) : news._id.toString()) %>
-                                                                                </div>
-                                                                                <!-- Active status indicator -->
-                                                                                <% 
-                                                                                  let statusText = news.isActive === false ? 'Inactive' : 'Active';
-                                                                                  let badgeClass = news.isActive === false ? 'bg-secondary' : 'bg-success';
-                                                                                  let isPending = false;
-                                                                                  
-                                                                                  if (news.isActive === false) {
-                                                                                    if (news.rejectionStatus && news.rejectionStatus.isRejected) {
-                                                                                      statusText = 'Rejected';
-                                                                                      badgeClass = 'bg-danger';
-                                                                                    } else if (news.approvalStatus && news.approvalStatus.isApproved === false) {
-                                                                                      statusText = 'Pending';
-                                                                                      badgeClass = 'bg-warning text-dark';
-                                                                                      isPending = true;
-                                                                                    }
-                                                                                  }
-                                                                                %>
-                                                                                <div style="position: absolute; top: 10px; right: 10px;">
-                                                                                    <span class="badge <%= badgeClass %>">
-                                                                                        <%= statusText %>
-                                                                                    </span>
-                                                                                </div>
-                                                        </div>
-                                                        <div class="card-body d-flex flex-column">
-                                                            <h5 class="card-title">
-                                                                <%= news.title.substring(0, 50) + (news.title.length> 50
-                                                                    ? '...'
-                                                                    : '') %>
-                                                            </h5>
-                                                            <p class="card-text news-content-preview flex-grow-1">
-                                                                <%= news.content.substring(0, 100) +
-                                                                    (news.content.length> 100 ?
-                                                                    '...' : '') %>
-                                                            </p>
-                                                            <div
-                                                                class="d-flex justify-content-between align-items-center mb-2">
-                                                                <div class="d-flex align-items-center gap-2">
-                                                                    <small class="text-muted">
-                                                                        <%= news.category %>
-                                                                    </small>
-                                                                    <% const articleLang = news.language || 'te'; %>
-                                                                    <span class="badge bg-info text-dark" style="font-size: 0.65rem;">
-                                                                        <%= langLabels[articleLang] || 'Telugu' %>
-                                                                    </span>
-                                                                </div>
-                                                                <small class="text-muted">
-                                                                    <%= new Date(news.publishedAt).toLocaleDateString()
-                                                                        %>
-                                                                </small>
-                                                            </div>
-                                                            <% if (typeof admin !=='undefined' && admin && admin.role
-                                                                !=='editor' ) { %>
-                                                                <div
-                                                                    class="d-flex justify-content-between align-items-center mb-2">
-                                                                    <small class="text-muted">
-                                                                        <i class="fas fa-user me-1"></i>
-                                                                        <%= news.author %>
-                                                                    </small>
-                                                                </div>
-                                                                <% } %>
-                                                                    <!-- Interaction counts -->
-                                                                    <div class="d-flex justify-content-between mb-3">
-                                                                        <small class="text-muted">
-                                                                            <i
-                                                                                class="fas fa-thumbs-up text-primary me-1"></i>
-                                                                            <%= news.likes || 0 %>
-                                                                        </small>
-                                                                        <small class="text-muted">
-                                                                            <i
-                                                                                class="fas fa-thumbs-down text-danger me-1"></i>
-                                                                            <%= news.dislikes || 0 %>
-                                                                        </small>
-                                                                        <small class="text-muted">
-                                                                            <i
-                                                                                class="fas fa-comment text-success me-1"></i>
-                                                                            <%= news.comments || 0 %>
-                                                                        </small>
-                                                                        <small class="text-muted">
-                                                                            <i class="fas fa-eye text-info me-1"></i>
-                                                                            <%= news.views || 0 %>
-                                                                        </small>
-                                                                    </div>
-                                                                    <div class="d-flex gap-2 mt-auto">
-                                                                        <button
-                                                                            class="btn btn-sm btn-<%= news.isActive === false ? 'success' : 'secondary' %> ripple"
-                                                                            onclick="<% if (isPending) { %>alert('⚠️ This news is Pending! Please go to the Pending News page to review and approve it.'); event.stopPropagation();<% } else { %>toggleNewsStatus('<%= news._id %>'); event.stopPropagation();<% } %>"
-                                                                            title="<%= isPending ? 'Pending Review' : (news.isActive === false ? 'Activate' : 'Deactivate') %>">
-                                                                            <i
-                                                                                class="fas fa-<%= news.isActive === false ? 'check' : 'times' %>"></i>
-                                                                        </button>
-                                                                        <button
-                                                                            class="btn btn-sm btn-outline-primary ripple"
-                                                                            onclick="viewNews('<%= news._id %>'); event.stopPropagation();"
-                                                                            title="View">
-                                                                            <i class="fas fa-eye"></i>
-                                                                        </button>
-                                                                        <button class="btn btn-sm btn-primary ripple"
-                                                                            onclick="editNews('<%= news._id %>'); event.stopPropagation();"
-                                                                            title="Edit">
-                                                                            <i class="fas fa-edit"></i>
-                                                                        </button>
-                                                                        <button class="btn btn-sm btn-info ripple"
-                                                                            onclick="sendNotificationForNews('<%= news._id %>'); event.stopPropagation();"
-                                                                            title="Notify">
-                                                                            <i class="fas fa-bell"></i>
-                                                                        </button>
-                                                                        <button class="btn btn-sm btn-danger ripple"
-                                                                            onclick="deleteNews('<%= news._id %>'); event.stopPropagation();"
-                                                                            title="Delete">
-                                                                            <i class="fas fa-trash"></i>
-                                                                        </button>
-                                                                    </div>
-                                                        </div>
-                                                    </div>
+
+                                    <% if (selectedAuthorIdSafe) { %>
+                                    <div class="news-active-filters">
+                                        <span class="news-active-filters-label">Active filters</span>
+                                        <div class="news-filter-chips">
+                                            <a href="<%= newsFilterUrl({ authorId: '' }) %>" class="news-filter-chip">
+                                                <i class="fas fa-user-pen"></i>
+                                                Reporter filter
+                                                <span class="news-filter-chip-x"><i class="fas fa-times"></i></span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <% } %>
+
+                                    <div class="team-stats">
+                                        <div class="team-stat">
+                                            <div class="team-stat-value"><%= totalNews %></div>
+                                            <div class="team-stat-label">Total articles</div>
+                                        </div>
+                                        <div class="team-stat">
+                                            <div class="team-stat-value"><%= pageActive %></div>
+                                            <div class="team-stat-label">Active on page</div>
+                                        </div>
+                                        <div class="team-stat">
+                                            <div class="team-stat-value"><%= pagePending %></div>
+                                            <div class="team-stat-label">Pending on page</div>
+                                        </div>
+                                        <div class="team-stat">
+                                            <div class="team-stat-value"><%= pageViews.toLocaleString('en-IN') %></div>
+                                            <div class="team-stat-label">Views on page</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="news-filters-card">
+                                        <div class="news-filters-top">
+                                            <div class="news-filters-heading">
+                                                <span class="news-filters-icon"><i class="fas fa-sliders"></i></span>
+                                                <div>
+                                                    <h2 class="news-filters-title">Filter articles</h2>
+                                                    <p class="news-filters-subtitle"><%= totalNews.toLocaleString('en-IN') %> articles match your criteria</p>
                                                 </div>
-                                                <% }); %>
+                                            </div>
+                                            <% if (hasActiveFilters) { %>
+                                            <a href="<%= newsFilterUrl({ search: '', location: '', status: '', language: '', fromDate: '', toDate: '' }) %>" class="news-filters-reset">
+                                                <i class="fas fa-rotate-left"></i> Reset filters
+                                            </a>
+                                            <% } %>
                                         </div>
 
-                                        <!-- Pagination -->
-                                        <% if (typeof pagination !== 'undefined' && pagination.totalPages > 1) { %>
-                                        <%
-                                            // Safe pagination query params
-                                            const paginationSearchQuery = (typeof searchQuery !== 'undefined' && searchQuery) ? searchQuery : '';
-                                            const paginationLocation = (typeof selectedLocation !== 'undefined' && selectedLocation) ? selectedLocation : '';
-                                            const paginationStatus = (typeof selectedStatus !== 'undefined' && selectedStatus) ? selectedStatus : '';
-                                            const paginationLanguage = (typeof selectedLanguage !== 'undefined' && selectedLanguage) ? selectedLanguage : '';
-                                            const paginationFromDate = (typeof fromDate !== 'undefined' && fromDate) ? fromDate : '';
-                                            const paginationToDate = (typeof toDate !== 'undefined' && toDate) ? toDate : '';
-                                        %>
-                                        <nav aria-label="News pagination" class="mt-4">
-                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                <small class="text-muted">
-                                                    Showing <%= ((pagination.currentPage - 1) * pagination.limit) + 1 %> -
-                                                    <%= Math.min(pagination.currentPage * pagination.limit, pagination.totalNews) %>
-                                                    of <%= pagination.totalNews %> news
-                                                </small>
-                                                <small class="text-muted">
-                                                    Page <%= pagination.currentPage %> of <%= pagination.totalPages %>
-                                                </small>
-                                            </div>
-                                            <ul class="pagination justify-content-center flex-wrap">
-                                                <!-- First Page -->
-                                                <li class="page-item <%= pagination.currentPage === 1 ? 'disabled' : '' %>">
-                                                    <a class="page-link" href="?page=1<%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationLanguage ? '&language=' + paginationLanguage : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
-                                                        <i class="fas fa-angle-double-left"></i>
-                                                    </a>
-                                                </li>
-                                                <!-- Previous Page -->
-                                                <li class="page-item <%= !pagination.hasPrevPage ? 'disabled' : '' %>">
-                                                    <a class="page-link" href="?page=<%= pagination.currentPage - 1 %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationLanguage ? '&language=' + paginationLanguage : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
-                                                        <i class="fas fa-angle-left"></i>
-                                                    </a>
-                                                </li>
-
-                                                <%
-                                                // Show page numbers
-                                                let startPage = Math.max(1, pagination.currentPage - 2);
-                                                let endPage = Math.min(pagination.totalPages, pagination.currentPage + 2);
-
-                                                // Ensure we show at least 5 pages if available
-                                                if (endPage - startPage < 4) {
-                                                    if (startPage === 1) {
-                                                        endPage = Math.min(pagination.totalPages, startPage + 4);
-                                                    } else {
-                                                        startPage = Math.max(1, endPage - 4);
-                                                    }
-                                                }
-
-                                                for (let i = startPage; i <= endPage; i++) { %>
-                                                    <li class="page-item <%= i === pagination.currentPage ? 'active' : '' %>">
-                                                        <a class="page-link" href="?page=<%= i %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationLanguage ? '&language=' + paginationLanguage : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
-                                                            <%= i %>
-                                                        </a>
-                                                    </li>
+                                        <div class="news-filters-search-row">
+                                            <div class="news-search-field">
+                                                <i class="fas fa-search"></i>
+                                                <input type="text" id="searchFilter" class="news-search-input" placeholder="Search by title, content, or author..." value="<%= currentSearch %>">
+                                                <% if (currentSearch) { %>
+                                                <button type="button" class="news-search-clear" id="clearSearchBtn" title="Clear search"><i class="fas fa-times"></i></button>
                                                 <% } %>
+                                            </div>
+                                            <button type="submit" class="news-filters-apply" form="filterForm">
+                                                <i class="fas fa-search"></i> Search
+                                            </button>
+                                        </div>
 
-                                                <!-- Next Page -->
-                                                <li class="page-item <%= !pagination.hasNextPage ? 'disabled' : '' %>">
-                                                    <a class="page-link" href="?page=<%= pagination.currentPage + 1 %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationLanguage ? '&language=' + paginationLanguage : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
-                                                        <i class="fas fa-angle-right"></i>
-                                                    </a>
-                                                </li>
-                                                <!-- Last Page -->
-                                                <li class="page-item <%= pagination.currentPage === pagination.totalPages ? 'disabled' : '' %>">
-                                                    <a class="page-link" href="?page=<%= pagination.totalPages %><%= selectedAuthorIdSafe ? '&authorId=' + selectedAuthorIdSafe : '' %><%= paginationSearchQuery ? '&search=' + encodeURIComponent(paginationSearchQuery) : '' %><%= paginationLocation ? '&location=' + paginationLocation : '' %><%= paginationStatus ? '&status=' + paginationStatus : '' %><%= paginationLanguage ? '&language=' + paginationLanguage : '' %><%= paginationFromDate ? '&fromDate=' + paginationFromDate : '' %><%= paginationToDate ? '&toDate=' + paginationToDate : '' %>">
-                                                        <i class="fas fa-angle-double-right"></i>
-                                                    </a>
-                                                </li>
-                                            </ul>
-                                        </nav>
-                                        <% } %>
+                                        <div class="news-filters-section">
+                                            <span class="news-filters-section-label">Status</span>
+                                            <div class="news-status-pills" role="tablist" aria-label="Filter by status">
+                                                <button type="button" class="news-status-pill <%= !currentStatus ? 'active' : '' %>" data-status="">All</button>
+                                                <button type="button" class="news-status-pill news-status-pill--active <%= currentStatus === 'active' ? 'active' : '' %>" data-status="active">Active</button>
+                                                <button type="button" class="news-status-pill news-status-pill--pending <%= currentStatus === 'pending' ? 'active' : '' %>" data-status="pending">Pending</button>
+                                                <button type="button" class="news-status-pill news-status-pill--inactive <%= currentStatus === 'inactive' ? 'active' : '' %>" data-status="inactive">Inactive</button>
+                                                <button type="button" class="news-status-pill news-status-pill--rejected <%= currentStatus === 'rejected' ? 'active' : '' %>" data-status="rejected">Rejected</button>
+                                            </div>
+                                        </div>
 
+                                        <div class="news-filters-facets">
+                                            <div class="news-facet">
+                                                <label class="news-facet-label" for="locationFilter"><i class="fas fa-map-marker-alt"></i> Location</label>
+                                                <div class="news-facet-select-wrap<%= currentLocation ? ' is-active' : '' %>">
+                                                    <select id="locationFilter" class="news-facet-select">
+                                                        <option value="">All locations</option>
+                                                        <% locations.forEach(function(location) { %>
+                                                            <option value="<%= location.name %>" <%= currentLocation === location.name ? 'selected' : '' %>><%= location.name %></option>
+                                                        <% }); %>
+                                                    </select>
+                                                    <i class="fas fa-chevron-down news-facet-chevron"></i>
+                                                </div>
+                                            </div>
+
+                                            <div class="news-facet">
+                                                <label class="news-facet-label" for="languageFilter"><i class="fas fa-language"></i> Language</label>
+                                                <div class="news-facet-select-wrap<%= currentLanguage ? ' is-active' : '' %>">
+                                                    <select id="languageFilter" class="news-facet-select">
+                                                        <option value="">All languages</option>
+                                                        <% Object.keys(langLabels).forEach(function(code) { %>
+                                                            <option value="<%= code %>" <%= currentLanguage === code ? 'selected' : '' %>><%= langLabels[code] %></option>
+                                                        <% }); %>
+                                                    </select>
+                                                    <i class="fas fa-chevron-down news-facet-chevron"></i>
+                                                </div>
+                                            </div>
+
+                                            <div class="news-facet news-facet--dates">
+                                                <label class="news-facet-label"><i class="fas fa-calendar-alt"></i> Published date</label>
+                                                <div class="news-date-range<%= (currentFromDate || currentToDate) ? ' is-active' : '' %>">
+                                                    <input type="date" class="news-date-input" id="fromDateFilter" title="From date" value="<%= currentFromDate %>" aria-label="From date">
+                                                    <span class="news-date-sep">→</span>
+                                                    <input type="date" class="news-date-input" id="toDateFilter" title="To date" value="<%= currentToDate %>" aria-label="To date">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <% if (hasActiveFilters) { %>
+                                        <div class="news-active-filters news-active-filters--inline">
+                                            <span class="news-active-filters-label">Applied</span>
+                                            <div class="news-filter-chips">
+                                                <% if (currentSearch) { %>
+                                                <a href="<%= newsFilterUrl({ search: '' }) %>" class="news-filter-chip">
+                                                    Search: <%= currentSearch.length > 24 ? currentSearch.substring(0, 24) + '…' : currentSearch %>
+                                                    <span class="news-filter-chip-x"><i class="fas fa-times"></i></span>
+                                                </a>
+                                                <% } %>
+                                                <% if (currentStatus) { %>
+                                                <a href="<%= newsFilterUrl({ status: '' }) %>" class="news-filter-chip">
+                                                    Status: <%= statusLabels[currentStatus] || currentStatus %>
+                                                    <span class="news-filter-chip-x"><i class="fas fa-times"></i></span>
+                                                </a>
+                                                <% } %>
+                                                <% if (currentLocation) { %>
+                                                <a href="<%= newsFilterUrl({ location: '' }) %>" class="news-filter-chip">
+                                                    <%= currentLocation %>
+                                                    <span class="news-filter-chip-x"><i class="fas fa-times"></i></span>
+                                                </a>
+                                                <% } %>
+                                                <% if (currentLanguage) { %>
+                                                <a href="<%= newsFilterUrl({ language: '' }) %>" class="news-filter-chip">
+                                                    <%= langLabels[currentLanguage] || currentLanguage %>
+                                                    <span class="news-filter-chip-x"><i class="fas fa-times"></i></span>
+                                                </a>
+                                                <% } %>
+                                                <% if (currentFromDate || currentToDate) { %>
+                                                <a href="<%= newsFilterUrl({ fromDate: '', toDate: '' }) %>" class="news-filter-chip">
+                                                    <% if (currentFromDate && currentToDate) { %><%= currentFromDate %> → <%= currentToDate %><% } else if (currentFromDate) { %>From <%= currentFromDate %><% } else { %>Until <%= currentToDate %><% } %>
+                                                    <span class="news-filter-chip-x"><i class="fas fa-times"></i></span>
+                                                </a>
+                                                <% } %>
+                                            </div>
+                                        </div>
                                         <% } %>
+                                    </div>
+
+                                    <select id="statusFilter" class="d-none" aria-hidden="true" tabindex="-1">
+                                        <option value="" <%= !currentStatus ? 'selected' : '' %>>All</option>
+                                        <option value="active" <%= currentStatus === 'active' ? 'selected' : '' %>>Active</option>
+                                        <option value="inactive" <%= currentStatus === 'inactive' ? 'selected' : '' %>>Inactive</option>
+                                        <option value="pending" <%= currentStatus === 'pending' ? 'selected' : '' %>>Pending</option>
+                                        <option value="rejected" <%= currentStatus === 'rejected' ? 'selected' : '' %>>Rejected</option>
+                                    </select>
+
+                                    <div class="team-panel">
+                                        <% if (newsList.length === 0) { %>
+                                        <div class="team-empty">
+                                            <div class="team-empty-icon"><i class="fas fa-newspaper"></i></div>
+                                            <h4 style="color:#374151;font-weight:600;margin-bottom:8px;">No articles found</h4>
+                                            <p style="margin-bottom:20px;">Try adjusting filters or publish a new story.</p>
+                                            <a href="/add-news" class="team-btn-primary"><i class="fas fa-plus"></i> Add article</a>
+                                        </div>
+                                        <% } else { %>
+                                        <div class="team-table-wrap">
+                                            <table class="team-table news-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Article</th>
+                                                        <th>Category</th>
+                                                        <th>Location</th>
+                                                        <th>Language</th>
+                                                        <th>Status</th>
+                                                        <th>Engagement</th>
+                                                        <% if (showAuthorCol) { %><th>Author</th><% } %>
+                                                        <th>Published</th>
+                                                        <th></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <% newsList.forEach(function(news) { %>
+                                                        <%- include('partials/news-directory-row', { news: news, newsLanguageLabels: langLabels, admin: admin }) %>
+                                                    <% }); %>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <div class="news-pagination">
+                                            <div class="news-pagination-info">
+                                                Showing <%= totalNews === 0 ? 0 : ((currentPage - 1) * pageLimit) + 1 %>–<%= Math.min(currentPage * pageLimit, totalNews) %> of <%= totalNews %> articles
+                                                <% if (totalPages > 1) { %> · Page <%= currentPage %> of <%= totalPages %><% } %>
+                                            </div>
+                                            <% if (totalPages > 1) { %>
+                                            <div class="news-pagination-nav">
+                                                <a class="news-page-btn <%= currentPage === 1 ? 'disabled' : '' %>" href="?page=1<%= paginationQuery %>" aria-label="First page"><i class="fas fa-angles-left"></i></a>
+                                                <a class="news-page-btn <%= currentPage === 1 ? 'disabled' : '' %>" href="?page=<%= currentPage - 1 %><%= paginationQuery %>" aria-label="Previous page"><i class="fas fa-angle-left"></i></a>
+                                                <% 
+                                                    let startPage = Math.max(1, currentPage - 2);
+                                                    let endPage = Math.min(totalPages, currentPage + 2);
+                                                    if (endPage - startPage < 4) {
+                                                        if (startPage === 1) endPage = Math.min(totalPages, startPage + 4);
+                                                        else startPage = Math.max(1, endPage - 4);
+                                                    }
+                                                    for (let i = startPage; i <= endPage; i++) { %>
+                                                <a class="news-page-btn <%= i === currentPage ? 'active' : '' %>" href="?page=<%= i %><%= paginationQuery %>"><%= i %></a>
+                                                <% } %>
+                                                <a class="news-page-btn <%= currentPage === totalPages ? 'disabled' : '' %>" href="?page=<%= currentPage + 1 %><%= paginationQuery %>" aria-label="Next page"><i class="fas fa-angle-right"></i></a>
+                                                <a class="news-page-btn <%= currentPage === totalPages ? 'disabled' : '' %>" href="?page=<%= totalPages %><%= paginationQuery %>" aria-label="Last page"><i class="fas fa-angles-right"></i></a>
+                                            </div>
+                                            <% } %>
+                                        </div>
+                                        <% } %>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                 </div>
             </div>
 
             <!-- News Detail Modal -->
-            <div class="modal fade" id="newsDetailModal" tabindex="-1" aria-labelledby="newsDetailModalLabel"
-                aria-hidden="true">
-                <div class="modal-dialog modal-xl">
+            <div class="modal fade" id="newsDetailModal" tabindex="-1" aria-labelledby="newsDetailModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
                     <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="newsDetailModalLabel">News Details</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <div class="nd-modal-header">
+                            <div class="nd-modal-header-left">
+                                <div class="nd-modal-icon"><i class="fas fa-newspaper"></i></div>
+                                <div>
+                                    <h2 class="nd-modal-title-text" id="newsDetailModalLabel">Article Preview</h2>
+                                    <p class="nd-modal-subtitle-text" id="newsDetailModalSubtitle">How readers see this story</p>
+                                </div>
+                            </div>
+                            <div class="nd-modal-actions">
+                                <button type="button" class="nd-btn nd-btn-primary" id="newsDetailEditBtn" title="Edit article">
+                                    <i class="fas fa-pen"></i><span>Edit</span>
+                                </button>
+                                <button type="button" class="nd-btn nd-btn-close" data-bs-dismiss="modal" aria-label="Close">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="modal-body">
-                            <div class="news-detail-content">
-                                <div class="row">
-                                    <div class="col-lg-8">
-                                        <div id="newsDetailMediaContainer" class="mb-3">
-                                            <img id="newsDetailImage" src="" class="img-fluid rounded" alt="News Image"
-                                                style="width: 100%; max-height: 400px; object-fit: cover;">
+                        <div class="modal-body nd-modal-body">
+                            <div class="nd-split">
+                                <!-- LEFT: Image + article -->
+                                <div class="nd-left">
+                                    <div class="nd-media-panel" id="newsDetailHero">
+                                        <span class="nd-hero-badge" id="newsDetailMediaBadge" style="display:none;"></span>
+                                        <div class="nd-hero-inner" id="newsDetailMediaContainer">
+                                            <div class="nd-hero-placeholder"><i class="fas fa-image"></i></div>
                                         </div>
-                                        <h3 id="newsDetailTitle" class="mb-3"></h3>
-                                        <div class="d-flex flex-wrap gap-3 mb-3">
-                                            <span id="newsDetailCategory" class="badge bg-primary"></span>
-                                            <span id="newsDetailLocation" class="badge bg-success"></span>
-                                            <span id="newsDetailDate" class="badge bg-secondary"></span>
-                                            <span id="newsDetailStatus" class="badge bg-info"></span>
-                                            <span id="newsDetailShortId" class="badge bg-dark"></span>
-                                        </div>
-                                        <p id="newsDetailContent" class="mb-4"></p>
                                     </div>
-                                    <div class="col-lg-4">
-                                        <!-- Interaction Stats -->
-                                        <div class="card mb-4">
-                                            <div class="card-header bg-light">
-                                                <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Interaction Stats
-                                                </h6>
-                                            </div>
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-around text-center">
-                                                    <div>
-                                                        <div class="fs-4 text-primary" id="newsDetailLikes">0</div>
-                                                        <div class="small text-muted">Likes</div>
-                                                    </div>
-                                                    <div>
-                                                        <div class="fs-4 text-danger" id="newsDetailDislikes">0</div>
-                                                        <div class="small text-muted">Dislikes</div>
-                                                    </div>
-                                                    <div>
-                                                        <div class="fs-4 text-success" id="newsDetailCommentsCount">0
-                                                        </div>
-                                                        <div class="small text-muted">Comments</div>
-                                                    </div>
-                                                    <div>
-                                                        <div class="d-flex align-items-center justify-content-center gap-2">
-                                                            <div class="fs-4 text-info" id="newsDetailViews">0</div>
-                                                            <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
-                                                            <button class="btn btn-sm btn-outline-info" onclick="editNewsViews()" title="Edit Views"><i class="fas fa-edit"></i></button>
-                                                            <% } %>
-                                                        </div>
-                                                        <div class="small text-muted">Views</div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                    <div class="nd-article-panel">
+                                        <div class="nd-meta">
+                                            <span id="newsDetailCategory" class="nd-pill nd-pill-category"></span>
+                                            <span id="newsDetailLocation" class="nd-pill nd-pill-location" style="display:none;"></span>
+                                            <span id="newsDetailDate" class="nd-pill nd-pill-date"></span>
+                                            <span id="newsDetailStatus" class="nd-pill nd-pill-active"></span>
+                                            <span id="newsDetailShortId" class="nd-pill nd-pill-link"></span>
                                         </div>
-
-                                        <!-- Author Information -->
-                                        <div class="card mb-4">
-                                            <div class="card-header bg-light">
-                                                <h6 class="mb-0"><i class="fas fa-user-edit me-2"></i>Published By</h6>
-                                            </div>
-                                            <div class="card-body">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="me-3">
-                                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center"
-                                                            style="width: 50px; height: 50px;">
-                                                            <i class="fas fa-user fa-lg text-muted"></i>
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <h6 class="mb-0" id="newsDetailAuthor">-</h6>
-                                                        <small class="text-muted" id="newsDetailAuthorRole">Reporter</small>
-                                                        <div class="small text-muted" id="newsDetailAuthorId"></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="card mb-4" id="newsDetailApprovalSection">
-                                            <div class="card-header bg-light">
-                                                <h6 class="mb-0"><i class="fas fa-check-circle text-success me-2"></i>Approval Details</h6>
-                                            </div>
-                                            <div class="card-body" id="newsDetailApprovalCard">
-                                                <div class="small text-muted">Status: <span id="newsDetailApprovalStatus">Pending</span></div>
-                                                <div class="small text-muted">By: <span id="newsDetailApprovalBy">-</span></div>
-                                                <div class="small text-muted">Role: <span id="newsDetailApprovalRole">-</span></div>
-                                                <div class="small text-muted">At: <span id="newsDetailApprovalAt">-</span></div>
-                                            </div>
-                                        </div>
-
-                                        <div class="card mb-4">
-                                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                                <h6 class="mb-0"><i class="fas fa-history me-2"></i>Activity Timeline</h6>
-                                                <span class="badge bg-secondary" id="newsDetailHistoryCount">0</span>
-                                            </div>
-                                            <div class="card-body p-0">
-                                                <div id="newsDetailHistoryList" class="list-group list-group-flush" style="max-height: 240px; overflow-y: auto;">
-                                                    <div class="text-center p-3"><small class="text-muted">No history available</small></div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Likes Section -->
-                                        <div class="card mb-4">
-                                            <div
-                                                class="card-header bg-light d-flex justify-content-between align-items-center">
-                                                <h6 class="mb-0"><i class="fas fa-thumbs-up text-primary me-2"></i>Likes
-                                                </h6>
-                                                <span class="badge bg-primary" id="likesCount">0</span>
-                                            </div>
-                                            <div class="card-body p-0">
-                                                <div id="likesList" class="list-group list-group-flush"
-                                                    style="max-height: 200px; overflow-y: auto;">
-                                                    <div class="text-center p-3">
-                                                        <small class="text-muted">No likes yet</small>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Dislikes Section -->
-                                        <div class="card mb-4">
-                                            <div
-                                                class="card-header bg-light d-flex justify-content-between align-items-center">
-                                                <h6 class="mb-0"><i
-                                                        class="fas fa-thumbs-down text-danger me-2"></i>Dislikes
-                                                </h6>
-                                                <span class="badge bg-danger" id="dislikesCount">0</span>
-                                            </div>
-                                            <div class="card-body p-0">
-                                                <div id="dislikesList" class="list-group list-group-flush"
-                                                    style="max-height: 200px; overflow-y: auto;">
-                                                    <div class="text-center p-3">
-                                                        <small class="text-muted">No dislikes yet</small>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        <h1 id="newsDetailTitle" class="nd-article-title"></h1>
+                                        <div id="newsDetailContent" class="nd-article-content rich-content-area"></div>
+                                        <div id="newsDetailExternalLinks" class="nd-external-links" style="display:none;">
+                                            <div class="nd-external-links-title">External links</div>
+                                            <div id="newsDetailLinksList"></div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Comments Section -->
-                                <div class="card">
-                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                        <h6 class="mb-0"><i class="fas fa-comments text-success me-2"></i>Comments</h6>
-                                        <span class="badge bg-success" id="commentsCount">0</span>
-                                    </div>
-                                    <div class="card-body">
-                                        <div id="commentsList">
-                                            <div class="text-center p-3">
-                                                <small class="text-muted">No comments yet</small>
+                                <!-- RIGHT: Stats + engagement -->
+                                <div class="nd-right">
+                                    <div class="nd-stats-stack">
+                                        <div class="nd-stat-row nd-stat-views">
+                                            <div class="nd-stat-row-icon"><i class="fas fa-eye"></i></div>
+                                            <div class="nd-stat-row-info">
+                                                <div class="nd-stat-row-value">
+                                                    <span id="newsDetailViews">0</span>
+                                                    <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
+                                                    <button type="button" class="nd-views-edit" onclick="editNewsViews()" title="Edit views"><i class="fas fa-pen"></i></button>
+                                                    <% } %>
+                                                </div>
+                                                <div class="nd-stat-row-label">Views</div>
                                             </div>
                                         </div>
+                                        <div class="nd-stat-row nd-stat-likes">
+                                            <div class="nd-stat-row-icon"><i class="fas fa-thumbs-up"></i></div>
+                                            <div class="nd-stat-row-info">
+                                                <div class="nd-stat-row-value">
+                                                    <span id="newsDetailLikes">0</span>
+                                                    <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
+                                                    <button type="button" class="nd-views-edit" onclick="editNewsLikes()" title="Edit likes"><i class="fas fa-pen"></i></button>
+                                                    <% } %>
+                                                </div>
+                                                <div class="nd-stat-row-label">Likes</div>
+                                            </div>
+                                        </div>
+                                        <div class="nd-stat-row nd-stat-dislikes">
+                                            <div class="nd-stat-row-icon"><i class="fas fa-thumbs-down"></i></div>
+                                            <div class="nd-stat-row-info">
+                                                <div class="nd-stat-row-value">
+                                                    <span id="newsDetailDislikes">0</span>
+                                                    <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
+                                                    <button type="button" class="nd-views-edit" onclick="editNewsDislikes()" title="Edit dislikes"><i class="fas fa-pen"></i></button>
+                                                    <% } %>
+                                                </div>
+                                                <div class="nd-stat-row-label">Dislikes</div>
+                                            </div>
+                                        </div>
+                                        <div class="nd-stat-row nd-stat-comments">
+                                            <div class="nd-stat-row-icon"><i class="fas fa-comment"></i></div>
+                                            <div class="nd-stat-row-info">
+                                                <div class="nd-stat-row-value" id="newsDetailCommentsCount">0</div>
+                                                <div class="nd-stat-row-label">Comments</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="nd-section">
+                                        <div class="nd-section-head"><i class="fas fa-user-edit"></i> Published by</div>
+                                        <div class="nd-section-body nd-section-body-flush">
+                                            <div class="nd-author-row">
+                                                <div class="nd-author-avatar" id="newsDetailAuthorAvatar">?</div>
+                                                <div class="nd-author-details">
+                                                    <div class="nd-author-name" id="newsDetailAuthor">-</div>
+                                                    <div class="nd-author-email" id="newsDetailAuthorEmail" style="display:none;"></div>
+                                                    <div class="nd-author-role"><span id="newsDetailAuthorRole">Reporter</span> · <span id="newsDetailAuthorId"></span></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="nd-section" id="newsDetailApprovalSection" style="display:none;">
+                                        <div class="nd-section-head"><i class="fas fa-check-circle"></i> Approval</div>
+                                        <div class="nd-section-body nd-meta-list">
+                                            <div><span>Status</span><strong id="newsDetailApprovalStatus">Pending</strong></div>
+                                            <div><span>By</span><span id="newsDetailApprovalBy">-</span></div>
+                                            <div><span>Role</span><span id="newsDetailApprovalRole">-</span></div>
+                                            <div><span>At</span><span id="newsDetailApprovalAt">-</span></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="nd-section">
+                                        <div class="nd-section-head">
+                                            <span><i class="fas fa-history"></i> Activity</span>
+                                            <span class="nd-section-count" id="newsDetailHistoryCount">0</span>
+                                        </div>
+                                        <div class="nd-section-body nd-section-scroll" id="newsDetailHistoryList"></div>
+                                    </div>
+
+                                    <div class="nd-section">
+                                        <div class="nd-section-head">
+                                            <span><i class="fas fa-thumbs-up"></i> Likes</span>
+                                            <span class="nd-section-count" id="likesCount">0</span>
+                                        </div>
+                                        <div class="nd-section-body nd-section-scroll" id="likesList"></div>
+                                    </div>
+
+                                    <div class="nd-section">
+                                        <div class="nd-section-head">
+                                            <span><i class="fas fa-thumbs-down"></i> Dislikes</span>
+                                            <span class="nd-section-count" id="dislikesCount">0</span>
+                                        </div>
+                                        <div class="nd-section-body nd-section-scroll" id="dislikesList"></div>
+                                    </div>
+
+                                    <div class="nd-section">
+                                        <div class="nd-section-head">
+                                            <span><i class="fas fa-comments"></i> Comments</span>
+                                            <span class="nd-section-count" id="commentsCount">0</span>
+                                        </div>
+                                        <div class="nd-section-body nd-section-scroll" id="commentsList"></div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" title="Close">
-                                <i class="fas fa-times"></i>
-                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <%- include('partials/footer') %>
+                <script src="/js/rich-text.js"></script>
                 <script src="/js/main.js"></script>
+                <script src="/js/notification-sender.js"></script>
                 <script id="newsData" type="application/json"><%- JSON.stringify(newsList) %></script>
                 <script>
-                    // Make newsList available globally
-                    const newsListItems = JSON.parse(document.getElementById('newsData').textContent);
+                    window.newsListItems = JSON.parse(document.getElementById('newsData').textContent);
+                    const newsListItems = window.newsListItems;
                     let currentViewNewsId = null;
+                    let currentViewNewsItem = null;
+                    const isSuperAdmin = <%= (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') ? 'true' : 'false' %>;
 
                     // Wait for DOM to be fully loaded
                     document.addEventListener('DOMContentLoaded', function () {
@@ -984,27 +560,51 @@
                         const filterForm = document.getElementById('filterForm');
 
                         if (searchFilter && locationFilter && statusFilter && languageFilter && fromDateFilter && toDateFilter && filterForm) {
+                            function syncHiddenFilters() {
+                                searchFilterInput.value = searchFilter.value;
+                                locationFilterInput.value = locationFilter.value;
+                                statusFilterInput.value = statusFilter.value;
+                                languageFilterInput.value = languageFilter.value;
+                                fromDateFilterInput.value = fromDateFilter.value;
+                                toDateFilterInput.value = toDateFilter.value;
+                            }
+
                             // Search on Enter key
                             searchFilter.addEventListener('keypress', function (e) {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
-                                    searchFilterInput.value = this.value;
+                                    syncHiddenFilters();
                                     filterForm.submit();
                                 }
                             });
 
-                            // Update hidden input when search field changes
                             searchFilter.addEventListener('input', function () {
                                 searchFilterInput.value = this.value;
                             });
 
-                            locationFilter.addEventListener('change', function () {
-                                locationFilterInput.value = this.value;
-                                filterForm.submit();
+                            const clearSearchBtn = document.getElementById('clearSearchBtn');
+                            if (clearSearchBtn) {
+                                clearSearchBtn.addEventListener('click', function () {
+                                    searchFilter.value = '';
+                                    searchFilterInput.value = '';
+                                    filterForm.submit();
+                                });
+                            }
+
+                            document.querySelectorAll('.news-status-pill').forEach(function (pill) {
+                                pill.addEventListener('click', function () {
+                                    const nextStatus = this.getAttribute('data-status') || '';
+                                    statusFilter.value = nextStatus;
+                                    statusFilterInput.value = nextStatus;
+                                    document.querySelectorAll('.news-status-pill').forEach(function (node) {
+                                        node.classList.toggle('active', node === pill);
+                                    });
+                                    filterForm.submit();
+                                });
                             });
 
-                            statusFilter.addEventListener('change', function () {
-                                statusFilterInput.value = this.value;
+                            locationFilter.addEventListener('change', function () {
+                                locationFilterInput.value = this.value;
                                 filterForm.submit();
                             });
 
@@ -1013,7 +613,6 @@
                                 filterForm.submit();
                             });
 
-                            // Date filters - submit on change
                             fromDateFilter.addEventListener('change', function () {
                                 fromDateFilterInput.value = this.value;
                                 filterForm.submit();
@@ -1029,9 +628,190 @@
                     });
 
                     // View news function
+                    function getNewsStatusInfo(newsItem) {
+                        if (newsItem.isActive !== false) {
+                            return { label: 'Active', className: 'nd-pill-active' };
+                        }
+                        if (newsItem.rejectionStatus && newsItem.rejectionStatus.isRejected) {
+                            return { label: 'Rejected', className: 'nd-pill-rejected' };
+                        }
+                        if (newsItem.approvalStatus && newsItem.approvalStatus.isApproved === false) {
+                            return { label: 'Pending', className: 'nd-pill-pending' };
+                        }
+                        return { label: 'Inactive', className: 'nd-pill-inactive' };
+                    }
+
+                    function renderNewsDetailMedia(newsItem) {
+                        const container = document.getElementById('newsDetailMediaContainer');
+                        const badge = document.getElementById('newsDetailMediaBadge');
+                        const hero = document.getElementById('newsDetailHero');
+                        const images = [];
+
+                        if (Array.isArray(newsItem.imageUrls) && newsItem.imageUrls.length > 0) {
+                            images.push(...newsItem.imageUrls.filter(Boolean));
+                        }
+                        const primary = newsItem.mediaUrl || newsItem.imageUrl;
+                        if (primary && !images.includes(primary)) {
+                            images.unshift(primary);
+                        }
+
+                        hero.classList.remove('is-hidden');
+
+                        if (newsItem.mediaType === 'video' && primary) {
+                            badge.style.display = 'inline-block';
+                            badge.textContent = 'Video';
+                            container.className = 'nd-hero-inner';
+                            container.innerHTML = `<video controls playsinline preload="metadata"><source src="${escapeHtml(primary)}" type="video/mp4">Your browser does not support video.</video>`;
+                            return;
+                        }
+
+                        if (images.length > 1) {
+                            badge.style.display = 'inline-block';
+                            badge.textContent = `${images.length} photos`;
+                            container.className = 'nd-hero-inner nd-hero-gallery';
+                            container.innerHTML = images.map((url, index) =>
+                                `<img src="${escapeHtml(url)}" alt="Photo ${index + 1}" loading="lazy">`
+                            ).join('');
+                            return;
+                        }
+
+                        if (images.length === 1) {
+                            badge.style.display = 'none';
+                            container.className = 'nd-hero-inner';
+                            container.innerHTML = `<img src="${escapeHtml(images[0])}" alt="Article image" loading="lazy">`;
+                            return;
+                        }
+
+                        badge.style.display = 'none';
+                        hero.classList.add('is-hidden');
+                        container.className = 'nd-hero-inner';
+                        container.innerHTML = '';
+                    }
+
+                    function setAuthorDetails(newsItem) {
+                        const authorRaw = (newsItem.author || '').trim();
+                        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authorRaw);
+                        const nameEl = document.getElementById('newsDetailAuthor');
+                        const emailEl = document.getElementById('newsDetailAuthorEmail');
+
+                        if (isEmail) {
+                            nameEl.textContent = authorRaw.split('@')[0];
+                            emailEl.textContent = authorRaw;
+                            emailEl.style.display = '';
+                        } else {
+                            nameEl.textContent = authorRaw || '-';
+                            emailEl.textContent = '';
+                            emailEl.style.display = 'none';
+                        }
+
+                        document.getElementById('newsDetailAuthorRole').textContent = newsItem.authorRole || 'Reporter';
+                        document.getElementById('newsDetailAuthorId').textContent = newsItem.authorId ? `ID ${newsItem.authorId}` : '';
+                        const avatarSource = isEmail ? authorRaw.split('@')[0] : authorRaw;
+                        const authorInitials = (avatarSource || '?').split(/[\s._-]+/).filter(Boolean).map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?';
+                        document.getElementById('newsDetailAuthorAvatar').textContent = authorInitials;
+                    }
+
+                    function getUserDisplayName(item) {
+                        if (item.userName) return item.userName;
+                        if (item.userEmail) return item.userEmail.split('@')[0];
+                        return 'App user';
+                    }
+
+                    function getUserInitials(name) {
+                        return (name || '?').split(/[\s._-]+/).filter(Boolean).map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?';
+                    }
+
+                    function renderInteractionList(items, emptyText) {
+                        if (!items || items.length === 0) {
+                            return `<div class="nd-empty-note">${emptyText}</div>`;
+                        }
+                        return items.map(item => {
+                            const displayName = getUserDisplayName(item);
+                            const date = item.timestamp ? new Date(item.timestamp).toLocaleString() : '-';
+                            const userMeta = [item.userEmail, item.userId ? `ID: ${item.userId}` : ''].filter(Boolean).join(' · ');
+                            return `
+                                <div class="nd-list-item">
+                                    <div class="nd-comment-top">
+                                        <div class="nd-comment-user">
+                                            <span class="nd-comment-avatar">${escapeHtml(getUserInitials(displayName))}</span>
+                                            <div>
+                                                <div class="nd-list-name">${escapeHtml(displayName)}</div>
+                                                ${userMeta ? `<div class="nd-list-meta">${escapeHtml(userMeta)}</div>` : ''}
+                                            </div>
+                                        </div>
+                                        <span class="nd-user-badge">Real user</span>
+                                    </div>
+                                    <div class="nd-list-meta" style="margin-top:6px;">${escapeHtml(date)}</div>
+                                </div>`;
+                        }).join('');
+                    }
+
+                    function renderCommentsList(comments) {
+                        if (!comments || comments.length === 0) {
+                            return '<div class="nd-empty-note">No comments yet</div>';
+                        }
+                        return comments.map(item => {
+                            const commentId = item._id || item.id;
+                            const displayName = getUserDisplayName(item);
+                            const date = item.timestamp ? new Date(item.timestamp).toLocaleString() : '-';
+                            const userMeta = [item.userEmail, item.userId ? `ID: ${item.userId}` : ''].filter(Boolean).join(' · ');
+                            const adminActions = (isSuperAdmin && commentId) ? `
+                                <div class="nd-comment-admin-actions">
+                                    <button type="button" class="nd-engagement-edit" onclick="editNewsComment('${commentId}')" title="Edit comment"><i class="fas fa-pen"></i></button>
+                                    <button type="button" class="nd-engagement-delete" onclick="deleteNewsComment('${commentId}')" title="Delete comment"><i class="fas fa-trash"></i></button>
+                                </div>` : '';
+
+                            return `
+                                <div class="nd-list-item nd-comment-item">
+                                    <div class="nd-comment-top">
+                                        <div class="nd-comment-user">
+                                            <span class="nd-comment-avatar">${escapeHtml(getUserInitials(displayName))}</span>
+                                            <div>
+                                                <div class="nd-list-name">${escapeHtml(displayName)}</div>
+                                                ${userMeta ? `<div class="nd-list-meta">${escapeHtml(userMeta)}</div>` : ''}
+                                            </div>
+                                        </div>
+                                        <div class="nd-comment-meta">
+                                            <span class="nd-user-badge">Real user</span>
+                                            <span class="nd-list-meta">${escapeHtml(date)}</span>
+                                            ${adminActions}
+                                        </div>
+                                    </div>
+                                    <div class="nd-comment-text">${escapeHtml(item.comment)}</div>
+                                </div>`;
+                        }).join('');
+                    }
+
+                    function refreshEngagementPanel(newsItem) {
+                        if (!newsItem) return;
+                        currentViewNewsItem = newsItem;
+
+                        document.getElementById('newsDetailViews').textContent = newsItem.views || 0;
+                        document.getElementById('newsDetailLikes').textContent = newsItem.likes || 0;
+                        document.getElementById('newsDetailDislikes').textContent = newsItem.dislikes || 0;
+                        document.getElementById('newsDetailCommentsCount').textContent = newsItem.comments || 0;
+
+                        const likes = newsItem.userInteractions?.likes || [];
+                        const dislikes = newsItem.userInteractions?.dislikes || [];
+                        const comments = newsItem.userInteractions?.comments || [];
+
+                        document.getElementById('likesCount').textContent = likes.length;
+                        document.getElementById('dislikesCount').textContent = dislikes.length;
+                        document.getElementById('commentsCount').textContent = comments.length;
+                        document.getElementById('likesList').innerHTML = renderInteractionList(likes, 'No likes yet');
+                        document.getElementById('dislikesList').innerHTML = renderInteractionList(dislikes, 'No dislikes yet');
+                        document.getElementById('commentsList').innerHTML = renderCommentsList(comments);
+                    }
+
+                    function syncNewsListCache(newsItem) {
+                        const index = newsListItems.findIndex(n => n._id === newsItem._id);
+                        if (index !== -1) {
+                            newsListItems[index] = { ...newsListItems[index], ...newsItem };
+                        }
+                    }
+
                     async function viewNews(newsId) {
                         currentViewNewsId = newsId;
-                        // Find the news item in the newsList array
                         let newsItem = newsListItems.find(news => news._id === newsId);
 
                         if (!newsItem) {
@@ -1043,159 +823,95 @@
                             const response = await fetch(`/news/api/news/${newsId}`);
                             if (response.ok) {
                                 const latestNews = await response.json();
-                                newsItem = {
-                                    ...newsItem,
-                                    ...latestNews
-                                };
+                                newsItem = { ...newsItem, ...latestNews };
                             }
                         } catch (error) {
                             console.warn('Could not fetch latest news details, falling back to cached list item.', error);
                         }
 
-                        if (newsItem) {
-                            // Populate modal with news details
-                            const mediaElement = document.getElementById('newsDetailImage');
-                            if (newsItem.mediaType === 'video') {
-                                document.getElementById('newsDetailMediaContainer').innerHTML = `
-                        <video id="newsDetailImage" src="${newsItem.mediaUrl}" class="img-fluid rounded" controls style="width: 100%; max-height: 400px;"></video>
-                    `;
-                            } else {
-                                document.getElementById('newsDetailMediaContainer').innerHTML = `
-                        <img id="newsDetailImage" src="${newsItem.mediaUrl || newsItem.imageUrl}" class="img-fluid rounded" alt="News Image" style="width: 100%; max-height: 400px; object-fit: cover;">
-                    `;
-                            }
-                            document.getElementById('newsDetailTitle').textContent = newsItem.title;
-                            document.getElementById('newsDetailContent').textContent = newsItem.content;
-                            document.getElementById('newsDetailCategory').textContent = newsItem.category;
-                            document.getElementById('newsDetailAuthor').textContent = newsItem.author;
-                            document.getElementById('newsDetailAuthorRole').textContent = newsItem.authorRole || 'Reporter';
-                            document.getElementById('newsDetailAuthorId').textContent = `ID: ${newsItem.authorId}`;
-                            document.getElementById('newsDetailDate').textContent = new Date(newsItem.publishedAt).toLocaleString();
-                            document.getElementById('newsDetailStatus').textContent = newsItem.isActive ? 'Active' : 'Inactive';
-                            document.getElementById('newsDetailStatus').className = `badge ${newsItem.isActive ? 'bg-success' : 'bg-secondary'}`;
+                        if (!newsItem) return;
 
-                            const approval = newsItem.approvalStatus;
-                            const approved = approval && approval.isApproved;
-                            const isReporterNews = (newsItem.authorSystemRole === 'editor' || newsItem.authorSystemRole === 'reporter');
-                            document.getElementById('newsDetailApprovalSection').style.display = (isReporterNews && approved) ? '' : 'none';
+                        currentViewNewsItem = newsItem;
+                        refreshEngagementPanel(newsItem);
 
-                            // Approval details
-                            document.getElementById('newsDetailApprovalStatus').textContent = approved ? 'Approved' : 'Pending';
-                            document.getElementById('newsDetailApprovalBy').textContent = approved ? (approval.approvedBy || '-') : '-';
-                            document.getElementById('newsDetailApprovalRole').textContent = approved ? (approval.approvedByRole || '-') : '-';
-                            document.getElementById('newsDetailApprovalAt').textContent = approved && approval.approvedAt ? new Date(approval.approvedAt).toLocaleString() : '-';
+                        renderNewsDetailMedia(newsItem);
 
-                            // History timeline
-                            const historyList = document.getElementById('newsDetailHistoryList');
-                            const historyCount = document.getElementById('newsDetailHistoryCount');
-                            const historyItems = Array.isArray(newsItem.actionHistory) ? [...newsItem.actionHistory] : [];
-                            historyItems.sort((a, b) => new Date(b.performedAt || 0) - new Date(a.performedAt || 0));
-                            historyCount.textContent = historyItems.length;
-                            if (historyItems.length > 0) {
-                                historyList.innerHTML = historyItems.map(item => `
-                                    <div class="list-group-item">
-                                        <div class="d-flex justify-content-between align-items-start gap-2">
-                                            <div>
-                                                <div class="fw-semibold text-capitalize">${(item.action || 'updated').replace(/_/g, ' ')}</div>
-                                                <div class="small text-muted">${item.details || '-'}</div>
-                                                <div class="small text-muted">${item.performedByName || 'System'} • ${item.performedByRole || '-'}</div>
-                                            </div>
-                                            <small class="text-muted">${item.performedAt ? new Date(item.performedAt).toLocaleString() : '-'}</small>
-                                        </div>
-                                    </div>
-                                `).join('');
-                            } else {
-                                historyList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No history available</small></div>';
-                            }
+                        document.getElementById('newsDetailTitle').innerHTML = renderRichText(newsItem.title || '');
+                        document.getElementById('newsDetailContent').innerHTML = renderRichText(newsItem.content || '');
+                        document.getElementById('newsDetailCategory').innerHTML = `<i class="fas fa-tag"></i> ${escapeHtml(newsItem.category || 'General')}`;
 
-                            // Short ID
-                            const shortId = newsItem.shortId || (newsItem._id.toString().length > 6 ? newsItem._id.toString().substring(newsItem._id.toString().length - 6) : newsItem._id.toString());
-                            document.getElementById('newsDetailShortId').textContent = `Fact Check ID: cbnys.co/${shortId}`;
-                            document.getElementById('newsDetailLikes').textContent = newsItem.likes || 0;
-                            document.getElementById('newsDetailDislikes').textContent = newsItem.dislikes || 0;
-                            document.getElementById('newsDetailCommentsCount').textContent = newsItem.comments || 0;
-                            document.getElementById('newsDetailViews').textContent = newsItem.views || 0;
-
-                            // Show location if available
-                            const locationElement = document.getElementById('newsDetailLocation');
-                            if (newsItem.location) {
-                                const locationText = newsItem.locationCode ?
-                                    `${newsItem.location} (${newsItem.locationCode})` :
-                                    newsItem.location;
-                                locationElement.textContent = locationText;
-                                locationElement.style.display = 'inline-block';
-                            } else {
-                                locationElement.style.display = 'none';
-                            }
-
-                            // Populate likes section
-                            const likesList = document.getElementById('likesList');
-                            const likesCount = document.getElementById('likesCount');
-                            if (newsItem.userInteractions && newsItem.userInteractions.likes && newsItem.userInteractions.likes.length > 0) {
-                                likesCount.textContent = newsItem.userInteractions.likes.length;
-                                likesList.innerHTML = newsItem.userInteractions.likes.map(like => `
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <strong>${like.userName}</strong>
-                                    <div class="small text-muted">${like.userEmail || ''}</div>
-                                </div>
-                                <small class="text-muted">${new Date(like.timestamp).toLocaleDateString()}</small>
-                            </div>
-                        </div>
-                    `).join('');
-                            } else {
-                                likesCount.textContent = '0';
-                                likesList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No likes yet</small></div>';
-                            }
-
-                            // Populate dislikes section
-                            const dislikesList = document.getElementById('dislikesList');
-                            const dislikesCount = document.getElementById('dislikesCount');
-                            if (newsItem.userInteractions && newsItem.userInteractions.dislikes && newsItem.userInteractions.dislikes.length > 0) {
-                                dislikesCount.textContent = newsItem.userInteractions.dislikes.length;
-                                dislikesList.innerHTML = newsItem.userInteractions.dislikes.map(dislike => `
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <strong>${dislike.userName}</strong>
-                                    <div class="small text-muted">${dislike.userEmail || ''}</div>
-                                </div>
-                                <small class="text-muted">${new Date(dislike.timestamp).toLocaleDateString()}</small>
-                            </div>
-                        </div>
-                    `).join('');
-                            } else {
-                                dislikesCount.textContent = '0';
-                                dislikesList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No dislikes yet</small></div>';
-                            }
-
-                            // Populate comments section
-                            const commentsList = document.getElementById('commentsList');
-                            const commentsCount = document.getElementById('commentsCount');
-                            if (newsItem.userInteractions && newsItem.userInteractions.comments && newsItem.userInteractions.comments.length > 0) {
-                                commentsCount.textContent = newsItem.userInteractions.comments.length;
-                                commentsList.innerHTML = newsItem.userInteractions.comments.map(comment => `
-                        <div class="border-bottom pb-3 mb-3">
-                            <div class="d-flex justify-content-between mb-2">
-                                <div>
-                                    <strong>${comment.userName}</strong>
-                                    <div class="small text-muted">${comment.userEmail || ''}</div>
-                                </div>
-                                <small class="text-muted">${new Date(comment.timestamp).toLocaleDateString()}</small>
-                            </div>
-                            <p class="mb-0">${comment.comment}</p>
-                        </div>
-                    `).join('');
-                            } else {
-                                commentsCount.textContent = '0';
-                                commentsList.innerHTML = '<div class="text-center p-3"><small class="text-muted">No comments yet</small></div>';
-                            }
-
-                            // Show modal
-                            const modal = new bootstrap.Modal(document.getElementById('newsDetailModal'));
-                            modal.show();
+                        const locationElement = document.getElementById('newsDetailLocation');
+                        if (newsItem.location) {
+                            const locationText = newsItem.locationCode
+                                ? `${newsItem.location} (${newsItem.locationCode})`
+                                : newsItem.location;
+                            locationElement.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${escapeHtml(locationText)}`;
+                            locationElement.style.display = 'inline-flex';
+                        } else {
+                            locationElement.style.display = 'none';
                         }
+
+                        document.getElementById('newsDetailDate').innerHTML = `<i class="far fa-clock"></i> ${new Date(newsItem.publishedAt).toLocaleString()}`;
+
+                        const statusInfo = getNewsStatusInfo(newsItem);
+                        const statusEl = document.getElementById('newsDetailStatus');
+                        statusEl.textContent = statusInfo.label;
+                        statusEl.className = `nd-pill ${statusInfo.className}`;
+
+                        const shortId = newsItem.shortId || (newsItem._id.toString().length > 6
+                            ? newsItem._id.toString().substring(newsItem._id.toString().length - 6)
+                            : newsItem._id.toString());
+                        document.getElementById('newsDetailShortId').innerHTML = `<i class="fas fa-link"></i> cbnys.co/${escapeHtml(shortId)}`;
+
+                        setAuthorDetails(newsItem);
+
+                        const editBtn = document.getElementById('newsDetailEditBtn');
+                        if (editBtn) {
+                            editBtn.onclick = () => editNews(newsId);
+                        }
+
+                        const linksWrap = document.getElementById('newsDetailExternalLinks');
+                        const linksList = document.getElementById('newsDetailLinksList');
+                        let linksHtml = '';
+                        if (newsItem.readFullLink) {
+                            linksHtml += `<a class="nd-external-link" href="${escapeHtml(newsItem.readFullLink)}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Read full article</a>`;
+                        }
+                        if (newsItem.ePaperLink) {
+                            linksHtml += `<a class="nd-external-link" href="${escapeHtml(newsItem.ePaperLink)}" target="_blank" rel="noopener"><i class="fas fa-newspaper"></i> ePaper</a>`;
+                        }
+                        if (linksHtml) {
+                            linksList.innerHTML = linksHtml;
+                            linksWrap.style.display = '';
+                        } else {
+                            linksWrap.style.display = 'none';
+                        }
+
+                        const approval = newsItem.approvalStatus;
+                        const approved = approval && approval.isApproved;
+                        const isReporterNews = (newsItem.authorSystemRole === 'editor' || newsItem.authorSystemRole === 'reporter');
+                        document.getElementById('newsDetailApprovalSection').style.display = (isReporterNews && approved) ? '' : 'none';
+                        document.getElementById('newsDetailApprovalStatus').textContent = approved ? 'Approved' : 'Pending';
+                        document.getElementById('newsDetailApprovalBy').textContent = approved ? (approval.approvedBy || '-') : '-';
+                        document.getElementById('newsDetailApprovalRole').textContent = approved ? (approval.approvedByRole || '-') : '-';
+                        document.getElementById('newsDetailApprovalAt').textContent = approved && approval.approvedAt
+                            ? new Date(approval.approvedAt).toLocaleString()
+                            : '-';
+
+                        const historyItems = Array.isArray(newsItem.actionHistory) ? [...newsItem.actionHistory] : [];
+                        historyItems.sort((a, b) => new Date(b.performedAt || 0) - new Date(a.performedAt || 0));
+                        document.getElementById('newsDetailHistoryCount').textContent = historyItems.length;
+                        document.getElementById('newsDetailHistoryList').innerHTML = historyItems.length
+                            ? historyItems.map(item => `
+                                <div class="nd-timeline-item">
+                                    <div class="nd-timeline-action">${escapeHtml((item.action || 'updated').replace(/_/g, ' '))}</div>
+                                    <div class="nd-list-meta">${escapeHtml(item.details || '-')}</div>
+                                    <div class="nd-list-meta">${escapeHtml(item.performedByName || 'System')} · ${escapeHtml(item.performedByRole || '-')}</div>
+                                    <div class="nd-timeline-date">${item.performedAt ? new Date(item.performedAt).toLocaleString() : '-'}</div>
+                                </div>`).join('')
+                            : '<div class="nd-empty-note">No activity yet</div>';
+
+                        const modal = new bootstrap.Modal(document.getElementById('newsDetailModal'));
+                        modal.show();
                     }
 
                     // Edit news function
@@ -1266,168 +982,6 @@
                         }
                     }
 
-                    // Send notification for news function - Shows Simple Editor
-                    let currentNotificationNewsItem = null;
-                    let selectedTitleColor = '#FF6F00';
-                    let selectedTitleFontSize = 'normal'; // small, normal, large
-
-                    function sendNotificationForNews(newsId) {
-                        const newsItem = newsListItems.find(news => news._id === newsId);
-                        if (newsItem) {
-                            currentNotificationNewsItem = newsItem;
-
-                            // Initialize simple inputs with news content
-                            const titleInput = document.getElementById('notifTitleInput');
-                            const messageInput = document.getElementById('notifMessageInput');
-
-                            if (titleInput) titleInput.value = newsItem.title;
-                            if (messageInput) messageInput.value = newsItem.content;
-
-                            // Reset colors and font size to default
-                            selectedTitleColor = '#FF6F00';
-                            selectedTitleFontSize = 'normal';
-
-                            // Reset color button selections
-                            resetColorButtons();
-
-                            // Update preview
-                            updateNotifPreview();
-
-                            // Show modal
-                            const modal = document.getElementById('notificationRichModal');
-                            if (modal) modal.classList.add('active');
-                        }
-                    }
-
-                    function resetColorButtons() {
-                        // Reset title color buttons
-                        document.querySelectorAll('#titleColorPresets .color-btn').forEach(btn => {
-                            btn.classList.remove('selected');
-                            if (btn.dataset.color === '#FF6F00') btn.classList.add('selected');
-                        });
-                        document.getElementById('customTitleColor').value = '#FF6F00';
-
-                        // Reset font size buttons
-                        document.querySelectorAll('#titleFontSizePresets .font-size-btn').forEach(btn => {
-                            btn.classList.remove('selected');
-                            if (btn.dataset.size === 'normal') btn.classList.add('selected');
-                        });
-                    }
-
-                    function selectTitleColor(btn) {
-                        // Remove selected from all title color buttons
-                        document.querySelectorAll('#titleColorPresets .color-btn').forEach(b => b.classList.remove('selected'));
-                        btn.classList.add('selected');
-                        selectedTitleColor = btn.dataset.color;
-                        document.getElementById('customTitleColor').value = selectedTitleColor;
-                        updateNotifPreview();
-                    }
-
-                    function selectCustomTitleColor(color) {
-                        document.querySelectorAll('#titleColorPresets .color-btn').forEach(b => b.classList.remove('selected'));
-                        selectedTitleColor = color;
-                        updateNotifPreview();
-                    }
-
-                    function selectTitleFontSize(btn) {
-                        // Remove selected from all font size buttons
-                        document.querySelectorAll('#titleFontSizePresets .font-size-btn').forEach(b => b.classList.remove('selected'));
-                        btn.classList.add('selected');
-                        selectedTitleFontSize = btn.dataset.size;
-                        updateNotifPreview();
-                    }
-
-                    function updateNotifPreview() {
-                        const title = document.getElementById('notifTitleInput')?.value || 'Title Preview';
-                        const message = document.getElementById('notifMessageInput')?.value || 'Message preview...';
-
-                        const previewTitle = document.getElementById('previewTitle');
-                        const previewMessage = document.getElementById('previewMessage');
-
-                        if (previewTitle) {
-                            previewTitle.textContent = title || 'Title Preview';
-                            previewTitle.style.color = selectedTitleColor;
-
-                            // Apply font size
-                            let fontSize = '1rem'; // default
-                            if (selectedTitleFontSize === 'small') fontSize = '0.9rem';
-                            else if (selectedTitleFontSize === 'large') fontSize = '1.3rem';
-                            previewTitle.style.fontSize = fontSize;
-                        }
-                        if (previewMessage) {
-                            previewMessage.textContent = message || 'Message preview...';
-                            // Body color is dynamic based on app theme, so we don't preview a forced color here.
-                            previewMessage.style.color = '#FFFFFF'; 
-                        }
-                    }
-
-                    function closeNotificationModal() {
-                        const modal = document.getElementById('notificationRichModal');
-                        if (modal) modal.classList.remove('active');
-                        currentNotificationNewsItem = null;
-                    }
-
-                    function confirmSendNotification() {
-                        if (!currentNotificationNewsItem) return;
-
-                        const title = document.getElementById('notifTitleInput').value.trim();
-                        const message = document.getElementById('notifMessageInput').value.trim();
-
-                        if (!title || !message) {
-                            alert('Please enter both title and message');
-                            return;
-                        }
-
-                        console.log('📧 Sending notification:');
-                        console.log('   Title:', title);
-                        console.log('   Title Color:', selectedTitleColor);
-                        console.log('   Title Font Size:', selectedTitleFontSize);
-
-                        const notificationData = {
-                            title: title,
-                            message: message,
-                            newsId: currentNotificationNewsItem._id,
-                            imageUrl: currentNotificationNewsItem.mediaUrl || currentNotificationNewsItem.imageUrl,
-                            launchUrl: null,
-                            platformSettings: {},
-                            priority: 'high',
-                            // 🎨 Way2News style: Send colors and font size directly
-                            titleColor: selectedTitleColor,
-                            titleFontSize: selectedTitleFontSize
-                        };
-
-                        const sendBtn = document.getElementById('sendNotifBtn');
-                        sendBtn.disabled = true;
-                        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-
-                        fetch('/admin/api/send-notification', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(notificationData)
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.error) throw new Error(data.error);
-                            closeNotificationModal();
-                            alert('✅ Notification sent successfully!');
-                        })
-                        .catch(error => {
-                            alert('Error: ' + error.message);
-                        })
-                        .finally(() => {
-                            sendBtn.disabled = false;
-                            sendBtn.innerHTML = '🚀 Send Notification';
-                        });
-                    }
-
-                    // Close modal when clicking outside
-                    document.addEventListener('click', function(e) {
-                        const modal = document.getElementById('notificationRichModal');
-                        if (e.target === modal) {
-                            closeNotificationModal();
-                        }
-                    });
-
                     // Mobile menu setup
                     function setupMobileMenu() {
                         const menuToggle = document.getElementById('menuToggle');
@@ -1468,142 +1022,120 @@
                         });
                     }
 
-                    // Edit News Views Function
-                    async function editNewsViews() {
-                        if (!currentViewNewsId) return;
-                        
-                        const viewsElement = document.getElementById('newsDetailViews');
-                        const currentViews = viewsElement.textContent;
-                        const newViews = prompt('Enter new view count:', currentViews);
-                        
-                        if (newViews !== null && newViews !== '') {
-                            const parsedViews = parseInt(newViews, 10);
-                            if (isNaN(parsedViews) || parsedViews < 0) {
-                                alert('Please enter a valid positive number');
-                                return;
-                            }
-                            
-                            try {
-                                const response = await fetch(`/news/api/news/${currentViewNewsId}/views`, {
-                                    method: 'PUT',
-                                    headers: {
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({ views: parsedViews })
-                                });
-                                
-                                const result = await response.json();
-                                
-                                if (response.ok) {
-                                    viewsElement.textContent = parsedViews;
-                                    // Update in local array
-                                    const index = newsListItems.findIndex(n => n._id === currentViewNewsId);
-                                    if (index !== -1) {
-                                        newsListItems[index].views = parsedViews;
+                    async function editEngagementCount(field, label, endpointKey) {
+                        if (!currentViewNewsId || !isSuperAdmin) return;
+
+                        const elementMap = {
+                            views: 'newsDetailViews',
+                            likes: 'newsDetailLikes',
+                            dislikes: 'newsDetailDislikes'
+                        };
+                        const element = document.getElementById(elementMap[field]);
+                        const currentValue = element.textContent;
+                        const newValue = prompt(`Enter new ${label} count:`, currentValue);
+
+                        if (newValue === null || newValue === '') return;
+
+                        const parsed = parseInt(newValue, 10);
+                        if (isNaN(parsed) || parsed < 0) {
+                            alert('Please enter a valid positive number');
+                            return;
+                        }
+
+                        try {
+                            const response = await fetch(`/news/api/news/${currentViewNewsId}/${endpointKey}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ [field]: parsed })
+                            });
+                            const result = await response.json();
+
+                            if (response.ok) {
+                                element.textContent = parsed;
+                                if (result.news) {
+                                    syncNewsListCache(result.news);
+                                    if (currentViewNewsItem && currentViewNewsItem._id === currentViewNewsId) {
+                                        currentViewNewsItem = { ...currentViewNewsItem, ...result.news };
                                     }
-                                    
-                                    // Optionally refresh the main list UI or let the user refresh
-                                    // To show it immediately in the main list:
-                                    // location.reload();
-                                    
-                                } else {
-                                    alert(result.error || 'Failed to update view count');
                                 }
-                            } catch (error) {
-                                console.error('Error updating views:', error);
-                                alert('Error updating view count');
+                            } else {
+                                alert(result.error || `Failed to update ${label} count`);
                             }
+                        } catch (error) {
+                            console.error(`Error updating ${label}:`, error);
+                            alert(`Error updating ${label} count`);
+                        }
+                    }
+
+                    async function editNewsViews() {
+                        await editEngagementCount('views', 'view', 'views');
+                    }
+
+                    async function editNewsLikes() {
+                        await editEngagementCount('likes', 'like', 'likes');
+                    }
+
+                    async function editNewsDislikes() {
+                        await editEngagementCount('dislikes', 'dislike', 'dislikes');
+                    }
+
+                    async function deleteNewsComment(commentId) {
+                        if (!currentViewNewsId || !isSuperAdmin || !commentId) return;
+                        if (!confirm('Delete this comment permanently?')) return;
+
+                        try {
+                            const response = await fetch(`/news/api/news/${currentViewNewsId}/comments/${commentId}`, {
+                                method: 'DELETE'
+                            });
+                            const result = await response.json();
+
+                            if (response.ok && result.news) {
+                                syncNewsListCache(result.news);
+                                refreshEngagementPanel(result.news);
+                            } else {
+                                alert(result.error || 'Failed to delete comment');
+                            }
+                        } catch (error) {
+                            console.error('Error deleting comment:', error);
+                            alert('Error deleting comment');
+                        }
+                    }
+
+                    async function editNewsComment(commentId) {
+                        if (!currentViewNewsId || !isSuperAdmin || !commentId) return;
+
+                        const comments = currentViewNewsItem?.userInteractions?.comments || [];
+                        const existing = comments.find(c => String(c._id) === String(commentId));
+                        if (!existing) {
+                            alert('Comment not found');
+                            return;
+                        }
+
+                        const updatedText = prompt('Edit comment text:', existing.comment || '');
+                        if (updatedText === null || updatedText.trim() === '') return;
+
+                        try {
+                            const response = await fetch(`/news/api/news/${currentViewNewsId}/comments/${commentId}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ comment: updatedText.trim() })
+                            });
+                            const result = await response.json();
+
+                            if (response.ok && result.news) {
+                                syncNewsListCache(result.news);
+                                refreshEngagementPanel(result.news);
+                            } else {
+                                alert(result.error || 'Failed to update comment');
+                            }
+                        } catch (error) {
+                            console.error('Error updating comment:', error);
+                            alert('Error updating comment');
                         }
                     }
                 </script>
 
-    <!-- Easy Notification Editor Modal -->
-    <div id="notificationRichModal" class="notification-modal-overlay">
-        <div class="notification-modal">
-            <div class="notification-modal-header">
-                <h5>🔔 Send Notification</h5>
-            </div>
-            <div class="notification-modal-body">
-
-                <!-- Title Input -->
-                <div class="notif-section">
-                    <div class="notif-section-label">
-                        <i class="fas fa-heading"></i>
-                        <span>Title</span>
-                    </div>
-                    <input type="text" id="notifTitleInput" class="notif-input" placeholder="Enter notification title..." maxlength="100" oninput="updateNotifPreview()">
-                </div>
-
-                <!-- Message Input -->
-                <div class="notif-section">
-                    <div class="notif-section-label">
-                        <i class="fas fa-comment-alt"></i>
-                        <span>Message</span>
-                    </div>
-                    <textarea id="notifMessageInput" class="notif-input notif-textarea" placeholder="Enter notification message..." maxlength="200" oninput="updateNotifPreview()"></textarea>
-                </div>
-
-                <!-- Color Selection -->
-                <div class="color-section">
-                    <div class="color-section-title">🎨 Colors (One-Click Selection)</div>
-
-                    <!-- Title Color -->
-                    <div class="color-row">
-                        <span class="color-row-label">Title Color:</span>
-                        <div class="color-presets" id="titleColorPresets">
-                            <button class="color-btn selected" style="background: #FF6F00;" data-color="#FF6F00" onclick="selectTitleColor(this)" title="Orange"></button>
-                            <button class="color-btn" style="background: #E53935;" data-color="#E53935" onclick="selectTitleColor(this)" title="Red"></button>
-                            <button class="color-btn" style="background: #1E88E5;" data-color="#1E88E5" onclick="selectTitleColor(this)" title="Blue"></button>
-                            <button class="color-btn" style="background: #43A047;" data-color="#43A047" onclick="selectTitleColor(this)" title="Green"></button>
-                            <button class="color-btn" style="background: #8E24AA;" data-color="#8E24AA" onclick="selectTitleColor(this)" title="Purple"></button>
-                            <button class="color-btn" style="background: #F4511E;" data-color="#F4511E" onclick="selectTitleColor(this)" title="Deep Orange"></button>
-                            <button class="color-btn" style="background: #00897B;" data-color="#00897B" onclick="selectTitleColor(this)" title="Teal"></button>
-                            <button class="color-btn" style="background: #D81B60;" data-color="#D81B60" onclick="selectTitleColor(this)" title="Pink"></button>
-                        </div>
-                        <div class="custom-color-wrapper">
-                            <input type="color" class="custom-color-input" id="customTitleColor" value="#FF6F00" onchange="selectCustomTitleColor(this.value)" title="Custom Color">
-                            <span class="custom-color-label">Custom</span>
-                        </div>
-                    </div>
-
-                    </div>
-                </div>
-
-                <!-- Font Size Selection -->
-                <div class="color-section">
-                    <div class="color-section-title">📏 Title Font Size</div>
-                    <div class="color-row">
-                        <span class="color-row-label">Title Size:</span>
-                        <div class="font-size-btns" id="titleFontSizePresets">
-                            <button class="font-size-btn small" data-size="small" onclick="selectTitleFontSize(this)" title="Small">Small</button>
-                            <button class="font-size-btn normal selected" data-size="normal" onclick="selectTitleFontSize(this)" title="Normal">Normal</button>
-                            <button class="font-size-btn large" data-size="large" onclick="selectTitleFontSize(this)" title="Large">Large</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Live Preview -->
-                <div class="preview-section">
-                    <div class="preview-label">📱 Live Preview</div>
-                    <div class="preview-notification">
-                        <div class="preview-icon">
-                            <i class="fas fa-newspaper" style="color: white; font-size: 18px;"></i>
-                        </div>
-                        <div class="preview-content">
-                            <div class="preview-title" id="previewTitle" style="color: #FF6F00;">Title Preview</div>
-                            <div class="preview-message" id="previewMessage" style="color: #FFFFFF;">Message preview will appear here...</div>
-                            <div class="preview-time">Just now • Short News</div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-            <div class="notification-modal-footer">
-                <button class="btn-cancel-notif" onclick="closeNotificationModal()">Cancel</button>
-                <button class="btn-send-notif" id="sendNotifBtn" onclick="confirmSendNotification()">🚀 Send</button>
-            </div>
-        </div>
-    </div>
+    <%- include('partials/notification-modal') %>
 
     </body>
 

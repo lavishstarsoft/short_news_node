@@ -627,6 +627,43 @@ body {
 /* Badge styles */
 .badge {
     font-size: 0.75em;
+    font-weight: 600;
+}
+
+.badge.bg-success,
+.badge.text-bg-success {
+    background-color: #166534 !important;
+    color: #ffffff !important;
+}
+
+.badge.bg-info,
+.badge.text-bg-info {
+    background-color: #0369a1 !important;
+    color: #ffffff !important;
+}
+
+.badge.bg-secondary,
+.badge.text-bg-secondary {
+    background-color: #64748b !important;
+    color: #ffffff !important;
+}
+
+.badge.bg-warning,
+.badge.text-bg-warning {
+    background-color: #b45309 !important;
+    color: #ffffff !important;
+}
+
+.badge.bg-danger,
+.badge.text-bg-danger {
+    background-color: #b91c1c !important;
+    color: #ffffff !important;
+}
+
+.badge.bg-primary,
+.badge.text-bg-primary {
+    background-color: #1d4ed8 !important;
+    color: #ffffff !important;
 }
 
 /* Table styles */

@@ -14,8 +14,9 @@ const Category = require('../models/Category');
 const {
   normalizeNewsLanguage,
   buildNewsLanguageFilter,
-  NEWS_LANGUAGE_LABELS
+  getLanguageViewData
 } = require('../utils/newsLanguages');
+const { normalizeNewsContent } = require('../utils/contentNormalize');
 
 // Import the Notification model
 const Notification = require('../models/Notification');
@@ -418,8 +419,65 @@ const renderUsersListPage = async (req, res) => {
     const User = require('../models/User');
     const News = require('../models/News');
 
-    // Get all users from database
-    const users = await User.find().sort({ createdAt: -1 });
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(10, parseInt(req.query.limit, 10) || 20));
+    const skip = (page - 1) * limit;
+    const searchQuery = (req.query.search || '').trim();
+    const authFilter = ['google', 'mobile'].includes(req.query.auth) ? req.query.auth : '';
+
+    const filterConditions = [];
+    if (searchQuery) {
+      filterConditions.push({
+        $or: [
+          { displayName: { $regex: searchQuery, $options: 'i' } },
+          { email: { $regex: searchQuery, $options: 'i' } },
+          { mobileNumber: { $regex: searchQuery, $options: 'i' } }
+        ]
+      });
+    }
+    if (authFilter === 'google') {
+      filterConditions.push({ googleId: { $exists: true, $ne: null, $ne: '' } });
+    } else if (authFilter === 'mobile') {
+      filterConditions.push({ mobileNumber: { $exists: true, $ne: null, $ne: '' } });
+      filterConditions.push({
+        $or: [
+          { googleId: { $exists: false } },
+          { googleId: null },
+          { googleId: '' }
+        ]
+      });
+    }
+
+    let userQuery = {};
+    if (filterConditions.length === 1) {
+      userQuery = filterConditions[0];
+    } else if (filterConditions.length > 1) {
+      userQuery = { $and: filterConditions };
+    }
+
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    const [
+      totalFiltered,
+      users,
+      statsTotal,
+      statsGoogle,
+      statsMobile,
+      statsActiveWeek
+    ] = await Promise.all([
+      User.countDocuments(userQuery),
+      User.find(userQuery).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      User.countDocuments(),
+      User.countDocuments({ googleId: { $exists: true, $ne: null, $ne: '' } }),
+      User.countDocuments({
+        mobileNumber: { $exists: true, $ne: null, $ne: '' },
+        $or: [{ googleId: { $exists: false } }, { googleId: null }, { googleId: '' }]
+      }),
+      User.countDocuments({ lastLogin: { $gte: weekAgo } })
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / limit));
 
     // Aggregate likes from news
     const likesAgg = await News.aggregate([
@@ -514,7 +572,24 @@ const renderUsersListPage = async (req, res) => {
       return userObj;
     });
 
-    res.render('users', { admin, users: usersWithInteractions });
+    res.render('users', {
+      admin,
+      users: usersWithInteractions,
+      searchQuery,
+      authFilter,
+      stats: {
+        total: statsTotal,
+        google: statsGoogle,
+        mobile: statsMobile,
+        activeWeek: statsActiveWeek
+      },
+      pagination: {
+        currentPage: page,
+        limit,
+        totalUsers: totalFiltered,
+        totalPages
+      }
+    });
   } catch (error) {
     console.error('Users list error:', error);
     res.status(500).send('Error fetching users list');
@@ -804,12 +879,13 @@ async function renderEditorsPage(req, res) {
 
     // Fetch locations for edit dropdown
     const locations = await Location.find().sort({ name: 1 });
+    const languageViewData = await getLanguageViewData();
 
     res.render('editors', {
       admin,
       editors: editorsWithStats,
       locations,
-      newsLanguageLabels: NEWS_LANGUAGE_LABELS
+      ...languageViewData
     });
   } catch (error) {
     console.error('Editors page error:', error);
@@ -1201,6 +1277,51 @@ async function renderPerformanceAnalyticsPage(req, res) {
         : 0
     };
 
+    const searchQuery = (req.query.search || '').trim();
+    const roleFilter = ['reporter', 'subeditor'].includes(req.query.role) ? req.query.role : '';
+    const bandFilter = ['excellent', 'good', 'average', 'poor'].includes(req.query.band) ? req.query.band : '';
+    const selectedAuthorId = (req.query.authorId || '').trim();
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(10, parseInt(req.query.limit, 10) || 15));
+
+    let filteredRows = rowsWithRank;
+
+    if (selectedAuthorId) {
+      filteredRows = filteredRows.filter((row) => row.id === selectedAuthorId);
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filteredRows = filteredRows.filter((row) =>
+        (row.name || '').toLowerCase().includes(q) ||
+        (row.username || '').toLowerCase().includes(q) ||
+        (row.email || '').toLowerCase().includes(q) ||
+        (row.location || '').toLowerCase().includes(q)
+      );
+    }
+    if (roleFilter === 'reporter') {
+      filteredRows = filteredRows.filter((row) => row.role === 'Reporter');
+    } else if (roleFilter === 'subeditor') {
+      filteredRows = filteredRows.filter((row) => row.role === 'Sub Editor');
+    }
+    if (bandFilter) {
+      filteredRows = filteredRows.filter((row) => row.performanceBand === bandFilter);
+    }
+
+    const totalFiltered = filteredRows.length;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / limit));
+    const safePage = Math.min(page, totalPages);
+    const paginatedRows = filteredRows.slice((safePage - 1) * limit, safePage * limit);
+
+    const filterCounts = {
+      all: rowsWithRank.length,
+      reporters: rowsWithRank.filter((row) => row.role === 'Reporter').length,
+      subeditors: rowsWithRank.filter((row) => row.role === 'Sub Editor').length
+    };
+
+    const selectedMember = selectedAuthorId
+      ? rowsWithRank.find((row) => row.id === selectedAuthorId) || null
+      : null;
+
     return res.render('performance-analytics', {
       admin,
       title: 'Performance Analytics',
@@ -1209,12 +1330,24 @@ async function renderPerformanceAnalyticsPage(req, res) {
       untilDate,
       startDate: req.query.startDate || '',
       endDate: req.query.endDate || '',
+      searchQuery,
+      roleFilter,
+      bandFilter,
+      selectedAuthorId,
+      selectedMember,
       summary,
-      analyticsRows: rowsWithRank,
+      filterCounts,
+      analyticsRows: paginatedRows,
       topPerformers,
       poorPerformers,
       teamMonthlyTrend,
-      recommendations: performanceRecommendations
+      recommendations: performanceRecommendations,
+      pagination: {
+        currentPage: safePage,
+        limit,
+        totalRows: totalFiltered,
+        totalPages
+      }
     });
   } catch (error) {
     console.error('Performance analytics page error:', error);
@@ -1439,8 +1572,9 @@ async function renderRegisterEditorPage(req, res) {
 
     // Fetch locations for dropdown
     const locations = await Location.find().sort({ name: 1 });
+    const languageViewData = await getLanguageViewData();
 
-    res.render('register-editor', { admin, locations });
+    res.render('register-editor', { admin, locations, ...languageViewData });
   } catch (error) {
     console.error('Register editor page error:', error);
     res.status(500).send('Error loading register editor page');
@@ -2673,10 +2807,10 @@ async function renderPendingNewsPage(req, res) {
     res.render('pending-news', {
       pendingNews: pendingNewsWithDefaults || [],
       title: 'Pending News Review',
-      newsLanguageLabels: NEWS_LANGUAGE_LABELS,
       selectedLanguage,
       admin: req.admin,
-      adminRole: adminDoc?.role || req.admin.role
+      adminRole: adminDoc?.role || req.admin.role,
+      ...(await getLanguageViewData())
     });
   } catch (error) {
     console.error('Error rendering pending news page:', error);
@@ -2773,8 +2907,8 @@ async function updatePendingNews(req, res) {
       return res.status(400).json({ error: 'Rejected news cannot be edited from pending page' });
     }
 
-    const normalizedTitle = (title || '').trim();
-    const normalizedContent = (content || '').trim();
+    const normalizedTitle = normalizeNewsContent(title || '');
+    const normalizedContent = normalizeNewsContent(content || '');
     const normalizedCategory = (category || '').trim();
     const normalizedLocation = typeof location === 'string' ? location.trim() : '';
 
@@ -3183,17 +3317,117 @@ async function getDuplicateDetails(req, res) {
 
 async function renderRejectedNewsPage(req, res) {
   try {
-    const rejectedNews = await News.find({
-      'rejectionStatus.isRejected': true
-    })
-      .sort({ 'rejectionStatus.rejectedAt': -1 })
-      .select('title author category location publishedAt rejectionStatus isActive views')
-      .lean();
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(10, parseInt(req.query.limit, 10) || 20));
+    const skip = (page - 1) * limit;
+    const searchQuery = (req.query.search || '').trim();
+    const reasonFilter = (req.query.reason || '').trim();
+    const categoryFilter = (req.query.category || '').trim();
+
+    const baseMatch = { 'rejectionStatus.isRejected': true };
+    const filterConditions = [baseMatch];
+
+    if (searchQuery) {
+      filterConditions.push({
+        $or: [
+          { title: { $regex: searchQuery, $options: 'i' } },
+          { author: { $regex: searchQuery, $options: 'i' } },
+          { category: { $regex: searchQuery, $options: 'i' } },
+          { location: { $regex: searchQuery, $options: 'i' } },
+          { 'rejectionStatus.reason': { $regex: searchQuery, $options: 'i' } },
+          { 'rejectionStatus.feedback': { $regex: searchQuery, $options: 'i' } },
+          { 'rejectionStatus.rejectedBy': { $regex: searchQuery, $options: 'i' } }
+        ]
+      });
+    }
+
+    if (reasonFilter) {
+      filterConditions.push({ 'rejectionStatus.reason': reasonFilter });
+    }
+
+    if (categoryFilter) {
+      filterConditions.push({ category: categoryFilter });
+    }
+
+    const query = filterConditions.length === 1
+      ? filterConditions[0]
+      : { $and: filterConditions };
+
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    const [
+      totalFiltered,
+      rejectedNews,
+      totalAll,
+      statsAgg,
+      rejectionReasons,
+      categories
+    ] = await Promise.all([
+      News.countDocuments(query),
+      News.find(query)
+        .sort({ 'rejectionStatus.rejectedAt': -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('title author category location language publishedAt rejectionStatus isActive views authorId')
+        .lean(),
+      News.countDocuments(baseMatch),
+      News.aggregate([
+        { $match: baseMatch },
+        {
+          $group: {
+            _id: null,
+            thisWeek: {
+              $sum: {
+                $cond: [{ $gte: ['$rejectionStatus.rejectedAt', weekAgo] }, 1, 0]
+              }
+            },
+            withFeedback: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: ['$rejectionStatus.feedback', null] },
+                      { $ne: ['$rejectionStatus.feedback', ''] }
+                    ]
+                  },
+                  1,
+                  0
+                ]
+              }
+            }
+          }
+        }
+      ]),
+      News.distinct('rejectionStatus.reason', baseMatch),
+      News.distinct('category', baseMatch)
+    ]);
+
+    const stats = statsAgg[0] || { thisWeek: 0, withFeedback: 0 };
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / limit));
+    const safePage = Math.min(page, totalPages);
 
     res.render('rejected-news', {
+      admin: req.admin,
       title: 'Rejected News',
       rejectedNews: rejectedNews || [],
-      totalRejected: rejectedNews.length
+      searchQuery,
+      reasonFilter,
+      categoryFilter,
+      rejectionReasons: rejectionReasons.filter(Boolean).sort(),
+      categories: categories.filter(Boolean).sort(),
+      summary: {
+        total: totalAll,
+        thisWeek: stats.thisWeek || 0,
+        withFeedback: stats.withFeedback || 0,
+        filtered: totalFiltered
+      },
+      pagination: {
+        currentPage: safePage,
+        limit,
+        totalRows: totalFiltered,
+        totalPages
+      }
     });
   } catch (error) {
     console.error('Error rendering rejected news page:', error);
@@ -3218,10 +3452,12 @@ async function renderRegistrationFieldsPage(req, res) {
 async function renderReporterApplicationsPage(req, res) {
   try {
     const applications = await ReporterApplication.find().sort({ createdAt: -1 }).lean();
+    const registrationFields = await RegistrationField.find({ isActive: true }).sort({ order: 1 }).lean();
     res.render('reporter-applications', {
       admin: req.admin,
       activePage: 'reporter-applications',
-      applications
+      applications,
+      registrationFields
     });
   } catch (error) {
     console.error('Error rendering reporter applications page:', error);

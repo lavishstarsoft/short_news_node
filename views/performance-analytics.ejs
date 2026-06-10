@@ -1,490 +1,378 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<%- include('partials/header', { title: 'Team Performance Analytics' }) %>
+<%- include('partials/header', { title: 'Performance Analytics' }) %>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="/css/performance-hub.css">
+    </head>
 
-<style>
-    :root {
-        --primary: #6366f1;
-        --primary-hover: #4f46e5;
-        --success: #10b981;
-        --warning: #f59e0b;
-        --danger: #ef4444;
-        --slate-50: #f8fafc;
-        --slate-100: #f1f5f9;
-        --slate-200: #e2e8f0;
-        --slate-400: #94a3b8;
-        --slate-600: #475569;
-        --slate-800: #1e293b;
-        --slate-900: #0f172a;
-        --radius-xl: 24px;
-        --radius-lg: 16px;
-        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    }
+    <body>
+        <%- include('partials/top-nav', { pageTitle: 'Performance Analytics', backButton: true, backUrl: '/editors' }) %>
 
-    body {
-        background: var(--slate-100);
-        font-family: 'Inter', sans-serif;
-        color: var(--slate-900);
-    }
+            <div class="container-fluid">
+                <div class="row">
+                    <%- include('partials/sidebar', { activePage: 'performance-analytics' }) %>
 
-    .analytics-shell {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding-bottom: 50px;
-    }
+                        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                            <div class="content-area mt-4 pa-page">
+                                <% 
+                                    const pageSummary = typeof summary !== 'undefined' ? summary : {};
+                                    const rows = analyticsRows || [];
+                                    const counts = typeof filterCounts !== 'undefined' ? filterCounts : { all: rows.length, reporters: 0, subeditors: 0 };
+                                    const totalRows = (typeof pagination !== 'undefined' && pagination.totalRows !== undefined) ? pagination.totalRows : rows.length;
+                                    const currentPage = (typeof pagination !== 'undefined' && pagination.currentPage) ? pagination.currentPage : 1;
+                                    const totalPages = (typeof pagination !== 'undefined' && pagination.totalPages) ? pagination.totalPages : 1;
+                                    const pageLimit = (typeof pagination !== 'undefined' && pagination.limit) ? pagination.limit : rows.length;
+                                    const currentSearch = (typeof searchQuery !== 'undefined' && searchQuery) ? searchQuery : '';
+                                    const currentRole = (typeof roleFilter !== 'undefined' && roleFilter) ? roleFilter : '';
+                                    const currentBand = (typeof bandFilter !== 'undefined' && bandFilter) ? bandFilter : '';
+                                    const currentAuthorId = (typeof selectedAuthorId !== 'undefined' && selectedAuthorId) ? selectedAuthorId : '';
+                                    const memberFocus = typeof selectedMember !== 'undefined' ? selectedMember : null;
+                                    const teamMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                    const maxTeamViews = Math.max(...(teamMonthlyTrend || []).map(function(t) { return t.views; }), 1);
 
-    .hero-card {
-        border: none;
-        border-radius: var(--radius-xl);
-        overflow: hidden;
-        box-shadow: var(--shadow-lg);
-    }
+                                    function buildFilterQuery(overrides) {
+                                        const o = overrides || {};
+                                        const parts = [];
+                                        const p = o.period !== undefined ? o.period : period;
+                                        const sd = o.startDate !== undefined ? o.startDate : startDate;
+                                        const ed = o.endDate !== undefined ? o.endDate : endDate;
+                                        const search = o.search !== undefined ? o.search : currentSearch;
+                                        const role = o.role !== undefined ? o.role : currentRole;
+                                        const band = o.band !== undefined ? o.band : currentBand;
+                                        const authorId = o.authorId !== undefined ? o.authorId : currentAuthorId;
 
-    .analytics-hero {
-        background: white;
-        color: var(--slate-900);
-        padding: 45px 35px;
-        border-radius: var(--radius-xl);
-        border: 1px solid var(--slate-200);
-        box-shadow: var(--shadow-lg);
-    }
+                                        if (p && p !== '30' && !sd) parts.push('period=' + p);
+                                        if (sd) parts.push('startDate=' + encodeURIComponent(sd));
+                                        if (ed) parts.push('endDate=' + encodeURIComponent(ed));
+                                        if (search) parts.push('search=' + encodeURIComponent(search));
+                                        if (role) parts.push('role=' + role);
+                                        if (band) parts.push('band=' + band);
+                                        if (authorId) parts.push('authorId=' + authorId);
+                                        return parts.length ? '&' + parts.join('&') : '';
+                                    }
 
-    .hero-title {
-        font-weight: 800;
-        font-size: 2.25rem;
-        letter-spacing: -0.025em;
-    }
+                                    function buildSegmentHref(role) {
+                                        return '/admin/performance-analytics?' + (buildFilterQuery({ role: role, authorId: '' }).replace(/^&/, '') || 'period=' + period);
+                                    }
 
-    .date-range-container {
-        background: rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(12px);
-        padding: 15px 25px;
-        border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-    }
+                                    function getGrade(score) {
+                                        if (score >= 85) return { letter: 'A+', cls: 'excellent' };
+                                        if (score >= 75) return { letter: 'A', cls: 'excellent' };
+                                        if (score >= 60) return { letter: 'B', cls: 'good' };
+                                        if (score >= 45) return { letter: 'C', cls: 'average' };
+                                        return { letter: 'F', cls: 'poor' };
+                                    }
 
-    .flatpickr-input-custom {
-        background: white !important;
-        border: none;
-        border-radius: 12px;
-        padding: 10px 20px;
-        font-weight: 700;
-        color: var(--slate-900);
-        min-width: 280px;
-        box-shadow: var(--shadow-lg);
-    }
+                                    let paginationQuery = buildFilterQuery({});
+                                %>
 
-    .performance-card {
-        background: white;
-        border-radius: var(--radius-xl);
-        border: 1px solid var(--slate-200);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        overflow: hidden;
-    }
-
-    .grade-badge {
-        width: 48px;
-        height: 48px;
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 800;
-        font-size: 1.25rem;
-    }
-
-    .grade-excellent { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
-    .grade-good { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-    .grade-average { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-    .grade-poor { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-
-    .summary-pill {
-        padding: 24px;
-        border-radius: var(--radius-xl);
-        background: white;
-        border: 1px solid var(--slate-200);
-        box-shadow: var(--shadow-lg);
-        display: flex;
-        align-items: center;
-        transition: transform 0.2s;
-    }
-
-    .summary-pill:hover { transform: translateY(-3px); }
-
-    .summary-icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 20px;
-        font-size: 1.4rem;
-    }
-
-    .panel {
-        border-radius: var(--radius-xl);
-        border: 1px solid var(--slate-200);
-        box-shadow: var(--shadow-lg);
-        background: white;
-    }
-
-    .table th {
-        background: var(--slate-50);
-        color: var(--slate-600);
-        font-size: 0.75rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        padding: 18px 24px;
-        border-bottom: 2px solid var(--slate-100);
-    }
-
-    .table td {
-        padding: 20px 24px;
-        border-bottom: 1px solid var(--slate-100);
-        vertical-align: middle;
-    }
-
-    .ranking-item {
-        padding: 15px;
-        border-radius: 12px;
-        background: var(--slate-50);
-        margin-bottom: 12px;
-        border-left: 4px solid var(--primary);
-        transition: all 0.2s;
-    }
-
-    .ranking-item:hover { background: white; transform: scale(1.02); box-shadow: var(--shadow-lg); }
-
-    .score-badge {
-        background: var(--slate-900);
-        color: #fff;
-        padding: 6px 14px;
-        border-radius: 10px;
-        font-weight: 800;
-        font-size: 1rem;
-    }
-
-    .rec-card {
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--slate-200);
-        background: white;
-        padding: 20px;
-        height: 100%;
-        transition: all 0.2s;
-    }
-
-    .rec-card:hover { border-color: var(--primary); transform: translateY(-2px); }
-
-    .rec-title { font-weight: 800; color: var(--slate-900); }
-    .rec-source { font-size: 0.75rem; color: var(--slate-400); margin-top: 10px; }
-
-    @media (max-width: 768px) {
-        .hero-title { font-size: 1.75rem; }
-        .date-range-container { padding: 10px 15px; }
-        .summary-pill { padding: 15px; }
-    }
-</style>
-</head>
-
-<body>
-    <%- include('partials/top-nav', { pageTitle: 'Performance Analytics', backButton: true, backUrl: '/editors' }) %>
-
-    <div class="container-fluid">
-        <div class="row">
-            <%- include('partials/sidebar', { activePage: 'performance-analytics' }) %>
-
-            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-                <div class="content-area mt-4 analytics-shell">
-                    <div class="card hero-card mb-4">
-                        <div class="card-body p-4">
-                            <div class="analytics-hero">
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-4 mb-5">
-                                    <div class="flex-grow-1">
-                                        <h1 class="hero-title mb-2 text-dark">Editorial Intelligence</h1>
-                                        <p class="mb-0 text-muted">Advanced performance tracking, SLA compliance, and trend analysis.</p>
+                                <div class="pa-hero">
+                                    <div>
+                                        <p class="pa-eyebrow"><i class="fas fa-chart-line"></i> Editorial Intelligence</p>
+                                        <h1 class="pa-hero-title">Team Performance Analytics</h1>
+                                        <p class="pa-hero-sub">Track output quality, audience engagement, moderation load, and rank movement across reporters and sub-editors.</p>
                                     </div>
-                                    <div class="date-range-container">
-                                        <form method="GET" action="/admin/performance-analytics" id="analyticsForm">
-                                            <div class="d-flex align-items-center gap-3">
-                                                <div class="position-relative">
-                                                    <i class="fas fa-calendar-alt position-absolute" style="left: 15px; top: 50%; transform: translateY(-50%); z-index: 10; color: #64748b;"></i>
-                                                    <input type="text" id="datePicker" name="dateRange" class="flatpickr-input-custom ps-5" placeholder="Select Date Range..." value="<%= startDate && endDate ? startDate + ' to ' + endDate : '' %>">
-                                                    <input type="hidden" name="startDate" id="startDate" value="<%= startDate %>">
-                                                    <input type="hidden" name="endDate" id="endDate" value="<%= endDate %>">
+                                    <form method="GET" action="/admin/performance-analytics" id="analyticsForm" class="pa-hero-filters">
+                                        <% if (currentSearch) { %><input type="hidden" name="search" value="<%= currentSearch %>"><% } %>
+                                        <% if (currentRole) { %><input type="hidden" name="role" value="<%= currentRole %>"><% } %>
+                                        <% if (currentBand) { %><input type="hidden" name="band" value="<%= currentBand %>"><% } %>
+                                        <% if (currentAuthorId) { %><input type="hidden" name="authorId" value="<%= currentAuthorId %>"><% } %>
+                                        <div class="pa-date-wrap">
+                                            <i class="fas fa-calendar-alt"></i>
+                                            <input type="text" id="datePicker" name="dateRange" class="pa-date-input" placeholder="Custom date range..." value="<%= startDate && endDate ? startDate + ' to ' + endDate : '' %>">
+                                            <input type="hidden" name="startDate" id="startDate" value="<%= startDate %>">
+                                            <input type="hidden" name="endDate" id="endDate" value="<%= endDate %>">
+                                        </div>
+                                        <select name="period" class="pa-period-select" onchange="document.getElementById('datePicker').value=''; document.getElementById('startDate').value=''; document.getElementById('endDate').value=''; this.form.submit();">
+                                            <option value="7" <%= period === '7' ? 'selected' : '' %>>Last 7 days</option>
+                                            <option value="30" <%= period === '30' ? 'selected' : '' %>>Last 30 days</option>
+                                            <option value="90" <%= period === '90' ? 'selected' : '' %>>Last 90 days</option>
+                                            <option value="all" <%= period === 'all' ? 'selected' : '' %>>All time</option>
+                                        </select>
+                                    </form>
+                                </div>
+
+                                <div class="pa-stats">
+                                    <div class="pa-stat">
+                                        <div class="pa-stat-value"><%= pageSummary.totalMembers || 0 %></div>
+                                        <div class="pa-stat-label">Team members</div>
+                                    </div>
+                                    <div class="pa-stat">
+                                        <div class="pa-stat-value"><%= (pageSummary.totalTeamViews || 0).toLocaleString() %></div>
+                                        <div class="pa-stat-label">Total views</div>
+                                    </div>
+                                    <div class="pa-stat">
+                                        <div class="pa-stat-value"><%= pageSummary.avgScore || 0 %></div>
+                                        <div class="pa-stat-label">Avg quality score</div>
+                                    </div>
+                                    <div class="pa-stat">
+                                        <div class="pa-stat-value"><%= pageSummary.excellentCount || 0 %></div>
+                                        <div class="pa-stat-label">Excellent performers</div>
+                                        <span class="pa-stat-accent up"><i class="fas fa-arrow-up"></i> Top tier</span>
+                                    </div>
+                                    <div class="pa-stat">
+                                        <div class="pa-stat-value"><%= pageSummary.poorCount || 0 %></div>
+                                        <div class="pa-stat-label">Needs attention</div>
+                                        <span class="pa-stat-accent down"><i class="fas fa-flag"></i> Review</span>
+                                    </div>
+                                </div>
+
+                                <div class="pa-trend-panel">
+                                    <div class="pa-trend-header">
+                                        <div>
+                                            <h2 class="pa-trend-title"><i class="fas fa-wave-square me-2"></i>View velocity (6 months)</h2>
+                                            <p class="pa-trend-sub">Aggregate audience reach across all editorial team members</p>
+                                        </div>
+                                        <span class="pa-trend-badge"><i class="fas fa-eye"></i> <%= (pageSummary.totalTeamViews || 0).toLocaleString() %> total</span>
+                                    </div>
+                                    <div class="pa-trend-chart">
+                                        <% if (teamMonthlyTrend && teamMonthlyTrend.length > 0) { %>
+                                            <% teamMonthlyTrend.forEach(function(t) {
+                                                const height = Math.max(8, (t.views / maxTeamViews) * 100);
+                                                const label = t.views > 999 ? (t.views / 1000).toFixed(1) + 'k' : t.views;
+                                            %>
+                                            <div class="pa-trend-bar-wrap">
+                                                <div class="pa-trend-bar" style="height: <%= height %>%;">
+                                                    <span class="pa-trend-bar-value"><%= label %></span>
+                                                    <span class="pa-trend-bar-label"><%= teamMonths[t._id.month - 1] %></span>
                                                 </div>
-                                                <div class="vr bg-white opacity-25" style="height: 30px;"></div>
-                                                <select name="period" class="form-select form-select-sm border-0 fw-bold" style="width: auto; background-color: transparent; color: white; cursor: pointer;" onchange="document.getElementById('datePicker').value=''; this.form.submit()">
-                                                    <option value="7" <%= period === '7' ? 'selected' : '' %>>7 Days</option>
-                                                    <option value="30" <%= period === '30' ? 'selected' : '' %>>30 Days</option>
-                                                    <option value="90" <%= period === '90' ? 'selected' : '' %>>90 Days</option>
-                                                    <option value="all" <%= period === 'all' ? 'selected' : '' %>>All Time</option>
-                                                </select>
                                             </div>
+                                            <% }); %>
+                                        <% } else { %>
+                                            <div class="pa-empty" style="width:100%; padding: 24px;">No trend data for this period.</div>
+                                        <% } %>
+                                    </div>
+                                </div>
+
+                                <div class="pa-leaderboards">
+                                    <div class="pa-leaderboard">
+                                        <div class="pa-leaderboard-header top">
+                                            <i class="fas fa-trophy"></i>
+                                            <h3>Top performers</h3>
+                                        </div>
+                                        <div class="pa-leaderboard-body">
+                                            <% if (topPerformers && topPerformers.length > 0) { %>
+                                                <% topPerformers.forEach(function(item) { %>
+                                                <div class="pa-rank-item">
+                                                    <span class="pa-rank-pos">#<%= item.rank %></span>
+                                                    <div class="pa-rank-info">
+                                                        <div class="pa-rank-name"><%= item.name %></div>
+                                                        <div class="pa-rank-meta">@<%= item.username %> · <%= item.role %></div>
+                                                    </div>
+                                                    <span class="pa-rank-score"><%= item.performanceScore %></span>
+                                                </div>
+                                                <% }); %>
+                                            <% } else { %>
+                                                <div class="pa-empty">No data available.</div>
+                                            <% } %>
+                                        </div>
+                                    </div>
+
+                                    <div class="pa-leaderboard">
+                                        <div class="pa-leaderboard-header attention">
+                                            <i class="fas fa-triangle-exclamation"></i>
+                                            <h3>Needs attention</h3>
+                                        </div>
+                                        <div class="pa-leaderboard-body">
+                                            <% if (poorPerformers && poorPerformers.length > 0) { %>
+                                                <% poorPerformers.forEach(function(item) { %>
+                                                <div class="pa-rank-item">
+                                                    <span class="pa-rank-pos">#<%= item.rank %></span>
+                                                    <div class="pa-rank-info">
+                                                        <div class="pa-rank-name"><%= item.name %></div>
+                                                        <div class="pa-rank-meta">Publish <%= item.publishRate %>% · Reject <%= item.rejectionRate %>%</div>
+                                                    </div>
+                                                    <span class="pa-rank-score low"><%= item.performanceScore %></span>
+                                                </div>
+                                                <% }); %>
+                                            <% } else { %>
+                                                <div class="pa-empty">No data available.</div>
+                                            <% } %>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pa-panel">
+                                    <% if (memberFocus) { %>
+                                    <div class="pa-author-banner">
+                                        <span><i class="fas fa-user-check me-1"></i> Focused on <strong><%= memberFocus.name %></strong> (@<%= memberFocus.username %>)</span>
+                                        <a href="/admin/performance-analytics?<%= buildFilterQuery({ authorId: '' }).replace(/^&/, '') || 'period=' + period %>">Show all members</a>
+                                    </div>
+                                    <% } %>
+
+                                    <div class="pa-panel-toolbar">
+                                        <form class="pa-search-form" method="GET" action="/admin/performance-analytics">
+                                            <input type="hidden" name="period" value="<%= period %>">
+                                            <% if (startDate) { %><input type="hidden" name="startDate" value="<%= startDate %>"><% } %>
+                                            <% if (endDate) { %><input type="hidden" name="endDate" value="<%= endDate %>"><% } %>
+                                            <% if (currentAuthorId) { %><input type="hidden" name="authorId" value="<%= currentAuthorId %>"><% } %>
+                                            <div class="pa-search-wrap">
+                                                <i class="fas fa-search"></i>
+                                                <input type="text" name="search" class="pa-search" placeholder="Search name, username, email, location..." value="<%= currentSearch %>">
+                                            </div>
+                                            <button type="submit" class="pa-search-btn"><i class="fas fa-filter"></i> Search</button>
+                                            <% if (currentSearch || currentRole || currentBand || currentAuthorId) { %>
+                                                <a href="/admin/performance-analytics?period=<%= period %><%= startDate ? '&startDate=' + startDate : '' %><%= endDate ? '&endDate=' + endDate : '' %>" class="pa-clear-btn">Clear filters</a>
+                                            <% } %>
+                                        </form>
+
+                                        <div class="pa-segments">
+                                            <a href="<%= buildSegmentHref('') %>" class="pa-segment <%= !currentRole ? 'active' : '' %>">
+                                                All<span class="pa-segment-count"><%= counts.all %></span>
+                                            </a>
+                                            <a href="<%= buildSegmentHref('reporter') %>" class="pa-segment <%= currentRole === 'reporter' ? 'active' : '' %>">
+                                                Reporters<span class="pa-segment-count"><%= counts.reporters %></span>
+                                            </a>
+                                            <a href="<%= buildSegmentHref('subeditor') %>" class="pa-segment <%= currentRole === 'subeditor' ? 'active' : '' %>">
+                                                Sub-editors<span class="pa-segment-count"><%= counts.subeditors %></span>
+                                            </a>
+                                        </div>
+
+                                        <form method="GET" action="/admin/performance-analytics">
+                                            <input type="hidden" name="period" value="<%= period %>">
+                                            <% if (startDate) { %><input type="hidden" name="startDate" value="<%= startDate %>"><% } %>
+                                            <% if (endDate) { %><input type="hidden" name="endDate" value="<%= endDate %>"><% } %>
+                                            <% if (currentSearch) { %><input type="hidden" name="search" value="<%= currentSearch %>"><% } %>
+                                            <% if (currentRole) { %><input type="hidden" name="role" value="<%= currentRole %>"><% } %>
+                                            <% if (currentAuthorId) { %><input type="hidden" name="authorId" value="<%= currentAuthorId %>"><% } %>
+                                            <select name="band" class="pa-band-select" onchange="this.form.submit()">
+                                                <option value="">All bands</option>
+                                                <option value="excellent" <%= currentBand === 'excellent' ? 'selected' : '' %>>Excellent</option>
+                                                <option value="good" <%= currentBand === 'good' ? 'selected' : '' %>>Good</option>
+                                                <option value="average" <%= currentBand === 'average' ? 'selected' : '' %>>Average</option>
+                                                <option value="poor" <%= currentBand === 'poor' ? 'selected' : '' %>>Poor</option>
+                                            </select>
                                         </form>
                                     </div>
-                                </div>
 
-                                <div class="row row-cols-1 row-cols-md-3 row-cols-xl-5 g-4">
-                                    <div class="col">
-                                        <div class="summary-pill h-100 border-0" style="background: var(--slate-50); border: 1px solid var(--slate-200) !important;">
-                                            <div class="summary-icon bg-primary bg-opacity-10 text-primary">
-                                                <i class="fas fa-users"></i>
-                                            </div>
-                                            <div>
-                                                <div class="text-muted small fw-bold uppercase">Members</div>
-                                                <div class="fs-5 fw-bold text-dark"><%= summary.totalMembers %></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col">
-                                        <div class="summary-pill h-100 border-0" style="background: var(--slate-50); border: 1px solid var(--slate-200) !important;">
-                                            <div class="summary-icon bg-success bg-opacity-10 text-success">
-                                                <i class="fas fa-eye"></i>
-                                            </div>
-                                            <div>
-                                                <div class="text-muted small fw-bold uppercase">Total Views</div>
-                                                <div class="fs-5 fw-bold text-dark"><%= (summary.totalTeamViews || 0).toLocaleString() %></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col">
-                                        <div class="summary-pill h-100 border-0" style="background: var(--slate-50); border: 1px solid var(--slate-200) !important;">
-                                            <div class="summary-icon bg-warning bg-opacity-10 text-warning">
-                                                <i class="fas fa-check-double"></i>
-                                            </div>
-                                            <div>
-                                                <div class="text-muted small fw-bold uppercase">Quality</div>
-                                                <div class="fs-5 fw-bold text-dark"><%= summary.avgScore %></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col">
-                                        <div class="summary-pill h-100 border-0" style="background: var(--slate-50); border: 1px solid var(--slate-200) !important;">
-                                            <div class="summary-icon bg-info bg-opacity-10 text-info">
-                                                <i class="fas fa-award"></i>
-                                            </div>
-                                            <div>
-                                                <div class="text-muted small fw-bold uppercase">Excellent</div>
-                                                <div class="fs-5 fw-bold text-dark"><%= summary.excellentCount %></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col">
-                                        <div class="summary-pill h-100 border-0" style="background: var(--slate-50); border: 1px solid var(--slate-200) !important;">
-                                            <div class="summary-icon bg-danger bg-opacity-10 text-danger">
-                                                <i class="fas fa-exclamation-circle"></i>
-                                            </div>
-                                            <div>
-                                                <div class="text-muted small fw-bold uppercase">Critical</div>
-                                                <div class="fs-5 fw-bold text-dark"><%= summary.poorCount %></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Team-wide Monthly View Trend -->
-                            <div class="mt-5">
-                                <div class="d-flex align-items-center justify-content-between mb-4">
-                                    <div>
-                                        <h5 class="mb-1 fw-bold text-dark"><i class="fas fa-chart-line me-2"></i>Performance Velocity</h5>
-                                        <p class="text-muted small mb-0">Aggregate view growth across all content creators</p>
-                                    </div>
-                                    <div class="badge bg-primary px-3 py-2 rounded-pill">
-                                        <i class="fas fa-eye me-1"></i> <%= (summary.totalTeamViews || 0).toLocaleString() %> Views
-                                    </div>
-                                </div>
-                                <div id="teamTrendChart" class="mt-4" style="height: 220px; display: flex; align-items: flex-end; gap: 12px; padding-bottom: 35px; padding-top: 30px;">
-                                    <% 
-                                        const maxTeamViews = Math.max(...(teamMonthlyTrend || []).map(t => t.views)) || 1;
-                                        const teamMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                                        (teamMonthlyTrend || []).forEach(t => {
-                                            const height = (t.views / maxTeamViews) * 100;
-                                    %>
-                                        <div class="flex-grow-1 position-relative" style="height: <%= Math.max(12, height) %>%; background: linear-gradient(180deg, rgba(99, 102, 241, 0.8) 0%, rgba(99, 102, 241, 0.3) 100%); border-radius: 12px 12px 0 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer;" onmouseover="this.style.background='rgba(99, 102, 241, 1)'; this.style.transform='scaleY(1.05)';" onmouseout="this.style.background='linear-gradient(180deg, rgba(99, 102, 241, 0.8) 0%, rgba(99, 102, 241, 0.3) 100%)'; this.style.transform='scaleY(1)';">
-                                            <div style="position: absolute; bottom: -32px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 800; color: var(--slate-600); text-transform: uppercase; letter-spacing: 0.05em;">
-                                                <%= teamMonths[t._id.month-1] %>
-                                            </div>
-                                            <div style="position: absolute; top: -30px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 900; color: #fff; white-space: nowrap; background: #0f172a; padding: 3px 8px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 10;">
-                                                <%= (t.views > 999 ? (t.views/1000).toFixed(1) + 'k' : t.views) %>
-                                            </div>
-                                        </div>
-                                    <% }) %>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row g-3 mb-3">
-                        <div class="col-lg-6">
-                            <div class="card panel h-100">
-                                <div class="card-body">
-                                    <h5 class="panel-title mb-3"><i class="fas fa-trophy me-2 text-success"></i>Top Performers</h5>
-                                    <% if (topPerformers && topPerformers.length > 0) { %>
-                                        <% topPerformers.forEach(function(item) { %>
-                                            <div class="ranking-item">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <div>
-                                                        <div class="ranking-name">#<%= item.rank %> <%= item.name %></div>
-                                                        <div class="small text-muted">
-                                                            @<%= item.username %> • <%= item.role %>
-                                                        </div>
-                                                    </div>
-                                                    <span class="score-badge"><%= item.performanceScore %></span>
-                                                </div>
-                                            </div>
-                                        <% }) %>
-                                    <% } else { %>
-                                        <div class="text-muted">No data available.</div>
-                                    <% } %>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-lg-6">
-                            <div class="card panel h-100">
-                                <div class="card-body">
-                                    <h5 class="panel-title mb-3"><i class="fas fa-triangle-exclamation me-2 text-danger"></i>Poor Performers (Needs Attention)</h5>
-                                    <% if (poorPerformers && poorPerformers.length > 0) { %>
-                                        <% poorPerformers.forEach(function(item) { %>
-                                            <div class="ranking-item">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <div>
-                                                        <div class="ranking-name">#<%= item.rank %> <%= item.name %></div>
-                                                        <div class="small text-muted">
-                                                            Publish: <%= item.publishRate %>% • Reject: <%= item.rejectionRate %>%
-                                                        </div>
-                                                    </div>
-                                                    <span class="score-badge" style="background:#7f1d1d;"><%= item.performanceScore %></span>
-                                                </div>
-                                            </div>
-                                        <% }) %>
-                                    <% } else { %>
-                                        <div class="text-muted">No data available.</div>
-                                    <% } %>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card panel mb-3">
-                        <div class="card-body">
-                            <h5 class="panel-title mb-3"><i class="fas fa-table me-2 text-primary"></i>Detailed Performance Table</h5>
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle">
-                                    <thead>
-                                    <thead>
-                                        <tr>
-                                            <th>Rank</th>
-                                            <th>Member</th>
-                                            <th>Role</th>
-                                            <th>Score</th>
-                                            <th>Total Views</th>
-                                            <th>Avg Views</th>
-                                            <th>Content Status</th>
-                                            <th>Efficiency</th>
-                                            <th>Moderation</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <% if (analyticsRows && analyticsRows.length > 0) { %>
-                                            <% analyticsRows.forEach(function(row) { %>
+                                    <% if (rows.length > 0) { %>
+                                    <div class="pa-table-wrap">
+                                        <table class="pa-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Rank</th>
+                                                    <th>Member</th>
+                                                    <th>Role</th>
+                                                    <th>Score</th>
+                                                    <th>Views</th>
+                                                    <th>Avg views</th>
+                                                    <th>Content</th>
+                                                    <th>Publish rate</th>
+                                                    <th>Moderation</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <% rows.forEach(function(row) {
+                                                    const grade = getGrade(row.performanceScore);
+                                                    const roleClass = row.role === 'Sub Editor' ? 'subeditor' : 'reporter';
+                                                    const effClass = row.publishRate > 70 ? 'high' : (row.publishRate > 45 ? 'mid' : 'low');
+                                                %>
                                                 <tr>
                                                     <td class="fw-bold">#<%= row.rank %></td>
                                                     <td>
-                                                        <div class="d-flex align-items-center gap-3">
-                                                            <% 
-                                                                let grade = 'F';
-                                                                let gradeClass = 'grade-poor';
-                                                                if (row.performanceScore >= 85) { grade = 'A+'; gradeClass = 'grade-excellent'; }
-                                                                else if (row.performanceScore >= 75) { grade = 'A'; gradeClass = 'grade-excellent'; }
-                                                                else if (row.performanceScore >= 60) { grade = 'B'; gradeClass = 'grade-good'; }
-                                                                else if (row.performanceScore >= 45) { grade = 'C'; gradeClass = 'grade-average'; }
-                                                            %>
-                                                            <div class="grade-badge <%= gradeClass %> mb-0" style="width: 38px; height: 38px; font-size: 0.9rem;">
-                                                                <%= grade %>
-                                                            </div>
+                                                        <div class="pa-member-cell">
+                                                            <div class="pa-grade <%= grade.cls %>"><%= grade.letter %></div>
                                                             <div>
-                                                                <div class="fw-bold text-dark"><%= row.name %></div>
-                                                                <div class="text-muted small">@<%= row.username %></div>
+                                                                <div class="pa-member-name"><%= row.name %></div>
+                                                                <div class="pa-member-handle">@<%= row.username %></div>
                                                             </div>
                                                         </div>
                                                     </td>
+                                                    <td><span class="pa-role-pill <%= roleClass %>"><%= row.role %></span></td>
+                                                    <td class="pa-score-cell"><%= row.performanceScore %></td>
+                                                    <td class="fw-semibold"><%= (row.totalViews || 0).toLocaleString() %></td>
+                                                    <td><%= row.avgViews %></td>
                                                     <td>
-                                                        <span class="badge rounded-pill <%= row.role === 'Sub Editor' ? 'bg-primary' : 'bg-info' %> bg-opacity-10 text-<%= row.role === 'Sub Editor' ? 'primary' : 'info' %>">
-                                                            <%= row.role %>
-                                                        </span>
-                                                    </td>
-                                                    <td class="fw-bold text-dark"><%= row.performanceScore %></td>
-                                                    <td class="fw-bold text-dark"><%= (row.totalViews || 0).toLocaleString() %></td>
-                                                    <td class="text-primary fw-bold"><%= row.avgViews %></td>
-                                                    <td>
-                                                        <div class="d-flex gap-2">
-                                                            <span class="badge bg-success bg-opacity-10 text-success border-success border-opacity-25"><i class="fas fa-check me-1"></i><%= row.published %></span>
-                                                            <span class="badge bg-danger bg-opacity-10 text-danger border-danger border-opacity-25"><i class="fas fa-times me-1"></i><%= row.rejected %></span>
-                                                            <span class="badge bg-warning bg-opacity-10 text-warning border-warning border-opacity-25"><i class="fas fa-clock me-1"></i><%= row.pending %></span>
+                                                        <div class="pa-status-group">
+                                                            <span class="pa-status-chip pub"><i class="fas fa-check"></i> <%= row.published %></span>
+                                                            <span class="pa-status-chip rej"><i class="fas fa-times"></i> <%= row.rejected %></span>
+                                                            <span class="pa-status-chip pend"><i class="fas fa-clock"></i> <%= row.pending %></span>
                                                         </div>
                                                     </td>
                                                     <td>
-                                                        <div class="progress" style="height: 6px; width: 60px;">
-                                                            <div class="progress-bar <%= row.publishRate > 70 ? 'bg-success' : 'bg-warning' %>" role="progressbar" style="width: <%= row.publishRate %>%"></div>
+                                                        <div class="pa-efficiency">
+                                                            <div class="pa-efficiency-bar">
+                                                                <div class="pa-efficiency-fill <%= effClass %>" style="width: <%= Math.min(row.publishRate, 100) %>%"></div>
+                                                            </div>
+                                                            <div class="pa-efficiency-label"><%= row.publishRate %>%</div>
                                                         </div>
-                                                        <div class="small fw-bold mt-1"><%= row.publishRate %>%</div>
                                                     </td>
                                                     <td>
-                                                        <span class="badge bg-light text-dark border"><%= row.moderationLabel %>: <%= row.moderationApproved %></span>
+                                                        <span class="pa-mod-badge"><%= row.moderationLabel %>: <%= row.moderationApproved %></span>
                                                     </td>
                                                 </tr>
-                                            <% }) %>
-                                        <% } else { %>
-                                            <tr>
-                                                <td colspan="12" class="text-center text-muted py-4">No performance data found for the selected period.</td>
-                                            </tr>
-                                        <% } %>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card panel mb-4">
-                        <div class="card-body">
-                            <h5 class="panel-title mb-3"><i class="fas fa-lightbulb me-2 text-warning"></i>Advanced Features to Implement (Online Best Practices)</h5>
-                            <div class="row g-3">
-                                <% recommendations.forEach(function(rec) { %>
-                                    <div class="col-md-6 col-xl-4">
-                                        <div class="rec-card">
-                                            <div class="rec-title"><%= rec.title %></div>
-                                            <div class="small text-slate-600 mt-2"><%= rec.detail %></div>
-                                            <div class="rec-source">Source inspiration: <%= rec.source %></div>
-                                        </div>
+                                                <% }); %>
+                                            </tbody>
+                                        </table>
                                     </div>
-                                <% }) %>
+
+                                    <div class="pa-pagination">
+                                        <div class="pa-pagination-info">
+                                            Showing <%= totalRows === 0 ? 0 : ((currentPage - 1) * pageLimit) + 1 %>–<%= Math.min(currentPage * pageLimit, totalRows) %> of <%= totalRows %> members
+                                            <% if (totalPages > 1) { %> · Page <%= currentPage %> of <%= totalPages %><% } %>
+                                        </div>
+                                        <% if (totalPages > 1) { %>
+                                        <div class="pa-pagination-nav">
+                                            <a class="pa-page-btn <%= currentPage === 1 ? 'disabled' : '' %>" href="?page=1<%= paginationQuery %>" aria-label="First page"><i class="fas fa-angles-left"></i></a>
+                                            <a class="pa-page-btn <%= currentPage === 1 ? 'disabled' : '' %>" href="?page=<%= currentPage - 1 %><%= paginationQuery %>" aria-label="Previous page"><i class="fas fa-angle-left"></i></a>
+                                            <% 
+                                                let startPage = Math.max(1, currentPage - 2);
+                                                let endPage = Math.min(totalPages, currentPage + 2);
+                                                if (endPage - startPage < 4) {
+                                                    if (startPage === 1) endPage = Math.min(totalPages, startPage + 4);
+                                                    else startPage = Math.max(1, endPage - 4);
+                                                }
+                                                for (let i = startPage; i <= endPage; i++) { %>
+                                            <a class="pa-page-btn <%= i === currentPage ? 'active' : '' %>" href="?page=<%= i %><%= paginationQuery %>"><%= i %></a>
+                                            <% } %>
+                                            <a class="pa-page-btn <%= currentPage === totalPages ? 'disabled' : '' %>" href="?page=<%= currentPage + 1 %><%= paginationQuery %>" aria-label="Next page"><i class="fas fa-angle-right"></i></a>
+                                            <a class="pa-page-btn <%= currentPage === totalPages ? 'disabled' : '' %>" href="?page=<%= totalPages %><%= paginationQuery %>" aria-label="Last page"><i class="fas fa-angles-right"></i></a>
+                                        </div>
+                                        <% } %>
+                                    </div>
+                                    <% } else { %>
+                                    <div class="pa-empty">
+                                        <i class="fas fa-chart-bar fa-2x mb-3 d-block"></i>
+                                        No performance data found for the selected filters.
+                                    </div>
+                                    <% } %>
+                                </div>
+
+                                <div class="pa-insights">
+                                    <h2 class="pa-insights-title"><i class="fas fa-lightbulb me-2 text-warning"></i>Editorial insights (industry benchmarks)</h2>
+                                    <div class="pa-insights-grid">
+                                        <% (recommendations || []).forEach(function(rec) { %>
+                                        <div class="pa-insight-card">
+                                            <h3 class="pa-insight-title"><%= rec.title %></h3>
+                                            <p class="pa-insight-text"><%= rec.detail %></p>
+                                            <div class="pa-insight-source"><%= rec.source %></div>
+                                        </div>
+                                        <% }); %>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-        <script>
-            flatpickr("#datePicker", {
-                mode: "range",
-                dateFormat: "Y-m-d",
-                defaultDate: "<%= startDate && endDate ? [startDate, endDate] : '' %>",
-                onClose: function(selectedDates, dateStr, instance) {
-                    if (selectedDates.length === 2) {
-                        const start = instance.formatDate(selectedDates[0], "Y-m-d");
-                        const end = instance.formatDate(selectedDates[1], "Y-m-d");
-                        document.getElementById('startDate').value = start;
-                        document.getElementById('endDate').value = end;
-                        document.getElementById('analyticsForm').submit();
+
+            <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+            <script>
+                flatpickr('#datePicker', {
+                    mode: 'range',
+                    dateFormat: 'Y-m-d',
+                    defaultDate: <%= startDate && endDate ? JSON.stringify([startDate, endDate]) : 'null' %>,
+                    onClose: function(selectedDates, dateStr, instance) {
+                        if (selectedDates.length === 2) {
+                            document.getElementById('startDate').value = instance.formatDate(selectedDates[0], 'Y-m-d');
+                            document.getElementById('endDate').value = instance.formatDate(selectedDates[1], 'Y-m-d');
+                            document.getElementById('analyticsForm').submit();
+                        }
                     }
-                }
-            });
-        </script>
+                });
+            </script>
+
+            <%- include('partials/footer') %>
     </body>
+
 </html>

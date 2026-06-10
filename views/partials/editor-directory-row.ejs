@@ -1,0 +1,72 @@
+<% 
+  const editorLangLabels = typeof newsLanguageLabels !== 'undefined'
+    ? newsLanguageLabels
+    : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' };
+  const hasLanguageSet = editor.workingLanguage && String(editor.workingLanguage).trim() !== '';
+  const initials = (editor.name || editor.username).split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+  const isSubEditor = editor.role === 'subeditor';
+  const displayTitle = (editor.displayRole || '').trim();
+  const rowId = editor._id.toString();
+%>
+<tr id="editor-row-<%= rowId %>"
+    class="staff-row"
+    data-role="<%= editor.role %>"
+    data-language="<%= editor.workingLanguage || '' %>"
+    data-search="<%= ((editor.name || '') + ' ' + (editor.username || '') + ' ' + (editor.email || '') + ' ' + (editor.location || '') + ' ' + (editor.displayRole || '')).toLowerCase() %>">
+  <td>
+    <div class="team-member">
+      <% if (editor.profileImage) { %>
+        <img src="<%= editor.profileImage %>" class="team-avatar" alt="">
+      <% } else { %>
+        <div class="team-avatar team-avatar-fallback <%= isSubEditor ? 'team-avatar-sub' : 'team-avatar-reporter' %>"><%= initials %></div>
+      <% } %>
+      <div>
+        <div class="team-member-name"><%= editor.name || editor.username %></div>
+        <div class="team-member-meta"><%= displayTitle || (isSubEditor ? 'Sub-Editor' : 'Reporter') %> · @<%= editor.username %></div>
+        <div class="team-member-email" title="<%= editor.email %>"><%= editor.email %></div>
+      </div>
+    </div>
+  </td>
+  <td>
+    <span class="team-badge <%= isSubEditor ? 'team-badge-sub' : 'team-badge-reporter' %>">
+      <%= isSubEditor ? 'Sub-Editor' : 'Reporter' %>
+    </span>
+  </td>
+  <td><%= editor.location || 'Pan India' %></td>
+  <td>
+    <% if (hasLanguageSet) { %>
+      <span class="team-badge team-badge-lang"><%= editorLangLabels[editor.workingLanguage] || editor.workingLanguage %></span>
+    <% } else { %>
+      <span class="team-badge team-badge-warn">Not set</span>
+    <% } %>
+  </td>
+  <td class="team-metric"><div class="team-metric-val"><%= editor.newsStats?.today || 0 %></div><div class="team-metric-lbl">Today</div></td>
+  <td class="team-metric"><div class="team-metric-val"><%= editor.newsStats?.weekly || 0 %></div><div class="team-metric-lbl">7 Days</div></td>
+  <td class="team-metric"><div class="team-metric-val"><%= editor.newsStats?.published || 0 %></div><div class="team-metric-lbl">Published</div></td>
+  <td class="team-metric team-metric-range" id="range-pill-<%= rowId %>" onclick="document.getElementById('picker-<%= rowId %>')._flatpickr.open()">
+    <div class="team-metric-val"><span id="count-<%= rowId %>">—</span></div>
+    <div class="team-metric-lbl">Range</div>
+    <input type="text" id="picker-<%= rowId %>" class="range-picker-input" style="visibility:hidden;position:absolute;width:0;height:0;" data-id="<%= rowId %>">
+  </td>
+  <td>
+    <span class="team-badge <%= editor.isActive ? 'team-badge-active' : 'team-badge-locked' %>">
+      <%= editor.isActive ? 'Active' : 'Locked' %>
+    </span>
+  </td>
+  <td class="text-end">
+    <div class="dropdown">
+      <button class="team-actions-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="fas fa-ellipsis-vertical"></i>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end team-dropdown-menu">
+        <li><a class="dropdown-item" href="/admin/performance-analytics?authorId=<%= rowId %>"><i class="fas fa-chart-line me-2"></i>Analytics</a></li>
+        <li><a class="dropdown-item" href="#" onclick="openEditEditorModal('<%= rowId %>'); return false;"><i class="fas fa-pen me-2"></i>Edit profile</a></li>
+        <li><a class="dropdown-item" href="#" onclick="showEditorInsightsById('<%= rowId %>'); return false;"><i class="fas fa-chart-bar me-2"></i>Insights</a></li>
+        <li><a class="dropdown-item" href="#" onclick="openPasswordModal('<%= rowId %>'); return false;"><i class="fas fa-key me-2"></i>Change password</a></li>
+        <li><a class="dropdown-item" href="#" onclick="toggleEditorStatus('<%= rowId %>', <%= editor.isActive ? 'true' : 'false' %>); return false;"><i class="fas fa-lock me-2"></i><%= editor.isActive ? 'Lock account' : 'Unlock account' %></a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item text-danger" href="#" onclick="deleteEditor('<%= rowId %>'); return false;"><i class="fas fa-trash me-2"></i>Remove user</a></li>
+      </ul>
+    </div>
+  </td>
+</tr>
