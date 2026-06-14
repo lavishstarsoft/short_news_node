@@ -25,4 +25,7 @@ const longVideoSchema = new mongoose.Schema({
   }
 });
 
+// Index for the active long-video feed
+longVideoSchema.index({ isActive: 1 });
+
 module.exports = mongoose.model('LongVideo', longVideoSchema);

@@ -45,4 +45,7 @@ const viralVideoSchema = new mongoose.Schema({
     }
 }, { timestamps: true }); // Add createdAt and updatedAt automatically
 
+// Index for the active viral-video feed (newest first)
+viralVideoSchema.index({ isActive: 1, createdAt: -1 });
+
 module.exports = mongoose.model('ViralVideo', viralVideoSchema);

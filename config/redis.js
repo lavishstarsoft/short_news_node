@@ -13,11 +13,9 @@ const cacheStats = {
 // Create Redis client with enhanced configuration
 // Create Redis client with enhanced configuration
 // Prioritize REDIS_HOST (local/specific) over REDIS_URL (cloud/generic)
-const INSTANCE_ID = Math.random().toString(36).substring(7);
-console.log(`DEBUG: config/redis.js LOADED. ID: ${INSTANCE_ID}`);
-console.log(`DEBUG: ENV - REDIS_HOST: '${process.env.REDIS_HOST}', REDIS_URL: '${process.env.REDIS_URL}'`);
+// NOTE: never log REDIS_URL — it can contain credentials.
 const useLocalConfig = process.env.REDIS_HOST && process.env.REDIS_HOST !== '';
-console.log(`DEBUG: useLocalConfig: ${useLocalConfig}`);
+console.log(`Redis config mode: ${useLocalConfig ? 'host/port' : 'url'}`);
 
 const redisClient = redis.createClient(
   useLocalConfig

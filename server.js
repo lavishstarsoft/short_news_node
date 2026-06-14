@@ -1,8 +1,28 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
-console.log('DEBUG: REDIS_URL is:', process.env.REDIS_URL);
-console.log('DEBUG: REDIS_HOST is:', process.env.REDIS_HOST);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// Structured logging. In production this also silences the many console.log
+// debug statements so logs stay clean; warnings/errors are routed to the logger.
+const { logger, installConsoleBridge } = require('./config/logger');
+installConsoleBridge();
+
+// Fail fast in production if critical secrets are missing instead of falling
+// back to insecure hardcoded defaults.
+(function validateRequiredEnv() {
+  const required = ['MONGODB_URI', 'JWT_SECRET'];
+  const missing = required.filter((key) => !process.env[key]);
+  if (missing.length > 0) {
+    const message = `Missing required environment variables: ${missing.join(', ')}`;
+    if (IS_PRODUCTION) {
+      console.error(`FATAL: ${message}. Refusing to start in production.`);
+      process.exit(1);
+    } else {
+      console.warn(`WARNING: ${message}. Using local development fallbacks.`);
+    }
+  }
+})();
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -46,15 +66,20 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID'
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 const app = express();
+// Behind a reverse proxy (nginx/Cloudflare) in production so rate limiting and
+// IP logging use the real client IP from X-Forwarded-For instead of the proxy.
+app.set('trust proxy', IS_PRODUCTION ? 1 : false);
 const PORT = process.env.PORT || 3001;
 
 // Create HTTP server and attach Socket.IO
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
+    // Wildcard is valid here only because we do NOT use cookie credentials
+    // over the socket (native clients authenticate via payload/token).
     origin: '*',
     methods: ['GET', 'POST'],
-    credentials: true
+    credentials: false
   }
 });
 
@@ -183,13 +208,82 @@ const newsController = require('./controllers/newsController');
 
 // Middleware - ORDER MATTERS!
 // Middleware - ORDER MATTERS!
-// CORS must be first to handle preflight requests
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const pinoHttp = require('pino-http');
+
+// Structured per-request logging (method, url, status, latency, request id).
+app.use(pinoHttp({
+  logger,
+  autoLogging: {
+    // Skip noisy health/asset/static requests to keep logs signal-rich.
+    ignore: (req) =>
+      req.url === '/favicon.ico' ||
+      req.url.startsWith('/uploads') ||
+      req.url.startsWith('/.well-known'),
+  },
+}));
+
+// Security headers. CSP is disabled here because the admin dashboard uses
+// inline scripts/styles and external CDNs; enable a tuned CSP later if needed.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false,
+}));
+
 app.use(compression()); // Compress all responses
+
+// CORS: native mobile apps send no Origin header (and so are unaffected by
+// CORS). For browsers we use an allowlist instead of the insecure '*' +
+// credentials combination. Configure extra origins via CORS_ALLOWED_ORIGINS.
+const defaultAllowedOrigins = [
+  'https://news.lavishstar.in', 'https://report.cbnyellowsingam.in',
+  'https://www.news.cbnyellowsingam.in', 'https://news.cbnyellowsingam.in',
+  'https://www.news.tehelkanews.in', 'https://news.tehelkanews.in',
+];
+const allowedOrigins = new Set([
+  ...defaultAllowedOrigins,
+  ...((process.env.CORS_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean)),
+]);
+
+// Any localhost / 127.0.0.1 origin (any port) is allowed for local development.
+const isLocalhostOrigin = (origin) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?$/.test(origin);
+
 app.use(cors({
-  origin: '*', // Allow all origins for better compatibility with legacy apps
+  origin(origin, callback) {
+    // No origin = native app / curl / same-origin server call -> allow.
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.has(origin) || isLocalhostOrigin(origin)) {
+      return callback(null, true);
+    }
+    // Disallowed: do NOT throw (that spams logs with stack traces and 500s).
+    // Returning false simply omits CORS headers; the browser blocks it.
+    return callback(null, false);
+  },
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
+
+// Rate limiting to blunt brute-force / scraping / abuse.
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_MAX) || 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(generalLimiter);
+
+// Stricter limiter for authentication endpoints.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX) || 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, please try again later.' },
+});
+app.use(['/login', '/admin/login', '/api/admin/login'], authLimiter);
 
 // Handle JSON and URL-encoded data with large limits
 app.use(express.json({ limit: '10mb' })); // Increase payload limit
@@ -263,55 +357,13 @@ app.get(['/.well-known/apple-app-site-association', '/apple-app-site-association
 
 app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
 
-// Google authentication verification middleware
-const verifyGoogleToken = async (req, res, next) => {
-  try {
-    const { userId, userToken } = req.body;
-
-    // Check if userId and userToken are provided
-    if (!userId || !userToken) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    // Check if this is a mobile user (simple token)
-    // Mobile tokens are just the user ID, while Google tokens are JWT tokens
-    if (userToken === userId) {
-      // This is likely a mobile user, verify against database
-      const user = await User.findById(userId);
-
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid authentication token' });
-      }
-
-      // Token is valid for mobile user, proceed to next middleware
-      next();
-      return;
-    }
-
-    // This is a Google user, verify the Google ID token
-    const ticket = await client.verifyIdToken({
-      idToken: userToken,
-      audience: GOOGLE_CLIENT_ID,
-    });
-
-    const payload = ticket.getPayload();
-    const userid = payload['sub'];
-
-    // Check if the user ID matches
-    if (userid !== userId) {
-      return res.status(401).json({ error: 'Invalid authentication token' });
-    }
-
-    // Token is valid, proceed to next middleware
-    next();
-  } catch (error) {
-    console.error('Token verification error:', error);
-    return res.status(401).json({ error: 'Invalid authentication token' });
-  }
-};
-
-// Make the verifyGoogleToken middleware and client available to routes
-app.locals.verifyGoogleToken = verifyGoogleToken;
+// Mobile user authentication via verified Google ID token.
+// SECURITY: The previous implementation treated `userToken === userId` as
+// valid, which meant anyone who knew a user id could impersonate that user.
+// That bypass has been removed — identity now comes only from a verified
+// Google ID token (see middleware/mobileAuth.js).
+const { verifyMobileUser } = require('./middleware/mobileAuth');
+app.locals.verifyMobileUser = verifyMobileUser;
 app.locals.googleAuthClient = client;
 
 // Public API endpoint moved to publicRoutes.js with cache middleware
@@ -453,29 +505,22 @@ let locationData = [
   }
 ];
 
-// In-memory storage for admins (fallback when MongoDB is not available)
-let adminData = [
-  {
+// In-memory admin fallback (only used in local dev when MongoDB is down).
+// Production requires MongoDB (server fails fast on missing MONGODB_URI), so
+// this list stays empty there. Dev credentials come from env, never hardcoded.
+let adminData = [];
+if (!IS_PRODUCTION && process.env.DEV_ADMIN_USERNAME && process.env.DEV_ADMIN_PASSWORD) {
+  adminData.push({
     id: 'admin1',
-    username: 'superadmin',
-    email: 'superadmin@example.com',
-    password: 'superadmin123', // In a real app, this should be hashed
+    username: process.env.DEV_ADMIN_USERNAME,
+    email: process.env.DEV_ADMIN_EMAIL || 'admin@example.com',
+    password: process.env.DEV_ADMIN_PASSWORD,
     role: 'superadmin',
     isActive: true,
     lastLogin: null,
     loginHistory: []
-  },
-  {
-    id: 'editor1',
-    username: 'editor',
-    email: 'editor@example.com',
-    password: 'editor123', // In a real app, this should be hashed
-    role: 'editor',
-    isActive: true,
-    lastLogin: null,
-    loginHistory: []
-  }
-];
+  });
+}
 
 // Variable to track MongoDB connection status
 let isConnectedToMongoDB = false;
@@ -488,7 +533,7 @@ app.locals.locationData = locationData;
 app.locals.adminData = adminData;
 
 // Attempt to connect to MongoDB
-const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://ashokca810:ashokca810@cluster0.psirpqa.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/short_news';
 console.log('Attempting to connect to MongoDB...');
 
 mongoose.connect(mongoUri, {
@@ -530,16 +575,29 @@ const createDefaultAdmin = async () => {
     console.log(`Found ${adminCount} admin users in database`);
 
     if (adminCount === 0) {
+      // Only seed an initial admin from environment-provided credentials.
+      // Never ship a hardcoded password. In production, if these are not set,
+      // skip seeding and require the admin to be created manually.
+      const seedUsername = process.env.DEFAULT_ADMIN_USERNAME;
+      const seedPassword = process.env.DEFAULT_ADMIN_PASSWORD;
+      const seedEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@example.com';
+
+      if (!seedUsername || !seedPassword) {
+        console.warn(
+          'No admins found and DEFAULT_ADMIN_USERNAME/PASSWORD not set. ' +
+          'Skipping default admin creation — create one manually.'
+        );
+        return;
+      }
+
       const defaultAdmin = new Admin({
-        username: 'superadmin',
-        email: 'superadmin@example.com',
-        password: 'superadmin123',
+        username: seedUsername,
+        email: seedEmail,
+        password: seedPassword,
         role: 'superadmin'
       });
       await defaultAdmin.save();
-      console.log('Default super admin created:');
-      console.log('Username: superadmin');
-      console.log('Password: superadmin123');
+      console.log(`Default super admin created from env (username: ${seedUsername}).`);
     } else {
       console.log('Admin users already exist, skipping default admin creation');
       // Let's log the existing admins for debugging
@@ -558,21 +616,29 @@ const startServer = async () => {
     // No need to connect again here
 
     // Initialize Apollo Server for GraphQL
+    const depthLimit = require('graphql-depth-limit');
+    const { createLoaders } = require('./graphql/loaders');
     const apolloServer = new ApolloServer({
       typeDefs,
       resolvers,
+      // 🔒 Reject deeply-nested queries that can be used to overload the server.
+      validationRules: [depthLimit(Number(process.env.GRAPHQL_DEPTH_LIMIT) || 10)],
       context: ({ req }) => ({
         req,
         io,
         connectedClients,
+        // Per-request DataLoaders to batch author lookups (fixes N+1).
+        loaders: createLoaders(),
       }),
 
       // 🔒 Security: Use bounded cache to prevent memory exhaustion attacks
       // This limits the cache size and prevents denial of service attacks
       cache: 'bounded',
 
-      introspection: true, // Enable GraphQL Playground in development
-      playground: true,
+      // 🔒 Disable schema introspection & playground in production so the full
+      // API surface (including admin mutations) is not advertised publicly.
+      introspection: !IS_PRODUCTION,
+      playground: !IS_PRODUCTION,
     });
 
     // Start Apollo Server
@@ -660,18 +726,21 @@ const reportController = require('./controllers/reportController');
 
 // Reports API endpoints (root level as per project requirements)
 
+// SECURITY: All report endpoints are admin-only. They expose reporter data and
+// allow moderation actions, so every route requires admin authentication.
+
 // Comment Reports API endpoints (Must be before /reports/:status)
-app.get('/reports/comments', reportController.getAllCommentReports);
-app.put('/reports/comments/:id/status', reportController.updateCommentReportStatus);
-app.delete('/reports/comments/:id/content', reportController.deleteCommentContent); // Route to delete actual comment content (More specific first)
-app.delete('/reports/comments/:id', reportController.deleteCommentReport);
+app.get('/reports/comments', requireAuth, reportController.getAllCommentReports);
+app.put('/reports/comments/:id/status', requireAuth, reportController.updateCommentReportStatus);
+app.delete('/reports/comments/:id/content', requireAuth, reportController.deleteCommentContent); // Route to delete actual comment content (More specific first)
+app.delete('/reports/comments/:id', requireAuth, reportController.deleteCommentReport);
 
 // General Reports API endpoints
-app.get('/reports/stats', reportController.getReportStats);
-app.get('/reports', reportController.getAllReports);
-app.get('/reports/:status', reportController.getReportsByStatus);
-app.put('/reports/:id/status', reportController.updateReportStatus);
-app.delete('/reports/:id', reportController.deleteReport);
+app.get('/reports/stats', requireAuth, reportController.getReportStats);
+app.get('/reports', requireAuth, reportController.getAllReports);
+app.get('/reports/:status', requireAuth, reportController.getReportsByStatus);
+app.put('/reports/:id/status', requireAuth, reportController.updateReportStatus);
+app.delete('/reports/:id', requireAuth, reportController.deleteReport);
 
 // Add root route to redirect to dashboard
 app.get('/', (req, res) => {

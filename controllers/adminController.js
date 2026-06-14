@@ -1,6 +1,7 @@
 const Admin = require('../models/Admin');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { getJwtSecret } = require('../config/secrets');
 const geoip = require('geoip-lite');
 const requestIp = require('request-ip');
 const iplocation = require('iplocation').default;
@@ -323,13 +324,15 @@ const login = async (req, res) => {
     // Generate JWT token
     const token = jwt.sign(
       { id: isConnectedToMongoDB ? admin._id : admin.id, username: admin.username, role: admin.role },
-      process.env.JWT_SECRET || 'short_news_secret_key',
+      getJwtSecret(),
       { expiresIn: '24h' }
     );
 
-    // Set cookie
+    // Set cookie (secure + sameSite in production to mitigate CSRF / sniffing)
     res.cookie('token', token, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
 
@@ -2286,7 +2289,7 @@ const requireAuth = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'short_news_secret_key');
+    const decoded = jwt.verify(token, getJwtSecret());
     console.log('Token verified, admin:', decoded.username); // Debug log
     req.admin = decoded;
     res.locals.admin = decoded;
@@ -2309,7 +2312,7 @@ const requireSuperAdmin = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'short_news_secret_key');
+    const decoded = jwt.verify(token, getJwtSecret());
 
     if (decoded.role !== 'superadmin') {
       return res.status(403).send('Access denied. Super admin only.');
@@ -2332,7 +2335,7 @@ const requireAdmin = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'short_news_secret_key');
+    const decoded = jwt.verify(token, getJwtSecret());
 
     if (decoded.role !== 'admin' && decoded.role !== 'superadmin') {
       return res.status(403).send('Access denied. Admins only.');
@@ -2355,7 +2358,7 @@ const requireEditor = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'short_news_secret_key');
+    const decoded = jwt.verify(token, getJwtSecret());
 
     if (decoded.role !== 'editor') {
       return res.status(403).send('Access denied. Editors only.');
@@ -2714,7 +2717,7 @@ async function reporterLogin(req, res) {
         username: admin.username,
         role: admin.role
       },
-      process.env.JWT_SECRET || 'short_news_secret_key',
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
 

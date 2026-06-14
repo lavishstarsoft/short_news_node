@@ -19,8 +19,9 @@ const { buildNewsLanguageFilter, normalizeNewsLanguage } = require('../utils/new
 const { resolveCategoryFilter, resolveLocationFilter } = require('../utils/newsFilters');
 const languageRegistry = require('../services/languageRegistry');
 const jwt = require('jsonwebtoken');
+const { getJwtSecret } = require('../config/secrets');
 
-function getAuthenticatedEditorId(req) {
+function decodeAuthToken(req) {
     if (!req) return null;
     try {
         let token = null;
@@ -31,12 +32,33 @@ function getAuthenticatedEditorId(req) {
             token = req.cookies.token;
         }
         if (!token) return null;
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'short_news_secret_key');
-        if (!decoded?.id) return null;
-        return String(decoded.id);
+        return jwt.verify(token, getJwtSecret());
     } catch {
         return null;
     }
+}
+
+function getAuthenticatedEditorId(req) {
+    const decoded = decodeAuthToken(req);
+    if (!decoded?.id) return null;
+    return String(decoded.id);
+}
+
+const ADMIN_ROLES = ['admin', 'superadmin', 'editor'];
+
+/**
+ * Throws a GraphQL error unless the request carries a valid admin/editor JWT.
+ * Use at the top of every privileged query/mutation resolver.
+ */
+function requireAdminContext(context, allowedRoles = ADMIN_ROLES) {
+    const decoded = decodeAuthToken(context?.req);
+    if (!decoded?.id) {
+        throw new Error('Authentication required');
+    }
+    if (decoded.role && !allowedRoles.includes(decoded.role)) {
+        throw new Error('Not authorized');
+    }
+    return decoded;
 }
 
 function resolveNewsIsActive(news) {
@@ -67,6 +89,9 @@ const resolvers = {
         // News queries (with Redis caching - 5 minutes TTL)
         news: async (_, { limit = 50, offset = 0, category, location, language }) => {
             try {
+                // 🚀 Clamp page size so a client can't request an unbounded result.
+                limit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+                offset = Math.max(Number(offset) || 0, 0);
                 // Check cache first
                 const variables = { limit, offset, category, location, language };
                 const cached = await getCachedData('news', variables);
@@ -371,11 +396,16 @@ const resolvers = {
                 const News = require('../models/News');
 
                 const normalizedEditorId = String(editorId);
-                const authenticatedEditorId = getAuthenticatedEditorId(context?.req);
+                const decoded = decodeAuthToken(context?.req);
+                const authenticatedEditorId = decoded?.id ? String(decoded.id) : null;
                 const isOwnProfile = Boolean(
                     authenticatedEditorId && authenticatedEditorId === normalizedEditorId
                 );
-                const showUnpublished = includeUnpublished === true || isOwnProfile;
+                const isAdmin = ADMIN_ROLES.includes(decoded?.role);
+                // SECURITY: unpublished/rejected news is only visible to the owning
+                // editor or an admin — never via a client-supplied flag alone.
+                const showUnpublished =
+                    isOwnProfile || isAdmin || (includeUnpublished === true && (isOwnProfile || isAdmin));
 
                 const filter = { authorId: normalizedEditorId };
 
@@ -495,7 +525,8 @@ const resolvers = {
             }
         },
 
-        getReporterApplications: async () => {
+        getReporterApplications: async (_, __, context) => {
+            requireAdminContext(context);
             try {
                 const apps = await ReporterApplication.find().sort({ createdAt: -1 });
                 return apps.map(app => ({
@@ -511,7 +542,8 @@ const resolvers = {
             }
         },
 
-        getReporterApplicationById: async (_, { id }) => {
+        getReporterApplicationById: async (_, { id }, context) => {
+            requireAdminContext(context);
             try {
                 const app = await ReporterApplication.findById(id);
                 if (!app) return null;
@@ -605,11 +637,11 @@ const resolvers = {
             }
             return [];
         },
-        // Fetch reporter name from Admin model
-        authorName: async (parent) => {
+        // Fetch reporter name from Admin model (batched via DataLoader)
+        authorName: async (parent, _args, context) => {
             try {
-                if (parent.authorId) {
-                    const editor = await Admin.findById(parent.authorId);
+                if (parent.authorId && context?.loaders) {
+                    const editor = await context.loaders.adminById.load(parent.authorId);
                     if (editor && editor.name) {
                         return editor.name;
                     }
@@ -620,11 +652,11 @@ const resolvers = {
                 return parent.author;
             }
         },
-        // Fetch reporter role from Admin model
-        authorRole: async (parent) => {
+        // Fetch reporter role from Admin model (batched via DataLoader)
+        authorRole: async (parent, _args, context) => {
             try {
-                if (parent.authorId) {
-                    const editor = await Admin.findById(parent.authorId);
+                if (parent.authorId && context?.loaders) {
+                    const editor = await context.loaders.adminById.load(parent.authorId);
                     if (editor && editor.role) {
                         return editor.role;
                     }
@@ -636,11 +668,11 @@ const resolvers = {
             }
         },
         // Fetch reporter profile image from Admin model (Use denormalized if available)
-        authorProfileImage: async (parent) => {
+        authorProfileImage: async (parent, _args, context) => {
             if (parent.authorProfileImage) return parent.authorProfileImage;
             try {
-                if (parent.authorId) {
-                    const editor = await Admin.findById(parent.authorId);
+                if (parent.authorId && context?.loaders) {
+                    const editor = await context.loaders.adminById.load(parent.authorId);
                     if (editor && editor.profileImage) {
                         return editor.profileImage;
                     }
@@ -652,11 +684,11 @@ const resolvers = {
             }
         },
         // Fetch reporter constituency from Admin model (Use denormalized if available)
-        authorConstituency: async (parent) => {
+        authorConstituency: async (parent, _args, context) => {
             if (parent.authorConstituency) return parent.authorConstituency;
             try {
-                if (parent.authorId) {
-                    const editor = await Admin.findById(parent.authorId);
+                if (parent.authorId && context?.loaders) {
+                    const editor = await context.loaders.adminById.load(parent.authorId);
                     if (editor && editor.constituency) {
                         return editor.constituency;
                     }
@@ -689,6 +721,19 @@ const resolvers = {
         _id: (parent) => parent.id || parent._id.toString(),
         newsCount: (parent) => parent.newsCount || 0,
         isActive: (parent) => parent.isActive !== false,
+    },
+
+    // 🔒 PRIVACY: never expose commenter emails over the public API. The schema
+    // field is kept for backward compatibility with older app builds, but it
+    // always resolves to null so no PII leaves the server.
+    UserInteraction: {
+        userEmail: () => null,
+    },
+
+    // 🔒 PRIVACY: the public `user(id)` lookup must not leak end-user emails.
+    // Field is non-null in the schema, so return an empty string instead of null.
+    User: {
+        email: () => '',
     },
 
     Mutation: {
@@ -1293,7 +1338,8 @@ const resolvers = {
             }
         },
 
-        updateLiveStreamStatus: async (_, { isLive, url }) => {
+        updateLiveStreamStatus: async (_, { isLive, url }, context) => {
+            requireAdminContext(context);
             try {
                 // Clean and validate URL
                 let cleanedUrl = url ? url.trim() : '';
@@ -1396,11 +1442,6 @@ const resolvers = {
                 await editor.save();
 
                 // Generate a simple token (in production, use JWT)
-                const jwt = require('jsonwebtoken');
-
-                // ... (imports)
-
-                // Inside loginEditor:
                 // Generate a JWT token (matching adminController logic)
                 const token = jwt.sign(
                     {
@@ -1408,7 +1449,7 @@ const resolvers = {
                         username: editor.username,
                         role: editor.role
                     },
-                    process.env.JWT_SECRET || 'short_news_secret_key',
+                    getJwtSecret(),
                     { expiresIn: '24h' }
                 );
 
@@ -1443,7 +1484,12 @@ const resolvers = {
         },
 
         // Update Editor Profile (name, displayRole, location, profileImage)
-        updateEditorProfile: async (_, { editorId, name, displayRole, location, profileImage }) => {
+        updateEditorProfile: async (_, { editorId, name, displayRole, location, profileImage }, context) => {
+            // Editors may update their own profile; admins may update anyone.
+            const auth = requireAdminContext(context);
+            if (auth.role === 'editor' && String(auth.id) !== String(editorId)) {
+                throw new Error('Not authorized to update another editor');
+            }
             try {
                 const Admin = require('../models/Admin');
 
@@ -1864,7 +1910,8 @@ const resolvers = {
             }
         },
 
-        updateRegistrationField: async (_, args) => {
+        updateRegistrationField: async (_, args, context) => {
+            requireAdminContext(context);
             try {
                 const { id, ...updateData } = args;
                 let field;
@@ -1881,7 +1928,8 @@ const resolvers = {
             }
         },
 
-        deleteRegistrationField: async (_, { id }) => {
+        deleteRegistrationField: async (_, { id }, context) => {
+            requireAdminContext(context);
             try {
                 await RegistrationField.findByIdAndDelete(id);
                 return { success: true, message: 'Field deleted successfully' };
@@ -1891,7 +1939,8 @@ const resolvers = {
             }
         },
 
-        reviewReporterApplication: async (_, { applicationId, status, adminNotes }) => {
+        reviewReporterApplication: async (_, { applicationId, status, adminNotes }, context) => {
+            requireAdminContext(context);
             try {
                 await ReporterApplication.findByIdAndUpdate(applicationId, {
                     status,
@@ -1905,7 +1954,8 @@ const resolvers = {
             }
         },
 
-        deleteReporterApplication: async (_, { applicationId }) => {
+        deleteReporterApplication: async (_, { applicationId }, context) => {
+            requireAdminContext(context);
             try {
                 await ReporterApplication.findByIdAndDelete(applicationId);
                 return { success: true, message: 'Application deleted successfully' };

@@ -10,4 +10,8 @@ const adInteractionSchema = new mongoose.Schema({
     timestamp: { type: Date, default: Date.now }
 });
 
+// Indexes for analytics aggregation by ad and time
+adInteractionSchema.index({ adId: 1, interactionType: 1, timestamp: -1 });
+adInteractionSchema.index({ timestamp: -1 });
+
 module.exports = mongoose.model('AdInteraction', adInteractionSchema);

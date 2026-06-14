@@ -15,6 +15,16 @@ const { cacheMiddleware, clearCache } = require('../middleware/cache');
 
 // Import upload middleware for profile image upload
 const { uploadMedia } = require('../middleware/upload');
+const { verifyMobileUser } = require('../middleware/mobileAuth');
+
+// Strip PII (email) from interaction arrays before returning them publicly.
+const stripEmails = (list) => (list || []).map(({ userEmail, ...rest }) => rest);
+
+// 🚀 SCALABILITY: cap how many items a single public feed response returns.
+// Previously these queries were unbounded and would load the ENTIRE collection
+// into memory on every (cache-miss) request. The feed is sorted newest-first,
+// so users still get the most recent items; tune via PUBLIC_FEED_MAX.
+const FEED_MAX = Number(process.env.PUBLIC_FEED_MAX) || 300;
 const { buildNewsLanguageFilter } = require('../utils/newsLanguages');
 const { resolveCategoryFilter, resolveLocationFilter } = require('../utils/newsFilters');
 const languageRegistry = require('../services/languageRegistry');
@@ -36,7 +46,7 @@ const handleGetNews = async (req, res) => {
       if (language) {
         Object.assign(query, buildNewsLanguageFilter(language));
       }
-      newsList = await News.find(query).sort({ publishedAt: -1 });
+      newsList = await News.find(query).sort({ publishedAt: -1 }).limit(FEED_MAX);
     } else {
       // Use in-memory storage and filter for active news
       const allNews = req.app.locals.newsData || [];
@@ -83,12 +93,11 @@ const handleGetNews = async (req, res) => {
         readFullLink: newsObj.readFullLink || null,
         ePaperLink: newsObj.ePaperLink || null,
         // Include user interaction details
-        userLikes: newsObj.userInteractions?.likes || [],
-        userDislikes: newsObj.userInteractions?.dislikes || [],
+        userLikes: stripEmails(newsObj.userInteractions?.likes),
+        userDislikes: stripEmails(newsObj.userInteractions?.dislikes),
         userComments: (newsObj.userInteractions?.comments || []).map(comment => ({
           userId: comment.userId,
           userName: comment.userName,
-          userEmail: comment.userEmail,
           comment: comment.comment,
           timestamp: comment.timestamp,
           likes: comment.likes || []
@@ -122,7 +131,7 @@ router.get('/api/public/news/category/:category', async (req, res) => {
         query.category = resolvedCategory;
       }
 
-      newsList = await News.find(query).sort({ publishedAt: -1 });
+      newsList = await News.find(query).sort({ publishedAt: -1 }).limit(FEED_MAX);
     } else {
       // Use in-memory storage and filter for active news with category filter
       const allNews = req.app.locals.newsData || [];
@@ -153,12 +162,11 @@ router.get('/api/public/news/category/:category', async (req, res) => {
         readFullLink: newsObj.readFullLink || null,
         ePaperLink: newsObj.ePaperLink || null,
         // Include user interaction details
-        userLikes: newsObj.userInteractions?.likes || [],
-        userDislikes: newsObj.userInteractions?.dislikes || [],
+        userLikes: stripEmails(newsObj.userInteractions?.likes),
+        userDislikes: stripEmails(newsObj.userInteractions?.dislikes),
         userComments: (newsObj.userInteractions?.comments || []).map(comment => ({
           userId: comment.userId,
           userName: comment.userName,
-          userEmail: comment.userEmail,
           comment: comment.comment,
           timestamp: comment.timestamp,
           likes: comment.likes || [] // Include likes array
@@ -190,7 +198,7 @@ router.get('/api/public/news/location/:location', cacheMiddleware(600), async (r
         query.location = resolvedLocation;
       }
 
-      newsList = await News.find(query).sort({ publishedAt: -1 });
+      newsList = await News.find(query).sort({ publishedAt: -1 }).limit(FEED_MAX);
     } else {
       // Use in-memory storage and filter for active news with location filter
       const allNews = req.app.locals.newsData || [];
@@ -221,12 +229,11 @@ router.get('/api/public/news/location/:location', cacheMiddleware(600), async (r
         readFullLink: newsObj.readFullLink || null,
         ePaperLink: newsObj.ePaperLink || null,
         // Include user interaction details
-        userLikes: newsObj.userInteractions?.likes || [],
-        userDislikes: newsObj.userInteractions?.dislikes || [],
+        userLikes: stripEmails(newsObj.userInteractions?.likes),
+        userDislikes: stripEmails(newsObj.userInteractions?.dislikes),
         userComments: (newsObj.userInteractions?.comments || []).map(comment => ({
           userId: comment.userId,
           userName: comment.userName,
-          userEmail: comment.userEmail,
           comment: comment.comment,
           timestamp: comment.timestamp,
           likes: comment.likes || [] // Include likes array
@@ -242,7 +249,7 @@ router.get('/api/public/news/location/:location', cacheMiddleware(600), async (r
 });
 
 // New endpoint for user interactions (like, dislike, comment) with Google authentication
-router.post('/api/public/news/:id/interact', async (req, res) => {
+router.post('/api/public/news/:id/interact', verifyMobileUser, async (req, res) => {
   try {
     const { id } = req.params;
     const { action, userId, userName, userEmail, commentText } = req.body;
@@ -634,12 +641,11 @@ router.post('/api/public/news/:id/interact', async (req, res) => {
       readFullLink: news.readFullLink || null,
       ePaperLink: news.ePaperLink || null,
       // Include user interaction details
-      userLikes: news.userInteractions?.likes || [],
-      userDislikes: news.userInteractions?.dislikes || [],
+      userLikes: stripEmails(news.userInteractions?.likes),
+      userDislikes: stripEmails(news.userInteractions?.dislikes),
       userComments: (news.userInteractions?.comments || []).map(comment => ({
         userId: comment.userId,
         userName: comment.userName,
-        userEmail: comment.userEmail,
         comment: comment.comment,
         timestamp: comment.timestamp,
         likes: comment.likes || [] // Explicitly include likes array
@@ -948,7 +954,7 @@ router.get('/api/public/viral-videos', cacheMiddleware(300), async (req, res) =>
 
     if (isConnectedToMongoDB) {
       // Fetch only active viral videos from MongoDB
-      videosList = await ViralVideo.find({ isActive: true }).sort({ publishedAt: -1 });
+      videosList = await ViralVideo.find({ isActive: true }).sort({ publishedAt: -1 }).limit(FEED_MAX);
     } else {
       // Use in-memory storage (if available) or empty list
       // For now returning empty list if no DB, could add mock data in server.js later
@@ -974,8 +980,8 @@ router.get('/api/public/viral-videos', cacheMiddleware(300), async (req, res) =>
         comments: videoObj.comments || 0,
         author: videoObj.author,
         // Include user interaction details
-        userLikes: videoObj.userInteractions?.likes || [],
-        userDislikes: videoObj.userInteractions?.dislikes || [],
+        userLikes: stripEmails(videoObj.userInteractions?.likes),
+        userDislikes: stripEmails(videoObj.userInteractions?.dislikes),
         userComments: videoObj.userInteractions?.comments || []
       };
     });
@@ -1171,8 +1177,8 @@ router.post('/api/public/viral-videos/:id/interact', async (req, res) => {
         dislikes: videoObj.dislikes,
         comments: videoObj.comments,
         author: videoObj.author,
-        userLikes: videoObj.userInteractions?.likes || [],
-        userDislikes: videoObj.userInteractions?.dislikes || [],
+        userLikes: stripEmails(videoObj.userInteractions?.likes),
+        userDislikes: stripEmails(videoObj.userInteractions?.dislikes),
         userComments: videoObj.userInteractions?.comments || []
       });
 

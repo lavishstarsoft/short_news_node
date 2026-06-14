@@ -5,7 +5,8 @@ require('dotenv').config();
 const Ad = require('./models/Ad');
 
 // MongoDB connection
-const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://ashokca810:ashokca810@cluster0.psirpqa.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+const mongoUri = process.env.MONGODB_URI;
+if (!mongoUri) { console.error('MONGODB_URI not set. Aborting.'); process.exit(1); }
 
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,

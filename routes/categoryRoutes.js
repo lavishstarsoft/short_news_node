@@ -8,12 +8,13 @@ const { uploadCategoryMedia } = require('../middleware/upload');
 router.get('/', requireAuth, categoryController.getAllCategories);
 
 // API Routes for categories
+// Reads stay public (used by the mobile app); writes require admin auth.
 router.get('/api/categories', categoryController.getCategoriesWithCount);
 router.get('/api/categories/stats', categoryController.getCategoryStats);
 router.get('/api/categories/:id', categoryController.getCategoryById);
-router.post('/api/categories', uploadCategoryMedia.single('image'), categoryController.createCategory);
-router.put('/api/categories/:id', uploadCategoryMedia.single('image'), categoryController.updateCategory);
-router.delete('/api/categories/:id', categoryController.deleteCategory);
-router.patch('/api/categories/:id/toggle', categoryController.toggleCategoryStatus);
+router.post('/api/categories', requireAuth, uploadCategoryMedia.single('image'), categoryController.createCategory);
+router.put('/api/categories/:id', requireAuth, uploadCategoryMedia.single('image'), categoryController.updateCategory);
+router.delete('/api/categories/:id', requireAuth, categoryController.deleteCategory);
+router.patch('/api/categories/:id/toggle', requireAuth, categoryController.toggleCategoryStatus);
 
 module.exports = router;

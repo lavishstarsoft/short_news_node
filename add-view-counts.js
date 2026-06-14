@@ -4,7 +4,8 @@ const News = require('./models/News');
 require('dotenv').config();
 
 // MongoDB connection string from .env
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://ashokca810:ashokca810@cluster0.psirpqa.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) { console.error('MONGODB_URI not set. Aborting.'); process.exit(1); }
 
 async function addViewCounts() {
     try {
