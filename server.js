@@ -66,9 +66,11 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID'
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 const app = express();
-// Behind a reverse proxy (nginx/Cloudflare) in production so rate limiting and
-// IP logging use the real client IP from X-Forwarded-For instead of the proxy.
-app.set('trust proxy', IS_PRODUCTION ? 1 : false);
+// Behind nginx/Cloudflare the proxy sends X-Forwarded-For. express-rate-limit
+// requires trust proxy to be set or it throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+// (502/500 on every request). Default ON; set TRUST_PROXY=false for bare local dev.
+const trustProxy = process.env.TRUST_PROXY !== 'false';
+app.set('trust proxy', trustProxy ? 1 : false);
 const PORT = process.env.PORT || 3001;
 
 // Create HTTP server and attach Socket.IO
@@ -267,11 +269,13 @@ app.use(cors({
 }));
 
 // Rate limiting to blunt brute-force / scraping / abuse.
+const rateLimitValidate = { xForwardedForHeader: false };
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.RATE_LIMIT_MAX) || 1000,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: rateLimitValidate,
 });
 app.use(generalLimiter);
 
@@ -282,6 +286,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts, please try again later.' },
+  validate: rateLimitValidate,
 });
 app.use(['/login', '/admin/login', '/api/admin/login'], authLimiter);
 
