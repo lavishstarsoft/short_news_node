@@ -542,6 +542,13 @@
                     let currentViewNewsItem = null;
                     const isSuperAdmin = <%= (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') ? 'true' : 'false' %>;
 
+                    function formatIndianDateTime(value) {
+                        if (!value) return '-';
+                        const date = new Date(value);
+                        if (Number.isNaN(date.getTime())) return '-';
+                        return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+                    }
+
                     // Wait for DOM to be fully loaded
                     document.addEventListener('DOMContentLoaded', function () {
                         // Handle filter form submission
@@ -727,7 +734,7 @@
                         }
                         return items.map(item => {
                             const displayName = getUserDisplayName(item);
-                            const date = item.timestamp ? new Date(item.timestamp).toLocaleString() : '-';
+                            const date = item.timestamp ? formatIndianDateTime(item.timestamp) : '-';
                             const userMeta = [item.userEmail, item.userId ? `ID: ${item.userId}` : ''].filter(Boolean).join(' · ');
                             return `
                                 <div class="nd-list-item">
@@ -753,7 +760,7 @@
                         return comments.map(item => {
                             const commentId = item._id || item.id;
                             const displayName = getUserDisplayName(item);
-                            const date = item.timestamp ? new Date(item.timestamp).toLocaleString() : '-';
+                            const date = item.timestamp ? formatIndianDateTime(item.timestamp) : '-';
                             const userMeta = [item.userEmail, item.userId ? `ID: ${item.userId}` : ''].filter(Boolean).join(' · ');
                             const adminActions = (isSuperAdmin && commentId) ? `
                                 <div class="nd-comment-admin-actions">
@@ -851,7 +858,7 @@
                             locationElement.style.display = 'none';
                         }
 
-                        document.getElementById('newsDetailDate').innerHTML = `<i class="far fa-clock"></i> ${new Date(newsItem.publishedAt).toLocaleString()}`;
+                        document.getElementById('newsDetailDate').innerHTML = `<i class="far fa-clock"></i> ${formatIndianDateTime(newsItem.publishedAt)}`;
 
                         const statusInfo = getNewsStatusInfo(newsItem);
                         const statusEl = document.getElementById('newsDetailStatus');
@@ -894,7 +901,7 @@
                         document.getElementById('newsDetailApprovalBy').textContent = approved ? (approval.approvedBy || '-') : '-';
                         document.getElementById('newsDetailApprovalRole').textContent = approved ? (approval.approvedByRole || '-') : '-';
                         document.getElementById('newsDetailApprovalAt').textContent = approved && approval.approvedAt
-                            ? new Date(approval.approvedAt).toLocaleString()
+                            ? formatIndianDateTime(approval.approvedAt)
                             : '-';
 
                         const historyItems = Array.isArray(newsItem.actionHistory) ? [...newsItem.actionHistory] : [];
@@ -906,7 +913,7 @@
                                     <div class="nd-timeline-action">${escapeHtml((item.action || 'updated').replace(/_/g, ' '))}</div>
                                     <div class="nd-list-meta">${escapeHtml(item.details || '-')}</div>
                                     <div class="nd-list-meta">${escapeHtml(item.performedByName || 'System')} · ${escapeHtml(item.performedByRole || '-')}</div>
-                                    <div class="nd-timeline-date">${item.performedAt ? new Date(item.performedAt).toLocaleString() : '-'}</div>
+                                    <div class="nd-timeline-date">${item.performedAt ? formatIndianDateTime(item.performedAt) : '-'}</div>
                                 </div>`).join('')
                             : '<div class="nd-empty-note">No activity yet</div>';
 

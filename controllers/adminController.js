@@ -1791,6 +1791,7 @@ async function sendNotification(req, res) {
       titleFontSize: titleFontSize || 'normal', // Include title font size
       platformSettings: finalPlatformSettings,
       priority: priority || 'normal',
+      language: targetLanguage,
       timestamp: new Date()
     };
 

@@ -38,6 +38,11 @@ const { OAuth2Client } = require('google-auth-library');
 // WebSocket implementation
 const http = require('http');
 const socketIo = require('socket.io');
+const {
+  socketAuthMiddleware,
+  assertSocketUserId,
+  resolveRegisterUserId,
+} = require('./middleware/socketAuth');
 
 // Import models early
 const News = require('./models/News');
@@ -88,21 +93,33 @@ const io = socketIo(server, {
 // Store connected clients
 const connectedClients = new Map();
 
+io.use(socketAuthMiddleware);
+
 // WebSocket connection handling
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
 
   let userId = null;
 
-  // Register client with user ID
+  // Register client with user ID (must match verified Google token when present)
   socket.on('register', (registeredUserId) => {
-    userId = registeredUserId;
+    const result = resolveRegisterUserId(socket, registeredUserId);
+    if (!result.ok) {
+      console.warn(`[socket] register rejected for ${socket.id}: ${result.error}`);
+      return;
+    }
+
+    userId = result.userId;
     connectedClients.set(userId, socket.id);
     console.log(`User ${userId} registered with socket ${socket.id}`);
   });
 
   // Handle news received acknowledgment
   socket.on('news_received', async (data) => {
+    if (!data || !assertSocketUserId(socket, data.userId) || data.userId !== userId) {
+      console.warn('[socket] news_received rejected: userId mismatch or unauthenticated');
+      return;
+    }
     console.log('News received acknowledgment:', data);
     try {
       if (mongoose.connection.readyState === 1) { // Check if MongoDB is connected
@@ -125,6 +142,10 @@ io.on('connection', (socket) => {
 
   // Handle notification received acknowledgment
   socket.on('notification_received', async (data) => {
+    if (!data || !assertSocketUserId(socket, data.userId) || data.userId !== userId) {
+      console.warn('[socket] notification_received rejected: userId mismatch or unauthenticated');
+      return;
+    }
     console.log('Notification received acknowledgment:', data);
     try {
       if (mongoose.connection.readyState === 1) { // Check if MongoDB is connected
@@ -146,6 +167,10 @@ io.on('connection', (socket) => {
 
   // Handle notification opened acknowledgment
   socket.on('notification_opened', async (data) => {
+    if (!data || !assertSocketUserId(socket, data.userId) || data.userId !== userId) {
+      console.warn('[socket] notification_opened rejected: userId mismatch or unauthenticated');
+      return;
+    }
     console.log('Notification opened acknowledgment:', data);
     try {
       if (mongoose.connection.readyState === 1) { // Check if MongoDB is connected
@@ -380,9 +405,17 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 const { renderRichText, renderRichTextExcerpt, stripRichTags } = require('./utils/richTextRenderer');
+const {
+  formatIndianDate,
+  formatIndianTime,
+  formatIndianDateTime,
+} = require('./utils/indianDateTime');
 app.locals.renderRichText = renderRichText;
 app.locals.renderRichTextExcerpt = renderRichTextExcerpt;
 app.locals.stripRichTags = stripRichTags;
+app.locals.formatIndianDate = formatIndianDate;
+app.locals.formatIndianTime = formatIndianTime;
+app.locals.formatIndianDateTime = formatIndianDateTime;
 
 // In-memory storage for news (fallback when MongoDB is not available)
 let newsData = [

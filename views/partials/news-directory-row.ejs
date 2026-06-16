@@ -30,7 +30,6 @@
   }
 
   const articleLang = news.language || 'te';
-  const publishedDate = new Date(news.publishedAt);
   const showAuthor = typeof admin !== 'undefined' && admin && admin.role !== 'editor';
 %>
 <tr class="news-row"
@@ -89,8 +88,8 @@
   </td>
   <% } %>
   <td>
-    <div class="news-date"><%= publishedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) %></div>
-    <div class="news-date-sub"><%= publishedDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) %></div>
+    <div class="news-date"><%= formatIndianDate(news.publishedAt) %></div>
+    <div class="news-date-sub"><%= formatIndianTime(news.publishedAt) %></div>
   </td>
   <td class="text-end" onclick="event.stopPropagation()">
     <div class="dropdown">

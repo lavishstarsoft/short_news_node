@@ -48,9 +48,11 @@ class OneSignalService {
    */
   applyLanguageTargeting(notification, languageCode) {
     const language = this.normalizeTargetLanguage(languageCode);
+    delete notification.included_segments;
+
     if (!language) {
-      notification.included_segments = ['All'];
-      return null;
+      // Never broadcast to all languages when target is unknown.
+      throw new Error('Push notification language is required for targeted delivery');
     }
 
     notification.filters = [
@@ -358,6 +360,7 @@ class OneSignalService {
         type: 'admin',
         titleColor: titleColor || '#FF6F00', // Default if not provided
         messageColor: data.messageColor || '#000000', // Default if not provided
+        language: data.language || null,
         ...otherData
       };
 
