@@ -19,6 +19,10 @@ const {
 } = require('../utils/newsLanguages');
 const { getDefaultLanguageCode } = require('../services/languageRegistry');
 const { normalizeNewsContent } = require('../utils/contentNormalize');
+const {
+  NEWS_TITLE_MAX,
+  NEWS_CONTENT_MAX,
+} = require('../constants/newsLimits');
 
 // Import the Notification model
 const Notification = require('../models/Notification');
@@ -3015,12 +3019,12 @@ async function updatePendingNews(req, res) {
       return res.status(400).json({ error: 'Title, content and category are required' });
     }
 
-    if (stripTags(normalizedTitle).length > 62) {
-      return res.status(400).json({ error: 'Title must be 62 characters or less' });
+    if (stripTags(normalizedTitle).length > NEWS_TITLE_MAX) {
+      return res.status(400).json({ error: `Title must be ${NEWS_TITLE_MAX} characters or less` });
     }
 
-    if (stripTags(normalizedContent).length > 480) {
-      return res.status(400).json({ error: 'Content must be 480 characters or less' });
+    if (stripTags(normalizedContent).length > NEWS_CONTENT_MAX) {
+      return res.status(400).json({ error: `Content must be ${NEWS_CONTENT_MAX} characters or less` });
     }
 
     const updatePayload = {

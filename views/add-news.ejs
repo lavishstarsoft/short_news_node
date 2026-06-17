@@ -53,7 +53,7 @@
                                                                 <button type="button" class="an-tool-btn" onclick="removeStyling('title')"><i class="fas fa-eraser"></i></button>
                                                             </div>
                                                             <div id="titleEditor" class="an-rich-editor an-rich-editor-title" contenteditable="true" data-placeholder="Enter news title"></div>
-                                                            <div class="an-char-count" id="titleCountWrap"><span id="titleCount">0</span>/62</div>
+                                                            <div class="an-char-count" id="titleCountWrap"><span id="titleCount">0</span>/<%= newsTitleMax %></div>
                                                         </div>
                                                     </div>
 
@@ -72,7 +72,7 @@
                                                                 <button type="button" class="an-tool-btn" onclick="removeStyling('content')"><i class="fas fa-eraser"></i></button>
                                                             </div>
                                                             <div id="contentEditor" class="an-rich-editor an-rich-editor-content" contenteditable="true" data-placeholder="Enter news content"></div>
-                                                            <div class="an-char-count" id="contentCountWrap"><span id="contentCount">0</span>/480</div>
+                                                            <div class="an-char-count" id="contentCountWrap"><span id="contentCount">0</span>/<%= newsContentMax %></div>
                                                         </div>
                                                     </div>
 
@@ -186,6 +186,9 @@
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
                 <script src="/js/rich-text.js"></script>
                 <script>
+                    const TITLE_MAX = <%= newsTitleMax %>;
+                    const CONTENT_MAX = <%= newsContentMax %>;
+
                     async function normalizeImageForCrop(file) {
                         if (!file || !file.type) return file;
 
@@ -235,13 +238,13 @@
                             return;
                         }
 
-                        if (stripTags(title).length > 62) {
-                            showFeedback('Title cannot exceed 62 characters', 'error');
+                        if (stripTags(title).length > TITLE_MAX) {
+                            showFeedback(`Title cannot exceed ${TITLE_MAX} characters`, 'error');
                             return;
                         }
 
-                        if (stripTags(content).length > 480) {
-                            showFeedback('Content cannot exceed 480 characters', 'error');
+                        if (stripTags(content).length > CONTENT_MAX) {
+                            showFeedback(`Content cannot exceed ${CONTENT_MAX} characters`, 'error');
                             return;
                         }
 
@@ -375,15 +378,15 @@
                         });
 
                         // Rich text editors
-                        initRichEditor('titleEditor', 'title', 62, true, false);
-                        initRichEditor('contentEditor', 'content', 480, false, true);
+                        initRichEditor('titleEditor', 'title', TITLE_MAX, true, false);
+                        initRichEditor('contentEditor', 'content', CONTENT_MAX, false, true);
 
                         window.onRichEditorChange = function (hiddenId, max) {
                             updateCount(hiddenId, max);
                         };
 
-                        updateCount('title', 62);
-                        updateCount('content', 480);
+                        updateCount('title', TITLE_MAX);
+                        updateCount('content', CONTENT_MAX);
 
                         // Initial media preview
                         const mediaType = document.getElementById('mediaType').value;
@@ -703,13 +706,13 @@
                     }
 
                     const EDITOR_MAP = {
-                        title: { editorId: 'titleEditor', hiddenId: 'title', max: 62, singleLine: true, singleParagraph: false },
-                        content: { editorId: 'contentEditor', hiddenId: 'content', max: 480, singleLine: false, singleParagraph: true }
+                        title: { editorId: 'titleEditor', hiddenId: 'title', max: TITLE_MAX, singleLine: true, singleParagraph: false },
+                        content: { editorId: 'contentEditor', hiddenId: 'content', max: CONTENT_MAX, singleLine: false, singleParagraph: true }
                     };
 
                     function syncAllEditors() {
-                        syncRichEditor('titleEditor', 'title', 62, true, false);
-                        syncRichEditor('contentEditor', 'content', 480, false, true);
+                        syncRichEditor('titleEditor', 'title', TITLE_MAX, true, false);
+                        syncRichEditor('contentEditor', 'content', CONTENT_MAX, false, true);
                     }
 
                     function stripTags(text) {

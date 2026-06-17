@@ -406,6 +406,10 @@ app.set('views', path.join(__dirname, 'views'));
 
 const { renderRichText, renderRichTextExcerpt, stripRichTags } = require('./utils/richTextRenderer');
 const {
+  NEWS_TITLE_MAX,
+  NEWS_CONTENT_MAX,
+} = require('./constants/newsLimits');
+const {
   formatIndianDate,
   formatIndianTime,
   formatIndianDateTime,
@@ -416,6 +420,8 @@ app.locals.stripRichTags = stripRichTags;
 app.locals.formatIndianDate = formatIndianDate;
 app.locals.formatIndianTime = formatIndianTime;
 app.locals.formatIndianDateTime = formatIndianDateTime;
+app.locals.newsTitleMax = NEWS_TITLE_MAX;
+app.locals.newsContentMax = NEWS_CONTENT_MAX;
 
 // In-memory storage for news (fallback when MongoDB is not available)
 let newsData = [

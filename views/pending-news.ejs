@@ -323,8 +323,8 @@
             let pendingRejectNewsId = null;
             let newsDataCache = {};
             let duplicateDataCache = {};
-            const TITLE_MAX = 62;
-            const CONTENT_MAX = 480;
+            const TITLE_MAX = <%= newsTitleMax %>;
+            const CONTENT_MAX = <%= newsContentMax %>;
             const categoryOptions = <%- JSON.stringify([...(pendingNews ? new Set(pendingNews.map(n => n.category).filter(Boolean)) : [])]) %>;
             const locationOptions = <%- JSON.stringify([...(pendingNews ? new Set(pendingNews.map(n => n.location).filter(Boolean)) : [])]) %>;
 

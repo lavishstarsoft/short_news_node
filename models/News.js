@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 const newsSchema = new mongoose.Schema({
-  title: { type: String, required: true, maxlength: 100 },
-  content: { type: String, required: true, maxlength: 1000 },
+  title: { type: String, required: true, maxlength: 62 },
+  content: { type: String, required: true, maxlength: 500 },
   imageUrl: { type: String }, // Keep for backward compatibility
   imageUrls: { type: [String], default: [] }, // Array of image URLs for photo carousel
   mediaUrl: { type: String }, // New field for both images and videos

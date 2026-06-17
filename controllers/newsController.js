@@ -8,6 +8,10 @@ const {
   buildNewsLanguageFilter,
   getLanguageViewData
 } = require('../utils/newsLanguages');
+const {
+  NEWS_TITLE_MAX,
+  NEWS_CONTENT_MAX,
+} = require('../constants/newsLimits');
 const { normalizeNewsContent } = require('../utils/contentNormalize');
 const path = require('path');
 const fs = require('fs');
@@ -614,11 +618,11 @@ async function renderEditNewsPage(req, res) {
 async function createNews(req, res) {
   try {
     // Validation (ignoring color tags for limit)
-    if (req.body.title && stripTags(req.body.title).length > 62) {
-      return res.status(400).json({ error: 'Title cannot exceed 62 characters' });
+    if (req.body.title && stripTags(req.body.title).length > NEWS_TITLE_MAX) {
+      return res.status(400).json({ error: `Title cannot exceed ${NEWS_TITLE_MAX} characters` });
     }
-    if (req.body.content && stripTags(req.body.content).length > 480) {
-      return res.status(400).json({ error: 'Content cannot exceed 480 characters' });
+    if (req.body.content && stripTags(req.body.content).length > NEWS_CONTENT_MAX) {
+      return res.status(400).json({ error: `Content cannot exceed ${NEWS_CONTENT_MAX} characters` });
     }
 
     if (req.body.content) {
@@ -750,11 +754,11 @@ async function updateNews(req, res) {
     }
 
     // Validation (ignoring color tags for limit)
-    if (req.body.title && stripTags(req.body.title).length > 62) {
-      return res.status(400).json({ error: 'Title cannot exceed 62 characters' });
+    if (req.body.title && stripTags(req.body.title).length > NEWS_TITLE_MAX) {
+      return res.status(400).json({ error: `Title cannot exceed ${NEWS_TITLE_MAX} characters` });
     }
-    if (req.body.content && stripTags(req.body.content).length > 480) {
-      return res.status(400).json({ error: 'Content cannot exceed 480 characters' });
+    if (req.body.content && stripTags(req.body.content).length > NEWS_CONTENT_MAX) {
+      return res.status(400).json({ error: `Content cannot exceed ${NEWS_CONTENT_MAX} characters` });
     }
 
     if (req.body.content) {
