@@ -38,6 +38,14 @@ const languageSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  displayConfig: {
+    titleMax: { type: Number, min: 20, max: 120 },
+    contentMax: { type: Number, min: 80, max: 1200 },
+    titleFontSize: { type: Number, min: 10, max: 32 },
+    contentFontSize: { type: Number, min: 10, max: 32 },
+    titleLineHeight: { type: Number, min: 1, max: 2.5 },
+    contentLineHeight: { type: Number, min: 1, max: 2.5 },
+  },
   createdAt: {
     type: Date,
     default: Date.now

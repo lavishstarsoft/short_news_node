@@ -12,6 +12,7 @@ async function clearLanguageCaches() {
   invalidateCache();
   await refreshCache();
   await clearCache('cache:/api/public/languages*');
+  await clearCache('cache:/api/public/news-display-config*');
 }
 
 function normalizeCode(code) {
@@ -327,5 +328,42 @@ exports.syncReporterLanguages = async (req, res) => {
   } catch (error) {
     console.error('Error syncing reporter languages:', error);
     res.status(500).json({ error: 'Error syncing reporter languages' });
+  }
+};
+
+exports.getDisplayConfigs = async (req, res) => {
+  try {
+    const { getDisplayConfigMap } = require('../services/languageRegistry');
+    await refreshCache();
+    res.json(getDisplayConfigMap());
+  } catch (error) {
+    console.error('Error fetching display configs:', error);
+    res.status(500).json({ error: 'Error fetching display configs' });
+  }
+};
+
+exports.updateDisplayConfig = async (req, res) => {
+  try {
+    if (req.admin?.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Super admin only' });
+    }
+
+    const language = await Language.findById(req.params.id);
+    if (!language) {
+      return res.status(404).json({ error: 'Language not found' });
+    }
+
+    const { sanitizeDisplayConfig } = require('../services/newsDisplayConfig');
+    language.displayConfig = sanitizeDisplayConfig(req.body, language.code);
+    await language.save();
+    await clearLanguageCaches();
+
+    res.json({
+      code: language.code,
+      displayConfig: language.displayConfig,
+    });
+  } catch (error) {
+    console.error('Error updating display config:', error);
+    res.status(500).json({ error: 'Error updating display config' });
   }
 };

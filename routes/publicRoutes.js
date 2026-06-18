@@ -827,6 +827,22 @@ router.get('/api/public/languages', cacheMiddleware(300), async (req, res) => {
   }
 });
 
+router.get('/api/public/news-display-config', cacheMiddleware(300), async (req, res) => {
+  try {
+    await languageRegistry.refreshCache();
+    const map = languageRegistry.getDisplayConfigMap();
+    res.json(
+      Object.entries(map).map(([code, config]) => ({
+        code,
+        ...config,
+      }))
+    );
+  } catch (error) {
+    console.error('Error fetching public news display config:', error);
+    res.status(500).json({ error: 'Error fetching news display config' });
+  }
+});
+
 // Public API endpoint for fetching locations (no authentication required)
 // Cached for 30 minutes (1800 seconds) - locations rarely change
 router.get('/api/public/locations', cacheMiddleware(1800), async (req, res) => {

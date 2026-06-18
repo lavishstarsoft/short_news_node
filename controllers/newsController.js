@@ -9,9 +9,9 @@ const {
   getLanguageViewData
 } = require('../utils/newsLanguages');
 const {
-  NEWS_TITLE_MAX,
-  NEWS_CONTENT_MAX,
-} = require('../constants/newsLimits');
+  getDisplayConfigForCode,
+  refreshCache: refreshLanguageCache,
+} = require('../services/languageRegistry');
 const { normalizeNewsContent } = require('../utils/contentNormalize');
 const path = require('path');
 const fs = require('fs');
@@ -40,6 +40,11 @@ const stripTags = (text) => {
     .replace(/\[b\]/gi, '')
     .replace(/\[\/b\]/gi, '');
 };
+
+async function getDisplayLimitsForLanguage(languageCode) {
+  await refreshLanguageCache();
+  return getDisplayConfigForCode(normalizeNewsLanguage(languageCode));
+}
 
 function getAuthorRoleLabel(authorAdmin) {
   if (!authorAdmin) return 'Reporter';
@@ -578,9 +583,12 @@ async function renderAddNewsPage(req, res) {
   try {
     const adminDoc = await Admin.findById(req.admin.id).select('workingLanguage').lean();
     const languageViewData = await getLanguageViewData();
+    const { getDisplayConfigMap } = require('../services/languageRegistry');
+    await refreshLanguageCache();
     res.render('add-news', {
       admin: req.admin,
       defaultLanguage: adminDoc?.workingLanguage || languageViewData.defaultLanguage,
+      displayConfigByLanguage: getDisplayConfigMap(),
       ...languageViewData
     });
   } catch (error) {
@@ -603,10 +611,13 @@ async function renderEditNewsPage(req, res) {
 
     const adminDoc = await Admin.findById(req.admin.id).select('workingLanguage').lean();
     const languageViewData = await getLanguageViewData();
+    const { getDisplayConfigMap } = require('../services/languageRegistry');
+    await refreshLanguageCache();
     res.render('add-news', {
       news,
       admin: req.admin,
       defaultLanguage: news.language || adminDoc?.workingLanguage || languageViewData.defaultLanguage,
+      displayConfigByLanguage: getDisplayConfigMap(),
       ...languageViewData
     });
   } catch (error) {
@@ -617,12 +628,16 @@ async function renderEditNewsPage(req, res) {
 // Create new news (include author information)
 async function createNews(req, res) {
   try {
+    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage');
+    const articleLanguage = normalizeNewsLanguage(req.body.language || authorDetails?.workingLanguage);
+    const limits = await getDisplayLimitsForLanguage(articleLanguage);
+
     // Validation (ignoring color tags for limit)
-    if (req.body.title && stripTags(req.body.title).length > NEWS_TITLE_MAX) {
-      return res.status(400).json({ error: `Title cannot exceed ${NEWS_TITLE_MAX} characters` });
+    if (req.body.title && stripTags(req.body.title).length > limits.titleMax) {
+      return res.status(400).json({ error: `Title cannot exceed ${limits.titleMax} characters` });
     }
-    if (req.body.content && stripTags(req.body.content).length > NEWS_CONTENT_MAX) {
-      return res.status(400).json({ error: `Content cannot exceed ${NEWS_CONTENT_MAX} characters` });
+    if (req.body.content && stripTags(req.body.content).length > limits.contentMax) {
+      return res.status(400).json({ error: `Content cannot exceed ${limits.contentMax} characters` });
     }
 
     if (req.body.content) {
@@ -632,9 +647,6 @@ async function createNews(req, res) {
       req.body.title = normalizeNewsContent(req.body.title);
     }
 
-    // Fetch author details for denormalization
-    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage');
-
     // Add author information and explicit timestamp to the news
     const newsData = {
       ...req.body,
@@ -642,7 +654,7 @@ async function createNews(req, res) {
       authorId: req.admin.id,
       authorProfileImage: authorDetails?.profileImage || null,
       authorConstituency: authorDetails?.constituency || null,
-      language: normalizeNewsLanguage(req.body.language || authorDetails?.workingLanguage),
+      language: articleLanguage,
       actionHistory: [
         buildHistoryEntry('created', req.admin, 'News article created', {
           title: req.body.title,
@@ -754,11 +766,13 @@ async function updateNews(req, res) {
     }
 
     // Validation (ignoring color tags for limit)
-    if (req.body.title && stripTags(req.body.title).length > NEWS_TITLE_MAX) {
-      return res.status(400).json({ error: `Title cannot exceed ${NEWS_TITLE_MAX} characters` });
+    const articleLanguage = normalizeNewsLanguage(req.body.language || existingNews.language);
+    const limits = await getDisplayLimitsForLanguage(articleLanguage);
+    if (req.body.title && stripTags(req.body.title).length > limits.titleMax) {
+      return res.status(400).json({ error: `Title cannot exceed ${limits.titleMax} characters` });
     }
-    if (req.body.content && stripTags(req.body.content).length > NEWS_CONTENT_MAX) {
-      return res.status(400).json({ error: `Content cannot exceed ${NEWS_CONTENT_MAX} characters` });
+    if (req.body.content && stripTags(req.body.content).length > limits.contentMax) {
+      return res.status(400).json({ error: `Content cannot exceed ${limits.contentMax} characters` });
     }
 
     if (req.body.content) {

@@ -13,6 +13,8 @@ router.get('/', (req, res) => {
   res.render('languages', { languages: [], admin: req.admin });
 });
 
+router.get('/api/display-config', languageController.getDisplayConfigs);
+router.put('/api/languages/:id/display-config', requireAuth, languageController.updateDisplayConfig);
 router.get('/api/languages', languageController.getAllLanguages);
 router.get('/api/languages/:id', languageController.getLanguageById);
 router.post('/api/languages', languageController.createLanguage);

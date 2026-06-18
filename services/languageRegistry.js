@@ -1,4 +1,8 @@
 const Language = require('../models/Language');
+const {
+  mergeDisplayConfig,
+  getDefaultDisplayConfig,
+} = require('./newsDisplayConfig');
 
 const DEFAULT_LANGUAGES = [
   {
@@ -55,6 +59,14 @@ function buildCacheFromList(languages) {
     supportedCodes.push(language.code);
   });
 
+  const displayConfigByCode = {};
+  sorted.forEach((language) => {
+    displayConfigByCode[language.code] = mergeDisplayConfig(
+      language.displayConfig,
+      language.code
+    );
+  });
+
   const defaultLanguage =
     sorted.find((language) => language.isActive && language.isDefault) ||
     sorted.find((language) => language.isActive) ||
@@ -65,6 +77,7 @@ function buildCacheFromList(languages) {
     labels,
     supportedCodes,
     defaultCode: defaultLanguage.code,
+    displayConfigByCode,
     userAppLanguages: sorted.filter(
       (language) => language.isActive && language.showInUserApp
     )
@@ -88,6 +101,18 @@ function getDefaultLanguageCode() {
 
 function getActiveLanguages() {
   return _cache.languages.filter((language) => language.isActive);
+}
+
+function getDisplayConfigForCode(code) {
+  const normalized = String(code || 'te').trim().toLowerCase();
+  if (_cache.displayConfigByCode?.[normalized]) {
+    return _cache.displayConfigByCode[normalized];
+  }
+  return getDefaultDisplayConfig(normalized);
+}
+
+function getDisplayConfigMap() {
+  return { ...(_cache.displayConfigByCode || {}) };
 }
 
 function getUserAppLanguages() {
@@ -141,6 +166,7 @@ async function refreshCache() {
           showInUserApp: language.showInUserApp !== false,
           isDefault: language.isDefault === true,
           sortOrder: language.sortOrder || 0,
+          displayConfig: language.displayConfig,
           _id: language._id
         }))
       );
@@ -228,6 +254,8 @@ module.exports = {
   getDefaultLanguageCode,
   getActiveLanguages,
   getUserAppLanguages,
+  getDisplayConfigForCode,
+  getDisplayConfigMap,
   normalizeNewsLanguage,
   buildNewsLanguageFilter,
   refreshCache,

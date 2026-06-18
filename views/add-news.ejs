@@ -186,8 +186,30 @@
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
                 <script src="/js/rich-text.js"></script>
                 <script>
-                    const TITLE_MAX = <%= newsTitleMax %>;
-                    const CONTENT_MAX = <%= newsContentMax %>;
+                    const DISPLAY_CONFIG_BY_LANGUAGE = <%- JSON.stringify(typeof displayConfigByLanguage !== 'undefined' ? displayConfigByLanguage : {}) %>;
+                    let TITLE_MAX = <%= newsTitleMax %>;
+                    let CONTENT_MAX = <%= newsContentMax %>;
+
+                    function getDisplayConfigForLanguage(code) {
+                        const normalized = String(code || 'te').trim().toLowerCase();
+                        const cfg = DISPLAY_CONFIG_BY_LANGUAGE[normalized];
+                        if (cfg) return cfg;
+                        return DISPLAY_CONFIG_BY_LANGUAGE.te || { titleMax: TITLE_MAX, contentMax: CONTENT_MAX };
+                    }
+
+                    function applyDisplayLimitsForLanguage(code) {
+                        const cfg = getDisplayConfigForLanguage(code);
+                        TITLE_MAX = cfg.titleMax;
+                        CONTENT_MAX = cfg.contentMax;
+                        const titleWrap = document.getElementById('titleCountWrap');
+                        const contentWrap = document.getElementById('contentCountWrap');
+                        if (titleWrap) {
+                            titleWrap.innerHTML = `<span id="titleCount">0</span>/${TITLE_MAX}`;
+                        }
+                        if (contentWrap) {
+                            contentWrap.innerHTML = `<span id="contentCount">0</span>/${CONTENT_MAX}`;
+                        }
+                    }
 
                     async function normalizeImageForCrop(file) {
                         if (!file || !file.type) return file;
@@ -376,6 +398,18 @@
                             const btn = document.getElementById(id);
                             if (btn) btn.addEventListener('click', saveNews);
                         });
+
+                        const languageSelect = document.getElementById('language');
+                        if (languageSelect) {
+                            applyDisplayLimitsForLanguage(languageSelect.value);
+                            languageSelect.addEventListener('change', function (e) {
+                                applyDisplayLimitsForLanguage(e.target.value);
+                                initRichEditor('titleEditor', 'title', TITLE_MAX, true, false);
+                                initRichEditor('contentEditor', 'content', CONTENT_MAX, false, true);
+                                updateCount('title', TITLE_MAX);
+                                updateCount('content', CONTENT_MAX);
+                            });
+                        }
 
                         // Rich text editors
                         initRichEditor('titleEditor', 'title', TITLE_MAX, true, false);

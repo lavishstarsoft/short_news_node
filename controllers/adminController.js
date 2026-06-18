@@ -23,6 +23,7 @@ const {
   NEWS_TITLE_MAX,
   NEWS_CONTENT_MAX,
 } = require('../constants/newsLimits');
+const { getDisplayConfigForCode, refreshCache: refreshLanguageCache } = require('../services/languageRegistry');
 
 // Import the Notification model
 const Notification = require('../models/Notification');
@@ -3019,12 +3020,14 @@ async function updatePendingNews(req, res) {
       return res.status(400).json({ error: 'Title, content and category are required' });
     }
 
-    if (stripTags(normalizedTitle).length > NEWS_TITLE_MAX) {
-      return res.status(400).json({ error: `Title must be ${NEWS_TITLE_MAX} characters or less` });
+    await refreshLanguageCache();
+    const limits = getDisplayConfigForCode(existingNews.language || 'te');
+    if (stripTags(normalizedTitle).length > limits.titleMax) {
+      return res.status(400).json({ error: `Title must be ${limits.titleMax} characters or less` });
     }
 
-    if (stripTags(normalizedContent).length > NEWS_CONTENT_MAX) {
-      return res.status(400).json({ error: `Content must be ${NEWS_CONTENT_MAX} characters or less` });
+    if (stripTags(normalizedContent).length > limits.contentMax) {
+      return res.status(400).json({ error: `Content must be ${limits.contentMax} characters or less` });
     }
 
     const updatePayload = {
@@ -3574,6 +3577,7 @@ module.exports = {
   logout,
   requireAuth,
   requireAdmin,
+  requireSuperAdmin,
   requireEditor,
   renderDashboard,
   renderProfilePage,
