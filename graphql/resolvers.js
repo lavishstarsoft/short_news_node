@@ -88,9 +88,13 @@ const getAbsoluteUrl = (path) => {
 const resolvers = {
     Query: {
         // Poll queries
-        getAllPolls: async (_, { userId }) => {
+        getAllPolls: async (_, { userId, language }) => {
             try {
-                const polls = await Poll.find({ isActive: true }).sort({ createdAt: -1 });
+                const query = { isActive: true };
+                if (language) {
+                    query.language = language;
+                }
+                const polls = await Poll.find(query).sort({ createdAt: -1 });
                 // We'll pass the userId context if provided to help the Poll type resolver 
                 // know if the user voted. But in GraphQL, it's better resolved via field resolver context 
                 // or just returning the polls directly and letting the type resolver handle it.

@@ -28,6 +28,7 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th class="ps-4">Question</th>
+                                        <th>Language</th>
                                         <th>Total Votes</th>
                                         <th>Date</th>
                                         <th>Status</th>
@@ -46,16 +47,18 @@
                                                         <% }) %>
                                                     </div>
                                                 </td>
+                                                <td><span class="badge bg-info text-dark"><%= poll.language ? poll.language.toUpperCase() : 'TE' %></span></td>
                                                 <td><span class="badge bg-primary rounded-pill"><%= poll.totalVotes %></span></td>
                                                 <td><%= new Date(poll.createdAt).toLocaleDateString() %></td>
                                                 <td>
-                                                    <% if (poll.isActive) { %>
-                                                        <span class="badge bg-success">Active</span>
-                                                    <% } else { %>
-                                                        <span class="badge bg-secondary">Inactive</span>
-                                                    <% } %>
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" role="switch" onchange="togglePollStatus('<%= poll._id %>', this.checked)" <%= poll.isActive ? 'checked' : '' %>>
+                                                    </div>
                                                 </td>
                                                 <td class="text-end pe-4">
+                                                    <button class="btn btn-sm btn-outline-primary me-2" onclick='openEditModal(<%- JSON.stringify(poll).replace(/'/g, "\\'") %>)'>
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
                                                     <button class="btn btn-sm btn-outline-danger" onclick="deletePoll('<%= poll._id %>')">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -64,7 +67,7 @@
                                         <% }) %>
                                     <% } else { %>
                                         <tr>
-                                            <td colspan="5" class="text-center py-4 text-muted">
+                                            <td colspan="6" class="text-center py-4 text-muted">
                                                 <i class="fas fa-poll fa-3x mb-3 text-light"></i>
                                                 <h5>No Polls Found</h5>
                                                 <p>Create your first poll to engage with users.</p>
@@ -95,6 +98,20 @@
                             <input type="text" class="form-control" id="pollQuestion" required placeholder="E.g., What is your favorite color?">
                         </div>
                         <div class="mb-3">
+                            <label class="form-label fw-bold">Target Language</label>
+                            <select class="form-select" id="pollLanguage" required>
+                                <% if (languages && languages.length > 0) { %>
+                                    <% languages.forEach(lang => { %>
+                                        <option value="<%= lang.code %>"><%= lang.name %> (<%= lang.code %>)</option>
+                                    <% }) %>
+                                <% } else { %>
+                                    <option value="te">Telugu (te)</option>
+                                    <option value="en">English (en)</option>
+                                    <option value="hi">Hindi (hi)</option>
+                                <% } %>
+                            </select>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label fw-bold">Options</label>
                             <div id="optionsContainer">
                                 <input type="text" class="form-control mb-2 poll-option" required placeholder="Option 1">
@@ -109,6 +126,54 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" onclick="submitPoll()">Create Poll</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Poll Modal -->
+    <div class="modal fade" id="editPollModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Poll</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editPollForm">
+                        <input type="hidden" id="editPollId">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Poll Question</label>
+                            <input type="text" class="form-control" id="editPollQuestion" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Target Language</label>
+                            <select class="form-select" id="editPollLanguage" required>
+                                <% if (languages && languages.length > 0) { %>
+                                    <% languages.forEach(lang => { %>
+                                        <option value="<%= lang.code %>"><%= lang.name %> (<%= lang.code %>)</option>
+                                    <% }) %>
+                                <% } else { %>
+                                    <option value="te">Telugu (te)</option>
+                                    <option value="en">English (en)</option>
+                                    <option value="hi">Hindi (hi)</option>
+                                <% } %>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Options</label>
+                            <div id="editOptionsContainer">
+                                <!-- Options populated by JS -->
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addEditOptionField()">
+                                <i class="fas fa-plus me-1"></i> Add Option
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="submitEditPoll()">Save Changes</button>
                 </div>
             </div>
         </div>
@@ -144,6 +209,7 @@
 
         async function submitPoll() {
             const question = document.getElementById('pollQuestion').value.trim();
+            const language = document.getElementById('pollLanguage').value;
             const optionInputs = document.querySelectorAll('.poll-option');
             const options = Array.from(optionInputs).map(inp => inp.value.trim()).filter(v => v);
 
@@ -156,7 +222,7 @@
                 const res = await fetch('/admin/api/polls', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question, options })
+                    body: JSON.stringify({ question, language, options })
                 });
                 
                 const data = await res.json();
@@ -180,6 +246,93 @@
                     window.location.reload();
                 } else {
                     showAlert(data.message || 'Error deleting poll', 'danger');
+                }
+            } catch (err) {
+                showAlert('Failed to connect to server', 'danger');
+            }
+        }
+
+        async function togglePollStatus(id, isActive) {
+            try {
+                const res = await fetch(`/admin/api/polls/${id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isActive })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    showAlert(data.message || 'Error updating status', 'danger');
+                    // Revert UI if fail
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+            } catch (err) {
+                showAlert('Failed to connect to server', 'danger');
+                setTimeout(() => window.location.reload(), 1500);
+            }
+        }
+
+        let editModal;
+        function openEditModal(poll) {
+            document.getElementById('editPollId').value = poll._id;
+            document.getElementById('editPollQuestion').value = poll.question;
+            document.getElementById('editPollLanguage').value = poll.language || 'te';
+            
+            const container = document.getElementById('editOptionsContainer');
+            container.innerHTML = '';
+            poll.options.forEach((opt, idx) => {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'form-control mb-2 edit-poll-option';
+                input.value = opt.text;
+                input.required = true;
+                container.appendChild(input);
+            });
+            
+            if (!editModal) {
+                editModal = new bootstrap.Modal(document.getElementById('editPollModal'));
+            }
+            editModal.show();
+        }
+
+        function addEditOptionField() {
+            const container = document.getElementById('editOptionsContainer');
+            const inputs = container.querySelectorAll('.edit-poll-option');
+            if (inputs.length >= 6) {
+                alert('Maximum 6 options allowed.');
+                return;
+            }
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control mb-2 edit-poll-option';
+            input.placeholder = `Option ${inputs.length + 1}`;
+            input.required = true;
+            container.appendChild(input);
+        }
+
+        async function submitEditPoll() {
+            const id = document.getElementById('editPollId').value;
+            const question = document.getElementById('editPollQuestion').value.trim();
+            const language = document.getElementById('editPollLanguage').value;
+            const optionInputs = document.querySelectorAll('.edit-poll-option');
+            const options = Array.from(optionInputs).map(inp => inp.value.trim()).filter(v => v);
+
+            if (!question || options.length < 2) {
+                alert('Please provide a question and at least 2 options.');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/admin/api/polls/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question, language, options })
+                });
+                
+                const data = await res.json();
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    showAlert(data.message || 'Error updating poll', 'danger');
                 }
             } catch (err) {
                 showAlert('Failed to connect to server', 'danger');

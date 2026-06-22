@@ -82,5 +82,7 @@ router.get('/rejected-news', adminController.requireAuth, adminController.render
 router.get('/polls', adminController.requireAuth, adminController.renderPollsPage);
 router.post('/api/polls', adminController.requireAuth, adminController.createPollRest);
 router.delete('/api/polls/:id', adminController.requireAuth, adminController.deletePollRest);
+router.put('/api/polls/:id/status', adminController.requireAuth, adminController.updatePollStatusRest);
+router.put('/api/polls/:id', adminController.requireAuth, adminController.updatePollRest);
 
 module.exports = router;

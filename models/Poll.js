@@ -19,6 +19,11 @@ const pollSchema = new mongoose.Schema({
     trim: true,
     maxlength: 500
   },
+  language: {
+    type: String,
+    default: 'te',
+    required: true
+  },
   options: [optionSchema],
   totalVotes: { 
     type: Number, 

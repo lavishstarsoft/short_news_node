@@ -3544,11 +3544,15 @@ async function renderRejectedNewsPage(req, res) {
 async function renderPollsPage(req, res) {
   try {
     const Poll = require('../models/Poll');
+    const Language = require('../models/Language');
     const polls = await Poll.find().sort({ createdAt: -1 }).lean();
+    const languages = await Language.getActiveLanguages();
+    
     res.render('polls', {
       admin: req.admin,
       activePage: 'polls',
-      polls
+      polls,
+      languages
     });
   } catch (error) {
     console.error('Error rendering polls page:', error);
@@ -3559,14 +3563,15 @@ async function renderPollsPage(req, res) {
 async function createPollRest(req, res) {
   try {
     const Poll = require('../models/Poll');
-    const { question, options } = req.body;
+    const { question, language, options } = req.body;
     
-    if (!question || !options || options.length < 2) {
-      return res.status(400).json({ success: false, message: 'Question and at least 2 options are required' });
+    if (!question || !language || !options || options.length < 2) {
+      return res.status(400).json({ success: false, message: 'Question, language and at least 2 options are required' });
     }
 
     const newPoll = new Poll({
       question,
+      language,
       options: options.map(opt => ({ text: opt, votes: 0 })),
       totalVotes: 0,
       votedUsers: [],
@@ -3590,6 +3595,59 @@ async function deletePollRest(req, res) {
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting poll:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+}
+
+async function updatePollStatusRest(req, res) {
+  try {
+    const Poll = require('../models/Poll');
+    const { id } = req.params;
+    const { isActive } = req.body;
+    
+    await Poll.findByIdAndUpdate(id, { isActive });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating poll status:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+}
+
+async function updatePollRest(req, res) {
+  try {
+    const Poll = require('../models/Poll');
+    const { id } = req.params;
+    const { question, language, options } = req.body;
+    
+    if (!question || !language || !options || options.length < 2) {
+      return res.status(400).json({ success: false, message: 'Question, language and at least 2 options are required' });
+    }
+
+    const poll = await Poll.findById(id);
+    if (!poll) {
+      return res.status(404).json({ success: false, message: 'Poll not found' });
+    }
+
+    poll.question = question;
+    poll.language = language;
+    
+    // Update existing options or add new ones
+    // We shouldn't lose existing votes for matched options by text, but for simplicity we will reset votes for now
+    // Actually, preserving votes for matching text options is better
+    const newOptions = options.map(opt => {
+      const existing = poll.options.find(o => o.text === opt);
+      return { text: opt, votes: existing ? existing.votes : 0 };
+    });
+    
+    poll.options = newOptions;
+    
+    // Recalculate total votes
+    poll.totalVotes = newOptions.reduce((sum, opt) => sum + (opt.votes || 0), 0);
+
+    await poll.save();
+    res.json({ success: true, poll });
+  } catch (error) {
+    console.error('Error updating poll:', error);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 }
@@ -3677,5 +3735,7 @@ module.exports = {
   renderReporterApplicationsPage,
   renderPollsPage,
   createPollRest,
-  deletePollRest
+  deletePollRest,
+  updatePollStatusRest,
+  updatePollRest
 };

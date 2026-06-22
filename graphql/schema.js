@@ -168,6 +168,7 @@ const typeDefs = gql`
   type Poll {
     id: ID!
     question: String!
+    language: String!
     options: [PollOption!]!
     totalVotes: Int!
     votedUsers: [VotedUser!]
@@ -217,7 +218,7 @@ const typeDefs = gql`
     getNewsById(id: ID!): News
     
     # Poll queries
-    getAllPolls(userId: String): [Poll!]!
+    getAllPolls(userId: String, language: String): [Poll!]!
     getPollById(id: ID!, userId: String): Poll
   }
 
