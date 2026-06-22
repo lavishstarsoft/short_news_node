@@ -825,17 +825,33 @@ const resolvers = {
                 if (!poll) throw new Error('Poll not found');
 
                 // Check if user already voted
-                const alreadyVoted = poll.votedUsers.find(v => v.userId === userId);
-                if (alreadyVoted) throw new Error('User has already voted');
+                const alreadyVotedIndex = poll.votedUsers.findIndex(v => v.userId === userId);
+                
+                if (alreadyVotedIndex !== -1) {
+                    const prevVote = poll.votedUsers[alreadyVotedIndex];
+                    if (prevVote.optionId.toString() === optionId) {
+                        // Voted for the same option, do nothing
+                        return poll.toObject();
+                    }
+                    
+                    // Decrement previous option
+                    const prevOption = poll.options.id(prevVote.optionId);
+                    if (prevOption && prevOption.votes > 0) {
+                        prevOption.votes -= 1;
+                    }
+                    
+                    // Update user's vote
+                    poll.votedUsers[alreadyVotedIndex].optionId = optionId;
+                } else {
+                    // New vote
+                    poll.totalVotes += 1;
+                    poll.votedUsers.push({ userId, optionId });
+                }
 
-                // Find the option
+                // Increment new option
                 const option = poll.options.id(optionId);
                 if (!option) throw new Error('Option not found');
-
-                // Increment votes
                 option.votes += 1;
-                poll.totalVotes += 1;
-                poll.votedUsers.push({ userId, optionId });
 
                 await poll.save();
 
