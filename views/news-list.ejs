@@ -162,7 +162,7 @@
                                                 <span class="news-filter-chip-x"><i class="fas fa-times"></i></span>
                                             </a>
                                         </div>
-                                    </div>
+                                        </div>
                                     <% } %>
 
                                     <div class="team-stats">
@@ -181,8 +181,8 @@
                                         <div class="team-stat">
                                             <div class="team-stat-value"><%= pageViews.toLocaleString('en-IN') %></div>
                                             <div class="team-stat-label">Views on page</div>
-                                        </div>
                                     </div>
+                                </div>
 
                                     <div class="news-filters-card">
                                         <div class="news-filters-top">
@@ -191,14 +191,14 @@
                                                 <div>
                                                     <h2 class="news-filters-title">Filter articles</h2>
                                                     <p class="news-filters-subtitle"><%= totalNews.toLocaleString('en-IN') %> articles match your criteria</p>
-                                                </div>
-                                            </div>
+                                </div>
+                                    </div>
                                             <% if (hasActiveFilters) { %>
                                             <a href="<%= newsFilterUrl({ search: '', location: '', status: '', language: '', fromDate: '', toDate: '' }) %>" class="news-filters-reset">
                                                 <i class="fas fa-rotate-left"></i> Reset filters
                                             </a>
-                                            <% } %>
-                                        </div>
+                                                                                        <% } %>
+                                                                            </div>
 
                                         <div class="news-filters-search-row">
                                             <div class="news-search-field">
@@ -206,8 +206,8 @@
                                                 <input type="text" id="searchFilter" class="news-search-input" placeholder="Search by title, content, or author..." value="<%= currentSearch %>">
                                                 <% if (currentSearch) { %>
                                                 <button type="button" class="news-search-clear" id="clearSearchBtn" title="Clear search"><i class="fas fa-times"></i></button>
-                                                <% } %>
-                                            </div>
+                                                                            <% } %>
+                                                                                </div>
                                             <button type="submit" class="news-filters-apply" form="filterForm">
                                                 <i class="fas fa-search"></i> Search
                                             </button>
@@ -221,8 +221,8 @@
                                                 <button type="button" class="news-status-pill news-status-pill--pending <%= currentStatus === 'pending' ? 'active' : '' %>" data-status="pending">Pending</button>
                                                 <button type="button" class="news-status-pill news-status-pill--inactive <%= currentStatus === 'inactive' ? 'active' : '' %>" data-status="inactive">Inactive</button>
                                                 <button type="button" class="news-status-pill news-status-pill--rejected <%= currentStatus === 'rejected' ? 'active' : '' %>" data-status="rejected">Rejected</button>
-                                            </div>
-                                        </div>
+                                                                                </div>
+                                                        </div>
 
                                         <div class="news-filters-facets">
                                             <div class="news-facet">
@@ -235,8 +235,8 @@
                                                         <% }); %>
                                                     </select>
                                                     <i class="fas fa-chevron-down news-facet-chevron"></i>
-                                                </div>
-                                            </div>
+                                                            </div>
+                                                                </div>
 
                                             <div class="news-facet">
                                                 <label class="news-facet-label" for="languageFilter"><i class="fas fa-language"></i> Language</label>
@@ -248,8 +248,8 @@
                                                         <% }); %>
                                                     </select>
                                                     <i class="fas fa-chevron-down news-facet-chevron"></i>
-                                                </div>
-                                            </div>
+                                                                    </div>
+                                                                    </div>
 
                                             <div class="news-facet news-facet--dates">
                                                 <label class="news-facet-label"><i class="fas fa-calendar-alt"></i> Published date</label>
@@ -257,8 +257,8 @@
                                                     <input type="date" class="news-date-input" id="fromDateFilter" title="From date" value="<%= currentFromDate %>" aria-label="From date">
                                                     <span class="news-date-sep">→</span>
                                                     <input type="date" class="news-date-input" id="toDateFilter" title="To date" value="<%= currentToDate %>" aria-label="To date">
-                                                </div>
-                                            </div>
+                                                        </div>
+                                                    </div>
                                         </div>
 
                                         <% if (hasActiveFilters) { %>
@@ -294,11 +294,11 @@
                                                     <% if (currentFromDate && currentToDate) { %><%= currentFromDate %> → <%= currentToDate %><% } else if (currentFromDate) { %>From <%= currentFromDate %><% } else { %>Until <%= currentToDate %><% } %>
                                                     <span class="news-filter-chip-x"><i class="fas fa-times"></i></span>
                                                 </a>
-                                                <% } %>
-                                            </div>
-                                        </div>
                                         <% } %>
-                                    </div>
+                            </div>
+                        </div>
+                                        <% } %>
+                </div>
 
                                     <select id="statusFilter" class="d-none" aria-hidden="true" tabindex="-1">
                                         <option value="" <%= !currentStatus ? 'selected' : '' %>>All</option>
@@ -338,13 +338,13 @@
                                                     <% }); %>
                                                 </tbody>
                                             </table>
-                                        </div>
+            </div>
 
                                         <div class="news-pagination">
                                             <div class="news-pagination-info">
                                                 Showing <%= totalNews === 0 ? 0 : ((currentPage - 1) * pageLimit) + 1 %>–<%= Math.min(currentPage * pageLimit, totalNews) %> of <%= totalNews %> articles
                                                 <% if (totalPages > 1) { %> · Page <%= currentPage %> of <%= totalPages %><% } %>
-                                            </div>
+                        </div>
                                             <% if (totalPages > 1) { %>
                                             <div class="news-pagination-nav">
                                                 <a class="news-page-btn <%= currentPage === 1 ? 'disabled' : '' %>" href="?page=1<%= paginationQuery %>" aria-label="First page"><i class="fas fa-angles-left"></i></a>
@@ -361,16 +361,16 @@
                                                 <% } %>
                                                 <a class="news-page-btn <%= currentPage === totalPages ? 'disabled' : '' %>" href="?page=<%= currentPage + 1 %><%= paginationQuery %>" aria-label="Next page"><i class="fas fa-angle-right"></i></a>
                                                 <a class="news-page-btn <%= currentPage === totalPages ? 'disabled' : '' %>" href="?page=<%= totalPages %><%= paginationQuery %>" aria-label="Last page"><i class="fas fa-angles-right"></i></a>
-                                            </div>
+                                        </div>
                                             <% } %>
                                         </div>
                                         <% } %>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                </div>
-            </div>
+                                            </div>
+                                                    </div>
+                                                    </div>
+                                                        </div>
+                                                    </div>
 
             <!-- News Detail Modal -->
             <div class="modal fade" id="newsDetailModal" tabindex="-1" aria-labelledby="newsDetailModalLabel" aria-hidden="true">
@@ -379,11 +379,11 @@
                         <div class="nd-modal-header">
                             <div class="nd-modal-header-left">
                                 <div class="nd-modal-icon"><i class="fas fa-newspaper"></i></div>
-                                <div>
+                                                    <div>
                                     <h2 class="nd-modal-title-text" id="newsDetailModalLabel">Article Preview</h2>
                                     <p class="nd-modal-subtitle-text" id="newsDetailModalSubtitle">How readers see this story</p>
-                                </div>
-                            </div>
+                                                        </div>
+                                                    </div>
                             <div class="nd-modal-actions">
                                 <button type="button" class="nd-btn nd-btn-primary" id="newsDetailEditBtn" title="Edit article">
                                     <i class="fas fa-pen"></i><span>Edit</span>
@@ -391,8 +391,8 @@
                                 <button type="button" class="nd-btn nd-btn-close" data-bs-dismiss="modal" aria-label="Close">
                                     <i class="fas fa-times"></i>
                                 </button>
-                            </div>
-                        </div>
+                                                </div>
+                                            </div>
                         <div class="modal-body nd-modal-body">
                             <div class="nd-split">
                                 <!-- LEFT: Image + article -->
@@ -402,7 +402,7 @@
                                         <div class="nd-hero-inner" id="newsDetailMediaContainer">
                                             <div class="nd-hero-placeholder"><i class="fas fa-image"></i></div>
                                         </div>
-                                    </div>
+                                            </div>
                                     <div class="nd-article-panel">
                                         <div class="nd-meta">
                                             <span id="newsDetailCategory" class="nd-pill nd-pill-category"></span>
@@ -410,15 +410,15 @@
                                             <span id="newsDetailDate" class="nd-pill nd-pill-date"></span>
                                             <span id="newsDetailStatus" class="nd-pill nd-pill-active"></span>
                                             <span id="newsDetailShortId" class="nd-pill nd-pill-link"></span>
-                                        </div>
+                                                        </div>
                                         <h1 id="newsDetailTitle" class="nd-article-title"></h1>
                                         <div id="newsDetailContent" class="nd-article-content rich-content-area"></div>
                                         <div id="newsDetailExternalLinks" class="nd-external-links" style="display:none;">
                                             <div class="nd-external-links-title">External links</div>
                                             <div id="newsDetailLinksList"></div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
 
                                 <!-- RIGHT: Stats + engagement -->
                                 <div class="nd-right">
@@ -431,7 +431,7 @@
                                                     <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
                                                     <button type="button" class="nd-views-edit" onclick="editNewsViews()" title="Edit views"><i class="fas fa-pen"></i></button>
                                                     <% } %>
-                                                </div>
+                                            </div>
                                                 <div class="nd-stat-row-label">Views</div>
                                             </div>
                                         </div>
@@ -443,10 +443,10 @@
                                                     <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
                                                     <button type="button" class="nd-views-edit" onclick="editNewsLikes()" title="Edit likes"><i class="fas fa-pen"></i></button>
                                                     <% } %>
-                                                </div>
-                                                <div class="nd-stat-row-label">Likes</div>
                                             </div>
-                                        </div>
+                                                <div class="nd-stat-row-label">Likes</div>
+                                                </div>
+                                            </div>
                                         <div class="nd-stat-row nd-stat-dislikes">
                                             <div class="nd-stat-row-icon"><i class="fas fa-thumbs-down"></i></div>
                                             <div class="nd-stat-row-info">
@@ -455,18 +455,18 @@
                                                     <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
                                                     <button type="button" class="nd-views-edit" onclick="editNewsDislikes()" title="Edit dislikes"><i class="fas fa-pen"></i></button>
                                                     <% } %>
-                                                </div>
+                                        </div>
                                                 <div class="nd-stat-row-label">Dislikes</div>
                                             </div>
-                                        </div>
+                                                    </div>
                                         <div class="nd-stat-row nd-stat-comments">
                                             <div class="nd-stat-row-icon"><i class="fas fa-comment"></i></div>
                                             <div class="nd-stat-row-info">
                                                 <div class="nd-stat-row-value" id="newsDetailCommentsCount">0</div>
                                                 <div class="nd-stat-row-label">Comments</div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
                                     <div class="nd-section">
                                         <div class="nd-section-head"><i class="fas fa-user-edit"></i> Published by</div>
@@ -477,10 +477,10 @@
                                                     <div class="nd-author-name" id="newsDetailAuthor">-</div>
                                                     <div class="nd-author-email" id="newsDetailAuthorEmail" style="display:none;"></div>
                                                     <div class="nd-author-role"><span id="newsDetailAuthorRole">Reporter</span> · <span id="newsDetailAuthorId"></span></div>
+                                            </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
 
                                     <div class="nd-section" id="newsDetailApprovalSection" style="display:none;">
                                         <div class="nd-section-head"><i class="fas fa-check-circle"></i> Approval</div>
@@ -498,15 +498,15 @@
                                             <span class="nd-section-count" id="newsDetailHistoryCount">0</span>
                                         </div>
                                         <div class="nd-section-body nd-section-scroll" id="newsDetailHistoryList"></div>
-                                    </div>
+                                </div>
 
                                     <div class="nd-section">
                                         <div class="nd-section-head">
                                             <span><i class="fas fa-thumbs-up"></i> Likes</span>
                                             <span class="nd-section-count" id="likesCount">0</span>
-                                        </div>
-                                        <div class="nd-section-body nd-section-scroll" id="likesList"></div>
                                     </div>
+                                        <div class="nd-section-body nd-section-scroll" id="likesList"></div>
+                                            </div>
 
                                     <div class="nd-section">
                                         <div class="nd-section-head">
@@ -520,10 +520,10 @@
                                         <div class="nd-section-head">
                                             <span><i class="fas fa-comments"></i> Comments</span>
                                             <span class="nd-section-count" id="commentsCount">0</span>
-                                        </div>
-                                        <div class="nd-section-body nd-section-scroll" id="commentsList"></div>
-                                    </div>
                                 </div>
+                                        <div class="nd-section-body nd-section-scroll" id="commentsList"></div>
+                            </div>
+                        </div>
                             </div>
                         </div>
                     </div>
@@ -705,13 +705,13 @@
                             nameEl.textContent = authorRaw.split('@')[0];
                             emailEl.textContent = authorRaw;
                             emailEl.style.display = '';
-                        } else {
+                            } else {
                             nameEl.textContent = authorRaw || '-';
                             emailEl.textContent = '';
                             emailEl.style.display = 'none';
                         }
 
-                        document.getElementById('newsDetailAuthorRole').textContent = newsItem.authorRole || 'Reporter';
+                            document.getElementById('newsDetailAuthorRole').textContent = newsItem.authorRole || 'Reporter';
                         document.getElementById('newsDetailAuthorId').textContent = newsItem.authorId ? `ID ${newsItem.authorId}` : '';
                         const avatarSource = isEmail ? authorRaw.split('@')[0] : authorRaw;
                         const authorInitials = (avatarSource || '?').split(/[\s._-]+/).filter(Boolean).map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?';
@@ -794,9 +794,9 @@
                         currentViewNewsItem = newsItem;
 
                         document.getElementById('newsDetailViews').textContent = newsItem.views || 0;
-                        document.getElementById('newsDetailLikes').textContent = newsItem.likes || 0;
-                        document.getElementById('newsDetailDislikes').textContent = newsItem.dislikes || 0;
-                        document.getElementById('newsDetailCommentsCount').textContent = newsItem.comments || 0;
+                            document.getElementById('newsDetailLikes').textContent = newsItem.likes || 0;
+                            document.getElementById('newsDetailDislikes').textContent = newsItem.dislikes || 0;
+                            document.getElementById('newsDetailCommentsCount').textContent = newsItem.comments || 0;
 
                         const likes = newsItem.userInteractions?.likes || [];
                         const dislikes = newsItem.userInteractions?.dislikes || [];
@@ -847,16 +847,16 @@
                         document.getElementById('newsDetailContent').innerHTML = renderRichText(newsItem.content || '');
                         document.getElementById('newsDetailCategory').innerHTML = `<i class="fas fa-tag"></i> ${escapeHtml(newsItem.category || 'General')}`;
 
-                        const locationElement = document.getElementById('newsDetailLocation');
-                        if (newsItem.location) {
+                            const locationElement = document.getElementById('newsDetailLocation');
+                            if (newsItem.location) {
                             const locationText = newsItem.locationCode
                                 ? `${newsItem.location} (${newsItem.locationCode})`
                                 : newsItem.location;
                             locationElement.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${escapeHtml(locationText)}`;
                             locationElement.style.display = 'inline-flex';
-                        } else {
-                            locationElement.style.display = 'none';
-                        }
+                            } else {
+                                locationElement.style.display = 'none';
+                            }
 
                         document.getElementById('newsDetailDate').innerHTML = `<i class="far fa-clock"></i> ${formatIndianDateTime(newsItem.publishedAt)}`;
 
@@ -889,7 +889,7 @@
                         if (linksHtml) {
                             linksList.innerHTML = linksHtml;
                             linksWrap.style.display = '';
-                        } else {
+                            } else {
                             linksWrap.style.display = 'none';
                         }
 
@@ -917,8 +917,8 @@
                                 </div>`).join('')
                             : '<div class="nd-empty-note">No activity yet</div>';
 
-                        const modal = new bootstrap.Modal(document.getElementById('newsDetailModal'));
-                        modal.show();
+                            const modal = new bootstrap.Modal(document.getElementById('newsDetailModal'));
+                            modal.show();
                     }
 
                     // Edit news function
@@ -1045,19 +1045,19 @@
 
                         const parsed = parseInt(newValue, 10);
                         if (isNaN(parsed) || parsed < 0) {
-                            alert('Please enter a valid positive number');
-                            return;
-                        }
-
-                        try {
+                                alert('Please enter a valid positive number');
+                                return;
+                            }
+                            
+                            try {
                             const response = await fetch(`/news/api/news/${currentViewNewsId}/${endpointKey}`, {
-                                method: 'PUT',
+                                    method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ [field]: parsed })
                             });
-                            const result = await response.json();
-
-                            if (response.ok) {
+                                const result = await response.json();
+                                
+                                if (response.ok) {
                                 element.textContent = parsed;
                                 if (result.news) {
                                     syncNewsListCache(result.news);
@@ -1065,10 +1065,10 @@
                                         currentViewNewsItem = { ...currentViewNewsItem, ...result.news };
                                     }
                                 }
-                            } else {
+                                } else {
                                 alert(result.error || `Failed to update ${label} count`);
-                            }
-                        } catch (error) {
+                                }
+                            } catch (error) {
                             console.error(`Error updating ${label}:`, error);
                             alert(`Error updating ${label} count`);
                         }

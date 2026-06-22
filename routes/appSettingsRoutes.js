@@ -3,6 +3,7 @@ const router = express.Router();
 const AppSettings = require('../models/AppSettings');
 const { cacheMiddleware } = require('../middleware/cache');
 const { requireAuth, requireAdmin } = require('../controllers/adminController');
+const { NEWS_TITLE_MAX, NEWS_CONTENT_MAX } = require('../constants/newsLimits');
 
 // Admin route to get app settings view
 router.get('/admin/app-settings', requireAuth, requireAdmin, async (req, res) => {
@@ -66,18 +67,27 @@ router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
 router.get('/api/public/app-settings', async (req, res) => {
     try {
         let settings = await AppSettings.findOne({ key: 'update_flags' });
+        let responseSettings = {};
+
         if (!settings) {
             // Return default values if not configured yet
-            return res.json({
+            responseSettings = {
                 androidVersion: '1.0.0',
                 iosVersion: '1.0.0',
                 forceUpdate: false,
                 androidUpdateUrl: 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam',
                 iosUpdateUrl: 'https://apps.apple.com/app/tehelka-news-daily-news-app/id6772203356',
                 updateMessage: 'A new version of the app is available. Please update to continue.'
-            });
+            };
+        } else {
+            responseSettings = settings.toObject();
         }
-        res.json(settings);
+
+        // Add length limits dynamically from backend constants
+        responseSettings.newsTitleMax = NEWS_TITLE_MAX;
+        responseSettings.newsContentMax = NEWS_CONTENT_MAX;
+
+        res.json(responseSettings);
     } catch (error) {
         console.error('Error fetching public app settings:', error);
         res.status(500).json({ error: 'Server error' });

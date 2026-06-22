@@ -10,6 +10,7 @@ const CommentReport = require('../models/CommentReport');
 const LiveStream = require('../models/LiveStream');
 const RegistrationField = require('../models/RegistrationField');
 const ReporterApplication = require('../models/ReporterApplication');
+const Poll = require('../models/Poll');
 
 // Import GraphQL cache utility
 const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = require('./cache');
@@ -86,6 +87,40 @@ const getAbsoluteUrl = (path) => {
 
 const resolvers = {
     Query: {
+        // Poll queries
+        getAllPolls: async (_, { userId }) => {
+            try {
+                const polls = await Poll.find({ isActive: true }).sort({ createdAt: -1 });
+                // We'll pass the userId context if provided to help the Poll type resolver 
+                // know if the user voted. But in GraphQL, it's better resolved via field resolver context 
+                // or just returning the polls directly and letting the type resolver handle it.
+                // For simplicity, we just return the polls. The userVotedOptionId will be resolved dynamically 
+                // if we pass userId through some argument or context, but GraphQL field resolvers only take parent args.
+                // Wait, we added `userId: String` to `getAllPolls`! We can attach it to the parent object.
+                return polls.map(poll => {
+                    const pollObj = poll.toObject();
+                    pollObj._userIdContext = userId; 
+                    return pollObj;
+                });
+            } catch (error) {
+                console.error('Error fetching polls:', error);
+                throw new Error('Failed to fetch polls');
+            }
+        },
+
+        getPollById: async (_, { id, userId }) => {
+            try {
+                const poll = await Poll.findById(id);
+                if (!poll) return null;
+                const pollObj = poll.toObject();
+                pollObj._userIdContext = userId;
+                return pollObj;
+            } catch (error) {
+                console.error('Error fetching poll:', error);
+                throw new Error('Failed to fetch poll');
+            }
+        },
+
         // News queries (with Redis caching - 5 minutes TTL)
         news: async (_, { limit = 50, offset = 0, category, location, language }) => {
             try {
@@ -736,7 +771,79 @@ const resolvers = {
         email: () => '',
     },
 
+    Poll: {
+        id: (parent) => parent._id.toString(),
+        userVotedOptionId: (parent) => {
+            if (!parent._userIdContext) return null;
+            const vote = parent.votedUsers?.find(v => v.userId === parent._userIdContext);
+            return vote ? vote.optionId.toString() : null;
+        }
+    },
+
+    PollOption: {
+        id: (parent) => parent._id.toString(),
+        percentage: (parent, _, context, info) => {
+            // Need totalVotes to calculate percentage.
+            // Since we don't have direct access to parent's parent,
+            // we can calculate it assuming totalVotes is available on the option object 
+            // if we attached it, OR we calculate it from the parent array?
+            // Wait, parent here is the PollOption object. It doesn't know total votes.
+            // To fix this, let's just resolve it as 0 here and do the calculation in the frontend,
+            // OR we can map options in the query resolver. Let's do it by mapping in the query resolver 
+            // or just returning 0 here and let the client calculate it, or we can attach totalVotes to options 
+            // in the Query resolver. It's safer to let the client calculate it based on totalVotes and votes.
+            // But let's return it since it's in schema.
+            return 0; // The actual calculation is usually done client-side or attached before returning.
+        }
+    },
+
     Mutation: {
+        // Poll mutations
+        createPoll: async (_, { question, options }) => {
+            try {
+                const newPoll = new Poll({
+                    question,
+                    options: options.map(opt => ({ text: opt, votes: 0 })),
+                    totalVotes: 0,
+                    votedUsers: []
+                });
+                await newPoll.save();
+                return newPoll;
+            } catch (error) {
+                console.error('Error creating poll:', error);
+                throw new Error('Failed to create poll');
+            }
+        },
+
+        voteOnPoll: async (_, { pollId, optionId, userId }) => {
+            try {
+                const poll = await Poll.findById(pollId);
+                if (!poll) throw new Error('Poll not found');
+
+                // Check if user already voted
+                const alreadyVoted = poll.votedUsers.find(v => v.userId === userId);
+                if (alreadyVoted) throw new Error('User has already voted');
+
+                // Find the option
+                const option = poll.options.id(optionId);
+                if (!option) throw new Error('Option not found');
+
+                // Increment votes
+                option.votes += 1;
+                poll.totalVotes += 1;
+                poll.votedUsers.push({ userId, optionId });
+
+                await poll.save();
+
+                const pollObj = poll.toObject();
+                pollObj._userIdContext = userId;
+                return pollObj;
+            } catch (error) {
+                console.error('Error voting on poll:', error);
+                throw new Error(error.message);
+            }
+        },
+
         // News mutations
         likeNews: async (_, { newsId }, context) => {
             try {

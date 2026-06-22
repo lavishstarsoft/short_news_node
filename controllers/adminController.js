@@ -3541,6 +3541,59 @@ async function renderRejectedNewsPage(req, res) {
   }
 }
 
+async function renderPollsPage(req, res) {
+  try {
+    const Poll = require('../models/Poll');
+    const polls = await Poll.find().sort({ createdAt: -1 }).lean();
+    res.render('polls', {
+      admin: req.admin,
+      activePage: 'polls',
+      polls
+    });
+  } catch (error) {
+    console.error('Error rendering polls page:', error);
+    res.status(500).send('Internal Server Error');
+  }
+}
+
+async function createPollRest(req, res) {
+  try {
+    const Poll = require('../models/Poll');
+    const { question, options } = req.body;
+    
+    if (!question || !options || options.length < 2) {
+      return res.status(400).json({ success: false, message: 'Question and at least 2 options are required' });
+    }
+
+    const newPoll = new Poll({
+      question,
+      options: options.map(opt => ({ text: opt, votes: 0 })),
+      totalVotes: 0,
+      votedUsers: [],
+      isActive: true
+    });
+
+    await newPoll.save();
+    res.json({ success: true, poll: newPoll });
+  } catch (error) {
+    console.error('Error creating poll:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+}
+
+async function deletePollRest(req, res) {
+  try {
+    const Poll = require('../models/Poll');
+    const { id } = req.params;
+    
+    await Poll.findByIdAndDelete(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting poll:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+}
+
 async function renderRegistrationFieldsPage(req, res) {
   try {
     const fields = await RegistrationField.find().sort({ order: 1 });
@@ -3621,5 +3674,8 @@ module.exports = {
   renderRejectedNewsPage, 
   getEditorRangeStats,
   renderRegistrationFieldsPage,
-  renderReporterApplicationsPage
+  renderReporterApplicationsPage,
+  renderPollsPage,
+  createPollRest,
+  deletePollRest
 };

@@ -153,6 +153,31 @@ const typeDefs = gql`
     userComments: [UserInteraction!]!
   }
 
+  type PollOption {
+    id: ID!
+    text: String!
+    votes: Int!
+    percentage: Float
+  }
+
+  type VotedUser {
+    userId: String!
+    optionId: ID!
+  }
+
+  type Poll {
+    id: ID!
+    question: String!
+    options: [PollOption!]!
+    totalVotes: Int!
+    votedUsers: [VotedUser!]
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+    # Additional field to know if the current user has voted (resolved dynamically)
+    userVotedOptionId: ID
+  }
+
   type Query {
     # News queries
     news(limit: Int, offset: Int, category: String, location: String, language: String): [News!]!
@@ -190,6 +215,10 @@ const typeDefs = gql`
     getEditorById(id: ID!): Editor
     getNewsByEditor(editorId: ID!, limit: Int, includeUnpublished: Boolean): [News!]!
     getNewsById(id: ID!): News
+    
+    # Poll queries
+    getAllPolls(userId: String): [Poll!]!
+    getPollById(id: ID!, userId: String): Poll
   }
 
   type RegistrationField {
@@ -241,6 +270,10 @@ const typeDefs = gql`
     deleteRegistrationField(id: ID!): FieldResponse
     reviewReporterApplication(applicationId: ID!, status: String!, adminNotes: String): ApplicationResponse
     deleteReporterApplication(applicationId: ID!): ApplicationResponse
+    
+    # Poll mutations
+    createPoll(question: String!, options: [String!]!): Poll
+    voteOnPoll(pollId: ID!, optionId: ID!, userId: String!): Poll
   }
   
   type ReportResponse {
