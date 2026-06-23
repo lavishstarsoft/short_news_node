@@ -2,88 +2,53 @@
 <html lang="en">
 
 <%- include('partials/header', { title: 'Reporter Applications' }) %>
-<link rel="stylesheet" href="/css/editors-directory.css">
-<link rel="stylesheet" href="/css/reporter-queue.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="/css/editors-directory.css">
+    <link rel="stylesheet" href="/css/reporter-queue.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-<body>
-    <%- include('partials/top-nav', { pageTitle: 'Reporter Applications', backButton: true, backUrl: '/' }) %>
+    <body>
+        <%- include('partials/top-nav', { pageTitle: 'Reporter Applications' , backButton: true, backUrl: '/' }) %>
 
-    <div class="container-fluid">
-        <div class="row">
-            <%- include('partials/sidebar', { activePage: 'reporter-applications' }) %>
+            <div class="container-fluid">
+                <div class="row">
+                    <%- include('partials/sidebar', { activePage: 'reporter-applications' }) %>
 
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                <% 
-                    const raApps = typeof applications !== 'undefined' ? applications : [];
-                    let raPending = 0, raApproved = 0, raRejected = 0;
-                    raApps.forEach(function(app) {
-                        if (app.status === 'pending') raPending++;
-                        else if (app.status === 'approved') raApproved++;
-                        else if (app.status === 'rejected') raRejected++;
-                    });
-                    const raRegFields = typeof registrationFields !== 'undefined' ? registrationFields : [];
-                    function raIsUrl(value) {
-                        return typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads') || value.includes('pub-'));
-                    }
-                    function raIsEmail(value) {
-                        return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-                    }
-                    function raIsPhone(value) {
-                        return typeof value === 'string' && /^\+?[\d\s()-]{8,}$/.test(value.replace(/\s/g, ''));
-                    }
-                    function raPickString(data, keys) {
-                        for (let i = 0; i < keys.length; i++) {
-                            const val = data[keys[i]];
-                            if (val && typeof val === 'string' && val.trim() && !raIsUrl(val)) return val.trim();
-                        }
-                        return '';
-                    }
-                    function raGetName(data) {
-                        if (!data || typeof data !== 'object') return 'Applicant';
-                        for (let i = 0; i < raRegFields.length; i++) {
-                            const field = raRegFields[i];
-                            if (/name/i.test(field.label) || /name/i.test(field.name)) {
-                                const val = raPickString(data, [field.name]);
-                                if (val) return val;
-                            }
-                        }
-                        const preferred = raPickString(data, [
-                            'Name', 'name', 'full_name', 'fullName', 'Full Name', 'Full_Name',
-                            'reporter_name', 'Reporter Name', 'Reporter_Name', 'applicant_name',
-                            'username', 'first_name', 'firstName'
-                        ]);
-                        if (preferred) return preferred;
-                        const keys = Object.keys(data);
-                        for (let i = 0; i < keys.length; i++) {
-                            if (/name/i.test(keys[i])) {
-                                const val = data[keys[i]];
-                                if (typeof val === 'string' && val.trim() && !raIsUrl(val) && !raIsEmail(val) && !raIsPhone(val)) return val.trim();
-                            }
-                        }
-                        for (let i = 0; i < keys.length; i++) {
-                            const val = data[keys[i]];
-                            if (typeof val !== 'string' || !val.trim() || raIsUrl(val) || raIsEmail(val) || raIsPhone(val)) continue;
-                            if (/\.(pdf|jpg|jpeg|png|webp|gif)$/i.test(val)) continue;
-                            return val.trim();
-                        }
-                        return 'Applicant';
-                    }
-                    function raGetEmail(data) {
-                        if (!data) return '';
-                        return raPickString(data, ['email', 'Email', 'email_address', 'Email_Address', 'contact_email']) || '';
-                    }
-                    function raGetPhone(data) {
-                        if (!data) return '';
-                        return raPickString(data, ['mobile', 'Mobile', 'phone', 'Phone', 'mobile_number', 'Mobile_Number', 'phone_number', 'Phone_Number', 'contact_number', 'mobileNumber']) || '';
-                    }
-                    function raGetInitials(name) {
-                        return (name || '?').split(/[\s._-]+/).filter(Boolean).map(function(n) { return n[0]; }).join('').toUpperCase().substring(0, 2) || '?';
-                    }
-                    function raSearchText(app) {
-                        const parts = [raGetName(app.data), raGetEmail(app.data), raGetPhone(app.data), app.status, app.adminNotes || ''];
-                        if (app.data) Object.values(app.data).forEach(function(v) { if (v) parts.push(String(v)); });
-                        return parts.join(' ').toLowerCase();
+                        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                            <% const raApps=typeof applications !=='undefined' ? applications : []; let raPending=0,
+                                raApproved=0, raRejected=0; raApps.forEach(function(app) { if (app.status==='pending' )
+                                raPending++; else if (app.status==='approved' ) raApproved++; else if
+                                (app.status==='rejected' ) raRejected++; }); const raRegFields=typeof registrationFields
+                                !=='undefined' ? registrationFields : []; function raIsUrl(value) { return typeof
+                                value==='string' && (value.startsWith('http') || value.startsWith('/uploads') ||
+                                value.includes('pub-')); } function raIsEmail(value) { return typeof value==='string' &&
+                                /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()); } function raIsPhone(value) { return
+                                typeof value==='string' && /^\+?[\d\s()-]{8,}$/.test(value.replace(/\s/g, '' )); }
+                                function raPickString(data, keys) { for (let i=0; i < keys.length; i++) { const
+                                val=data[keys[i]]; if (val && typeof val==='string' && val.trim() && !raIsUrl(val))
+                                return val.trim(); } return '' ; } function raGetName(data) { if (!data || typeof data
+                                !=='object' ) return 'Applicant' ; for (let i=0; i < raRegFields.length; i++) { const
+                                field=raRegFields[i]; if (/name/i.test(field.label) || /name/i.test(field.name)) { const
+                                val=raPickString(data, [field.name]); if (val) return val; } } const
+                                preferred=raPickString(data, [ 'Name' , 'name' , 'full_name' , 'fullName' , 'Full Name'
+                                , 'Full_Name' , 'reporter_name' , 'Reporter Name' , 'Reporter_Name' , 'applicant_name'
+                                , 'username' , 'first_name' , 'firstName' ]); if (preferred) return preferred; const
+                                keys=Object.keys(data); for (let i=0; i < keys.length; i++) { if (/name/i.test(keys[i]))
+                                { const val=data[keys[i]]; if (typeof val==='string' && val.trim() && !raIsUrl(val) &&
+                                !raIsEmail(val) && !raIsPhone(val)) return val.trim(); } } for (let i=0; i <
+                                keys.length; i++) { const val=data[keys[i]]; if (typeof val !=='string' || !val.trim()
+                                || raIsUrl(val) || raIsEmail(val) || raIsPhone(val)) continue; if
+                                (/\.(pdf|jpg|jpeg|png|webp|gif)$/i.test(val)) continue; return val.trim(); }
+                                return 'Applicant' ; } function raGetEmail(data) { if (!data) return '' ; return
+                                raPickString(data, ['email', 'Email' , 'email_address' , 'Email_Address'
+                                , 'contact_email' ]) || '' ; } function raGetPhone(data) { if (!data) return '' ; return
+                                raPickString(data, ['mobile', 'Mobile' , 'phone' , 'Phone' , 'mobile_number'
+                                , 'Mobile_Number' , 'phone_number' , 'Phone_Number' , 'contact_number' , 'mobileNumber'
+                                ]) || '' ; } function raGetInitials(name) { return (name || '?'
+                                ).split(/[\s._-]+/).filter(Boolean).map(function(n) { return n[0];
+                                }).join('').toUpperCase().substring(0, 2) || '?' ; } function raSearchText(app) { const
+                                parts=[raGetName(app.data), raGetEmail(app.data), raGetPhone(app.data), app.status,
+                                app.adminNotes || '' ]; if (app.data) Object.values(app.data).forEach(function(v) { if
+                                (v) parts.push(String(v)); }); return parts.join(' ').toLowerCase();
                     }
                 %>
                 <div class="ra-page content-area mt-4">
@@ -160,372 +125,562 @@
                                 const name = raGetName(app.data);
                                 const email = raGetEmail(app.data);
                                 const phone = raGetPhone(app.data);
-                                const meta = [email, phone].filter(Boolean).join(' · ') || 'No contact details';
-                            %>
-                            <div class="ra-row" data-id="<%= app._id %>" data-status="<%= app.status %>" data-search="<%= raSearchText(app).replace(/"/g, '&quot;') %>">
-                                <div class="ra-applicant">
-                                    <div class="ra-avatar"><%= raGetInitials(name) %></div>
-                                    <div class="ra-applicant-text">
-                                        <p class="ra-applicant-name"><%= name %></p>
-                                        <p class="ra-applicant-meta"><%= meta %></p>
+                                const meta = [email, phone].filter(Boolean).join(' · ') || ' No contact details'; %>
+                                <div class="ra-row" data-id="<%= app._id %>" data-status="<%= app.status %>"
+                                    data-search="<%= raSearchText(app).replace(/" /g, '&quot;' ) %>">
+                                    <div class="ra-applicant">
+                                        <div class="ra-avatar">
+                                            <%= raGetInitials(name) %>
+                                        </div>
+                                        <div class="ra-applicant-text">
+                                            <p class="ra-applicant-name">
+                                                <%= name %>
+                                            </p>
+                                            <p class="ra-applicant-meta">
+                                                <%= meta %>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="ra-row-meta">
+                                        <span class="ra-pill ra-pill--<%= app.status %>">
+                                            <%= app.status %>
+                                        </span>
+                                        <span class="ra-date"><i class="far fa-clock me-1"></i>
+                                            <%= new Date(app.createdAt).toLocaleString('en-IN', { day: 'numeric' ,
+                                                month: 'short' , year: 'numeric' , hour: '2-digit' , minute: '2-digit'
+                                                }) %>
+                                        </span>
+                                    </div>
+                                    <div class="ra-actions">
+                                        <button type="button" class="ra-action-btn ra-action-btn--view"
+                                            onclick="openApplicationDetail('<%= app._id %>')"><i class="fas fa-eye"></i>
+                                            View</button>
+                                        <button type="button" class="ra-action-btn ra-action-btn--pdf"
+                                            onclick="downloadApplicationPDF('<%= app._id %>')"><i
+                                                class="fas fa-file-pdf"></i> PDF</button>
+                                        <% if (app.status==='pending' ) { %>
+                                            <button type="button" class="ra-action-btn ra-action-btn--approve"
+                                                onclick="openReviewModal('<%= app._id %>', 'approved')"><i
+                                                    class="fas fa-check"></i> Approve</button>
+                                            <button type="button" class="ra-action-btn ra-action-btn--reject"
+                                                onclick="openReviewModal('<%= app._id %>', 'rejected')"><i
+                                                    class="fas fa-times"></i> Reject</button>
+                                            <% } %>
+                                                <button type="button" class="ra-action-btn ra-action-btn--delete"
+                                                    onclick="deleteApp('<%= app._id %>')"><i
+                                                        class="fas fa-trash"></i></button>
                                     </div>
                                 </div>
-                                <div class="ra-row-meta">
-                                    <span class="ra-pill ra-pill--<%= app.status %>"><%= app.status %></span>
-                                    <span class="ra-date"><i class="far fa-clock me-1"></i><%= new Date(app.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></span>
+                                <% }); %>
+                </div>
+                <% } %>
+            </div>
+            </div>
+            </main>
+            </div>
+            </div>
+
+            <!-- Hidden print sources for PDF export -->
+            <div style="position: absolute; left: -9999px; top: 0; width: 800px; z-index: -100; opacity: 0.01; pointer-events: none;" id="raPrintContainer">
+                <% raApps.forEach(function(app) { %>
+                    <div class="ra-print-source bg-white text-dark p-4" id="print-area-<%= app._id %>"
+                        style="font-family: 'Times New Roman', Times, serif;">
+                        <div class="print-header text-center border-bottom border-2 border-dark pb-3 mb-4">
+                            <div class="d-flex justify-content-between align-items-end">
+                                <div class="text-start" style="width: 200px;">
+                                    <img src="/uploads/logo.png" alt="Logo" style="max-height: 80px; max-width: 150px;"
+                                        onerror="this.style.display='none'">
                                 </div>
-                                <div class="ra-actions">
-                                    <button type="button" class="ra-action-btn ra-action-btn--view" onclick="openApplicationDetail('<%= app._id %>')"><i class="fas fa-eye"></i> View</button>
-                                    <button type="button" class="ra-action-btn ra-action-btn--pdf" onclick="downloadApplicationPDF('<%= app._id %>')"><i class="fas fa-file-pdf"></i> PDF</button>
-                                    <% if (app.status === 'pending') { %>
-                                    <button type="button" class="ra-action-btn ra-action-btn--approve" onclick="openReviewModal('<%= app._id %>', 'approved')"><i class="fas fa-check"></i> Approve</button>
-                                    <button type="button" class="ra-action-btn ra-action-btn--reject" onclick="openReviewModal('<%= app._id %>', 'rejected')"><i class="fas fa-times"></i> Reject</button>
-                                    <% } %>
-                                    <button type="button" class="ra-action-btn ra-action-btn--delete" onclick="deleteApp('<%= app._id %>')"><i class="fas fa-trash"></i></button>
+                                <div class="text-center flex-grow-1">
+                                    <h1 class="fw-bold text-uppercase m-0"
+                                        style="color: #b91c1c; font-size: 32px; letter-spacing: 1px;">TEHELKA NEWS</h1>
+                                    <p class="m-0 fw-semibold" style="font-size: 14px; letter-spacing: 0.5px;">REPORTER
+                                        APPLICATION FORM</p>
+                                </div>
+                                <div class="text-end" style="width: 200px; font-family: Arial, sans-serif;">
+                                    <div class="border border-dark p-2 text-start d-inline-block"
+                                        style="font-size: 11px;">
+                                        <strong>OFFICE USE ONLY</strong><br>
+                                        App ID: <%= app._id.toString().substring(0, 8).toUpperCase() %><br>
+                                            Date: <%= new Date(app.createdAt).toLocaleDateString('en-IN') %><br>
+                                                Status: <strong>
+                                                    <%= app.status.toUpperCase() %>
+                                                </strong>
+                                    </div>
                                 </div>
                             </div>
-                            <% }); %>
                         </div>
-                        <% } %>
-                    </div>
-                </div>
-            </main>
-        </div>
-    </div>
 
-    <!-- Hidden print sources for PDF export -->
-    <div class="d-none" id="raPrintContainer">
-        <% raApps.forEach(function(app) { %>
-        <div class="ra-print-source" id="print-area-<%= app._id %>">
-            <div class="print-only">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div style="width:150px;">
-                        <img src="/uploads/logo.png" alt="Logo" style="width:100%;height:auto;" onerror="this.style.display='none'">
-                        <h2 class="fw-bold m-0" style="color:#6d28d9;">Short News</h2>
+                        <div class="print-body">
+                            <h4 class="bg-light border border-dark p-2 mb-3 fw-bold" style="font-size: 16px;">I.
+                                APPLICANT DETAILS</h4>
+                            <table class="table table-bordered border-dark w-100"
+                                style="font-family: Arial, sans-serif; font-size: 13px;">
+                                <tbody>
+                                    <% 
+                                        const textFields=[]; 
+                                        const mediaFields=[];
+                                        Object.keys(app.data || {}).forEach(function(key) { 
+                                            const value=app.data[key];
+                                            const isUrl=typeof value==='string' && (value.startsWith('http') || value.startsWith('/uploads') || value.includes('pub-')); 
+                                            if (isUrl) {
+                                                mediaFields.push({key, value}); 
+                                            } else { 
+                                                textFields.push({key, value}); 
+                                            } 
+                                        });
+                                        textFields.forEach(function(field) { 
+                                    %>
+                                        <tr>
+                                            <th class="bg-light text-uppercase" style="width: 35%; padding: 8px;">
+                                                <%= field.key.replace(/_/g, ' ' ) %>
+                                            </th>
+                                            <td style="padding: 8px;">
+                                                <%= field.value %>
+                                            </td>
+                                        </tr>
+                                        <% }); %>
+                                </tbody>
+                            </table>
+
+                            <% if (mediaFields.length> 0) { %>
+                                <h4 class="bg-light border border-dark p-2 mt-4 mb-3 fw-bold"
+                                    style="font-size: 16px; page-break-before: auto;">II. ATTACHED DOCUMENTS & MEDIA
+                                </h4>
+                                <div class="row g-3" style="page-break-inside: avoid;">
+                                    <% mediaFields.forEach(function(field) { const
+                                        isImage=field.value.match(/\.(jpeg|jpg|gif|png|webp)/i); %>
+                                        <div class="col-6">
+                                            <div
+                                                class="border border-dark p-2 text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                                                <p
+                                                    class="fw-bold mb-2 small text-uppercase w-100 border-bottom border-dark pb-1">
+                                                    <%= field.key.replace(/_/g, ' ' ) %>
+                                                </p>
+                                                <% if (isImage) { %>
+                                                    <img src="<%= field.value %>" crossorigin="anonymous"
+                                                        style="max-width: 100%; max-height: 200px; object-fit: contain;">
+                                                    <% } else { %>
+                                                        <div class="p-3 bg-light border w-100">Document
+                                                            Attached<br><span class="small text-muted">
+                                                                <%= field.value.substring(field.value.lastIndexOf('/') +
+                                                                    1) %>
+                                                            </span></div>
+                                                        <% } %>
+                                            </div>
+                                        </div>
+                                        <% }); %>
+                                </div>
+                                <% } %>
+
+                                    <h4 class="bg-light border border-dark p-2 mt-4 mb-3 fw-bold"
+                                        style="font-size: 16px; page-break-before: auto;">III. DECLARATION & APPROVAL
+                                    </h4>
+                                    <div class="border border-dark p-3"
+                                        style="font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; page-break-inside: avoid;">
+                                        <p class="mb-4">I hereby declare that all the information provided by me in this
+                                            application is true and correct to the best of my knowledge and belief. I
+                                            understand that any misrepresentation or omission of facts may result in the
+                                            rejection of my application or termination of my engagement as a reporter
+                                            for Tehelka News.</p>
+
+                                        <div class="d-flex justify-content-between mt-5 pt-3">
+                                            <div class="text-center" style="width: 250px;">
+                                                <div
+                                                    style="border-bottom: 1px solid #000; height: 30px; margin-bottom: 5px;">
+                                                </div>
+                                                <strong>Signature of Applicant</strong>
+                                            </div>
+                                            <div class="text-center" style="width: 250px;">
+                                                <div
+                                                    style="border-bottom: 1px solid #000; height: 30px; margin-bottom: 5px;">
+                                                </div>
+                                                <strong>Authorized Signatory (Tehelka News)</strong>
+                                            </div>
+                                        </div>
+
+                                        <% if (app.adminNotes) { %>
+                                            <div class="mt-4 p-2 bg-light border border-dark">
+                                                <strong>Official Remarks:</strong>
+                                                <%= app.adminNotes %>
+                                            </div>
+                                            <% } %>
+                                    </div>
+                        </div>
+
+                        <div class="print-footer text-center mt-4 pt-2 border-top border-dark"
+                            style="font-size: 10px; font-family: Arial, sans-serif;">
+                            <p class="m-0">Tehelka News Network &bull; Generated on <%= new
+                                    Date().toLocaleDateString('en-IN') %>
+                            </p>
+                        </div>
                     </div>
-                    <div class="text-end">
-                        <h3 class="fw-bold mb-1">OFFICE RECORD</h3>
-                        <p class="text-muted small mb-0">Application ID: <%= app._id %></p>
-                        <p class="text-muted small mb-0">Submission: <%= new Date(app.createdAt).toLocaleDateString('en-IN') %></p>
+                    <% }); %>
+            </div>
+
+            <!-- Detail modal -->
+            <div class="modal fade ra-modal" id="raDetailModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-id-card me-2"></i>Application details</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body" id="raDetailBody"></div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary"
+                                data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-outline-danger" id="raDetailPdfBtn"><i
+                                    class="fas fa-file-pdf me-1"></i> Download PDF</button>
+                        </div>
                     </div>
-                </div>
-                <div class="text-center mb-4">
-                    <h2 class="fw-bold text-uppercase" style="border-bottom:2px solid #000;display:inline-block;padding-bottom:5px;">Reporter Registration Form</h2>
                 </div>
             </div>
-            <table class="table table-bordered border-dark w-100 print-only">
-                <tbody>
-                    <% Object.keys(app.data || {}).forEach(function(key) {
-                        const value = app.data[key];
+
+            <!-- Review modal -->
+            <div class="modal fade ra-modal" id="raReviewModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="raReviewTitle">Review application</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted small mb-3" id="raReviewSubtitle"></p>
+                            <label for="raReviewNotes" class="form-label fw-semibold">Official remarks</label>
+                            <textarea id="raReviewNotes" class="ra-review-textarea"
+                                placeholder="Enter review notes for office records..."></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary"
+                                data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn" id="raReviewConfirmBtn">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <%- include('partials/footer') %>
+                <script id="raAppsData" type="application/json"><%- JSON.stringify(raApps) %></script>
+                <script id="raRegFieldsData"
+                    type="application/json"><%- JSON.stringify(typeof registrationFields !== 'undefined' ? registrationFields : []) %></script>
+                <script>
+                    const GRAPHQL_ENDPOINT = '/graphql';
+                    const raApplications = JSON.parse(document.getElementById('raAppsData').textContent);
+                    const raRegistrationFields = JSON.parse(document.getElementById('raRegFieldsData').textContent);
+                    let raReviewAppId = null;
+                    let raReviewStatus = null;
+                    let raDetailAppId = null;
+
+                    document.addEventListener('DOMContentLoaded', function () {
+                        setupMobileMenu();
+                        setupFilters();
+                    });
+
+                    function setupFilters() {
+                        let activeStatus = 'all';
+                        const searchInput = document.getElementById('raSearchInput');
+                        const visibleCount = document.getElementById('raVisibleCount');
+
+                        document.querySelectorAll('.ra-status-pill').forEach(function (pill) {
+                            pill.addEventListener('click', function () {
+                                document.querySelectorAll('.ra-status-pill').forEach(function (p) { p.classList.remove('active'); });
+                                pill.classList.add('active');
+                                activeStatus = pill.getAttribute('data-status');
+                                applyFilters();
+                            });
+                        });
+
+                        function applyFilters() {
+                            const query = (searchInput?.value || '').trim().toLowerCase();
+                            let visible = 0;
+                            document.querySelectorAll('.ra-row').forEach(function (row) {
+                                const status = row.getAttribute('data-status');
+                                const haystack = row.getAttribute('data-search') || '';
+                                const statusMatch = activeStatus === 'all' || status === activeStatus;
+                                const searchMatch = !query || haystack.indexOf(query) !== -1;
+                                const show = statusMatch && searchMatch;
+                                row.classList.toggle('is-hidden', !show);
+                                if (show) visible++;
+                            });
+                            if (visibleCount) visibleCount.textContent = String(visible);
+                        }
+
+                        if (searchInput) searchInput.addEventListener('input', applyFilters);
+                    }
+
+                    function raIsUrl(value) {
+                        return typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads') || value.includes('pub-'));
+                    }
+                    function raIsEmail(value) {
+                        return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+                    }
+                    function raIsPhone(value) {
+                        return typeof value === 'string' && /^\+?[\d\s()-]{8,}$/.test(value.replace(/\s/g, ''));
+                    }
+                    function raPickString(data, keys) {
+                        for (let i = 0; i < keys.length; i++) {
+                            const val = data[keys[i]];
+                            if (val && typeof val === 'string' && val.trim() && !raIsUrl(val)) return val.trim();
+                        }
+                        return '';
+                    }
+                    function getApplicantName(data) {
+                        if (!data || typeof data !== 'object') return 'Applicant';
+                        for (let i = 0; i < raRegistrationFields.length; i++) {
+                            const field = raRegistrationFields[i];
+                            if (/name/i.test(field.label) || /name/i.test(field.name)) {
+                                const val = raPickString(data, [field.name]);
+                                if (val) return val;
+                            }
+                        }
+                        const preferred = raPickString(data, [
+                            'Name', 'name', 'full_name', 'fullName', 'Full Name', 'Full_Name',
+                            'reporter_name', 'Reporter Name', 'Reporter_Name', 'applicant_name',
+                            'username', 'first_name', 'firstName'
+                        ]);
+                        if (preferred) return preferred;
+                        const keys = Object.keys(data);
+                        for (let i = 0; i < keys.length; i++) {
+                            if (/name/i.test(keys[i])) {
+                                const val = data[keys[i]];
+                                if (typeof val === 'string' && val.trim() && !raIsUrl(val) && !raIsEmail(val) && !raIsPhone(val)) return val.trim();
+                            }
+                        }
+                        for (let i = 0; i < keys.length; i++) {
+                            const val = data[keys[i]];
+                            if (typeof val !== 'string' || !val.trim() || raIsUrl(val) || raIsEmail(val) || raIsPhone(val)) continue;
+                            if (/\.(pdf|jpg|jpeg|png|webp|gif)$/i.test(val)) continue;
+                            return val.trim();
+                        }
+                        return 'Applicant';
+                    }
+
+                    function renderFieldValue(key, value) {
                         const isUrl = typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads') || value.includes('pub-'));
                         const isImage = isUrl && value.match(/\.(jpeg|jpg|gif|png|webp)/i);
-                    %>
-                    <tr>
-                        <th class="bg-light text-uppercase" style="width:30%;font-size:11px;"><%= key.replace(/_/g, ' ') %></th>
-                        <td style="font-size:13px;">
-                            <% if (isImage) { %>
-                            <img src="<%= value %>" style="max-width:200px;height:auto;">
-                            <% } else { %><%= value %><% } %>
-                        </td>
-                    </tr>
-                    <% }); %>
-                    <% if (app.adminNotes) { %>
-                    <tr>
-                        <th class="bg-light text-uppercase" style="font-size:11px;">Official remarks</th>
-                        <td style="font-size:13px;font-weight:bold;"><%= app.adminNotes %></td>
-                    </tr>
-                    <% } %>
-                    <tr>
-                        <th class="bg-light text-uppercase" style="font-size:11px;">Status</th>
-                        <td style="font-size:13px;font-weight:bold;text-transform:uppercase;"><%= app.status %></td>
-                    </tr>
-                </tbody>
-            </table>
-            <div class="print-only mt-5 pt-4">
-                <div class="d-flex justify-content-between">
-                    <div class="text-center" style="width:200px;border-top:1px solid #000;padding-top:10px;"><p class="small fw-bold mb-0">Applicant signature</p></div>
-                    <div class="text-center" style="width:200px;border-top:1px solid #000;padding-top:10px;"><p class="small fw-bold mb-0">Office authority</p></div>
+                        const isPdf = isUrl && value.match(/\.pdf/i);
+                        const label = key.replace(/_/g, ' ');
+
+                        if (isImage) {
+                            return '<div class="ra-data-item"><div class="ra-data-label">' + label + '</div><div class="ra-data-value ra-file-preview"><img src="' + value + '" alt=""><a href="' + value + '" target="_blank" class="ra-file-link mt-2"><i class="fas fa-external-link-alt"></i> Open full image</a></div></div>';
+                        }
+                        if (isPdf) {
+                            return '<div class="ra-data-item"><div class="ra-data-label">' + label + '</div><div class="ra-data-value"><a href="' + value + '" target="_blank" class="ra-file-link"><i class="fas fa-file-pdf"></i> View PDF document</a></div></div>';
+                        }
+                        if (isUrl) {
+                            return '<div class="ra-data-item"><div class="ra-data-label">' + label + '</div><div class="ra-data-value"><a href="' + value + '" target="_blank" class="ra-file-link"><i class="fas fa-paperclip"></i> View attachment</a></div></div>';
+                        }
+                        return '<div class="ra-data-item"><div class="ra-data-label">' + label + '</div><div class="ra-data-value">' + (value != null ? String(value) : '—') + '</div></div>';
+                    }
+
+                    window.openApplicationDetail = function (appId) {
+                        const app = raApplications.find(function (a) { return String(a._id) === String(appId); });
+                        if (!app) return;
+                        raDetailAppId = appId;
+
+                        const textFields = [];
+                        const mediaFields = [];
+                        Object.keys(app.data || {}).forEach(function (key) {
+                            const value = app.data[key];
+                            const isUrl = typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads') || value.includes('pub-'));
+                            if (isUrl) {
+                                mediaFields.push({ key, value });
+                            } else {
+                                textFields.push({ key, value });
+                            }
+                        });
+
+                        let html = `
+            <div class="bg-white text-dark p-3 border" style="font-family: 'Times New Roman', Times, serif;">
+                <div class="text-center border-bottom border-2 border-dark pb-3 mb-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+                        <div class="text-start d-none d-sm-block" style="width: 150px;">
+                            <img src="/uploads/logo.png" alt="Logo" style="max-height: 60px; max-width: 100%;" onerror="this.style.display='none'">
+                        </div>
+                        <div class="text-center flex-grow-1">
+                            <h1 class="fw-bold text-uppercase m-0" style="color: #b91c1c; font-size: 28px; letter-spacing: 1px;">TEHELKA NEWS</h1>
+                            <p class="m-0 fw-semibold" style="font-size: 14px; letter-spacing: 0.5px;">REPORTER APPLICATION FORM</p>
+                        </div>
+                        <div class="text-end" style="font-family: Arial, sans-serif;">
+                            <div class="border border-dark p-2 text-start d-inline-block" style="font-size: 11px;">
+                                <strong>OFFICE USE ONLY</strong><br>
+                                App ID: ${app._id.toString().substring(0, 8).toUpperCase()}<br>
+                                Date: ${new Date(app.createdAt).toLocaleDateString('en-IN')}<br>
+                                Status: <strong>${app.status.toUpperCase()}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="bg-light border border-dark p-2 mb-3 fw-bold" style="font-size: 16px;">I. APPLICANT DETAILS</h4>
+                    <div class="table-responsive">
+                        <table class="table table-bordered border-dark w-100" style="font-family: Arial, sans-serif; font-size: 13px;">
+                            <tbody>
+                                ${textFields.map(f => `
+                                <tr>
+                                    <th class="bg-light text-uppercase" style="width: 35%; padding: 8px;">${f.key.replace(/_/g, ' ')}</th>
+                                    <td style="padding: 8px;">${f.value}</td>
+                                </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    ${mediaFields.length > 0 ? `
+                    <h4 class="bg-light border border-dark p-2 mt-4 mb-3 fw-bold" style="font-size: 16px;">II. ATTACHED DOCUMENTS & MEDIA</h4>
+                    <div class="row g-3">
+                        ${mediaFields.map(f => {
+                            const isImage = f.value.match(/\.(jpeg|jpg|gif|png|webp)/i);
+                            const isPdf = f.value.match(/\.pdf/i);
+                            let mediaHtml = '';
+                            if (isImage) {
+                                mediaHtml = '<img src="' + f.value + '" style="max-width: 100%; max-height: 200px; object-fit: contain; cursor: pointer;" onclick="window.open(&quot;' + f.value + '&quot;, &quot;_blank&quot;)">';
+                            } else if (isPdf) {
+                                mediaHtml = '<a href="' + f.value + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fas fa-file-pdf"></i> View PDF</a>';
+                            } else {
+                                mediaHtml = '<a href="' + f.value + '" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="fas fa-paperclip"></i> View File</a>';
+                            }
+                            return '<div class="col-sm-6">' +
+                                '<div class="border border-dark p-2 text-center h-100 d-flex flex-column justify-content-center align-items-center">' +
+                                '<p class="fw-bold mb-2 small text-uppercase w-100 border-bottom border-dark pb-1">' + f.key.replace(/_/g, ' ') + '</p>' +
+                                mediaHtml +
+                                '</div>' +
+                                '</div>';
+                        }).join('')}
+                    </div>
+                    ` : ''}
+
+                    <h4 class="bg-light border border-dark p-2 mt-4 mb-3 fw-bold" style="font-size: 16px;">III. DECLARATION & APPROVAL</h4>
+                    <div class="border border-dark p-3" style="font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5;">
+                        <p class="mb-4">I hereby declare that all the information provided by me in this application is true and correct to the best of my knowledge and belief. I understand that any misrepresentation or omission of facts may result in the rejection of my application or termination of my engagement as a reporter for Tehelka News.</p>
+                        
+                        <div class="d-flex flex-wrap justify-content-between mt-5 pt-3 gap-3">
+                            <div class="text-center" style="width: 200px;">
+                                <div style="border-bottom: 1px solid #000; height: 30px; margin-bottom: 5px;"></div>
+                                <strong>Signature of Applicant</strong>
+                            </div>
+                            <div class="text-center" style="width: 200px;">
+                                <div style="border-bottom: 1px solid #000; height: 30px; margin-bottom: 5px;"></div>
+                                <strong>Authorized Signatory</strong>
+                            </div>
+                        </div>
+                        
+                        ${app.adminNotes ? `
+                        <div class="mt-4 p-2 bg-light border border-dark">
+                            <strong>Official Remarks:</strong> \${app.adminNotes}
+                        </div>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
-        </div>
-        <% }); %>
-    </div>
+            `;
 
-    <!-- Detail modal -->
-    <div class="modal fade ra-modal" id="raDetailModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-id-card me-2"></i>Application details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="raDetailBody"></div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-outline-danger" id="raDetailPdfBtn"><i class="fas fa-file-pdf me-1"></i> Download PDF</button>
-                </div>
-            </div>
-        </div>
-    </div>
+                        document.getElementById('raDetailBody').innerHTML = html;
+                        document.getElementById('raDetailPdfBtn').onclick = function () { downloadApplicationPDF(appId); };
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('raDetailModal')).show();
+                    };
 
-    <!-- Review modal -->
-    <div class="modal fade ra-modal" id="raReviewModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="raReviewTitle">Review application</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-muted small mb-3" id="raReviewSubtitle"></p>
-                    <label for="raReviewNotes" class="form-label fw-semibold">Official remarks</label>
-                    <textarea id="raReviewNotes" class="ra-review-textarea" placeholder="Enter review notes for office records..."></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn" id="raReviewConfirmBtn">Confirm</button>
-                </div>
-            </div>
-        </div>
-    </div>
+                    window.openReviewModal = function (appId, status) {
+                        raReviewAppId = appId;
+                        raReviewStatus = status;
+                        const app = raApplications.find(function (a) { return String(a._id) === String(appId); });
+                        document.getElementById('raReviewTitle').textContent = status === 'approved' ? 'Approve application' : 'Reject application';
+                        document.getElementById('raReviewSubtitle').textContent = 'Applicant: ' + getApplicantName(app?.data) + ' — add official remarks for the office record.';
+                        document.getElementById('raReviewNotes').value = '';
+                        const confirmBtn = document.getElementById('raReviewConfirmBtn');
+                        confirmBtn.className = 'btn ' + (status === 'approved' ? 'btn-success' : 'btn-danger');
+                        confirmBtn.textContent = status === 'approved' ? 'Approve application' : 'Reject application';
+                        confirmBtn.onclick = submitReview;
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('raReviewModal')).show();
+                    };
 
-    <%- include('partials/footer') %>
-    <script id="raAppsData" type="application/json"><%- JSON.stringify(raApps) %></script>
-    <script id="raRegFieldsData" type="application/json"><%- JSON.stringify(typeof registrationFields !== 'undefined' ? registrationFields : []) %></script>
-    <script>
-        const GRAPHQL_ENDPOINT = '/graphql';
-        const raApplications = JSON.parse(document.getElementById('raAppsData').textContent);
-        const raRegistrationFields = JSON.parse(document.getElementById('raRegFieldsData').textContent);
-        let raReviewAppId = null;
-        let raReviewStatus = null;
-        let raDetailAppId = null;
+                    async function submitReview() {
+                        if (!raReviewAppId || !raReviewStatus) return;
+                        const adminNotes = document.getElementById('raReviewNotes').value.trim();
+                        const query = 'mutation ReviewReporterApplication($applicationId: ID!, $status: String!, $adminNotes: String) { reviewReporterApplication(applicationId: $applicationId, status: $status, adminNotes: $adminNotes) { success message } }';
+                        try {
+                            const response = await fetch(GRAPHQL_ENDPOINT, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ query: query, variables: { applicationId: raReviewAppId, status: raReviewStatus, adminNotes: adminNotes } })
+                            });
+                            const result = await response.json();
+                            if (result.data?.reviewReporterApplication?.success) {
+                                location.reload();
+                            } else {
+                                alert(result.data?.reviewReporterApplication?.message || 'Review failed');
+                            }
+                        } catch (error) {
+                            console.error('Error reviewing application:', error);
+                            alert('An error occurred while reviewing the application.');
+                        }
+                    }
 
-        document.addEventListener('DOMContentLoaded', function () {
-            setupMobileMenu();
-            setupFilters();
-        });
+                    window.downloadApplicationPDF = async function (appId) {
+                        const element = document.getElementById('print-area-' + appId);
+                        if (!element) return;
+                        const opt = {
+                            margin: [10, 10, 10, 10],
+                            filename: 'Reporter_Application_' + appId + '.pdf',
+                            image: { type: 'jpeg', quality: 0.98 },
+                            html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
+                            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                            pagebreak: { mode: 'avoid-all' }
+                        };
+                        element.classList.add('printing');
+                        try {
+                            await html2pdf().set(opt).from(element).save();
+                        } catch (err) {
+                            console.error('PDF Export Error:', err);
+                            alert('Failed to generate PDF. Please check if all images loaded.');
+                        } finally {
+                            element.classList.remove('printing');
+                        }
+                    };
 
-        function setupFilters() {
-            let activeStatus = 'all';
-            const searchInput = document.getElementById('raSearchInput');
-            const visibleCount = document.getElementById('raVisibleCount');
+                    window.deleteApp = async function (applicationId) {
+                        if (!confirm('Delete this application permanently? This cannot be undone.')) return;
+                        const query = 'mutation DeleteReporterApplication($applicationId: ID!) { deleteReporterApplication(applicationId: $applicationId) { success message } }';
+                        try {
+                            const response = await fetch(GRAPHQL_ENDPOINT, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ query: query, variables: { applicationId: applicationId } })
+                            });
+                            const result = await response.json();
+                            if (result.data?.deleteReporterApplication?.success) {
+                                location.reload();
+                            } else {
+                                alert(result.data?.deleteReporterApplication?.message || 'Delete failed');
+                            }
+                        } catch (error) {
+                            console.error('Error deleting application:', error);
+                        }
+                    };
 
-            document.querySelectorAll('.ra-status-pill').forEach(function (pill) {
-                pill.addEventListener('click', function () {
-                    document.querySelectorAll('.ra-status-pill').forEach(function (p) { p.classList.remove('active'); });
-                    pill.classList.add('active');
-                    activeStatus = pill.getAttribute('data-status');
-                    applyFilters();
-                });
-            });
-
-            function applyFilters() {
-                const query = (searchInput?.value || '').trim().toLowerCase();
-                let visible = 0;
-                document.querySelectorAll('.ra-row').forEach(function (row) {
-                    const status = row.getAttribute('data-status');
-                    const haystack = row.getAttribute('data-search') || '';
-                    const statusMatch = activeStatus === 'all' || status === activeStatus;
-                    const searchMatch = !query || haystack.indexOf(query) !== -1;
-                    const show = statusMatch && searchMatch;
-                    row.classList.toggle('is-hidden', !show);
-                    if (show) visible++;
-                });
-                if (visibleCount) visibleCount.textContent = String(visible);
-            }
-
-            if (searchInput) searchInput.addEventListener('input', applyFilters);
-        }
-
-        function raIsUrl(value) {
-            return typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads') || value.includes('pub-'));
-        }
-        function raIsEmail(value) {
-            return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-        }
-        function raIsPhone(value) {
-            return typeof value === 'string' && /^\+?[\d\s()-]{8,}$/.test(value.replace(/\s/g, ''));
-        }
-        function raPickString(data, keys) {
-            for (let i = 0; i < keys.length; i++) {
-                const val = data[keys[i]];
-                if (val && typeof val === 'string' && val.trim() && !raIsUrl(val)) return val.trim();
-            }
-            return '';
-        }
-        function getApplicantName(data) {
-            if (!data || typeof data !== 'object') return 'Applicant';
-            for (let i = 0; i < raRegistrationFields.length; i++) {
-                const field = raRegistrationFields[i];
-                if (/name/i.test(field.label) || /name/i.test(field.name)) {
-                    const val = raPickString(data, [field.name]);
-                    if (val) return val;
-                }
-            }
-            const preferred = raPickString(data, [
-                'Name', 'name', 'full_name', 'fullName', 'Full Name', 'Full_Name',
-                'reporter_name', 'Reporter Name', 'Reporter_Name', 'applicant_name',
-                'username', 'first_name', 'firstName'
-            ]);
-            if (preferred) return preferred;
-            const keys = Object.keys(data);
-            for (let i = 0; i < keys.length; i++) {
-                if (/name/i.test(keys[i])) {
-                    const val = data[keys[i]];
-                    if (typeof val === 'string' && val.trim() && !raIsUrl(val) && !raIsEmail(val) && !raIsPhone(val)) return val.trim();
-                }
-            }
-            for (let i = 0; i < keys.length; i++) {
-                const val = data[keys[i]];
-                if (typeof val !== 'string' || !val.trim() || raIsUrl(val) || raIsEmail(val) || raIsPhone(val)) continue;
-                if (/\.(pdf|jpg|jpeg|png|webp|gif)$/i.test(val)) continue;
-                return val.trim();
-            }
-            return 'Applicant';
-        }
-
-        function renderFieldValue(key, value) {
-            const isUrl = typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads') || value.includes('pub-'));
-            const isImage = isUrl && value.match(/\.(jpeg|jpg|gif|png|webp)/i);
-            const isPdf = isUrl && value.match(/\.pdf/i);
-            const label = key.replace(/_/g, ' ');
-
-            if (isImage) {
-                return '<div class="ra-data-item"><div class="ra-data-label">' + label + '</div><div class="ra-data-value ra-file-preview"><img src="' + value + '" alt=""><a href="' + value + '" target="_blank" class="ra-file-link mt-2"><i class="fas fa-external-link-alt"></i> Open full image</a></div></div>';
-            }
-            if (isPdf) {
-                return '<div class="ra-data-item"><div class="ra-data-label">' + label + '</div><div class="ra-data-value"><a href="' + value + '" target="_blank" class="ra-file-link"><i class="fas fa-file-pdf"></i> View PDF document</a></div></div>';
-            }
-            if (isUrl) {
-                return '<div class="ra-data-item"><div class="ra-data-label">' + label + '</div><div class="ra-data-value"><a href="' + value + '" target="_blank" class="ra-file-link"><i class="fas fa-paperclip"></i> View attachment</a></div></div>';
-            }
-            return '<div class="ra-data-item"><div class="ra-data-label">' + label + '</div><div class="ra-data-value">' + (value != null ? String(value) : '—') + '</div></div>';
-        }
-
-        window.openApplicationDetail = function (appId) {
-            const app = raApplications.find(function (a) { return String(a._id) === String(appId); });
-            if (!app) return;
-            raDetailAppId = appId;
-
-            let html = '<div class="d-flex align-items-center gap-3 mb-4">';
-            html += '<div class="ra-avatar" style="width:52px;height:52px;font-size:1rem;">' + getApplicantName(app.data).split(/[\s._-]+/).filter(Boolean).map(function(n){return n[0];}).join('').toUpperCase().substring(0,2) + '</div>';
-            html += '<div><h4 class="mb-1 fw-bold">' + getApplicantName(app.data) + '</h4>';
-            html += '<span class="ra-pill ra-pill--' + app.status + '">' + app.status + '</span> ';
-            html += '<span class="ra-date ms-2">' + new Date(app.createdAt).toLocaleString('en-IN') + '</span></div></div>';
-
-            html += '<div class="ra-data-grid">';
-            Object.keys(app.data || {}).forEach(function (key) {
-                html += renderFieldValue(key, app.data[key]);
-            });
-            html += '</div>';
-
-            if (app.adminNotes) {
-                html += '<div class="ra-notes-box"><strong>Official remarks:</strong> ' + app.adminNotes + '</div>';
-            }
-
-            document.getElementById('raDetailBody').innerHTML = html;
-            document.getElementById('raDetailPdfBtn').onclick = function () { downloadApplicationPDF(appId); };
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('raDetailModal')).show();
-        };
-
-        window.openReviewModal = function (appId, status) {
-            raReviewAppId = appId;
-            raReviewStatus = status;
-            const app = raApplications.find(function (a) { return String(a._id) === String(appId); });
-            document.getElementById('raReviewTitle').textContent = status === 'approved' ? 'Approve application' : 'Reject application';
-            document.getElementById('raReviewSubtitle').textContent = 'Applicant: ' + getApplicantName(app?.data) + ' — add official remarks for the office record.';
-            document.getElementById('raReviewNotes').value = '';
-            const confirmBtn = document.getElementById('raReviewConfirmBtn');
-            confirmBtn.className = 'btn ' + (status === 'approved' ? 'btn-success' : 'btn-danger');
-            confirmBtn.textContent = status === 'approved' ? 'Approve application' : 'Reject application';
-            confirmBtn.onclick = submitReview;
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('raReviewModal')).show();
-        };
-
-        async function submitReview() {
-            if (!raReviewAppId || !raReviewStatus) return;
-            const adminNotes = document.getElementById('raReviewNotes').value.trim();
-            const query = 'mutation ReviewReporterApplication($applicationId: ID!, $status: String!, $adminNotes: String) { reviewReporterApplication(applicationId: $applicationId, status: $status, adminNotes: $adminNotes) { success message } }';
-            try {
-                const response = await fetch(GRAPHQL_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: query, variables: { applicationId: raReviewAppId, status: raReviewStatus, adminNotes: adminNotes } })
-                });
-                const result = await response.json();
-                if (result.data?.reviewReporterApplication?.success) {
-                    location.reload();
-                } else {
-                    alert(result.data?.reviewReporterApplication?.message || 'Review failed');
-                }
-            } catch (error) {
-                console.error('Error reviewing application:', error);
-                alert('An error occurred while reviewing the application.');
-            }
-        }
-
-        window.downloadApplicationPDF = async function (appId) {
-            const element = document.getElementById('print-area-' + appId);
-            if (!element) return;
-            const opt = {
-                margin: 10,
-                filename: 'Reporter_Application_' + appId + '.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-            element.classList.add('printing');
-            try {
-                await html2pdf().set(opt).from(element).save();
-            } catch (err) {
-                console.error('PDF Export Error:', err);
-                alert('Failed to generate PDF. Please check if all images loaded.');
-            } finally {
-                element.classList.remove('printing');
-            }
-        };
-
-        window.deleteApp = async function (applicationId) {
-            if (!confirm('Delete this application permanently? This cannot be undone.')) return;
-            const query = 'mutation DeleteReporterApplication($applicationId: ID!) { deleteReporterApplication(applicationId: $applicationId) { success message } }';
-            try {
-                const response = await fetch(GRAPHQL_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: query, variables: { applicationId: applicationId } })
-                });
-                const result = await response.json();
-                if (result.data?.deleteReporterApplication?.success) {
-                    location.reload();
-                } else {
-                    alert(result.data?.deleteReporterApplication?.message || 'Delete failed');
-                }
-            } catch (error) {
-                console.error('Error deleting application:', error);
-            }
-        };
-
-        function setupMobileMenu() {
-            const menuToggle = document.getElementById('menuToggle');
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-            if (menuToggle && sidebar) {
-                menuToggle.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    sidebar.classList.toggle('active');
-                    mainContent.classList.toggle('sidebar-active');
-                });
-            }
-            document.addEventListener('click', function (event) {
-                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('active') &&
-                    !sidebar.contains(event.target) && event.target !== menuToggle &&
-                    (!menuToggle || !menuToggle.contains(event.target))) {
-                    sidebar.classList.remove('active');
-                    if (mainContent) mainContent.classList.remove('sidebar-active');
-                }
-            });
-        }
-    </script>
-</body>
+                    function setupMobileMenu() {
+                        const menuToggle = document.getElementById('menuToggle');
+                        const sidebar = document.getElementById('sidebar');
+                        const mainContent = document.getElementById('mainContent');
+                        if (menuToggle && sidebar) {
+                            menuToggle.addEventListener('click', function (e) {
+                                e.stopPropagation();
+                                sidebar.classList.toggle('active');
+                                mainContent.classList.toggle('sidebar-active');
+                            });
+                        }
+                        document.addEventListener('click', function (event) {
+                            if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('active') &&
+                                !sidebar.contains(event.target) && event.target !== menuToggle &&
+                                (!menuToggle || !menuToggle.contains(event.target))) {
+                                sidebar.classList.remove('active');
+                                if (mainContent) mainContent.classList.remove('sidebar-active');
+                            }
+                        });
+                    }
+                </script>
+    </body>
 
 </html>
