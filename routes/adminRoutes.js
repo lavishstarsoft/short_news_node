@@ -77,6 +77,8 @@ router.get('/api/duplicate-details/:id', adminController.requireAuth, adminContr
 
 // Rejected News route
 router.get('/rejected-news', adminController.requireAuth, adminController.renderRejectedNewsPage);
+router.delete('/api/rejected-news', adminController.requireAuth, adminController.deleteAllRejectedNews);
+router.delete('/api/rejected-news/:id', adminController.requireAuth, adminController.deleteRejectedNewsById);
 
 // Polls routes
 router.get('/polls', adminController.requireAuth, adminController.renderPollsPage);

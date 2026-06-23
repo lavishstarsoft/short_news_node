@@ -857,6 +857,18 @@ async function updateNews(req, res) {
 // Delete news (editors can only delete their own news)
 async function deleteNews(req, res) {
   try {
+    const { password } = req.body;
+    
+    // Check password from .env
+    const envPassword = process.env.REJECTED_NEWS_DELETE_PASSWORD;
+    if (!envPassword) {
+      return res.status(500).json({ error: 'Delete password not configured in .env' });
+    }
+    
+    if (password !== envPassword) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+
     // First, find the news to check ownership
     const existingNews = await News.findById(req.params.id);
     if (!existingNews) {

@@ -3682,6 +3682,66 @@ async function renderReporterApplicationsPage(req, res) {
   }
 }
 
+// Delete all rejected news
+async function deleteAllRejectedNews(req, res) {
+  try {
+    const { password } = req.body;
+    
+    // Check password from .env
+    const envPassword = process.env.REJECTED_NEWS_DELETE_PASSWORD;
+    if (!envPassword) {
+      return res.status(500).json({ success: false, message: 'Delete password not configured in .env' });
+    }
+    
+    if (password !== envPassword) {
+      return res.status(401).json({ success: false, message: 'Invalid password' });
+    }
+    
+    // Delete all news where rejectionStatus.isRejected is true
+    const result = await News.deleteMany({ 'rejectionStatus.isRejected': true });
+    
+    res.json({ 
+      success: true, 
+      message: `Successfully deleted ${result.deletedCount} rejected news articles.` 
+    });
+  } catch (error) {
+    console.error('Error deleting rejected news:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+}
+
+// Delete single rejected news by id
+async function deleteRejectedNewsById(req, res) {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+    
+    // Check password from .env
+    const envPassword = process.env.REJECTED_NEWS_DELETE_PASSWORD;
+    if (!envPassword) {
+      return res.status(500).json({ success: false, message: 'Delete password not configured in .env' });
+    }
+    
+    if (password !== envPassword) {
+      return res.status(401).json({ success: false, message: 'Invalid password' });
+    }
+    
+    const result = await News.findOneAndDelete({ _id: id, 'rejectionStatus.isRejected': true });
+    
+    if (!result) {
+       return res.status(404).json({ success: false, message: 'Rejected news article not found' });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Successfully deleted the rejected news article.' 
+    });
+  } catch (error) {
+    console.error('Error deleting rejected news by id:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+}
+
 module.exports = {
   renderLoginPage,
   login,
@@ -3729,7 +3789,9 @@ module.exports = {
   checkDuplicateArticles,
   renderPlagiarismReportPage,
   getDuplicateDetails,
-  renderRejectedNewsPage, 
+  renderRejectedNewsPage,
+  deleteAllRejectedNews,
+  deleteRejectedNewsById,
   getEditorRangeStats,
   renderRegistrationFieldsPage,
   renderReporterApplicationsPage,

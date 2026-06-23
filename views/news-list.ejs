@@ -530,6 +530,30 @@
                 </div>
             </div>
 
+            <!-- Delete News Modal -->
+            <div class="modal fade" id="deleteNewsModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Delete News Article</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to delete this news article? This action cannot be undone.</p>
+                            <div class="mb-3">
+                                <label for="deleteNewsPassword" class="form-label">Admin Password</label>
+                                <input type="password" class="form-control" id="deleteNewsPassword" placeholder="Enter password to confirm">
+                                <input type="hidden" id="deleteNewsId">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-danger" onclick="confirmDeleteNews()">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <%- include('partials/footer') %>
                 <script src="/js/rich-text.js"></script>
                 <script src="/js/main.js"></script>
@@ -928,30 +952,52 @@
                     }
 
                     // Delete news function
+                    let deleteNewsModalInstance = null;
+
                     function deleteNews(newsId) {
-                        if (confirm('Are you sure you want to delete this news article?')) {
-                            // Make API call to delete the news
-                            fetch(`/news/api/news/${newsId}`, {
-                                method: 'DELETE'
-                            })
-                                .then(response => {
-                                    if (response.ok) {
-                                        // Reload the page to reflect the changes
-                                        location.reload();
-                                    } else {
-                                        // Try to get error message from response
-                                        return response.json().then(errorData => {
-                                            throw new Error(errorData.error || 'Failed to delete news article');
-                                        }).catch(() => {
-                                            throw new Error('Failed to delete news article');
-                                        });
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error:', error);
-                                    alert('Error: ' + error.message);
-                                });
+                        const modalEl = document.getElementById('deleteNewsModal');
+                        if (!deleteNewsModalInstance) {
+                            deleteNewsModalInstance = new bootstrap.Modal(modalEl);
                         }
+                        document.getElementById('deleteNewsPassword').value = '';
+                        document.getElementById('deleteNewsId').value = newsId;
+                        deleteNewsModalInstance.show();
+                    }
+
+                    function confirmDeleteNews() {
+                        const password = document.getElementById('deleteNewsPassword').value;
+                        const newsId = document.getElementById('deleteNewsId').value;
+                        
+                        if (!password) {
+                            alert('Please enter the password');
+                            return;
+                        }
+
+                        // Make API call to delete the news
+                        fetch(`/news/api/news/${newsId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ password })
+                        })
+                        .then(response => {
+                            if (response.ok) {
+                                // Reload the page to reflect the changes
+                                location.reload();
+                            } else {
+                                // Try to get error message from response
+                                return response.json().then(errorData => {
+                                    throw new Error(errorData.error || 'Failed to delete news article');
+                                }).catch(() => {
+                                    throw new Error('Failed to delete news article');
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Error: ' + error.message);
+                        });
                     }
 
                     // Toggle news active status function
