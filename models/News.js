@@ -128,6 +128,7 @@ newsSchema.pre('save', function (next) {
 });
 
 // Compound indexes for fast queries
+newsSchema.index({ publishedAt: -1 }); // Default sorting for news list
 newsSchema.index({ isActive: 1, 'rejectionStatus.isRejected': 1, publishedAt: -1 }); // Pending news page
 newsSchema.index({ isActive: 1, publishedAt: -1 }); // Published news (duplicate check, feeds)
 newsSchema.index({ language: 1, isActive: 1, publishedAt: -1 }); // Language-filtered feed
