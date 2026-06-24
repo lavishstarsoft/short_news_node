@@ -1,80 +1,239 @@
 <%- include('partials/header') %>
 <%- include('partials/sidebar') %>
 
-<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
-        <h1 class="h2">App Settings & Updates</h1>
-    </div>
+<style>
+    /* Custom Premium Styles for App Settings */
+    .settings-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .page-title {
+        font-weight: 800;
+        background: linear-gradient(135deg, #2b5876 0%, #4e4376 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.5px;
+    }
+    .premium-card {
+        border: none;
+        border-radius: 20px;
+        background: #ffffff;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+    .premium-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08);
+    }
+    .card-header-gradient {
+        background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        padding: 20px 25px;
+    }
+    .icon-box {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        margin-right: 15px;
+    }
+    .icon-android { background: rgba(61, 220, 132, 0.15); color: #3ddc84; }
+    .icon-ios { background: rgba(0, 0, 0, 0.08); color: #000000; }
+    .icon-global { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
+    .icon-game { background: rgba(13, 202, 240, 0.15); color: #0dcaf0; }
+    
+    .form-control {
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+        padding: 12px 15px;
+        transition: all 0.2s ease;
+        background-color: #fcfcfc;
+    }
+    .form-control:focus {
+        border-color: #4e4376;
+        box-shadow: 0 0 0 4px rgba(78, 67, 118, 0.1);
+        background-color: #ffffff;
+    }
+    .form-label {
+        font-weight: 600;
+        color: #4a5568;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+    .btn-save {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 12px;
+        padding: 14px 28px;
+        font-weight: 700;
+        font-size: 1.05rem;
+        box-shadow: 0 8px 20px rgba(118, 75, 162, 0.3);
+        transition: all 0.3s ease;
+    }
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 25px rgba(118, 75, 162, 0.4);
+    }
+    .form-switch .form-check-input {
+        width: 3em;
+        height: 1.5em;
+        cursor: pointer;
+    }
+    .form-switch .form-check-input:checked {
+        background-color: #4e4376;
+        border-color: #4e4376;
+    }
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #2d3748;
+        display: flex;
+        align-items: center;
+    }
+</style>
 
-    <!-- Alert for Success/Error -->
-    <div id="alertBox" class="alert d-none" role="alert"></div>
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+    <div class="settings-container pt-4">
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-3 mb-4 border-bottom">
+            <h1 class="h2 page-title">App Settings & Configurations</h1>
+            <p class="text-muted mb-0">Manage mobile app versions, update behaviors, and interactive features.</p>
+        </div>
 
-    <div class="row">
-        <div class="col-md-8 col-lg-6 mx-auto">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white py-3">
-                    <h5 class="mb-0 text-primary"><i class="fas fa-mobile-alt me-2"></i> Version Control</h5>
+        <!-- Alert Box -->
+        <div id="alertBox" class="alert d-none shadow-sm rounded-3 border-0" role="alert" style="transition: all 0.3s ease;"></div>
+
+        <form id="appSettingsForm">
+            <div class="row g-4">
+                
+                <!-- Left Column: Platform Versions -->
+                <div class="col-lg-6">
+                    <div class="premium-card h-100">
+                        <div class="card-header-gradient">
+                            <h5 class="section-title mb-0">
+                                <div class="icon-box icon-android"><i class="fab fa-android"></i></div>
+                                Android Configuration
+                            </h5>
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="row g-4">
+                                <div class="col-md-5">
+                                    <label class="form-label">Current Version</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-code-branch text-muted"></i></span>
+                                        <input type="text" class="form-control border-start-0 ps-0" id="androidVersion" name="androidVersion" value="<%= settings.androidVersion %>" placeholder="e.g. 1.0.5" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Play Store URL</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-link text-muted"></i></span>
+                                        <input type="url" class="form-control border-start-0 ps-0" id="androidUpdateUrl" name="androidUpdateUrl" value="<%= settings.androidUpdateUrl %>" placeholder="https://play.google.com/...">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-0 opacity-10">
+
+                        <div class="card-header-gradient bg-white border-top">
+                            <h5 class="section-title mb-0">
+                                <div class="icon-box icon-ios"><i class="fab fa-apple"></i></div>
+                                iOS Configuration
+                            </h5>
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="row g-4">
+                                <div class="col-md-5">
+                                    <label class="form-label">Current Version</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-code-branch text-muted"></i></span>
+                                        <input type="text" class="form-control border-start-0 ps-0" id="iosVersion" name="iosVersion" value="<%= settings.iosVersion %>" placeholder="e.g. 1.0.5" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">App Store URL</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-link text-muted"></i></span>
+                                        <input type="url" class="form-control border-start-0 ps-0" id="iosUpdateUrl" name="iosUpdateUrl" value="<%= settings.iosUpdateUrl %>" placeholder="https://apps.apple.com/...">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <form id="appSettingsForm">
-                        <!-- Android Details -->
-                        <div class="mb-4">
-                            <h6 class="border-bottom pb-2 mb-3 text-success"><i class="fab fa-android me-2"></i>Android</h6>
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label text-muted">Version (e.g., 1.0.5)</label>
-                                    <input type="text" class="form-control" id="androidVersion" name="androidVersion" value="<%= settings.androidVersion %>" required>
-                                </div>
-                                <div class="col-md-8">
-                                    <label class="form-label text-muted">Play Store URL</label>
-                                    <input type="url" class="form-control" id="androidUpdateUrl" name="androidUpdateUrl" value="<%= settings.androidUpdateUrl %>">
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- iOS Details -->
-                        <div class="mb-4">
-                            <h6 class="border-bottom pb-2 mb-3 text-secondary"><i class="fab fa-apple me-2"></i>iOS</h6>
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label text-muted">Version (e.g., 1.0.5)</label>
-                                    <input type="text" class="form-control" id="iosVersion" name="iosVersion" value="<%= settings.iosVersion %>" required>
-                                </div>
-                                <div class="col-md-8">
-                                    <label class="form-label text-muted">App Store URL</label>
-                                    <input type="url" class="form-control" id="iosUpdateUrl" name="iosUpdateUrl" value="<%= settings.iosUpdateUrl %>">
-                                </div>
-                            </div>
+                <!-- Right Column: App Behaviors & Gamification -->
+                <div class="col-lg-6">
+                    <div class="premium-card mb-4">
+                        <div class="card-header-gradient">
+                            <h5 class="section-title mb-0">
+                                <div class="icon-box icon-global"><i class="fas fa-sync-alt"></i></div>
+                                Update Behavior
+                            </h5>
                         </div>
-
-                        <!-- Global Settings -->
-                        <div class="mb-4">
-                            <h6 class="border-bottom pb-2 mb-3 text-warning"><i class="fas fa-cog me-2"></i>Update Behavior</h6>
-                            
-                            <div class="mb-3">
-                                <label class="form-label text-muted">Update Message</label>
+                        <div class="card-body p-4">
+                            <div class="mb-4">
+                                <label class="form-label">Update Announcement Message</label>
                                 <textarea class="form-control" id="updateMessage" name="updateMessage" rows="3" required><%= settings.updateMessage %></textarea>
-                                <small class="text-muted">This message will be shown to users when an update is available.</small>
+                                <small class="text-muted mt-2 d-block"><i class="fas fa-info-circle me-1"></i> Shown to users when a new version is detected.</small>
                             </div>
 
-                            <div class="form-check form-switch mt-4">
-                                <input class="form-check-input" type="checkbox" id="forceUpdate" name="forceUpdate" <%= settings.forceUpdate ? 'checked' : '' %>>
-                                <label class="form-check-label fw-bold" for="forceUpdate">Force Update Required</label>
+                            <div class="p-3 bg-light rounded-3 border">
+                                <div class="form-check form-switch d-flex align-items-center mb-0">
+                                    <input class="form-check-input me-3" type="checkbox" id="forceUpdate" name="forceUpdate" <%= settings.forceUpdate ? 'checked' : '' %>>
+                                    <div>
+                                        <label class="form-check-label fw-bold mb-0" for="forceUpdate">Force Immediate Update</label>
+                                        <div class="text-danger small mt-1"><i class="fas fa-shield-alt me-1"></i> Blocks app usage until updated. Use for critical fixes.</div>
+                                    </div>
+                                </div>
                             </div>
-                            <small class="text-danger d-block mt-1">
-                                <i class="fas fa-exclamation-triangle me-1"></i> If enabled, users cannot bypass the update popup until they update the app.
-                            </small>
                         </div>
+                    </div>
 
-                        <div class="d-grid mt-4">
-                            <button type="submit" class="btn btn-primary btn-lg" id="saveBtn">
-                                <i class="fas fa-save me-2"></i>Save Settings
-                            </button>
+                    <div class="premium-card">
+                        <div class="card-header-gradient">
+                            <h5 class="section-title mb-0">
+                                <div class="icon-box icon-game"><i class="fas fa-trophy"></i></div>
+                                Gamification Engine
+                            </h5>
                         </div>
-                    </form>
+                        <div class="card-body p-4">
+                            <div class="row align-items-center mb-4">
+                                <div class="col-md-7">
+                                    <label class="form-label">Swipe Streak Target</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="swipeStreakMilestone" name="swipeStreakMilestone" value="<%= settings.swipeStreakMilestone || 30 %>" required>
+                                        <span class="input-group-text bg-light text-muted">Swipes</span>
+                                    </div>
+                                    <small class="text-muted mt-2 d-block">Triggers the celebration animation.</small>
+                                </div>
+                            </div>
+
+                            <div class="p-3 rounded-3" style="background-color: rgba(13, 202, 240, 0.05); border: 1px solid rgba(13, 202, 240, 0.2);">
+                                <div class="form-check form-switch d-flex align-items-center mb-0">
+                                    <input class="form-check-input me-3" type="checkbox" id="isSwipeStreakEnabled" name="isSwipeStreakEnabled" <%= settings.isSwipeStreakEnabled !== false ? 'checked' : '' %>>
+                                    <div>
+                                        <label class="form-check-label fw-bold text-dark mb-0" for="isSwipeStreakEnabled">Enable Streak Animations</label>
+                                        <div class="text-muted small mt-1">Displays beautiful fireworks when users hit the target.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Action -->
+                <div class="col-12 mt-4 text-end">
+                    <button type="submit" class="btn btn-primary btn-save px-5">
+                        <i class="fas fa-cloud-upload-alt me-2"></i> Publish Settings
+                    </button>
                 </div>
             </div>
-        </div>
+        </form>
     </div>
 </main>
 
@@ -82,12 +241,13 @@
     document.getElementById('appSettingsForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        const saveBtn = document.getElementById('saveBtn');
+        const saveBtn = document.querySelector('.btn-save');
         const alertBox = document.getElementById('alertBox');
         
         // UI states
+        const originalBtnHtml = saveBtn.innerHTML;
         saveBtn.disabled = true;
-        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Saving...';
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Publishing...';
         
         // Collect data
         const payload = {
@@ -96,7 +256,9 @@
             androidUpdateUrl: document.getElementById('androidUpdateUrl').value,
             iosUpdateUrl: document.getElementById('iosUpdateUrl').value,
             updateMessage: document.getElementById('updateMessage').value,
-            forceUpdate: document.getElementById('forceUpdate').checked
+            forceUpdate: document.getElementById('forceUpdate').checked,
+            swipeStreakMilestone: document.getElementById('swipeStreakMilestone').value,
+            isSwipeStreakEnabled: document.getElementById('isSwipeStreakEnabled').checked
         };
 
         try {
@@ -109,29 +271,33 @@
             });
 
             if (response.ok) {
-                alertBox.className = 'alert alert-success';
-                alertBox.innerHTML = '<i class="fas fa-check-circle me-2"></i> App settings updated successfully!';
+                alertBox.className = 'alert alert-success shadow-sm rounded-3 border-0 mt-3 mb-4';
+                alertBox.innerHTML = '<i class="fas fa-check-circle me-2 fs-5 align-middle"></i> <strong>Success!</strong> Your app settings have been published live.';
             } else {
                 const data = await response.json();
-                alertBox.className = 'alert alert-danger';
-                alertBox.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i> ${data.error || 'Failed to update settings'}`;
+                alertBox.className = 'alert alert-danger shadow-sm rounded-3 border-0 mt-3 mb-4';
+                alertBox.innerHTML = `<i class="fas fa-exclamation-triangle me-2 fs-5 align-middle"></i> <strong>Error!</strong> ${data.error || 'Failed to update settings'}`;
             }
         } catch (error) {
             console.error('Error:', error);
-            alertBox.className = 'alert alert-danger';
-            alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i> Connection error. Please try again.';
+            alertBox.className = 'alert alert-danger shadow-sm rounded-3 border-0 mt-3 mb-4';
+            alertBox.innerHTML = '<i class="fas fa-wifi me-2 fs-5 align-middle"></i> <strong>Network Error!</strong> Could not connect to the server.';
         } finally {
             // Restore button state
             saveBtn.disabled = false;
-            saveBtn.innerHTML = '<i class="fas fa-save me-2"></i>Save Settings';
+            saveBtn.innerHTML = originalBtnHtml;
             
             // Show alert box
             alertBox.classList.remove('d-none');
             
-            // Hide alert after 3 seconds
+            // Hide alert after 4 seconds smoothly
             setTimeout(() => {
-                alertBox.classList.add('d-none');
-            }, 3000);
+                alertBox.style.opacity = '0';
+                setTimeout(() => {
+                    alertBox.classList.add('d-none');
+                    alertBox.style.opacity = '1';
+                }, 300);
+            }, 4000);
         }
     });
 </script>

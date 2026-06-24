@@ -32,6 +32,14 @@ const appSettingsSchema = new mongoose.Schema({
   updateMessage: {
     type: String,
     default: 'A new version of the app is available. Please update to continue.'
+  },
+  swipeStreakMilestone: {
+    type: Number,
+    default: 30
+  },
+  isSwipeStreakEnabled: {
+    type: Boolean,
+    default: true
   }
 }, { timestamps: true });
 

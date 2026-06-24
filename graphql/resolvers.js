@@ -94,15 +94,9 @@ const resolvers = {
                 if (language) {
                     query.language = language;
                 }
-                const polls = await Poll.find(query).sort({ createdAt: -1 });
-                // We'll pass the userId context if provided to help the Poll type resolver 
-                // know if the user voted. But in GraphQL, it's better resolved via field resolver context 
-                // or just returning the polls directly and letting the type resolver handle it.
-                // For simplicity, we just return the polls. The userVotedOptionId will be resolved dynamically 
-                // if we pass userId through some argument or context, but GraphQL field resolvers only take parent args.
-                // Wait, we added `userId: String` to `getAllPolls`! We can attach it to the parent object.
+                const polls = await Poll.find(query).sort({ createdAt: -1 }).lean();
                 return polls.map(poll => {
-                    const pollObj = poll.toObject();
+                    const pollObj = poll;
                     pollObj._userIdContext = userId; 
                     return pollObj;
                 });
@@ -114,9 +108,9 @@ const resolvers = {
 
         getPollById: async (_, { id, userId }) => {
             try {
-                const poll = await Poll.findById(id);
+                const poll = await Poll.findById(id).lean();
                 if (!poll) return null;
-                const pollObj = poll.toObject();
+                const pollObj = poll;
                 pollObj._userIdContext = userId;
                 return pollObj;
             } catch (error) {
@@ -156,7 +150,8 @@ const resolvers = {
                 const news = await News.find(query)
                     .sort({ publishedAt: -1 })
                     .skip(offset)
-                    .limit(limit);
+                    .limit(limit)
+                    .lean();
 
                 // Keep offset=0 cache very short so interaction counts stay fresh on feed load.
                 if (news && news.length > 0) {
@@ -180,7 +175,7 @@ const resolvers = {
                 if (cached) return cached;
 
                 // Cache miss - fetch from DB
-                const news = await News.findById(id);
+                const news = await News.findById(id).lean();
 
                 // Cache the result (600s = 10 minutes)
                 await setCachedData('newsById', { id }, news, 600);
@@ -195,7 +190,7 @@ const resolvers = {
         newsByShortId: async (_, { shortId }) => {
             try {
                 // Try direct match first (fastest)
-                let news = await News.findOne({ shortId });
+                let news = await News.findOne({ shortId }).lean();
 
                 // Fallback for legacy articles that haven't been re-saved
                 if (!news) {
@@ -206,7 +201,7 @@ const resolvers = {
                                 shortId
                             ]
                         }
-                    });
+                    }).lean();
                 }
 
                 if (!news) return null;
@@ -249,7 +244,7 @@ const resolvers = {
                 if (cached) return cached;
 
                 // Cache miss - fetch from DB
-                const categories = await Category.find({ type: { $in: ['news', null] } });
+                const categories = await Category.find({ type: { $in: ['news', null] } }).lean();
 
                 // Cache the result (1800s = 30 minutes - categories rarely change)
                 await setCachedData('categories', {}, categories, 1800);
@@ -263,7 +258,7 @@ const resolvers = {
 
         categoryById: async (_, { id }) => {
             try {
-                const category = await Category.findById(id);
+                const category = await Category.findById(id).lean();
                 return category;
             } catch (error) {
                 console.error('Error fetching category by ID:', error);
@@ -279,7 +274,7 @@ const resolvers = {
                 if (cached) return cached;
 
                 // Cache miss - fetch from DB
-                const locations = await Location.find();
+                const locations = await Location.find().lean();
 
                 // Cache the result (1800s = 30 minutes - locations rarely change)
                 await setCachedData('locations', {}, locations, 1800);
@@ -293,7 +288,7 @@ const resolvers = {
 
         locationById: async (_, { id }) => {
             try {
-                const location = await Location.findById(id);
+                const location = await Location.findById(id).lean();
                 return location;
             } catch (error) {
                 console.error('Error fetching location by ID:', error);
@@ -323,7 +318,7 @@ const resolvers = {
         // User queries
         user: async (_, { id }) => {
             try {
-                const user = await User.findById(id);
+                const user = await User.findById(id).lean();
                 return user;
             } catch (error) {
                 console.error('Error fetching user:', error);
@@ -335,9 +330,9 @@ const resolvers = {
         getUserNewsInteractions: async (_, { userId }) => {
             try {
                 // Fetch ONLY the _id field to make the query lightning fast
-                const likedNews = await News.find({ 'userInteractions.likes.userId': userId }).select('_id');
-                const dislikedNews = await News.find({ 'userInteractions.dislikes.userId': userId }).select('_id');
-                const commentedNews = await News.find({ 'userInteractions.comments.userId': userId }).select('_id');
+                const likedNews = await News.find({ 'userInteractions.likes.userId': userId }).select('_id').lean();
+                const dislikedNews = await News.find({ 'userInteractions.dislikes.userId': userId }).select('_id').lean();
+                const commentedNews = await News.find({ 'userInteractions.comments.userId': userId }).select('_id').lean();
 
                 return {
                     likedNewsIds: likedNews.map(n => n._id.toString()),
@@ -362,7 +357,8 @@ const resolvers = {
                 const videos = await ViralVideo.find({ isActive: true })
                     .sort({ publishedAt: -1 })
                     .skip(offset)
-                    .limit(limit);
+                    .limit(limit)
+                    .lean();
 
                 // Cache the result (300s = 5 minutes)
                 await setCachedData('viralVideos', variables, videos, 300);
@@ -376,7 +372,7 @@ const resolvers = {
 
         viralVideoById: async (_, { id }) => {
             try {
-                const video = await ViralVideo.findById(id);
+                const video = await ViralVideo.findById(id).lean();
                 return video;
             } catch (error) {
                 console.error('Error fetching viral video by ID:', error);
@@ -453,7 +449,7 @@ const resolvers = {
                     filter['rejectionStatus.isRejected'] = { $ne: true };
                 }
 
-                let query = News.find(filter).sort({ publishedAt: -1 });
+                let query = News.find(filter).sort({ publishedAt: -1 }).lean();
 
                 if (limit) {
                     query = query.limit(limit);
