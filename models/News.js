@@ -12,7 +12,6 @@ const newsSchema = new mongoose.Schema({
   location: { type: String },
   language: {
     type: String,
-    enum: ['te', 'en', 'hi', 'ta'],
     default: 'te',
     index: true
   },

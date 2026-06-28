@@ -274,9 +274,9 @@ const allowedOrigins = new Set([
   ...((process.env.CORS_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean)),
 ]);
 
-// Any localhost / 127.0.0.1 origin (any port) is allowed for local development.
+// Any localhost / 127.0.0.1 / 192.168.x.x origin (any port) is allowed for local development.
 const isLocalhostOrigin = (origin) =>
-  /^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?$/.test(origin);
+  /^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2|192\.168\.\d+\.\d+)(:\d+)?$/.test(origin);
 
 app.use(cors({
   origin(origin, callback) {

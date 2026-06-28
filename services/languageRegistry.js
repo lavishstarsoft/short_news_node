@@ -122,8 +122,10 @@ function getUserAppLanguages() {
 function normalizeNewsLanguage(code) {
   const defaultCode = getDefaultLanguageCode();
   if (!code || typeof code !== 'string') return defaultCode;
-  const normalized = code.trim().toLowerCase();
-  return getSupportedCodes().includes(normalized) ? normalized : defaultCode;
+  
+  // Return the language dynamically without restricting it to cached languages
+  // This allows any new language (like 'mt') to be preserved instead of falling back to 'te'
+  return code.trim().toLowerCase();
 }
 
 function buildNewsLanguageFilter(language) {
