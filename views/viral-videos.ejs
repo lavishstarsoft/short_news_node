@@ -229,8 +229,9 @@
                             return;
                         }
 
-                        try {
+                            try {
                             let mediaUrl = '';
+                            let thumbnailUrl = '';
                             const fileInput = document.getElementById('videoFile');
 
                             if (!currentVideoId && !fileInput.files.length && !videoUrl) {
@@ -246,6 +247,7 @@
                                 if (!uploadResponse.ok) throw new Error('Failed to upload video');
                                 const uploadData = await uploadResponse.json();
                                 mediaUrl = uploadData.mediaUrl;
+                                thumbnailUrl = uploadData.thumbnailUrl || '';
                             }
 
                             showLoader(currentVideoId ? 'Updating video...' : 'Saving video...');
@@ -256,6 +258,7 @@
                                 language,
                                 mediaType: 'video',
                                 ...(mediaUrl && { mediaUrl }),
+                                ...(thumbnailUrl && { thumbnailUrl }),
                                 ...(videoUrl && { videoUrl })
                             };
 
