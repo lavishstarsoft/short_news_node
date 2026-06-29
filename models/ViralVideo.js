@@ -7,6 +7,7 @@ const viralVideoSchema = new mongoose.Schema({
     mediaUrl: { type: String }, // Uploaded video file path
     thumbnailUrl: { type: String }, // Video thumbnail
     category: { type: String, required: true },
+    language: { type: String, required: true, default: 'te' },
     publishedAt: { type: Date, default: Date.now },
     views: { type: Number, default: 0 },
     likes: { type: Number, default: 0 },

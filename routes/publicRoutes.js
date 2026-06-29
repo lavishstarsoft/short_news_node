@@ -970,7 +970,11 @@ router.get('/api/public/viral-videos', cacheMiddleware(300), async (req, res) =>
 
     if (isConnectedToMongoDB) {
       // Fetch only active viral videos from MongoDB
-      videosList = await ViralVideo.find({ isActive: true }).sort({ publishedAt: -1 }).limit(FEED_MAX);
+      const query = { isActive: true };
+      if (req.query.language) {
+        query.language = req.query.language;
+      }
+      videosList = await ViralVideo.find(query).sort({ publishedAt: -1 }).limit(FEED_MAX);
     } else {
       // Use in-memory storage (if available) or empty list
       // For now returning empty list if no DB, could add mock data in server.js later
@@ -988,6 +992,7 @@ router.get('/api/public/viral-videos', cacheMiddleware(300), async (req, res) =>
         mediaUrl: videoObj.mediaUrl, // Uploaded video
         thumbnailUrl: videoObj.thumbnailUrl || '/images/placeholder.png',
         category: videoObj.category, // It has category
+        language: videoObj.language || 'te',
         location: 'Viral', // Viral videos might not have location, defaulting
         publishedAt: videoObj.publishedAt,
         views: videoObj.views || 0,

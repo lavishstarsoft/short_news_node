@@ -112,12 +112,28 @@
                                     <label class="vv-form-label" for="videoUrl">External URL (optional)</label>
                                     <input type="url" class="form-control vv-form-control" id="videoUrl" placeholder="YouTube Shorts, Instagram Reel, Vimeo...">
                                 </div>
-                                <div class="mb-0">
+                                <div class="mb-3">
                                     <label class="vv-form-label" for="videoCategory">Category</label>
                                     <select class="form-control vv-form-control" id="videoCategory">
                                         <option value="viral">Viral</option>
                                         <option value="trending">Trending</option>
                                         <option value="entertainment">Entertainment</option>
+                                    </select>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="vv-form-label" for="videoLanguage">Language</label>
+                                    <select class="form-control vv-form-control" id="videoLanguage">
+                                        <option value="" disabled selected>Select Language</option>
+                                        <% if (typeof languages !== 'undefined' && languages.length > 0) { %>
+                                            <% languages.forEach(function(lang) { %>
+                                                <option value="<%= lang.code %>"><%= lang.name %></option>
+                                            <% }); %>
+                                        <% } else { %>
+                                            <option value="te">Telugu</option>
+                                            <option value="hi">Hindi</option>
+                                            <option value="en">English</option>
+                                            <option value="ta">Tamil</option>
+                                        <% } %>
                                     </select>
                                 </div>
                             </form>
@@ -190,6 +206,7 @@
                         document.getElementById('videoTitle').value = video.title || '';
                         document.getElementById('videoDescription').value = video.content || '';
                         document.getElementById('videoCategory').value = video.category || 'viral';
+                        document.getElementById('videoLanguage').value = video.language || '';
                         document.getElementById('videoUrl').value = video.videoUrl || '';
                         document.getElementById('videoFile').value = '';
                         new bootstrap.Modal(document.getElementById('addVideoModal')).show();
@@ -199,10 +216,16 @@
                         const title = document.getElementById('videoTitle').value.trim();
                         const description = document.getElementById('videoDescription').value.trim();
                         const category = document.getElementById('videoCategory').value;
+                        const language = document.getElementById('videoLanguage').value;
                         const videoUrl = document.getElementById('videoUrl').value.trim();
 
                         if (!title) {
                             alert('Please enter a title');
+                            return;
+                        }
+
+                        if (!language) {
+                            alert('Please select a language');
                             return;
                         }
 
@@ -230,6 +253,7 @@
                                 title,
                                 content: description,
                                 category,
+                                language,
                                 mediaType: 'video',
                                 ...(mediaUrl && { mediaUrl }),
                                 ...(videoUrl && { videoUrl })

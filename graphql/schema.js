@@ -147,7 +147,8 @@ const typeDefs = gql`
     videoUrl: String
     mediaUrl: String
     thumbnailUrl: String
-    category: String
+    category: String!
+    language: String!
     author: String
     views: Int!
     likes: Int!
@@ -207,7 +208,7 @@ const typeDefs = gql`
     user(id: ID!): User
     
     # Viral videos queries
-    viralVideos(limit: Int, offset: Int): [ViralVideo!]!
+    viralVideos(limit: Int, offset: Int, language: String): [ViralVideo!]!
     viralVideoById(id: ID!): ViralVideo
 
     # Personalized Interaction queries

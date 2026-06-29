@@ -346,15 +346,19 @@ const resolvers = {
         },
 
         // Viral videos queries (with Redis caching - 5 minutes TTL)
-        viralVideos: async (_, { limit = 50, offset = 0 }) => {
+        viralVideos: async (_, { limit = 50, offset = 0, language }) => {
             try {
                 // Check cache first
-                const variables = { limit, offset };
+                const variables = { limit, offset, language };
                 const cached = await getCachedData('viralVideos', variables);
                 if (cached) return cached;
 
                 // Cache miss - fetch from DB
-                const videos = await ViralVideo.find({ isActive: true })
+                const query = { isActive: true };
+                if (language) {
+                    query.language = language;
+                }
+                const videos = await ViralVideo.find(query)
                     .sort({ publishedAt: -1 })
                     .skip(offset)
                     .limit(limit)

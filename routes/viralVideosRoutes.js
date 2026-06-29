@@ -3,9 +3,17 @@ const router = express.Router();
 const { requireAuth } = require('../controllers/adminController');
 const viralVideoController = require('../controllers/viralVideoController');
 
+const Language = require('../models/Language');
+
 // Render viral videos page
-router.get('/', requireAuth, (req, res) => {
-    res.render('viral-videos', { admin: req.admin });
+router.get('/', requireAuth, async (req, res) => {
+    try {
+        const languages = await Language.getActiveLanguages();
+        res.render('viral-videos', { admin: req.admin, languages });
+    } catch (err) {
+        console.error('Error fetching languages:', err);
+        res.render('viral-videos', { admin: req.admin, languages: [] });
+    }
 });
 
 // API routes for viral videos
