@@ -184,7 +184,7 @@
                                                             <div class="news-card-meta">
                                                                 <div class="meta-item"><i class="fas fa-user"></i><span><%= news.author %></span></div>
                                                                 <div class="meta-item"><i class="fas fa-map-marker-alt"></i><span><%= news.location || 'N/A' %></span></div>
-                                                                <div class="meta-item"><i class="fas fa-calendar"></i><span><%= new Date(news.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span></div>
+                                                                <div class="meta-item"><i class="fas fa-calendar"></i><span><%= new Date(news.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) %></span></div>
                                                             </div>
 
                                                             <p class="pn-card-excerpt rich-text"><%- renderRichTextExcerpt(news.content, 120) %></p>
@@ -410,7 +410,7 @@
                         mediaType: <%- JSON.stringify(news.mediaType || 'image') %>,
                         readFullLink: <%- JSON.stringify(news.readFullLink || '') %>,
                         ePaperLink: <%- JSON.stringify(news.ePaperLink || '') %>,
-                        publishedAt: <%- JSON.stringify(new Date(news.publishedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) %>
+                        publishedAt: <%- JSON.stringify(new Date(news.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })) %>
                     };
                     <% if (news.duplicateCheck && news.duplicateCheck.similarArticles) { %>
                         duplicateDataCache['<%= news._id %>'] = {
@@ -793,7 +793,33 @@
                                 alert('✅ News published! (Push notification పంపలేదు)');
                             }
 
-                            location.reload();
+                            // location.reload();
+                            // Instead of reloading, remove card from DOM
+                            const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
+                            if (card) card.remove();
+                            closePreview();
+                            
+                            // Update badge count
+                            const countBadge = document.getElementById('pendingCount');
+                            if (countBadge) {
+                                const currentCount = parseInt(countBadge.textContent || '0', 10);
+                                countBadge.textContent = Math.max(0, currentCount - 1);
+                            }
+                            
+                            // Show empty state if grid is empty
+                            const grid = document.getElementById('newsGrid');
+                            if (grid && grid.children.length === 0) {
+                                const tableWrapper = document.querySelector('.table-wrapper');
+                                if (tableWrapper) {
+                                    tableWrapper.innerHTML = `
+                                        <div class="empty-state pn-empty">
+                                            <div class="empty-state-icon pn-empty-icon"><i class="fas fa-circle-check"></i></div>
+                                            <h3>All caught up</h3>
+                                            <p>No pending submissions waiting for review.</p>
+                                        </div>
+                                    `;
+                                }
+                            }
                         } else {
                             alert('❌ Error: ' + data.error);
                         }
@@ -882,7 +908,39 @@
                     .then(data => {
                         if (data.success) {
                             alert('❌ News rejected and feedback sent to reporter');
-                            location.reload();
+                            // location.reload();
+                            // Instead of reloading, remove card from DOM
+                            const card = document.querySelector(`.news-card[data-id="${pendingRejectNewsId}"]`);
+                            if (card) card.remove();
+                            
+                            // Hide bootstrap modal
+                            const modalEl = document.getElementById('rejectModal');
+                            if (modalEl) {
+                                const bsModal = bootstrap.Modal.getInstance(modalEl);
+                                if (bsModal) bsModal.hide();
+                            }
+                            
+                            // Update badge count
+                            const countBadge = document.getElementById('pendingCount');
+                            if (countBadge) {
+                                const currentCount = parseInt(countBadge.textContent || '0', 10);
+                                countBadge.textContent = Math.max(0, currentCount - 1);
+                            }
+                            
+                            // Show empty state if grid is empty
+                            const grid = document.getElementById('newsGrid');
+                            if (grid && grid.children.length === 0) {
+                                const tableWrapper = document.querySelector('.table-wrapper');
+                                if (tableWrapper) {
+                                    tableWrapper.innerHTML = `
+                                        <div class="empty-state pn-empty">
+                                            <div class="empty-state-icon pn-empty-icon"><i class="fas fa-circle-check"></i></div>
+                                            <h3>All caught up</h3>
+                                            <p>No pending submissions waiting for review.</p>
+                                        </div>
+                                    `;
+                                }
+                            }
                         } else {
                             alert('Error: ' + data.error);
                         }
@@ -905,8 +963,7 @@
                 
                 // Construct Date
                 const publishDate = new Date(news.publishedAt);
-                const dateOptions = { month: 'short', day: 'numeric' };
-                const formattedDate = publishDate.toLocaleDateString('en-US', dateOptions);
+                const formattedDate = publishDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
                 
                 // Add to cache so preview works
                 const newsIdStr = (news.id || news._id).toString();
@@ -930,7 +987,7 @@
                         mediaType: news.mediaType || "image",
                         readFullLink: news.readFullLink || "",
                         ePaperLink: news.ePaperLink || "",
-                        publishedAt: publishDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                        publishedAt: publishDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
                     };
                 }
                 
