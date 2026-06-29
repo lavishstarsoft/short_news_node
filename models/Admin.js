@@ -66,6 +66,11 @@ const adminSchema = new mongoose.Schema({
   lastLogin: {
     type: Date
   },
+  displaySettings: {
+    showProfileImage: { type: Boolean, default: true },
+    showName: { type: Boolean, default: true },
+    showConstituency: { type: Boolean, default: true }
+  },
   loginHistory: [{
     ip: String,
     userAgent: String,

@@ -1378,7 +1378,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, constituency, mobileNumber, role, profileImage, workingLanguage } = req.body;
+    const { name, displayRole, location, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -1393,6 +1393,20 @@ async function updateEditor(req, res) {
     if (mobileNumber !== undefined) editor.mobileNumber = mobileNumber || null;
     if (profileImage !== undefined) editor.profileImage = profileImage || null;
     if (workingLanguage !== undefined) editor.workingLanguage = normalizeNewsLanguage(workingLanguage);
+
+    if (displaySettings !== undefined) {
+      if (!editor.displaySettings) editor.displaySettings = { showProfileImage: true, showName: true, showConstituency: true };
+      
+      if (displaySettings.showProfileImage !== undefined) {
+        editor.displaySettings.showProfileImage = displaySettings.showProfileImage === 'true' || displaySettings.showProfileImage === true;
+      }
+      if (displaySettings.showName !== undefined) {
+        editor.displaySettings.showName = displaySettings.showName === 'true' || displaySettings.showName === true;
+      }
+      if (displaySettings.showConstituency !== undefined) {
+        editor.displaySettings.showConstituency = displaySettings.showConstituency === 'true' || displaySettings.showConstituency === true;
+      }
+    }
 
     // Update role if provided (only allow editor or subeditor)
     if (role !== undefined && (role === 'editor' || role === 'subeditor')) {
@@ -1411,7 +1425,8 @@ async function updateEditor(req, res) {
         displayRole: editor.displayRole,
         location: editor.location,
         constituency: editor.constituency,
-        mobileNumber: editor.mobileNumber
+        mobileNumber: editor.mobileNumber,
+        displaySettings: editor.displaySettings
       }
     });
   } catch (error) {

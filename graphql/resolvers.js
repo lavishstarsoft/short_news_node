@@ -734,6 +734,22 @@ const resolvers = {
                 return null;
             }
         },
+        authorDisplaySettings: async (parent, _args, context) => {
+            const defaultSettings = { showProfileImage: true, showName: true, showConstituency: true };
+            if (parent.authorDisplaySettings) return parent.authorDisplaySettings;
+            try {
+                if (parent.authorId && context?.loaders) {
+                    const editor = await context.loaders.adminById.load(parent.authorId);
+                    if (editor && editor.displaySettings) {
+                        return editor.displaySettings;
+                    }
+                }
+                return defaultSettings;
+            } catch (error) {
+                console.error('Error fetching author display settings:', error);
+                return defaultSettings;
+            }
+        },
         // Backward compatibility resolvers
         _id: (parent) => parent.id || parent._id.toString(),
         image_url: (parent) => parent.thumbnailUrl || parent.mediaUrl || parent.imageUrl,

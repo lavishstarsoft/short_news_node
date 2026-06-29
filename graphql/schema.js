@@ -9,6 +9,12 @@ const typeDefs = gql`
     createdAt: String!
   }
 
+  type DisplaySettings {
+    showProfileImage: Boolean
+    showName: Boolean
+    showConstituency: Boolean
+  }
+
   type RejectionStatus {
     isRejected: Boolean!
     reason: String
@@ -77,6 +83,7 @@ const typeDefs = gql`
     authorRole: String
     authorProfileImage: String
     authorConstituency: String
+    authorDisplaySettings: DisplaySettings
     readFullLink: String
     ePaperLink: String
     shortId: String
@@ -331,6 +338,7 @@ const typeDefs = gql`
     constituency: String
     workingLanguage: String
     isActive: Boolean!
+    displaySettings: DisplaySettings
   }
 `;
 

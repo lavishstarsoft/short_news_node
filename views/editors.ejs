@@ -232,6 +232,23 @@
                                         <label class="form-label">Mobile Number</label>
                                         <input type="text" class="form-control" id="editMobile">
                                     </div>
+                                    <div class="col-12 mt-2 mb-2">
+                                        <h6 class="fw-bold mb-3 border-bottom pb-2">App Display Settings (Sub-Editors/Reporters)</h6>
+                                        <div class="d-flex flex-wrap gap-4">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="editShowProfileImage" checked>
+                                                <label class="form-check-label" for="editShowProfileImage">Show Profile Image</label>
+                                            </div>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="editShowName" checked>
+                                                <label class="form-check-label" for="editShowName">Show Name</label>
+                                            </div>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="editShowConstituency" checked>
+                                                <label class="form-check-label" for="editShowConstituency">Show Constituency</label>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="d-grid mt-3">
                                     <button type="submit" class="btn btn-primary text-white">Save Changes</button>
@@ -378,6 +395,11 @@
                         document.getElementById('editConstituency').value = editor.constituency || '';
                         document.getElementById('editMobile').value = editor.mobileNumber || '';
 
+                        const displaySettings = editor.displaySettings || { showProfileImage: true, showName: true, showConstituency: true };
+                        document.getElementById('editShowProfileImage').checked = displaySettings.showProfileImage !== false;
+                        document.getElementById('editShowName').checked = displaySettings.showName !== false;
+                        document.getElementById('editShowConstituency').checked = displaySettings.showConstituency !== false;
+
                         const modal = new bootstrap.Modal(document.getElementById('editEditorModal'));
                         modal.show();
                     }
@@ -394,7 +416,12 @@
                             workingLanguage: document.getElementById('editWorkingLanguage').value,
                             constituency: document.getElementById('editConstituency').value,
                             mobileNumber: document.getElementById('editMobile').value,
-                            profileImage: document.getElementById('editProfileImageUrl').value
+                            profileImage: document.getElementById('editProfileImageUrl').value,
+                            displaySettings: {
+                                showProfileImage: document.getElementById('editShowProfileImage').checked,
+                                showName: document.getElementById('editShowName').checked,
+                                showConstituency: document.getElementById('editShowConstituency').checked
+                            }
                         };
 
                         fetch(`/admin/editors/${id}`, {
