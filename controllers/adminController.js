@@ -3237,6 +3237,14 @@ async function rejectNews(req, res) {
     const { id } = req.params;
     const { reason, feedback } = req.body;
 
+    // Validate reason and feedback
+    if (!reason || reason === 'Not specified') {
+      return res.status(400).json({ error: 'Please select a rejection reason.' });
+    }
+    if (!feedback || feedback.trim() === '') {
+      return res.status(400).json({ error: 'Please provide feedback for the rejection.' });
+    }
+
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid news ID' });

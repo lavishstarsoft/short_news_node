@@ -894,7 +894,17 @@
                 if (!pendingRejectNewsId) return;
 
                 const customFeedback = document.getElementById('rejectReason').value;
-                const rejectReason = selectedReason || 'Not specified';
+                const rejectReason = selectedReason;
+
+                if (!rejectReason) {
+                    alert('Please select a rejection reason.');
+                    return;
+                }
+                
+                if (!customFeedback || customFeedback.trim() === '') {
+                    alert('Please provide feedback for the rejection.');
+                    return;
+                }
 
                 fetch(`/admin/api/news/${pendingRejectNewsId}/reject`, {
                     method: 'POST',
