@@ -40,6 +40,10 @@ const appSettingsSchema = new mongoose.Schema({
   isSwipeStreakEnabled: {
     type: Boolean,
     default: true
+  },
+  showLongVideos: {
+    type: Boolean,
+    default: true
   }
 }, { timestamps: true });
 

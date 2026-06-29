@@ -40,7 +40,7 @@ router.get('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
 // Admin route to update app settings
 router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled } = req.body;
+        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos } = req.body;
         let settings = await AppSettings.findOne({ key: 'update_flags' });
 
         if (!settings) {
@@ -56,6 +56,7 @@ router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
         if (updateMessage !== undefined) settings.updateMessage = updateMessage;
         if (swipeStreakMilestone !== undefined) settings.swipeStreakMilestone = parseInt(swipeStreakMilestone);
         if (isSwipeStreakEnabled !== undefined) settings.isSwipeStreakEnabled = isSwipeStreakEnabled;
+        if (showLongVideos !== undefined) settings.showLongVideos = showLongVideos;
 
         await settings.save();
         res.json(settings);
@@ -81,7 +82,8 @@ router.get('/api/public/app-settings', async (req, res) => {
                 iosUpdateUrl: 'https://apps.apple.com/app/tehelka-news-daily-news-app/id6772203356',
                 updateMessage: 'A new version of the app is available. Please update to continue.',
                 swipeStreakMilestone: 30,
-                isSwipeStreakEnabled: true
+                isSwipeStreakEnabled: true,
+                showLongVideos: true
             };
         } else {
             responseSettings = settings.toObject();

@@ -222,6 +222,16 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <div class="p-3 rounded-3 mt-3" style="background-color: rgba(78, 67, 118, 0.05); border: 1px solid rgba(78, 67, 118, 0.2);">
+                                <div class="form-check form-switch d-flex align-items-center mb-0">
+                                    <input class="form-check-input me-3" type="checkbox" id="showLongVideos" name="showLongVideos" <%= settings.showLongVideos !== false ? 'checked' : '' %>>
+                                    <div>
+                                        <label class="form-check-label fw-bold text-dark mb-0" for="showLongVideos">Show Long Videos Page</label>
+                                        <div class="text-muted small mt-1">If disabled, the long videos feature will be hidden from the app entirely.</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -258,7 +268,8 @@
             updateMessage: document.getElementById('updateMessage').value,
             forceUpdate: document.getElementById('forceUpdate').checked,
             swipeStreakMilestone: document.getElementById('swipeStreakMilestone').value,
-            isSwipeStreakEnabled: document.getElementById('isSwipeStreakEnabled').checked
+            isSwipeStreakEnabled: document.getElementById('isSwipeStreakEnabled').checked,
+            showLongVideos: document.getElementById('showLongVideos').checked
         };
 
         try {
