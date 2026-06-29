@@ -574,6 +574,22 @@
                     }
 
                     // Wait for DOM to be fully loaded
+                    window.changeListCarousel = function(carouselId, totalSlides, direction) {
+                        const stateKey = 'carouselState_' + carouselId.replace(/-/g, '_');
+                        if (typeof window[stateKey] === 'undefined') window[stateKey] = 0;
+                        
+                        // Hide current
+                        const currentSlide = document.getElementById(carouselId + '-slide-' + window[stateKey]);
+                        if (currentSlide) currentSlide.style.display = 'none';
+                        
+                        // Update state
+                        window[stateKey] = (window[stateKey] + direction + totalSlides) % totalSlides;
+                        
+                        // Show new
+                        const newSlide = document.getElementById(carouselId + '-slide-' + window[stateKey]);
+                        if (newSlide) newSlide.style.display = 'block';
+                    };
+
                     document.addEventListener('DOMContentLoaded', function () {
                         // Handle filter form submission
                         const searchFilter = document.getElementById('searchFilter');
@@ -699,10 +715,28 @@
                         if (images.length > 1) {
                             badge.style.display = 'inline-block';
                             badge.textContent = `${images.length} photos`;
-                            container.className = 'nd-hero-inner nd-hero-gallery';
-                            container.innerHTML = images.map((url, index) =>
-                                `<img src="${escapeHtml(url)}" alt="Photo ${index + 1}" loading="lazy">`
-                            ).join('');
+                            
+                            const carouselId = 'newsListCarousel-' + (newsItem._id || 'temp');
+                            
+                            let html = `<div style="position:relative; width:100%; height:100%; overflow:hidden; background:#000;">`;
+                            html += images.map((url, idx) => `
+                                <div id="${carouselId}-slide-${idx}" style="display: ${idx === 0 ? 'block' : 'none'}; width:100%; height:100%;">
+                                    <img src="${escapeHtml(url)}" alt="Photo ${idx + 1}" style="width:100%; height:100%; object-fit:contain; display:block;" loading="lazy">
+                                    <div style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.6); color:#fff; padding:2px 8px; border-radius:12px; font-size:12px; z-index:5;">
+                                        ${idx + 1} / ${images.length}
+                                    </div>
+                                </div>
+                            `).join('');
+                            
+                            html += `
+                                <button type="button" onclick="changeListCarousel('${carouselId}', ${images.length}, -1)" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); background:rgba(0,0,0,0.5); color:#fff; border:none; width:30px; height:30px; border-radius:50%; cursor:pointer; z-index:10;"><i class="fas fa-chevron-left"></i></button>
+                                <button type="button" onclick="changeListCarousel('${carouselId}', ${images.length}, 1)" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:rgba(0,0,0,0.5); color:#fff; border:none; width:30px; height:30px; border-radius:50%; cursor:pointer; z-index:10;"><i class="fas fa-chevron-right"></i></button>
+                            </div>`;
+                            
+                            window['carouselState_' + carouselId.replace(/-/g, '_')] = 0;
+                            
+                            container.className = 'nd-hero-inner';
+                            container.innerHTML = html;
                             return;
                         }
 
