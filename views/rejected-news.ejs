@@ -142,8 +142,8 @@
                                                     </td>
                                                     <td>
                                                         <% if (rejectedAt) { %>
-                                                            <div class="rn-date"><%= rejectedAt.toLocaleDateString() %></div>
-                                                            <div class="rn-date-time"><%= rejectedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) %></div>
+                                                            <div class="rn-date"><%= rejectedAt.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) %></div>
+                                                            <div class="rn-date-time"><%= rejectedAt.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' }) %></div>
                                                         <% } else { %>
                                                             <span class="rn-reason-empty">—</span>
                                                         <% } %>
