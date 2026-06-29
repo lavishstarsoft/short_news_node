@@ -120,58 +120,88 @@ const createMulterR2Interface = (options = {}) => {
                             thumbnailPath = await uploadToR2(thumbBuffer, folderName, `thumb_${req.file.originalname}`, 'image/webp');
                             req.file.thumbnailPath = thumbnailPath;
                         } else if (mimetype.startsWith('video/')) {
-                            // Automatically switch to video folder if it's a video and we were in images
+                            // Automatically switch to video folder if it's a video
                             folderName = folder === 'short_news_images' ? 'short_news_videos' : folder;
-                            req.file.path = await uploadToR2(buffer, folderName, req.file.originalname, mimetype);
 
-                            // 🎥 VIDEO THUMBNAIL GENERATION
+                            // ⚡ VIDEO OPTIMIZATION: Re-encode with faststart + 720p + H.264
+                            // -movflags faststart → moov atom at start → instant streaming (Instagram-style)
+                            // scale=720:-2      → max 720p, preserves aspect ratio
+                            // CRF 28            → smaller file, good quality (28=~50% smaller than raw)
                             try {
-                                console.log('🎬 Generating thumbnail for video...');
+                                console.log('⚡ Optimizing video for fast streaming...');
                                 const tempId = crypto.randomBytes(8).toString('hex');
                                 const tempDir = path.join(os.tmpdir(), 'short_news_uploads');
-                                
-                                // Ensure temp directory exists
+
                                 if (!fs.existsSync(tempDir)) {
                                     await mkdir(tempDir, { recursive: true });
                                 }
 
-                                const tempVideoPath = path.join(tempDir, `video_${tempId}${path.extname(req.file.originalname)}`);
-                                const tempThumbPath = path.join(tempDir, `thumb_${tempId}.webp`);
+                                const ext = path.extname(req.file.originalname) || '.mp4';
+                                const tempInputPath  = path.join(tempDir, `input_${tempId}${ext}`);
+                                const tempOutputPath = path.join(tempDir, `output_${tempId}.mp4`);
+                                const tempThumbPath  = path.join(tempDir, `thumb_${tempId}.jpg`);
 
-                                // 1. Save buffer to temp file
-                                await writeFile(tempVideoPath, buffer);
+                                // 1. Write raw upload to temp file
+                                await writeFile(tempInputPath, buffer);
 
-                                // 2. Extract frame using ffmpeg
+                                // 2. Re-encode: faststart + 720p + H.264 + AAC
                                 await new Promise((resolve, reject) => {
-                                    ffmpeg(tempVideoPath)
-                                        .screenshots({
-                                            timestamps: ['1'], // Capture at 1 second
-                                            filename: path.basename(tempThumbPath),
-                                            folder: path.dirname(tempThumbPath),
-                                            size: '1080x?' // Match project width
-                                        })
+                                    ffmpeg(tempInputPath)
+                                        .videoCodec('libx264')
+                                        .audioCodec('aac')
+                                        .outputOptions([
+                                            '-movflags faststart',   // ← moov atom at start (KEY fix)
+                                            '-crf 28',               // Quality (lower = bigger file)
+                                            '-preset fast',          // Encoding speed
+                                            '-vf scale=\'min(720,iw)\':-2', // Max 720p
+                                            '-pix_fmt yuv420p',      // Broad compatibility
+                                        ])
                                         .on('end', resolve)
-                                        .on('error', reject);
+                                        .on('error', reject)
+                                        .save(tempOutputPath);
                                 });
 
-                                // 3. Process generated thumb with Sharp (optional, for webp/optimization)
-                                if (fs.existsSync(tempThumbPath)) {
-                                    const thumbBuffer = await sharp(tempThumbPath)
-                                        .resize(400) // Small width for thumbnails
-                                        .webp({ quality: 60 })
-                                        .toBuffer();
+                                // 3. Upload optimized video to R2
+                                const optimizedBuffer = fs.readFileSync(tempOutputPath);
+                                req.file.path = await uploadToR2(optimizedBuffer, folderName, `${tempId}.mp4`, 'video/mp4');
+                                console.log(`✅ Optimized video uploaded (${(optimizedBuffer.length / 1024 / 1024).toFixed(1)} MB)`);
 
-                                    thumbnailPath = await uploadToR2(thumbBuffer, folderName, `thumb_${req.file.originalname}`, 'image/webp');
-                                    req.file.thumbnailPath = thumbnailPath;
-                                    console.log('✅ Thumbnail generated successfully:', thumbnailPath);
+                                // 4. Generate thumbnail from the optimized video
+                                try {
+                                    await new Promise((resolve, reject) => {
+                                        ffmpeg(tempOutputPath)
+                                            .screenshots({
+                                                timestamps: ['1'],
+                                                filename: path.basename(tempThumbPath),
+                                                folder: path.dirname(tempThumbPath),
+                                                size: '720x?'
+                                            })
+                                            .on('end', resolve)
+                                            .on('error', reject);
+                                    });
+
+                                    if (fs.existsSync(tempThumbPath)) {
+                                        const thumbBuffer = await sharp(tempThumbPath)
+                                            .resize(600)
+                                            .webp({ quality: 70 })
+                                            .toBuffer();
+                                        thumbnailPath = await uploadToR2(thumbBuffer, folderName, `thumb_${tempId}.webp`, 'image/webp');
+                                        req.file.thumbnailPath = thumbnailPath;
+                                        console.log('✅ Thumbnail generated:', thumbnailPath);
+                                    }
+                                } catch (thumbErr) {
+                                    console.warn('⚠️ Thumbnail generation failed:', thumbErr.message);
                                 }
 
-                                // 4. Cleanup
-                                if (fs.existsSync(tempVideoPath)) await unlink(tempVideoPath);
-                                if (fs.existsSync(tempThumbPath)) await unlink(tempThumbPath);
-                            } catch (thumbError) {
-                                console.error('⚠️ Thumbnail generation failed, but video upload succeeded:', thumbError);
-                                // Don't fail the whole request if only thumbnail fails
+                                // 5. Cleanup temp files
+                                for (const f of [tempInputPath, tempOutputPath, tempThumbPath]) {
+                                    try { if (fs.existsSync(f)) await unlink(f); } catch (_) {}
+                                }
+
+                            } catch (videoErr) {
+                                console.error('⚠️ Video optimization failed, uploading raw:', videoErr.message);
+                                // Fallback: upload original without optimization
+                                req.file.path = await uploadToR2(buffer, folderName, req.file.originalname, mimetype);
                             }
                         } else {
                             // Handle other file types (PDF, Doc, etc.)
