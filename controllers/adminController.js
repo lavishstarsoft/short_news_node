@@ -2810,7 +2810,7 @@ async function renderPendingNewsPage(req, res) {
 
     // Fetch pending news with only needed fields (uses compound index)
     const pendingNews = await News.find(query)
-      .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl readFullLink ePaperLink views')
+      .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl imageUrls readFullLink ePaperLink views')
       .sort({ publishedAt: -1 })
       .limit(100)
       .lean();
