@@ -720,6 +720,7 @@ async function createNews(req, res) {
         mediaUrl: news.mediaUrl,
         thumbnailUrl: news.thumbnailUrl,
         imageUrl: news.imageUrl || news.mediaUrl,
+        imageUrls: news.imageUrls || [],
         language: news.language
       };
 
