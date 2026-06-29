@@ -594,10 +594,10 @@
                         // Handle filter form submission
                         const searchFilter = document.getElementById('searchFilter');
                         const locationFilter = document.getElementById('locationFilter');
-                        const statusFilter = document.getElementById('statusFilter');
                         const languageFilter = document.getElementById('languageFilter');
                         const fromDateFilter = document.getElementById('fromDateFilter');
                         const toDateFilter = document.getElementById('toDateFilter');
+                        
                         const searchFilterInput = document.getElementById('searchFilterInput');
                         const locationFilterInput = document.getElementById('locationFilterInput');
                         const statusFilterInput = document.getElementById('statusFilterInput');
@@ -606,11 +606,11 @@
                         const toDateFilterInput = document.getElementById('toDateFilterInput');
                         const filterForm = document.getElementById('filterForm');
 
-                        if (searchFilter && locationFilter && statusFilter && languageFilter && fromDateFilter && toDateFilter && filterForm) {
+                        if (searchFilter && locationFilter && languageFilter && fromDateFilter && toDateFilter && filterForm) {
                             function syncHiddenFilters() {
                                 searchFilterInput.value = searchFilter.value;
                                 locationFilterInput.value = locationFilter.value;
-                                statusFilterInput.value = statusFilter.value;
+                                // statusFilterInput is updated by pill clicks directly
                                 languageFilterInput.value = languageFilter.value;
                                 fromDateFilterInput.value = fromDateFilter.value;
                                 toDateFilterInput.value = toDateFilter.value;
@@ -641,7 +641,8 @@
                             document.querySelectorAll('.news-status-pill').forEach(function (pill) {
                                 pill.addEventListener('click', function () {
                                     const nextStatus = this.getAttribute('data-status') || '';
-                                    statusFilter.value = nextStatus;
+                                    // statusFilter does not exist
+                                    statusFilterInput.value = nextStatus;
                                     statusFilterInput.value = nextStatus;
                                     document.querySelectorAll('.news-status-pill').forEach(function (node) {
                                         node.classList.toggle('active', node === pill);
