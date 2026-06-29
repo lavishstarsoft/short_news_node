@@ -2844,7 +2844,7 @@ async function renderPendingNewsPage(req, res) {
 // ⚡ Lazy duplicate check API — called in background after page load
 async function getPendingNewsDuplicateCheck(req, res) {
   try {
-    // Fetch pending news (only title + content needed)
+    // Fetch pending news (title + content + language needed for language-based filtering)
     const pendingNews = await News.find({
       isActive: false,
       $or: [
@@ -2852,7 +2852,7 @@ async function getPendingNewsDuplicateCheck(req, res) {
         { rejectionStatus: { $exists: false } }
       ]
     })
-      .select('_id title content')
+      .select('_id title content language')
       .sort({ publishedAt: -1 })
       .limit(100)
       .lean();
@@ -2867,14 +2867,22 @@ async function getPendingNewsDuplicateCheck(req, res) {
       isActive: true,
       publishedAt: { $gte: sevenDaysAgo }
     })
-      .select('_id title content publishedAt author category location')
+      .select('_id title content publishedAt author category location language')
       .lean();
 
     // Run optimized fast duplicate check for each pending article
+    // ✅ LANGUAGE FILTER: Only compare articles in the SAME language to avoid cross-language false positives
     const results = pendingNews.map(article => {
+      const articleLang = (article.language || 'te').toLowerCase();
+
+      // Filter published news to only include same language articles
+      const sameLangPublished = recentPublished.filter(p =>
+        (p.language || 'te').toLowerCase() === articleLang
+      );
+
       const duplicateResults = checkDuplicateFast(
         { title: article.title, content: article.content },
-        recentPublished
+        sameLangPublished
       );
 
       const topMatches = duplicateResults
@@ -2926,10 +2934,14 @@ async function getPendingNewsDuplicateMatches(req, res) {
     }
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const pendingLang = (pendingArticle.language || 'te').toLowerCase();
+
     const recentPublished = await News.find({
       isActive: true,
       publishedAt: { $gte: sevenDaysAgo },
-      _id: { $ne: pendingArticle._id }
+      _id: { $ne: pendingArticle._id },
+      // ✅ LANGUAGE FILTER: Only compare with same-language published articles
+      language: pendingLang
     })
       .select('_id title content publishedAt author category location language')
       .lean();
