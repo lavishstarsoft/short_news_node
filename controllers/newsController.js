@@ -719,7 +719,8 @@ async function createNews(req, res) {
         mediaType: news.mediaType,
         mediaUrl: news.mediaUrl,
         thumbnailUrl: news.thumbnailUrl,
-        imageUrl: news.imageUrl || news.mediaUrl
+        imageUrl: news.imageUrl || news.mediaUrl,
+        language: news.language
       };
 
       // ✅ Direct Publish Roles: admin, superadmin, subeditor
