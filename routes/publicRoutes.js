@@ -894,8 +894,15 @@ router.get('/api/public/ads', cacheMiddleware(300), async (req, res) => {
     const isConnectedToMongoDB = mongoose.connection.readyState === 1;
 
     if (isConnectedToMongoDB) {
-      // Fetch all active ads from MongoDB
-      const ads = await Ad.find({ isActive: true }).sort({ createdAt: -1 });
+      const { lang } = req.query;
+      const query = { isActive: true };
+      
+      if (lang) {
+        query.language = lang;
+      }
+
+      // Fetch active ads from MongoDB based on language
+      const ads = await Ad.find(query).sort({ createdAt: -1 });
 
       // Transform data for Flutter app
       const transformedAds = ads.map(ad => {
