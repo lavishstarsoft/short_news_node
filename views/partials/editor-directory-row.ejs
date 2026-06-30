@@ -12,7 +12,7 @@
     class="staff-row"
     data-role="<%= editor.role %>"
     data-language="<%= editor.workingLanguage || '' %>"
-    data-search="<%= ((editor.name || '') + ' ' + (editor.username || '') + ' ' + (editor.email || '') + ' ' + (editor.location || '') + ' ' + (editor.displayRole || '')).toLowerCase() %>">
+    data-search="<%= ((editor.name || '') + ' ' + (editor.username || '') + ' ' + (editor.email || '') + ' ' + (editor.assignedLocations ? editor.assignedLocations.join(' ') : (editor.location || '')) + ' ' + (editor.displayRole || '')).toLowerCase() %>">
   <td>
     <div class="team-member">
       <% if (editor.profileImage) { %>
@@ -32,7 +32,7 @@
       <%= isSubEditor ? 'Sub-Editor' : 'Reporter' %>
     </span>
   </td>
-  <td><%= editor.location || 'Pan India' %></td>
+  <td><%= (editor.assignedLocations && editor.assignedLocations.length > 0) ? editor.assignedLocations.join(', ') : (editor.location || 'Pan India') %></td>
   <td>
     <% if (hasLanguageSet) { %>
       <span class="team-badge team-badge-lang"><%= editorLangLabels[editor.workingLanguage] || editor.workingLanguage %></span>

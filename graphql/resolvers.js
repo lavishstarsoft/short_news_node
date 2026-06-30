@@ -267,8 +267,26 @@ const resolvers = {
         },
 
         // Location queries (with Redis caching - 30 minutes TTL)
-        locations: async () => {
+        locations: async (parent, args, { req }) => {
             try {
+                const decodedToken = decodeAuthToken(req);
+                let assignedLocations = null;
+
+                if (decodedToken && decodedToken.id) {
+                    const Admin = require('../models/Admin');
+                    const adminUser = await Admin.findById(decodedToken.id);
+                    if (adminUser && adminUser.role !== 'admin' && adminUser.role !== 'superadmin') {
+                        if (adminUser.assignedLocations && adminUser.assignedLocations.length > 0) {
+                            assignedLocations = adminUser.assignedLocations;
+                        }
+                    }
+                }
+
+                if (assignedLocations) {
+                    const locations = await Location.find({ name: { $in: assignedLocations } }).lean();
+                    return locations;
+                }
+
                 // Check cache first
                 const cached = await getCachedData('locations');
                 if (cached) return cached;

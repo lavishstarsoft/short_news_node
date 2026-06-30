@@ -208,8 +208,8 @@
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Location</label>
-                                        <select class="form-select" id="editLocation">
-                                            <option value="">Select Location</option>
+                                        <select class="form-select" id="editAssignedLocations" multiple size="4">
+                                            <option value="" disabled>Select Locations (hold Cmd/Ctrl)</option>
                                             <% locations.forEach(function(loc) { %>
                                                 <option value="<%= loc.name %>">
                                                     <%= loc.name %>
@@ -390,7 +390,13 @@
                         document.getElementById('editName').value = editor.name || '';
                         document.getElementById('editRole').value = editor.role || 'editor';
                         document.getElementById('editDisplayRole').value = editor.displayRole || '';
-                        document.getElementById('editLocation').value = editor.location || '';
+                        // Handle multiple assignedLocations selection
+                        const assignedLocations = editor.assignedLocations || (editor.location ? [editor.location] : []);
+                        const selectEl = document.getElementById('editAssignedLocations');
+                        Array.from(selectEl.options).forEach(opt => {
+                            opt.selected = assignedLocations.includes(opt.value);
+                        });
+
                         document.getElementById('editWorkingLanguage').value = editor.workingLanguage || 'te';
                         document.getElementById('editConstituency').value = editor.constituency || '';
                         document.getElementById('editMobile').value = editor.mobileNumber || '';
@@ -408,11 +414,14 @@
                     document.getElementById('editEditorForm').addEventListener('submit', function (e) {
                         e.preventDefault();
                         const id = document.getElementById('editEditorId').value;
+                        const selectEl = document.getElementById('editAssignedLocations');
+                        const assignedLocations = Array.from(selectEl.selectedOptions).map(opt => opt.value).filter(val => val !== "");
+
                         const data = {
                             name: document.getElementById('editName').value,
                             role: document.getElementById('editRole').value,
                             displayRole: document.getElementById('editDisplayRole').value,
-                            location: document.getElementById('editLocation').value,
+                            assignedLocations: assignedLocations,
                             workingLanguage: document.getElementById('editWorkingLanguage').value,
                             constituency: document.getElementById('editConstituency').value,
                             mobileNumber: document.getElementById('editMobile').value,

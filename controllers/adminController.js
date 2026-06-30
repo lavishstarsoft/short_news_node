@@ -1378,7 +1378,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings } = req.body;
+    const { name, displayRole, location, assignedLocations, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -1389,6 +1389,9 @@ async function updateEditor(req, res) {
     if (name !== undefined) editor.name = name || null;
     if (displayRole !== undefined) editor.displayRole = displayRole || 'Reporter';
     if (location !== undefined) editor.location = location || null;
+    if (assignedLocations !== undefined) {
+      editor.assignedLocations = Array.isArray(assignedLocations) ? assignedLocations : (assignedLocations ? [assignedLocations] : []);
+    }
     if (constituency !== undefined) editor.constituency = constituency || null;
     if (mobileNumber !== undefined) editor.mobileNumber = mobileNumber || null;
     if (profileImage !== undefined) editor.profileImage = profileImage || null;
@@ -1618,7 +1621,7 @@ async function registerEditor(req, res) {
       return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
 
-    const { username, email, password, name, displayRole, location, constituency, mobileNumber, role, workingLanguage } = req.body;
+    const { username, email, password, name, displayRole, location, assignedLocations, constituency, mobileNumber, role, workingLanguage } = req.body;
 
     // Validate required fields
     if (!username || !email || !password) {
@@ -1644,6 +1647,7 @@ async function registerEditor(req, res) {
       name: name || null,
       displayRole: displayRole || (selectedRole === 'subeditor' ? 'Sub-Editor' : 'Reporter'),
       location: location || null,
+      assignedLocations: Array.isArray(assignedLocations) ? assignedLocations : (assignedLocations ? [assignedLocations] : []),
       constituency: constituency || null,
       mobileNumber: mobileNumber || null,
       workingLanguage: normalizeNewsLanguage(workingLanguage),

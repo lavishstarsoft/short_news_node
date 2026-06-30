@@ -59,6 +59,9 @@ const adminSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  assignedLocations: [{
+    type: String
+  }],
   mobileNumber: {
     type: String,
     default: null

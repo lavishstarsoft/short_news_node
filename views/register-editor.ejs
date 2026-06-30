@@ -119,14 +119,14 @@
                                             <div class="reg-field">
                                                 <label for="location">Location</label>
                                                 <% if (typeof locations !== 'undefined' && locations.length) { %>
-                                                <select id="location" name="location">
-                                                    <option value="">Select location</option>
+                                                <select id="assignedLocations" name="assignedLocations" multiple class="form-select" size="4">
+                                                    <option value="" disabled>Select locations (hold Cmd/Ctrl for multiple)</option>
                                                     <% locations.forEach(function(loc) { %>
                                                     <option value="<%= loc.name %>"><%= loc.name %><% if (loc.code) { %> (<%= loc.code %>)<% } %></option>
                                                     <% }); %>
                                                 </select>
                                                 <% } else { %>
-                                                <input type="text" id="location" name="location" placeholder="District or city">
+                                                <input type="text" id="assignedLocations" name="assignedLocations" placeholder="District or city">
                                                 <% } %>
                                             </div>
                                         </div>
@@ -211,8 +211,14 @@
                 const name = document.getElementById('name').value.trim();
                 const username = document.getElementById('username').value.trim();
                 const email = document.getElementById('email').value.trim();
-                const locationEl = document.getElementById('location');
-                const location = locationEl ? locationEl.value.trim() : '';
+                const locationEl = document.getElementById('assignedLocations');
+                let location = '';
+                if (locationEl && locationEl.tagName === 'SELECT') {
+                    const selected = Array.from(locationEl.selectedOptions).map(opt => opt.value).filter(val => val !== "");
+                    location = selected.join(', ');
+                } else if (locationEl) {
+                    location = locationEl.value.trim();
+                }
                 const displayRole = document.getElementById('displayRole').value.trim();
                 const role = roleSelect.value;
 
@@ -254,13 +260,13 @@
                 });
             });
 
-            ['username', 'name', 'email', 'displayRole', 'location', 'constituency'].forEach(function (id) {
+            ['username', 'name', 'email', 'displayRole', 'assignedLocations', 'constituency'].forEach(function (id) {
                 const el = document.getElementById(id);
                 if (el) el.addEventListener('input', updatePreview);
                 if (el && el.tagName === 'SELECT') el.addEventListener('change', updatePreview);
             });
             if (langSelect) langSelect.addEventListener('change', updatePreview);
-            const locationSelect = document.getElementById('location');
+            const locationSelect = document.getElementById('assignedLocations');
             if (locationSelect && locationSelect.tagName === 'SELECT') locationSelect.addEventListener('change', updatePreview);
 
             document.getElementById('togglePassword').addEventListener('click', function () {
@@ -282,7 +288,14 @@
 
                 const formData = new FormData(form);
                 const data = {};
-                formData.forEach(function (value, key) { data[key] = value; });
+                formData.forEach(function (value, key) { 
+                    if (key === 'assignedLocations') {
+                        if (!data[key]) data[key] = [];
+                        data[key].push(value);
+                    } else {
+                        data[key] = value; 
+                    }
+                });
 
                 try {
                     const response = await fetch('/register-editor', {

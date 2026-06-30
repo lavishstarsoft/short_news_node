@@ -7,12 +7,22 @@ exports.getAllLocations = async (req, res) => {
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
     
     if (isConnectedToMongoDB) {
-      const locations = await Location.find().sort({ name: 1 });
+      let locations = await Location.find().sort({ name: 1 });
       
+      // Filter based on admin assigned locations
+      if (req.admin && req.admin.id) {
+        const Admin = require('../models/Admin');
+        const adminUser = await Admin.findById(req.admin.id);
+        if (adminUser && adminUser.role !== 'admin' && adminUser.role !== 'superadmin') {
+          if (adminUser.assignedLocations && adminUser.assignedLocations.length > 0) {
+            locations = locations.filter(loc => adminUser.assignedLocations.includes(loc.name));
+          }
+        }
+      }
+
       // Calculate news count for each location
       const locationsWithNewsCount = await Promise.all(locations.map(async (location) => {
         const newsCount = await News.countDocuments({ location: location.name });
-        console.log(`Location: ${location.name}, News Count: ${newsCount}`); // Debug log
         return {
           ...location.toObject(),
           newsCount
