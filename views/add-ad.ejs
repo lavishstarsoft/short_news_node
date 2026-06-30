@@ -187,6 +187,23 @@
                                                     <input type="hidden" id="adId"
                                                         value="<%= typeof ad !== 'undefined' ? ad._id : '' %>">
                                                     <div class="mb-3">
+                                                        <label for="language" class="form-label">Ad Language</label>
+                                                        <select class="form-select" id="language" required>
+                                                            <option value="" disabled <%= typeof ad === 'undefined' ? 'selected' : '' %>>Select Language</option>
+                                                            <% if (typeof languages !== 'undefined' && languages.length > 0) { %>
+                                                                <% languages.forEach(function(lang) { %>
+                                                                    <option value="<%= lang.code %>" 
+                                                                        <%= (typeof ad !== 'undefined' && ad.language === lang.code) ? 'selected' : '' %>>
+                                                                        <%= lang.name %> (<%= lang.nativeName %>)
+                                                                    </option>
+                                                                <% }); %>
+                                                            <% } else { %>
+                                                                <option value="en" <%= (typeof ad !== 'undefined' && ad.language === 'en') ? 'selected' : '' %>>English (Default)</option>
+                                                            <% } %>
+                                                        </select>
+                                                        <div class="form-text">The ad will only be shown to users who selected this language.</div>
+                                                    </div>
+                                                    <div class="mb-3">
                                                         <label for="title" class="form-label">Ad Title</label>
                                                         <input type="text" class="form-control" id="title"
                                                             placeholder="Enter ad title"
@@ -436,6 +453,7 @@
                         const frequencyControlEnabled = document.getElementById('frequencyControlEnabled').checked;
                         const userBehaviorTrackingEnabled = document.getElementById('userBehaviorTrackingEnabled').checked;
                         const priority = document.getElementById('priority').value;
+                        const language = document.getElementById('language').value;
 
                         // AdMob fields
                         const useAdMob = document.getElementById('useAdMob').checked;
@@ -443,6 +461,10 @@
                         const adMobUnitId = document.getElementById('adMobUnitId').value;
 
                         // Validate required fields
+                        if (!language) {
+                            showFeedback('Please select a language', 'error');
+                            return;
+                        }
                         if (!title) {
                             showFeedback('Please enter a title', 'error');
                             return;
@@ -463,6 +485,7 @@
                             frequencyControlEnabled,
                             userBehaviorTrackingEnabled,
                             priority,
+                            language,
                             // AdMob fields
                             useAdMob,
                             adMobAppId,

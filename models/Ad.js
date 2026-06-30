@@ -23,6 +23,7 @@ const adSchema = new mongoose.Schema({
   adMobAppId: { type: String }, // AdMob App ID
   adMobUnitId: { type: String }, // AdMob Unit ID
   priority: { type: String, enum: ['high', 'medium', 'low'], default: 'medium' }, // Ad priority
+  language: { type: String, required: true }, // The language this ad belongs to (e.g. 'en', 'te', 'hi')
 });
 
 module.exports = mongoose.model('Ad', adSchema);

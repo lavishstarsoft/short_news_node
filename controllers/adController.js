@@ -1,5 +1,6 @@
 const Ad = require('../models/Ad');
 const AdInteraction = require('../models/AdInteraction');
+const Language = require('../models/Language');
 const { deleteFromR2 } = require('../config/cloudflare');
 
 // Render ads list page
@@ -58,8 +59,14 @@ async function renderAdsListPage(req, res) {
 }
 
 // Render add ad page
-function renderAddAdPage(req, res) {
-  res.render('add-ad', { admin: req.admin });
+async function renderAddAdPage(req, res) {
+  try {
+    const languages = await Language.getActiveLanguages();
+    res.render('add-ad', { admin: req.admin, languages });
+  } catch (error) {
+    console.error('Error fetching languages for add ad page:', error);
+    res.render('add-ad', { admin: req.admin, languages: [] });
+  }
 }
 
 // Render edit ad page
@@ -79,8 +86,11 @@ async function renderEditAdPage(req, res) {
       return res.status(404).json({ error: 'Ad not found' });
     }
 
-    res.render('add-ad', { ad, admin: req.admin });
+    const languages = await Language.getActiveLanguages();
+
+    res.render('add-ad', { ad, admin: req.admin, languages });
   } catch (error) {
+    console.error('Error fetching ad for editing:', error);
     res.status(500).json({ error: 'Error fetching ad for editing' });
   }
 }
@@ -278,15 +288,23 @@ async function toggleAdStatus(req, res) {
 // Get all active ads (for public API)
 async function getActiveAds(req, res) {
   try {
+    const { lang } = req.query;
     let adsList;
 
     if (req.app.locals.isConnectedToMongoDB) {
-      adsList = await Ad.find({ isActive: true }).sort({ createdAt: -1 });
+      const query = { isActive: true };
+      if (lang) {
+        query.language = lang;
+      }
+      adsList = await Ad.find(query).sort({ createdAt: -1 });
     } else {
       // Use in-memory storage
       const adsData = req.app.locals.adsData || [];
-      adsList = adsData.filter(ad => ad.isActive !== false)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      adsList = adsData.filter(ad => {
+        if (ad.isActive === false) return false;
+        if (lang && ad.language !== lang) return false;
+        return true;
+      }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
     res.json(adsList);

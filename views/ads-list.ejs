@@ -121,6 +121,7 @@
                                 <thead>
                                     <tr>
                                         <th>Creative</th>
+                                        <th>Language</th>
                                         <th>Status</th>
                                         <th>Placement</th>
                                         <th>Priority</th>
@@ -148,6 +149,9 @@
                                                     <p class="ads-creative-excerpt"><%= ad.content || 'No description' %></p>
                                                 </div>
                                             </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary"><%= (ad.language || 'en').toUpperCase() %></span>
                                         </td>
                                         <td>
                                             <span class="ads-pill <%= ad.isActive === false ? 'ads-pill--paused' : 'ads-pill--live' %>">
