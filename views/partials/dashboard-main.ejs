@@ -265,7 +265,7 @@
                                                         <span class="dash-engage-pill"><i class="fas fa-eye"></i> <%= news.views || 0 %></span>
                                                     </div>
                                                     <div class="dash-article-actions">
-                                                        <% if (news.isActive !== false) { %>
+                                                        <% if (news.isActive !== false && admin && (admin.role === 'superadmin' || admin.role === 'admin' || (admin.role === 'subeditor' && admin.permissions && admin.permissions.canSendNotifications))) { %>
                                                         <button type="button" class="btn btn-sm btn-warning ripple" title="Send notification" onclick="sendNotificationForNews('<%= news._id %>'); event.stopPropagation();">
                                                             <i class="fas fa-bell"></i>
                                                         </button>

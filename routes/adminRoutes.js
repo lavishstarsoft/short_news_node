@@ -37,7 +37,7 @@ router.get('/users/:id', adminController.requireAuth, adminController.getUserByI
 router.get('/reports', adminController.requireAuth, adminController.renderReportsPage);
 
 // Notification routes
-router.get('/notifications', adminController.requireAdmin, adminController.renderNotificationsPage);
+router.get('/notifications', adminController.requireAuth, adminController.renderNotificationsPage);
 router.get('/onesignal-analytics', adminController.requireAdmin, adminController.renderOneSignalAnalyticsPage);
 router.post('/api/send-notification', adminController.requireAuth, adminController.sendNotification);
 router.get('/api/notifications/history', adminController.requireAuth, adminController.getNotificationHistory);

@@ -201,7 +201,7 @@
             <% } %>
 
                     <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
-                        admin.role==='superadmin' )) { %>
+                        admin.role==='superadmin' || (admin.role==='subeditor' && admin.permissions && admin.permissions.canSendNotifications))) { %>
                         <li class="nav-item">
                             <a class="nav-link ripple <%= activePage === 'notifications' ? 'active' : '' %>"
                                 href="/admin/notifications">
@@ -209,6 +209,10 @@
                                 <span class="nav-text">Send Notification</span>
                             </a>
                         </li>
+                    <% } %>
+                    
+                    <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
+                        admin.role==='superadmin' )) { %>
                         <li class="nav-item">
                             <a class="nav-link ripple <%= activePage === 'onesignal-analytics' ? 'active' : '' %>"
                                 href="/admin/onesignal-analytics">

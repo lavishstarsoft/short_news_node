@@ -1391,7 +1391,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, assignedLocations, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, sidebar, approvalScope, managedLocations } = req.body;
+    const { name, displayRole, location, assignedLocations, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canSendNotifications, sidebar, approvalScope, managedLocations } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -1444,6 +1444,10 @@ async function updateEditor(req, res) {
     if (managedLocations !== undefined) {
       if (!editor.permissions) editor.permissions = {};
       editor.permissions.managedLocations = Array.isArray(managedLocations) ? managedLocations : (managedLocations ? [managedLocations] : []);
+    }
+    if (req.body.canSendNotifications !== undefined) {
+      if (!editor.permissions) editor.permissions = {};
+      editor.permissions.canSendNotifications = req.body.canSendNotifications === 'true' || req.body.canSendNotifications === true;
     }
     
     if (sidebar !== undefined) {
@@ -1704,6 +1708,7 @@ async function registerEditor(req, res) {
         canViewReporterDetails: canViewReporterDetails === 'true' || canViewReporterDetails === true,
         canAccessAdminDashboard: canAccessAdminDashboard === 'true' || canAccessAdminDashboard === true,
         canApproveNews: canApproveNews === 'true' || canApproveNews === true,
+        canSendNotifications: canSendNotifications === 'true' || canSendNotifications === true,
         approvalScope: approvalScope || 'all',
         managedLocations: Array.isArray(managedLocations) ? managedLocations : (managedLocations ? [managedLocations] : []),
         sidebar: sidebar ? {
@@ -1765,6 +1770,13 @@ async function sendNotification(req, res) {
     // Validate input
     if (!title || !message) {
       return res.status(400).json({ error: 'Title and message are required' });
+    }
+    
+    // Check permissions
+    if (req.admin.role === 'subeditor') {
+        if (!req.admin.permissions || !req.admin.permissions.canSendNotifications) {
+            return res.status(403).json({ error: 'You do not have permission to send notifications.' });
+        }
     }
 
     // 🎨 Strip HTML tags from title and message for OneSignal
@@ -2254,6 +2266,13 @@ async function markNotificationReceived(req, res) {
 // Render notifications page with history
 async function renderNotificationsPage(req, res) {
   try {
+    // Check permissions
+    if (req.admin.role === 'subeditor') {
+        if (!req.admin.permissions || !req.admin.permissions.canSendNotifications) {
+            return res.status(403).send('You do not have permission to view this page.');
+        }
+    }
+    
     // Get notification stats
     let stats = {
       total: 0,

@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
     <link rel="stylesheet" href="/css/editors-directory.css">
+    <link rel="stylesheet" href="/css/team-register.css">
     <style>
         .feedback-message {
             position: fixed;
@@ -177,147 +178,195 @@
                                 aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <form id="editEditorForm">
+                            <form id="editEditorForm" class="reg-layout" style="display: block; padding: 0;">
                                 <input type="hidden" id="editEditorId">
-                                <div class="row">
-                                    <div class="col-md-12 mb-4 text-center">
-                                        <div class="position-relative d-inline-block">
-                                            <img id="editProfilePreview" src="" class="rounded-circle img-thumbnail shadow-sm" style="width: 100px; height: 100px; object-fit: cover; border-width: 3px; background-color: #f8fafc;">
-                                            <label for="editProfileImageUpload" class="position-absolute bottom-0 end-0 btn btn-sm btn-primary rounded-circle shadow" style="cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 2px solid white;">
-                                                <i class="fas fa-camera" style="font-size: 0.8rem;"></i>
-                                            </label>
-                                            <input type="file" id="editProfileImageUpload" class="d-none" accept="image/*">
-                                            <input type="hidden" id="editProfileImageUrl">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Full Name</label>
-                                        <input type="text" class="form-control" id="editName">
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Role</label>
-                                        <select class="form-select" id="editRole">
-                                            <option value="editor">Reporter</option>
-                                            <option value="subeditor">Sub-Editor</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Display Role</label>
-                                        <input type="text" class="form-control" id="editDisplayRole"
-                                            placeholder="e.g. Senior Reporter">
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Location</label>
-                                        <select class="form-select" id="editAssignedLocations" multiple size="4">
-                                            <option value="" disabled>Select Locations (hold Cmd/Ctrl)</option>
-                                            <% locations.forEach(function(loc) { %>
-                                                <option value="<%= loc.name %>">
-                                                    <%= loc.name %>
-                                                </option>
-                                                <% }); %>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">News Language</label>
-                                        <select class="form-select" id="editWorkingLanguage">
-                                            <%- include('partials/language-select-options', { selectedValue: 'te' }) %>
-                                        </select>
-                                        <small class="text-muted">Reporter posts news in this language</small>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Constituency</label>
-                                        <input type="text" class="form-control" id="editConstituency">
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Mobile Number</label>
-                                        <input type="text" class="form-control" id="editMobile">
-                                    </div>
-                                    <div class="col-12 mt-2 mb-2">
-                                        <h6 class="fw-bold mb-3 border-bottom pb-2">App Display Settings (Sub-Editors/Reporters)</h6>
-                                        <div class="d-flex flex-wrap gap-4">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="editShowProfileImage" checked>
-                                                <label class="form-check-label" for="editShowProfileImage">Show Profile Image</label>
-                                            </div>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="editShowName" checked>
-                                                <label class="form-check-label" for="editShowName">Show Name</label>
-                                            </div>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="editShowConstituency" checked>
-                                                <label class="form-check-label" for="editShowConstituency">Show Constituency</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-12 mt-2 mb-2" id="adminSettingsSection" style="display:none;">
-                                        <h6 class="fw-bold mb-3 border-bottom pb-2">Admin Dashboard Settings</h6>
-                                            <div class="form-check form-switch" id="editCanViewReporterDetailsWrapper">
-                                                <input class="form-check-input" type="checkbox" id="editCanViewReporterDetails">
-                                                <label class="form-check-label" for="editCanViewReporterDetails">Can View Reporter Details</label>
-                                            </div>
-                                            <div class="form-check form-switch" id="editCanAccessAdminDashboardWrapper">
-                                                <input class="form-check-input" type="checkbox" id="editCanAccessAdminDashboard">
-                                                <label class="form-check-label" for="editCanAccessAdminDashboard">Can Access Admin Dashboard (Sub-editors)</label>
-                                            </div>
-                                            <div class="form-check form-switch" id="editCanApproveNewsWrapper">
-                                                <input class="form-check-input" type="checkbox" id="editCanApproveNews">
-                                                <label class="form-check-label" for="editCanApproveNews">Can Approve/Reject News</label>
-                                            </div>
-
-                                            <div id="editManagedLocationsWrapper" style="display: none; margin-top: 15px; margin-left: 25px; padding-left: 15px; border-left: 2px solid #e2e8f0;">
-                                                <div class="mb-2">
-                                                    <label class="form-label" style="font-size: 0.85rem;">Whose news can they approve?</label>
-                                                    <select class="form-select form-select-sm" id="editApprovalScope">
-                                                        <option value="all">All Reporters</option>
-                                                        <option value="locations">Reporters in Specific Locations</option>
-                                                    </select>
-                                                </div>
-                                                <div id="editManagedLocationsSelectWrapper" style="display: none;">
-                                                    <label class="form-label" style="font-size: 0.85rem;">Select Parent Locations</label>
-                                                    <% if (typeof locations !== 'undefined' && locations.length) { %>
-                                                    <select class="form-select form-select-sm" id="editManagedLocations" multiple size="4">
-                                                        <% locations.forEach(function(loc) { %>
-                                                        <option value="<%= loc.name %>"><%= loc.name %></option>
-                                                        <% }); %>
-                                                    </select>
-                                                    <small class="text-muted d-block mt-1">Hold Cmd/Ctrl to select multiple.</small>
-                                                    <% } %>
-                                                </div>
-                                            </div>
-                                            
-                                            <div id="editSidebarAccessWrapper" style="display: none; margin-top: 15px;">
-                                                <h6 class="fw-bold mb-2">Sidebar Menu Access</h6>
-                                                <div class="row g-2">
-                                                    <% const sidebarMenus = [
-                                                        { id: 'dashboard', label: 'Dashboard' },
-                                                        { id: 'newsList', label: 'News List' },
-                                                        { id: 'addNews', label: 'Add News' },
-                                                        { id: 'pendingNews', label: 'Pending News' },
-                                                        { id: 'rejectedNews', label: 'Rejected News' },
-                                                        { id: 'plagiarismReport', label: 'Plagiarism Report' },
-                                                        { id: 'viralVideos', label: 'Viral Videos' },
-                                                        { id: 'polls', label: 'Polls' },
-                                                        { id: 'longVideos', label: 'Long Videos' },
-                                                        { id: 'categories', label: 'Categories' },
-                                                        { id: 'programCategories', label: 'Program Categories' },
-                                                        { id: 'locations', label: 'Locations' },
-                                                        { id: 'reports', label: 'Reports' }
-                                                    ]; %>
-                                                    <% sidebarMenus.forEach(menu => { %>
-                                                        <div class="col-6">
-                                                            <div class="form-check">
-                                                                <input class="form-check-input sidebar-menu-cb" type="checkbox" id="editSidebar_<%= menu.id %>" data-menu="<%= menu.id %>" checked>
-                                                                <label class="form-check-label" for="editSidebar_<%= menu.id %>" style="font-size: 0.85rem;"><%= menu.label %></label>
-                                                            </div>
-                                                        </div>
-                                                    <% }) %>
-                                                </div>
-                                            </div>
-                                        </div>
+                                
+                                <div class="col-md-12 mb-4 text-center">
+                                    <div class="position-relative d-inline-block">
+                                        <img id="editProfilePreview" src="" class="rounded-circle img-thumbnail shadow-sm" style="width: 100px; height: 100px; object-fit: cover; border-width: 3px; background-color: #f8fafc;">
+                                        <label for="editProfileImageUpload" class="position-absolute bottom-0 end-0 btn btn-sm btn-primary rounded-circle shadow" style="cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 2px solid white;">
+                                            <i class="fas fa-camera" style="font-size: 0.8rem;"></i>
+                                        </label>
+                                        <input type="file" id="editProfileImageUpload" class="d-none" accept="image/*">
+                                        <input type="hidden" id="editProfileImageUrl">
                                     </div>
                                 </div>
-                                <div class="d-grid mt-3">
-                                    <button type="submit" class="btn btn-primary text-white">Save Changes</button>
+
+                                <section class="reg-form-section" style="margin-bottom: 20px;">
+                                    <div class="reg-section-head" style="margin-bottom: 15px;">
+                                        <span class="reg-section-icon reg-section-icon--account"><i class="fas fa-user-edit"></i></span>
+                                        <div>
+                                            <h2 class="reg-section-title">Basic Details</h2>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="editName">Full Name</label>
+                                                <input type="text" id="editName" placeholder="e.g. John Doe">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="editRole">Role</label>
+                                                <select id="editRole">
+                                                    <option value="editor">Reporter</option>
+                                                    <option value="subeditor">Sub-Editor</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="editDisplayRole">Display Role</label>
+                                                <input type="text" id="editDisplayRole" placeholder="e.g. Senior Reporter">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="editAssignedLocations">Location</label>
+                                                <select id="editAssignedLocations" multiple size="4">
+                                                    <option value="" disabled>Select Locations (hold Cmd/Ctrl)</option>
+                                                    <% locations.forEach(function(loc) { %>
+                                                        <option value="<%= loc.name %>"><%= loc.name %></option>
+                                                    <% }); %>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="editWorkingLanguage">News Language</label>
+                                                <select id="editWorkingLanguage">
+                                                    <%- include('partials/language-select-options', { selectedValue: 'te' }) %>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="editConstituency">Constituency</label>
+                                                <input type="text" id="editConstituency">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="reg-field">
+                                                <label for="editMobile">Mobile Number</label>
+                                                <input type="text" id="editMobile">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="reg-form-section" style="margin-bottom: 20px;">
+                                    <div class="reg-section-head" style="margin-bottom: 15px;">
+                                        <span class="reg-section-icon reg-section-icon--role"><i class="fas fa-mobile-alt"></i></span>
+                                        <div>
+                                            <h2 class="reg-section-title">App Display Settings</h2>
+                                            <p class="reg-section-desc">What shows up on the mobile app</p>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-4 mt-2">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="editShowProfileImage" checked>
+                                            <label class="form-check-label" for="editShowProfileImage">Show Profile Image</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="editShowName" checked>
+                                            <label class="form-check-label" for="editShowName">Show Name</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="editShowConstituency" checked>
+                                            <label class="form-check-label" for="editShowConstituency">Show Constituency</label>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="reg-form-section" id="adminSettingsSection" style="display:none; margin-bottom: 20px;">
+                                    <div class="reg-section-head" style="margin-bottom: 15px;">
+                                        <span class="reg-section-icon reg-section-icon--account"><i class="fas fa-shield-alt"></i></span>
+                                        <div>
+                                            <h2 class="reg-section-title">Admin Dashboard Settings</h2>
+                                            <p class="reg-section-desc">Dashboard access and permissions</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="editCanViewReporterDetailsWrapper" style="display: none; margin-bottom: 15px;">
+                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
+                                            <input type="checkbox" id="editCanViewReporterDetails" style="width: auto; height: 18px; cursor: pointer;">
+                                            <label for="editCanViewReporterDetails" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can view reporter details</label>
+                                        </div>
+                                    </div>
+                                    <div id="editCanAccessAdminDashboardWrapper" style="display: none; margin-bottom: 15px;">
+                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
+                                            <input type="checkbox" id="editCanAccessAdminDashboard" style="width: auto; height: 18px; cursor: pointer;">
+                                            <label for="editCanAccessAdminDashboard" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can access admin dashboard (Sub-editors)</label>
+                                        </div>
+                                    </div>
+                                    <div id="editCanApproveNewsWrapper" style="display: none; margin-bottom: 15px;">
+                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
+                                            <input type="checkbox" id="editCanApproveNews" style="width: auto; height: 18px; cursor: pointer;">
+                                            <label for="editCanApproveNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can approve/reject news</label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="editManagedLocationsWrapper" style="display: none; margin-top: 15px; margin-bottom: 15px; margin-left: 30px; padding-left: 15px; border-left: 2px solid #e2e8f0;">
+                                        <div class="reg-field" style="margin-bottom: 10px;">
+                                            <label style="font-size: 0.9rem;">Whose news can they approve?</label>
+                                            <select id="editApprovalScope" style="font-size: 0.9rem; padding: 6px 12px; height: auto;">
+                                                <option value="all">All Reporters</option>
+                                                <option value="locations">Reporters in Specific Locations</option>
+                                            </select>
+                                        </div>
+                                        <div class="reg-field" id="editManagedLocationsSelectWrapper" style="display: none;">
+                                            <label style="font-size: 0.9rem;">Select Parent Locations</label>
+                                            <% if (typeof locations !== 'undefined' && locations.length) { %>
+                                            <select id="editManagedLocations" multiple size="4" style="font-size: 0.9rem;">
+                                                <% locations.forEach(function(loc) { %>
+                                                <option value="<%= loc.name %>"><%= loc.name %></option>
+                                                <% }); %>
+                                            </select>
+                                            <div class="reg-field-hint">Hold Cmd/Ctrl to select multiple locations.</div>
+                                            <% } else { %>
+                                            <div class="alert alert-warning" style="font-size: 0.85rem; padding: 8px;">No locations found.</div>
+                                            <% } %>
+                                        </div>
+                                    </div>
+
+                                    <div id="editCanSendNotificationsWrapper" style="display: none; margin-bottom: 15px;">
+                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
+                                            <input type="checkbox" id="editCanSendNotifications" style="width: auto; height: 18px; cursor: pointer;">
+                                            <label for="editCanSendNotifications" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can send notifications</label>
+                                        </div>
+                                    </div>
+
+                                    <div id="editSidebarAccessWrapper" style="display: none; margin-top: 25px;">
+                                        <h5 style="margin-bottom: 15px; font-size: 1rem; border-bottom: 1px solid #eaeaea; padding-bottom: 5px;">Sidebar Menu Access</h5>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                            <% const sidebarMenus = [
+                                                { id: 'dashboard', label: 'Dashboard' },
+                                                { id: 'newsList', label: 'News List' },
+                                                { id: 'addNews', label: 'Add News' },
+                                                { id: 'pendingNews', label: 'Pending News' },
+                                                { id: 'rejectedNews', label: 'Rejected News' },
+                                                { id: 'plagiarismReport', label: 'Plagiarism Report' },
+                                                { id: 'viralVideos', label: 'Viral Videos' },
+                                                { id: 'polls', label: 'Polls' },
+                                                { id: 'longVideos', label: 'Long Videos' },
+                                                { id: 'categories', label: 'Categories' },
+                                                { id: 'programCategories', label: 'Program Categories' },
+                                                { id: 'locations', label: 'Locations' },
+                                                { id: 'reports', label: 'Reports' }
+                                            ]; %>
+                                            <% sidebarMenus.forEach(menu => { %>
+                                                <div class="reg-field" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+                                                    <input type="checkbox" id="editSidebar_<%= menu.id %>" class="sidebar-menu-cb" data-menu="<%= menu.id %>" checked style="width: auto; height: 16px; cursor: pointer;">
+                                                    <label for="editSidebar_<%= menu.id %>" style="margin-bottom: 0; font-weight: normal; cursor: pointer;"><%= menu.label %></label>
+                                                </div>
+                                            <% }) %>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <div class="d-grid mt-4">
+                                    <button type="submit" class="reg-btn reg-btn--primary">Save Changes</button>
                                 </div>
                             </form>
                         </div>
@@ -476,6 +525,7 @@
                         document.getElementById('editCanViewReporterDetails').checked = permissions.canViewReporterDetails === true;
                         document.getElementById('editCanAccessAdminDashboard').checked = permissions.canAccessAdminDashboard === true;
                         document.getElementById('editCanApproveNews').checked = permissions.canApproveNews === true;
+                        document.getElementById('editCanSendNotifications').checked = permissions.canSendNotifications === true;
                         
                         // Populate sidebar permissions
                         const sidebarPerms = permissions.sidebar || {};
@@ -513,6 +563,7 @@
                             document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'block';
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'block';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'block';
+                            document.getElementById('editCanSendNotificationsWrapper').style.display = 'block';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'block';
                             if (document.getElementById('editCanApproveNews').checked) {
                                 document.getElementById('editManagedLocationsWrapper').style.display = 'block';
@@ -521,6 +572,7 @@
                             document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'none';
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'none';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'none';
+                            document.getElementById('editCanSendNotificationsWrapper').style.display = 'none';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'none';
                             document.getElementById('editManagedLocationsWrapper').style.display = 'none';
                         }
@@ -543,6 +595,7 @@
                             document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'block';
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'block';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'block';
+                            document.getElementById('editCanSendNotificationsWrapper').style.display = 'block';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'block';
                             if (document.getElementById('editCanApproveNews').checked) {
                                 document.getElementById('editManagedLocationsWrapper').style.display = 'block';
@@ -551,11 +604,13 @@
                             document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'none';
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'none';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'none';
+                            document.getElementById('editCanSendNotificationsWrapper').style.display = 'none';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'none';
                             document.getElementById('editManagedLocationsWrapper').style.display = 'none';
                             document.getElementById('editCanAccessAdminDashboard').checked = false;
                             document.getElementById('editCanViewReporterDetails').checked = false;
                             document.getElementById('editCanApproveNews').checked = false;
+                            document.getElementById('editCanSendNotifications').checked = false;
                         }
                     });
 
@@ -601,6 +656,7 @@
                             canViewReporterDetails: document.getElementById('editCanViewReporterDetails').checked,
                             canAccessAdminDashboard: document.getElementById('editCanAccessAdminDashboard').checked,
                             canApproveNews: document.getElementById('editCanApproveNews').checked,
+                            canSendNotifications: document.getElementById('editCanSendNotifications').checked,
                             approvalScope: document.getElementById('editApprovalScope').value,
                             managedLocations: managedLocations,
                             sidebar: sidebarData
