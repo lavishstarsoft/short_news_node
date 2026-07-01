@@ -594,7 +594,11 @@ mongoose.connect(mongoUri, {
     return createDefaultAdmin()
       .then(() => languageRegistry.seedDefaultLanguages())
       .then(() => languageRegistry.syncReporterDefaultLanguages())
-      .then(() => languageRegistry.refreshCache());
+      .then(() => {
+        languageRegistry.refreshCache();
+        const { refreshLanguageRanges } = require('./utils/languageUtils');
+        if (typeof refreshLanguageRanges === 'function') refreshLanguageRanges();
+      });
   })
   .catch((err) => {
     console.log('Failed to connect to MongoDB, using in-memory storage instead');

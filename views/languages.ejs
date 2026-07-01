@@ -173,6 +173,11 @@
                             <input type="text" class="form-control" id="languageNativeName" required>
                         </div>
                         <div class="mb-3">
+                            <label for="languageUnicodeRange" class="form-label">Unicode Range (Optional)</label>
+                            <input type="text" class="form-control" id="languageUnicodeRange" placeholder="e.g. \u0D00-\u0D7F">
+                            <div class="form-text">Used for language detection (Regex format)</div>
+                        </div>
+                        <div class="mb-3">
                             <label for="languageSortOrder" class="form-label">Sort Order</label>
                             <input type="number" class="form-control" id="languageSortOrder" value="0">
                         </div>
@@ -445,7 +450,12 @@
         function openAddLanguageModal() {
             document.getElementById('languageModalLabel').textContent = 'Add Language';
             document.getElementById('languageId').value = '';
+            document.getElementById('languageCode').value = '';
             document.getElementById('languageCode').disabled = false;
+            document.getElementById('languageName').value = '';
+            document.getElementById('languageNativeName').value = '';
+            document.getElementById('languageUnicodeRange').value = '';
+            document.getElementById('languageSortOrder').value = '0';
             document.getElementById('languageForm').reset();
             document.getElementById('languageActive').checked = true;
             document.getElementById('languageShowInUserApp').checked = true;
@@ -463,6 +473,7 @@
             document.getElementById('languageCode').disabled = false;
             document.getElementById('languageName').value = language.name;
             document.getElementById('languageNativeName').value = language.nativeName;
+            document.getElementById('languageUnicodeRange').value = language.unicodeRange || '';
             document.getElementById('languageSortOrder').value = language.sortOrder || 0;
             document.getElementById('languageActive').checked = language.isActive !== false;
             document.getElementById('languageShowInUserApp').checked = language.showInUserApp !== false;
@@ -476,6 +487,7 @@
                 code: document.getElementById('languageCode').value.trim(),
                 name: document.getElementById('languageName').value.trim(),
                 nativeName: document.getElementById('languageNativeName').value.trim(),
+                unicodeRange: document.getElementById('languageUnicodeRange').value.trim(),
                 sortOrder: Number(document.getElementById('languageSortOrder').value || 0),
                 isActive: document.getElementById('languageActive').checked,
                 showInUserApp: document.getElementById('languageShowInUserApp').checked,

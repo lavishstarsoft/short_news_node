@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const newsController = require('../controllers/newsController');
 const { requireAuth } = require('../controllers/adminController');
+const { checkLanguageMismatch } = require('../middleware/languageCheck');
 
 // Import Cloudinary upload middleware
 const { uploadMedia, uploadAdMedia } = require('../middleware/upload');
@@ -59,7 +60,7 @@ router.get('/test-toggle/:id', async (req, res) => {
 // API routes - Apply auth middleware only to routes that need it
 router.get('/api/news', requireAuth, newsController.getAllNews);
 router.get('/api/news/:id', requireAuth, newsController.getNewsById);
-router.post('/api/news', requireAuth, newsController.createNews);
+router.post('/api/news', requireAuth, checkLanguageMismatch, newsController.createNews);
 // Move toggle-status route to be more specific and avoid conflicts
 router.put('/api/news/:id/toggle-status', requireAuth, newsController.toggleNewsStatus);
 router.put('/api/news/:id/views', requireAuth, newsController.updateViewCount);
@@ -67,7 +68,7 @@ router.put('/api/news/:id/likes', requireAuth, newsController.updateLikeCount);
 router.put('/api/news/:id/dislikes', requireAuth, newsController.updateDislikeCount);
 router.put('/api/news/:id/comments/:commentId', requireAuth, newsController.updateNewsComment);
 router.delete('/api/news/:id/comments/:commentId', requireAuth, newsController.deleteNewsComment);
-router.put('/api/news/:id', requireAuth, newsController.updateNews);
+router.put('/api/news/:id', requireAuth, checkLanguageMismatch, newsController.updateNews);
 router.delete('/api/news/:id', requireAuth, newsController.deleteNews);
 
 // Media upload routes - Apply auth middleware

@@ -8,11 +8,18 @@ const {
 } = require('../services/languageRegistry');
 const { clearCache } = require('../middleware/cache');
 
+const { detectPrimaryLanguage, refreshLanguageRanges } = require('../utils/languageUtils');
+
 async function clearLanguageCaches() {
   invalidateCache();
   await refreshCache();
   await clearCache('cache:/api/public/languages*');
   await clearCache('cache:/api/public/news-display-config*');
+  
+  // Also refresh the dynamic Unicode ranges for language detection
+  if (typeof refreshLanguageRanges === 'function') {
+    await refreshLanguageRanges();
+  }
 }
 
 function normalizeCode(code) {
@@ -114,6 +121,8 @@ exports.createLanguage = async (req, res) => {
       req.body.showInUserApp !== false && req.body.showInUserApp !== 'false';
     const isDefault = req.body.isDefault === true || req.body.isDefault === 'true';
 
+    const unicodeRange = String(req.body.unicodeRange || '').trim();
+
     if (!code || code.length < 2) {
       return res.status(400).json({ error: 'Language code must be at least 2 characters' });
     }
@@ -137,6 +146,7 @@ exports.createLanguage = async (req, res) => {
       code,
       name,
       nativeName,
+      unicodeRange,
       sortOrder,
       isActive,
       showInUserApp,
@@ -176,6 +186,10 @@ exports.updateLanguage = async (req, res) => {
         return res.status(400).json({ error: 'Native name is required' });
       }
       language.nativeName = nativeName;
+    }
+
+    if (req.body.unicodeRange !== undefined) {
+      language.unicodeRange = String(req.body.unicodeRange).trim();
     }
 
     if (req.body.sortOrder !== undefined) {

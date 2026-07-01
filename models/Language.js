@@ -22,6 +22,11 @@ const languageSchema = new mongoose.Schema({
     trim: true,
     maxlength: 100
   },
+  unicodeRange: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   isActive: {
     type: Boolean,
     default: true

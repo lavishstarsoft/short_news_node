@@ -182,6 +182,29 @@
                 </div>
             </div>
 
+            <!-- Language Warning Modal -->
+            <div class="modal fade" id="languageWarningModal" tabindex="-1" aria-labelledby="languageWarningModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content" style="border-radius: 20px; border: 2px solid #ffc107; box-shadow: 0 10px 30px rgba(255, 193, 7, 0.2);">
+                        <div class="modal-body text-center p-4">
+                            <div class="mb-3">
+                                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#ffc107" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                </svg>
+                            </div>
+                            <h4 class="mb-3" style="font-weight: 700; color: #333;">Language Mismatch</h4>
+                            <p id="languageWarningText" class="text-muted mb-4">You selected English but content is in Telugu.</p>
+                            <div class="d-flex justify-content-center gap-3">
+                                <button type="button" class="btn btn-light px-4 py-2 rounded-3 fw-bold" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-warning px-4 py-2 rounded-3 fw-bold text-white" onclick="saveNews(true)">Proceed Anyway</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <%- include('partials/footer') %>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
                 <script src="/js/rich-text.js"></script>
@@ -241,8 +264,10 @@
                     }
 
                     // Add News Function
-                    async function saveNews() {
+                    async function saveNews(ignoreLanguageWarning = false) {
                         syncAllEditors();
+
+                        const isIgnoreWarning = typeof ignoreLanguageWarning === 'boolean' ? ignoreLanguageWarning : false;
 
                         const newsId = document.getElementById('newsId').value;
                         const title = document.getElementById('title').value.trim();
@@ -277,7 +302,8 @@
                             mediaType,
                             thumbnailUrl,
                             category,
-                            language
+                            language,
+                            ignoreLanguageWarning: isIgnoreWarning
                         };
 
                         try {
@@ -330,6 +356,13 @@
 
                             hideLoader();
                             if (response.ok) {
+                                // hide warning modal if open
+                                const warnModalEl = document.getElementById('languageWarningModal');
+                                if (warnModalEl) {
+                                    const warnModal = bootstrap.Modal.getInstance(warnModalEl);
+                                    if (warnModal) warnModal.hide();
+                                }
+                                
                                 const responseData = await response.json();
 
                                 if (newsId) {
@@ -346,6 +379,26 @@
                                     }, 1500);
                                 }
                             } else {
+                                if (response.status === 409) {
+                                    try {
+                                        const errorData = await response.json();
+                                        const detected = (errorData.detectedLanguage || '').toUpperCase();
+                                        const expected = (errorData.expectedCategory || '').toUpperCase();
+                                        
+                                        if (detected && expected) {
+                                            const styledDetected = `<span style="font-size: 1.15em; font-weight: 900; color: #dc3545; text-transform: uppercase; background: #fff5f5; padding: 3px 8px; border-radius: 6px; border: 1px solid #f5c2c7; display: inline-block; margin: 0 4px;">${detected}</span>`;
+                                            const styledExpected = `<span style="font-size: 1.15em; font-weight: 900; color: #dc3545; text-transform: uppercase; background: #fff5f5; padding: 3px 8px; border-radius: 6px; border: 1px solid #f5c2c7; display: inline-block; margin: 0 4px;">${expected}</span>`;
+                                            document.getElementById('languageWarningText').innerHTML = `This content appears to be in ${styledDetected} <br> but you selected ${styledExpected}.`;
+                                        } else {
+                                            document.getElementById('languageWarningText').textContent = errorData.message || 'Language mismatch detected.';
+                                        }
+                                    } catch (e) {
+                                        document.getElementById('languageWarningText').textContent = 'Language mismatch detected.';
+                                    }
+                                    const warnModal = new bootstrap.Modal(document.getElementById('languageWarningModal'));
+                                    warnModal.show();
+                                    return;
+                                }
                                 const errorText = await response.text();
                                 try {
                                     const error = JSON.parse(errorText);
@@ -396,7 +449,7 @@
                         const saveBtnIds = ['saveNewsButton', 'saveNewsButtonMobile', 'saveNewsButtonDesktop', 'saveNewsBtn'];
                         saveBtnIds.forEach(id => {
                             const btn = document.getElementById(id);
-                            if (btn) btn.addEventListener('click', saveNews);
+                            if (btn) btn.addEventListener('click', (e) => saveNews(false));
                         });
 
                         const languageSelect = document.getElementById('language');
