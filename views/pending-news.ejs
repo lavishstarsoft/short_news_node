@@ -773,73 +773,106 @@
                 document.getElementById('previewModal').classList.remove('active');
             }
 
+            function updatePendingEmptyState() {
+                const countBadge = document.getElementById('pendingCount');
+                if (countBadge) {
+                    const currentCount = parseInt(countBadge.textContent || '0', 10);
+                    countBadge.textContent = Math.max(0, currentCount - 1);
+                }
+                const grid = document.getElementById('newsGrid');
+                if (grid && grid.children.length === 0) {
+                    const tableWrapper = document.querySelector('.table-wrapper');
+                    if (tableWrapper) {
+                        tableWrapper.innerHTML = `
+                            <div class="empty-state pn-empty">
+                                <div class="empty-state-icon pn-empty-icon"><i class="fas fa-circle-check"></i></div>
+                                <h3>All caught up</h3>
+                                <p>No pending submissions waiting for review.</p>
+                            </div>
+                        `;
+                    }
+                }
+            }
+
             function approveNews(newsId, newsTitle, ignoreLanguageWarning = false) {
                 if (!ignoreLanguageWarning) {
-                    if (!confirm(`Publish "${newsTitle}"?`)) return;
+                    Swal.fire({
+                        title: 'Confirm Approval',
+                        text: `Do you want to publish "${newsTitle}"?`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, Publish',
+                        cancelButtonText: 'Cancel'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            executeApproval(newsId, newsTitle, false);
+                        }
+                    });
+                } else {
+                    executeApproval(newsId, newsTitle, true);
                 }
+            }
 
+            function executeApproval(newsId, newsTitle, ignoreLanguageWarning) {
                 fetch(`/admin/api/news/${newsId}/approve`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ignoreLanguageWarning })
                 })
-                    .then(async res => {
-                        if (res.status === 409) {
-                            const errorData = await res.json();
-                            if (confirm(errorData.message + '\n\nDo you want to publish it anyway? (Publish Anyway)')) {
-                                approveNews(newsId, newsTitle, true);
+                .then(async res => {
+                    if (res.status === 409) {
+                        const errorData = await res.json();
+                        Swal.fire({
+                            title: 'Language Mismatch',
+                            html: errorData.message + '<br><br><b>Do you want to publish it anyway?</b>',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#3085d6',
+                            cancelButtonColor: '#d33',
+                            confirmButtonText: 'Publish Anyway',
+                            cancelButtonText: 'Cancel'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                executeApproval(newsId, newsTitle, true);
                             }
-                            throw new Error('Language Warning Handled'); // Stop further processing for this chain
-                        }
-                        return res.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            // 🔔 Ask admin if they want to send OneSignal push notification
-                            const sendPush = confirm('✅ News approved!\n\n🔔 Push notification పంపించాలా?\n(OneSignal - phone notification)');
+                        });
+                        return null; // Skip next then block
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    if (!data) return; // Handled by language warning
 
-                            if (sendPush) {
-                                // Send OneSignal notification
+                    if (data.success) {
+                        Swal.fire({
+                            title: 'News Approved!',
+                            text: 'Do you want to send a Push Notification? (OneSignal)',
+                            icon: 'success',
+                            showCancelButton: true,
+                            confirmButtonColor: '#28a745',
+                            cancelButtonColor: '#6c757d',
+                            confirmButtonText: 'Yes, Send Push',
+                            cancelButtonText: 'No, Just Publish'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
                                 sendPushNotificationForNews(newsId, newsTitle, data.news);
                             } else {
-                                alert('✅ News published! (Push notification పంపలేదు)');
+                                Swal.fire('Published!', 'News published without push notification.', 'success');
                             }
-
-                            // location.reload();
-                            // Instead of reloading, remove card from DOM
+                            
                             const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
                             if (card) card.remove();
                             closePreview();
-                            
-                            // Update badge count
-                            const countBadge = document.getElementById('pendingCount');
-                            if (countBadge) {
-                                const currentCount = parseInt(countBadge.textContent || '0', 10);
-                                countBadge.textContent = Math.max(0, currentCount - 1);
-                            }
-                            
-                            // Show empty state if grid is empty
-                            const grid = document.getElementById('newsGrid');
-                            if (grid && grid.children.length === 0) {
-                                const tableWrapper = document.querySelector('.table-wrapper');
-                                if (tableWrapper) {
-                                    tableWrapper.innerHTML = `
-                                        <div class="empty-state pn-empty">
-                                            <div class="empty-state-icon pn-empty-icon"><i class="fas fa-circle-check"></i></div>
-                                            <h3>All caught up</h3>
-                                            <p>No pending submissions waiting for review.</p>
-                                        </div>
-                                    `;
-                                }
-                            }
-                        } else {
-                            alert('❌ Error: ' + data.error);
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Error:', err);
-                        alert('❌ Failed to approve news');
-                    });
+                            updatePendingEmptyState();
+                        });
+                    } else {
+                        Swal.fire('Error', data.error, 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    Swal.fire('Error', 'Failed to approve news', 'error');
+                });
             }
 
             // 🔔 Send OneSignal push notification for approved news

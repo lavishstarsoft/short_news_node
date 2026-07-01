@@ -583,9 +583,20 @@
                                     location.reload();
                                 } else if (response.status === 409) {
                                     const errorData = await response.json();
-                                    if (confirm(errorData.message + '\n\nDo you want to publish it anyway? (Publish Anyway)')) {
-                                        toggleNewsStatus(newsId, true);
-                                    }
+                                    Swal.fire({
+                                        title: 'Language Mismatch',
+                                        html: errorData.message + '<br><br><b>Do you want to publish it anyway?</b>',
+                                        icon: 'warning',
+                                        showCancelButton: true,
+                                        confirmButtonColor: '#3085d6',
+                                        cancelButtonColor: '#d33',
+                                        confirmButtonText: 'Publish Anyway',
+                                        cancelButtonText: 'Cancel'
+                                    }).then((result) => {
+                                        if (result.isConfirmed) {
+                                            toggleNewsStatus(newsId, true);
+                                        }
+                                    });
                                 } else {
                                     const errorData = await response.json().catch(() => ({}));
                                     const errorMessage = errorData.error || 'Failed to toggle news status';
