@@ -253,6 +253,14 @@ const login = async (req, res) => {
       return res.render('login', { error: 'Account is deactivated' });
     }
 
+    // Restrict access for editors and subeditors to the admin dashboard
+    if (admin.role === 'editor') {
+      return res.render('login', { error: 'You only have access to the Reporters Portal' });
+    }
+    if (admin.role === 'subeditor' && (!admin.permissions || !admin.permissions.canAccessAdminDashboard)) {
+      return res.render('login', { error: 'You only have access to the Reporters Portal' });
+    }
+
     // Compare password
     let isMatch;
     if (isConnectedToMongoDB) {
@@ -328,7 +336,12 @@ const login = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: isConnectedToMongoDB ? admin._id : admin.id, username: admin.username, role: admin.role },
+      { 
+        id: isConnectedToMongoDB ? admin._id : admin.id, 
+        username: admin.username, 
+        role: admin.role,
+        permissions: admin.permissions || {}
+      },
       getJwtSecret(),
       { expiresIn: '24h' }
     );
@@ -1378,7 +1391,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, assignedLocations, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings } = req.body;
+    const { name, displayRole, location, assignedLocations, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, sidebar } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -1411,6 +1424,32 @@ async function updateEditor(req, res) {
       }
     }
 
+    if (canViewReporterDetails !== undefined || canAccessAdminDashboard !== undefined || canApproveNews !== undefined) {
+      if (!editor.permissions) editor.permissions = {};
+      if (canViewReporterDetails !== undefined) {
+        editor.permissions.canViewReporterDetails = canViewReporterDetails === 'true' || canViewReporterDetails === true;
+      }
+      if (canAccessAdminDashboard !== undefined) {
+        editor.permissions.canAccessAdminDashboard = canAccessAdminDashboard === 'true' || canAccessAdminDashboard === true;
+      }
+      if (canApproveNews !== undefined) {
+        editor.permissions.canApproveNews = canApproveNews === 'true' || canApproveNews === true;
+      }
+    }
+    
+    if (sidebar !== undefined) {
+      if (!editor.permissions) editor.permissions = {};
+      if (!editor.permissions.sidebar) editor.permissions.sidebar = {};
+      
+      const sidebarFields = ['dashboard', 'newsList', 'addNews', 'pendingNews', 'rejectedNews', 'plagiarismReport', 'viralVideos', 'polls', 'longVideos', 'categories', 'programCategories', 'locations', 'reports'];
+      
+      sidebarFields.forEach(field => {
+        if (sidebar[field] !== undefined) {
+            editor.permissions.sidebar[field] = sidebar[field] === 'true' || sidebar[field] === true;
+        }
+      });
+    }
+
     // Update role if provided (only allow editor or subeditor)
     if (role !== undefined && (role === 'editor' || role === 'subeditor')) {
       editor.role = role;
@@ -1429,7 +1468,8 @@ async function updateEditor(req, res) {
         location: editor.location,
         constituency: editor.constituency,
         mobileNumber: editor.mobileNumber,
-        displaySettings: editor.displaySettings
+        displaySettings: editor.displaySettings,
+        permissions: editor.permissions
       }
     });
   } catch (error) {
@@ -1621,7 +1661,7 @@ async function registerEditor(req, res) {
       return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
 
-    const { username, email, password, name, displayRole, location, assignedLocations, constituency, mobileNumber, role, workingLanguage } = req.body;
+    const { username, email, password, name, displayRole, location, assignedLocations, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, sidebar } = req.body;
 
     // Validate required fields
     if (!username || !email || !password) {
@@ -1651,6 +1691,26 @@ async function registerEditor(req, res) {
       constituency: constituency || null,
       mobileNumber: mobileNumber || null,
       workingLanguage: normalizeNewsLanguage(workingLanguage),
+      permissions: {
+        canViewReporterDetails: canViewReporterDetails === 'true' || canViewReporterDetails === true,
+        canAccessAdminDashboard: canAccessAdminDashboard === 'true' || canAccessAdminDashboard === true,
+        canApproveNews: canApproveNews === 'true' || canApproveNews === true,
+        sidebar: sidebar ? {
+            dashboard: sidebar.dashboard === 'true' || sidebar.dashboard === true,
+            newsList: sidebar.newsList === 'true' || sidebar.newsList === true,
+            addNews: sidebar.addNews === 'true' || sidebar.addNews === true,
+            pendingNews: sidebar.pendingNews === 'true' || sidebar.pendingNews === true,
+            rejectedNews: sidebar.rejectedNews === 'true' || sidebar.rejectedNews === true,
+            plagiarismReport: sidebar.plagiarismReport === 'true' || sidebar.plagiarismReport === true,
+            viralVideos: sidebar.viralVideos === 'true' || sidebar.viralVideos === true,
+            polls: sidebar.polls === 'true' || sidebar.polls === true,
+            longVideos: sidebar.longVideos === 'true' || sidebar.longVideos === true,
+            categories: sidebar.categories === 'true' || sidebar.categories === true,
+            programCategories: sidebar.programCategories === 'true' || sidebar.programCategories === true,
+            locations: sidebar.locations === 'true' || sidebar.locations === true,
+            reports: sidebar.reports === 'true' || sidebar.reports === true
+        } : undefined
+      },
       createdBy: admin._id
     });
 
@@ -2315,10 +2375,40 @@ const requireAuth = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, getJwtSecret());
-    console.log('Token verified, admin:', decoded.username); // Debug log
-    req.admin = decoded;
-    res.locals.admin = decoded;
-    next();
+    
+    // Fetch latest admin data to ensure permissions are up to date
+    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
+    if (isConnectedToMongoDB) {
+        Admin.findById(decoded.id).select('permissions isActive role').then(latestAdmin => {
+            if (!latestAdmin || !latestAdmin.isActive) {
+                res.clearCookie('token');
+                if (isApiRequest) return res.status(401).json({ error: 'Session expired or account deactivated' });
+                return res.redirect('/login');
+            }
+            
+            // Check if role was changed to reporter, or if subeditor lost dashboard access
+            if (latestAdmin.role === 'reporter' || 
+                (latestAdmin.role === 'subeditor' && (!latestAdmin.permissions || !latestAdmin.permissions.canAccessAdminDashboard))) {
+                res.clearCookie('token');
+                if (isApiRequest) return res.status(403).json({ error: 'Access revoked' });
+                return res.redirect('/login');
+            }
+            
+            decoded.role = latestAdmin.role;
+            decoded.permissions = latestAdmin.permissions || {};
+            req.admin = decoded;
+            res.locals.admin = decoded;
+            next();
+        }).catch(err => {
+            req.admin = decoded;
+            res.locals.admin = decoded;
+            next();
+        });
+    } else {
+        req.admin = decoded;
+        res.locals.admin = decoded;
+        next();
+    }
   } catch (error) {
     console.log('Token verification failed:', error.message); // Debug log
     if (isApiRequest) {
@@ -2834,9 +2924,15 @@ async function renderPendingNewsPage(req, res) {
       .limit(100)
       .lean();
 
+    const authorIds = [...new Set(pendingNews.map(n => n.authorId).filter(Boolean))];
+    const authors = await Admin.find({ _id: { $in: authorIds } }).select('name email mobileNumber constituency').lean();
+    const authorMap = {};
+    authors.forEach(a => authorMap[a._id.toString()] = a);
+
     // Add empty duplicateCheck defaults so the template doesn't break
     const pendingNewsWithDefaults = pendingNews.map(article => ({
       ...article,
+      authorDetails: article.authorId ? authorMap[article.authorId.toString()] : null,
       duplicateCheck: {
         isDuplicate: false,
         isSuspicious: false,
@@ -3141,8 +3237,11 @@ async function approveNews(req, res) {
     let adminRole = 'Editor';
 
     if (adminId) {
-      const admin = await Admin.findById(adminId).select('username role').lean();
+      const admin = await Admin.findById(adminId).select('username role permissions').lean();
       if (admin) {
+        if (admin.role === 'subeditor' && (!admin.permissions || !admin.permissions.canApproveNews)) {
+          return res.status(403).json({ error: 'You do not have permission to approve news' });
+        }
         adminName = admin.username;
         // Format role for display
         if (admin.role === 'superadmin' || admin.role === 'admin') {
@@ -3319,8 +3418,11 @@ async function rejectNews(req, res) {
     let adminRole = 'Editor';
 
     if (adminId) {
-      const admin = await Admin.findById(adminId).select('username role').lean();
+      const admin = await Admin.findById(adminId).select('username role permissions').lean();
       if (admin) {
+        if (admin.role === 'subeditor' && (!admin.permissions || !admin.permissions.canApproveNews)) {
+          return res.status(403).json({ error: 'You do not have permission to reject news.' });
+        }
         adminName = admin.username;
         // Format role for display
         if (admin.role === 'superadmin' || admin.role === 'admin') {
@@ -3595,11 +3697,21 @@ async function renderRejectedNewsPage(req, res) {
     const stats = statsAgg[0] || { thisWeek: 0, withFeedback: 0 };
     const totalPages = Math.max(1, Math.ceil(totalFiltered / limit));
     const safePage = Math.min(page, totalPages);
+    
+    const authorIds = [...new Set(rejectedNews.map(n => n.authorId).filter(Boolean))];
+    const authors = await Admin.find({ _id: { $in: authorIds } }).select('name email mobileNumber constituency').lean();
+    const authorMap = {};
+    authors.forEach(a => authorMap[a._id.toString()] = a);
+
+    const rejectedNewsWithAuthors = rejectedNews.map(article => ({
+      ...article,
+      authorDetails: article.authorId ? authorMap[article.authorId.toString()] : null
+    }));
 
     res.render('rejected-news', {
       admin: req.admin,
       title: 'Rejected News',
-      rejectedNews: rejectedNews || [],
+      rejectedNews: rejectedNewsWithAuthors,
       searchQuery,
       reasonFilter,
       categoryFilter,

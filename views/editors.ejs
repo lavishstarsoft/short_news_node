@@ -249,6 +249,51 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="col-12 mt-2 mb-2" id="adminSettingsSection" style="display:none;">
+                                        <h6 class="fw-bold mb-3 border-bottom pb-2">Admin Dashboard Settings</h6>
+                                            <div class="form-check form-switch" id="editCanViewReporterDetailsWrapper">
+                                                <input class="form-check-input" type="checkbox" id="editCanViewReporterDetails">
+                                                <label class="form-check-label" for="editCanViewReporterDetails">Can View Reporter Details</label>
+                                            </div>
+                                            <div class="form-check form-switch" id="editCanAccessAdminDashboardWrapper">
+                                                <input class="form-check-input" type="checkbox" id="editCanAccessAdminDashboard">
+                                                <label class="form-check-label" for="editCanAccessAdminDashboard">Can Access Admin Dashboard (Sub-editors)</label>
+                                            </div>
+                                            <div class="form-check form-switch" id="editCanApproveNewsWrapper">
+                                                <input class="form-check-input" type="checkbox" id="editCanApproveNews">
+                                                <label class="form-check-label" for="editCanApproveNews">Can Approve/Reject News</label>
+                                            </div>
+                                            
+                                            <div id="editSidebarAccessWrapper" style="display: none; margin-top: 15px;">
+                                                <h6 class="fw-bold mb-2">Sidebar Menu Access</h6>
+                                                <div class="row g-2">
+                                                    <% const sidebarMenus = [
+                                                        { id: 'dashboard', label: 'Dashboard' },
+                                                        { id: 'newsList', label: 'News List' },
+                                                        { id: 'addNews', label: 'Add News' },
+                                                        { id: 'pendingNews', label: 'Pending News' },
+                                                        { id: 'rejectedNews', label: 'Rejected News' },
+                                                        { id: 'plagiarismReport', label: 'Plagiarism Report' },
+                                                        { id: 'viralVideos', label: 'Viral Videos' },
+                                                        { id: 'polls', label: 'Polls' },
+                                                        { id: 'longVideos', label: 'Long Videos' },
+                                                        { id: 'categories', label: 'Categories' },
+                                                        { id: 'programCategories', label: 'Program Categories' },
+                                                        { id: 'locations', label: 'Locations' },
+                                                        { id: 'reports', label: 'Reports' }
+                                                    ]; %>
+                                                    <% sidebarMenus.forEach(menu => { %>
+                                                        <div class="col-6">
+                                                            <div class="form-check">
+                                                                <input class="form-check-input sidebar-menu-cb" type="checkbox" id="editSidebar_<%= menu.id %>" data-menu="<%= menu.id %>" checked>
+                                                                <label class="form-check-label" for="editSidebar_<%= menu.id %>" style="font-size: 0.85rem;"><%= menu.label %></label>
+                                                            </div>
+                                                        </div>
+                                                    <% }) %>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="d-grid mt-3">
                                     <button type="submit" class="btn btn-primary text-white">Save Changes</button>
@@ -406,9 +451,61 @@
                         document.getElementById('editShowName').checked = displaySettings.showName !== false;
                         document.getElementById('editShowConstituency').checked = displaySettings.showConstituency !== false;
 
+                        const permissions = editor.permissions || {};
+                        document.getElementById('editCanViewReporterDetails').checked = permissions.canViewReporterDetails === true;
+                        document.getElementById('editCanAccessAdminDashboard').checked = permissions.canAccessAdminDashboard === true;
+                        document.getElementById('editCanApproveNews').checked = permissions.canApproveNews === true;
+                        
+                        // Populate sidebar permissions
+                        const sidebarPerms = permissions.sidebar || {};
+                        document.querySelectorAll('.sidebar-menu-cb').forEach(cb => {
+                            const menu = cb.getAttribute('data-menu');
+                            // Default to true if not explicitly false (backward compatibility)
+                            cb.checked = sidebarPerms[menu] !== false;
+                        });
+                        
+                        // Show/hide the dashboard access option and reporter details view based on role
+                        if (editor.role === 'subeditor') {
+                            document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'block';
+                            document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'block';
+                            document.getElementById('editCanApproveNewsWrapper').style.display = 'block';
+                            document.getElementById('editSidebarAccessWrapper').style.display = 'block';
+                        } else {
+                            document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'none';
+                            document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'none';
+                            document.getElementById('editCanApproveNewsWrapper').style.display = 'none';
+                            document.getElementById('editSidebarAccessWrapper').style.display = 'none';
+                        }
+
+                        // Only show admin settings for subeditors/editors if accessed by superadmin
+                        const currentAdminRole = '<%= admin.role %>';
+                        if (currentAdminRole === 'superadmin' || currentAdminRole === 'admin') {
+                            document.getElementById('adminSettingsSection').style.display = 'block';
+                        } else {
+                            document.getElementById('adminSettingsSection').style.display = 'none';
+                        }
+
                         const modal = new bootstrap.Modal(document.getElementById('editEditorModal'));
                         modal.show();
                     }
+
+                    // Toggle dashboard access options when role changes
+                    document.getElementById('editRole').addEventListener('change', function (e) {
+                        if (this.value === 'subeditor') {
+                            document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'block';
+                            document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'block';
+                            document.getElementById('editCanApproveNewsWrapper').style.display = 'block';
+                            document.getElementById('editSidebarAccessWrapper').style.display = 'block';
+                        } else {
+                            document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'none';
+                            document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'none';
+                            document.getElementById('editCanApproveNewsWrapper').style.display = 'none';
+                            document.getElementById('editSidebarAccessWrapper').style.display = 'none';
+                            document.getElementById('editCanAccessAdminDashboard').checked = false;
+                            document.getElementById('editCanViewReporterDetails').checked = false;
+                            document.getElementById('editCanApproveNews').checked = false;
+                        }
+                    });
 
                     // Handle Edit Form Submit
                     document.getElementById('editEditorForm').addEventListener('submit', function (e) {
@@ -416,6 +513,11 @@
                         const id = document.getElementById('editEditorId').value;
                         const selectEl = document.getElementById('editAssignedLocations');
                         const assignedLocations = Array.from(selectEl.selectedOptions).map(opt => opt.value).filter(val => val !== "");
+
+                        const sidebarData = {};
+                        document.querySelectorAll('.sidebar-menu-cb').forEach(cb => {
+                            sidebarData[cb.getAttribute('data-menu')] = cb.checked;
+                        });
 
                         const data = {
                             name: document.getElementById('editName').value,
@@ -430,7 +532,11 @@
                                 showProfileImage: document.getElementById('editShowProfileImage').checked,
                                 showName: document.getElementById('editShowName').checked,
                                 showConstituency: document.getElementById('editShowConstituency').checked
-                            }
+                            },
+                            canViewReporterDetails: document.getElementById('editCanViewReporterDetails').checked,
+                            canAccessAdminDashboard: document.getElementById('editCanAccessAdminDashboard').checked,
+                            canApproveNews: document.getElementById('editCanApproveNews').checked,
+                            sidebar: sidebarData
                         };
 
                         fetch(`/admin/editors/${id}`, {

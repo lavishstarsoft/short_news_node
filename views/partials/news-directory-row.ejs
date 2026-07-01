@@ -31,6 +31,7 @@
 
   const articleLang = news.language || 'te';
   const showAuthor = typeof admin !== 'undefined' && admin && admin.role !== 'editor';
+  const showFullDetails = typeof admin !== 'undefined' && admin && (admin.role === 'superadmin' || (admin.permissions && admin.permissions.canViewReporterDetails));
 %>
 <tr class="news-row"
     data-status="<%= statusKey %>"
@@ -84,7 +85,20 @@
   </td>
   <% if (showAuthor) { %>
   <td>
-    <div class="news-author" title="<%= news.author %>"><%= news.author %></div>
+    <div class="news-author author-details-block" style="display:flex; flex-direction:column; gap:2px; min-width:160px;" title="<%= news.author %>">
+      <% if (news.authorDetails && showFullDetails) { %>
+          <div style="font-weight: 600; color: #1e293b;"><i class="fas fa-user-circle" style="color:#3b82f6;"></i> <%= news.authorDetails.name || 'N/A' %></div>
+          <div style="font-size: 0.85rem; color: #64748b;"><%= news.authorDetails.email || news.author || 'N/A' %></div>
+          <% if (news.authorDetails.mobileNumber) { %>
+              <div style="font-size: 0.85rem; color: #64748b;"><%= news.authorDetails.mobileNumber %></div>
+          <% } %>
+          <% if (news.authorDetails.constituency) { %>
+              <div style="font-size: 0.85rem; color: #64748b;"><%= news.authorDetails.constituency %></div>
+          <% } %>
+      <% } else { %>
+          <div style="font-weight: 600; color: #1e293b;"><i class="fas fa-user-circle"></i> <%= news.author %></div>
+      <% } %>
+    </div>
   </td>
   <% } %>
   <td>

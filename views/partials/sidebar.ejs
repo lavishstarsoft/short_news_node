@@ -15,27 +15,42 @@
                         </div>
                     </div>
                 </div>
-                <% } %>
+            <% } %>
         </div>
         <ul class="nav flex-column">
+            <% 
+                var canView = function(menu) {
+                    if (typeof admin === 'undefined' || !admin) return false;
+                    if (admin.role !== 'subeditor') return true;
+                    if (!admin.permissions || !admin.permissions.sidebar) return true;
+                    return admin.permissions.sidebar[menu] !== false;
+                };
+            %>
+            <% if (canView('dashboard')) { %>
             <li class="nav-item">
                 <a class="nav-link ripple <%= activePage === 'dashboard' ? 'active' : '' %>" href="/news">
                     <i class="fas fa-home me-3"></i>
                     <span class="nav-text">Dashboard</span>
                 </a>
             </li>
+            <% } %>
+            <% if (canView('newsList')) { %>
             <li class="nav-item">
                 <a class="nav-link ripple <%= activePage === 'news-list' ? 'active' : '' %>" href="/news-list">
                     <i class="fas fa-newspaper me-3"></i>
                     <span class="nav-text">News List</span>
                 </a>
             </li>
+            <% } %>
+            <% if (canView('addNews')) { %>
             <li class="nav-item">
                 <a class="nav-link ripple <%= activePage === 'add-news' ? 'active' : '' %>" href="/add-news">
                     <i class="fas fa-plus-circle me-3"></i>
                     <span class="nav-text">Add News</span>
                 </a>
             </li>
+            <% } %>
+            <% if (canView('pendingNews')) { %>
             <li class="nav-item">
                 <a class="nav-link ripple <%= activePage === 'pending-news' ? 'active' : '' %>" href="/admin/pending-news">
                     <i class="fas fa-inbox me-3"></i>
@@ -43,36 +58,47 @@
                     <span class="badge bg-warning ms-2">Review</span>
                 </a>
             </li>
+            <% } %>
+            <% if (canView('rejectedNews')) { %>
             <li class="nav-item">
                 <a class="nav-link ripple <%= activePage === 'rejected-news' ? 'active' : '' %>" href="/admin/rejected-news">
                     <i class="fas fa-trash me-3"></i>
                     <span class="nav-text">Rejected News</span>
                 </a>
             </li>
+            <% } %>
+            <% if (canView('plagiarismReport')) { %>
             <li class="nav-item">
                 <a class="nav-link ripple <%= activePage === 'plagiarism-report' ? 'active' : '' %>" href="/admin/plagiarism-report">
                     <i class="fas fa-fingerprint me-3"></i>
                     <span class="nav-text">Plagiarism Report</span>
                 </a>
             </li>
+            <% } %>
+            <% if (canView('viralVideos')) { %>
             <li class="nav-item">
                 <a class="nav-link ripple <%= activePage === 'viral-videos' ? 'active' : '' %>" href="/viral-videos">
                     <i class="fas fa-video me-3"></i>
                     <span class="nav-text">Viral Videos</span>
                 </a>
             </li>
+            <% } %>
+            <% if (canView('polls')) { %>
             <li class="nav-item">
                 <a class="nav-link ripple <%= activePage === 'polls' ? 'active' : '' %>" href="/admin/polls">
                     <i class="fas fa-poll me-3"></i>
                     <span class="nav-text">Polls</span>
                 </a>
             </li>
+            <% } %>
+            <% if (canView('longVideos')) { %>
             <li class="nav-item">
                 <a class="nav-link ripple <%= activePage === 'long-videos' ? 'active' : '' %>" href="/long-videos">
                     <i class="fas fa-tv me-3"></i>
                     <span class="nav-text">Long Videos / Programs</span>
                 </a>
             </li>
+            <% } %>
             <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
                 admin.role==='superadmin' )) { %>
                 <li class="nav-item">
@@ -128,7 +154,8 @@
                         <span class="nav-text">Users</span>
                     </a>
                 </li>
-                <% } %>
+            <% } %>
+            <% if (canView('categories')) { %>
                     <li class="nav-item">
                         <a class="nav-link ripple <%= activePage === 'categories' ? 'active' : '' %>"
                             href="/categories">
@@ -136,6 +163,8 @@
                             <span class="nav-text">Categories</span>
                         </a>
                     </li>
+            <% } %>
+            <% if (canView('programCategories')) { %>
                     <li class="nav-item">
                         <a class="nav-link ripple <%= activePage === 'program-categories' ? 'active' : '' %>"
                             href="/categories?type=program">
@@ -143,12 +172,15 @@
                             <span class="nav-text">Program Categories</span>
                         </a>
                     </li>
+            <% } %>
+            <% if (canView('locations')) { %>
                     <li class="nav-item">
                         <a class="nav-link ripple <%= activePage === 'locations' ? 'active' : '' %>" href="/locations">
                             <i class="fas fa-map-marker-alt me-3"></i>
                             <span class="nav-text">Locations</span>
                         </a>
                     </li>
+            <% } %>
                     <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
                         admin.role==='superadmin' )) { %>
                         <li class="nav-item">
@@ -158,6 +190,7 @@
                             </a>
                         </li>
                     <% } %>
+            <% if (canView('reports')) { %>
                     <li class="nav-item">
                         <a class="nav-link ripple <%= activePage === 'reports' ? 'active' : '' %>"
                             href="/admin/reports">
@@ -165,6 +198,7 @@
                             <span class="nav-text">Reports</span>
                         </a>
                     </li>
+            <% } %>
 
                     <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
                         admin.role==='superadmin' )) { %>
@@ -182,7 +216,7 @@
                                 <span class="nav-text">OneSignal Analytics</span>
                             </a>
                         </li>
-                        <% } %>
+                    <% } %>
                     <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
                         admin.role==='superadmin' )) { %>
                         <li class="nav-item">
@@ -199,7 +233,7 @@
                                 <span class="nav-text">R2 Usage</span>
                             </a>
                         </li>
-                        <% } %>
+                    <% } %>
                             <li class="nav-item">
                                 <a class="nav-link ripple <%= activePage === 'profile' ? 'active' : '' %>"
                                     href="/admin/profile">

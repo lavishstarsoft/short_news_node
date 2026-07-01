@@ -121,7 +121,25 @@
                                                             <% if (article.views) { %> · <%= article.views %> views<% } %>
                                                         </div>
                                                     </td>
-                                                    <td><span class="rn-author"><%= article.author || 'N/A' %></span></td>
+                                                    <% 
+                                                        const showFullDetails = admin.role === 'superadmin' || (admin.permissions && admin.permissions.canViewReporterDetails);
+                                                    %>
+                                                    <td>
+                                                        <div class="rn-author author-details-block" style="display:flex; flex-direction:column; gap:2px; min-width:160px;">
+                                                            <% if (article.authorDetails && showFullDetails) { %>
+                                                                <div style="font-weight: 600; color: #1e293b;"><i class="fas fa-user-circle" style="color:#3b82f6;"></i> <%= article.authorDetails.name || 'N/A' %></div>
+                                                                <div style="font-size: 0.85rem; color: #64748b;"><%= article.authorDetails.email || article.author || 'N/A' %></div>
+                                                                <% if (article.authorDetails.mobileNumber) { %>
+                                                                    <div style="font-size: 0.85rem; color: #64748b;"><%= article.authorDetails.mobileNumber %></div>
+                                                                <% } %>
+                                                                <% if (article.authorDetails.constituency) { %>
+                                                                    <div style="font-size: 0.85rem; color: #64748b;"><%= article.authorDetails.constituency %></div>
+                                                                <% } %>
+                                                            <% } else { %>
+                                                                <div style="font-weight: 600; color: #1e293b;"><i class="fas fa-user-circle"></i> <%= article.author || 'N/A' %></div>
+                                                            <% } %>
+                                                        </div>
+                                                    </td>
                                                     <td>
                                                         <span class="rn-pill rn-pill-category"><%= article.category || 'N/A' %></span>
                                                         <% if (article.location) { %>
@@ -285,6 +303,7 @@
                         _id: a._id,
                         title: a.title,
                         author: a.author || '',
+                        authorDetails: a.authorDetails || null,
                         category: a.category || '',
                         location: a.location || '',
                         language: a.language || '',
@@ -389,6 +408,8 @@
                         .replace(/"/g, '&quot;');
                 }
 
+                const canViewReporterDetails = <%= admin.role === 'superadmin' || (admin.permissions && admin.permissions.canViewReporterDetails) ? 'true' : 'false' %>;
+
                 function formatDateTime(value) {
                     if (!value) return '—';
                     const d = new Date(value);
@@ -441,7 +462,14 @@
                             '<div class="rn-detail-item"><div class="rn-detail-label">Rejected by</div><div class="rn-detail-value">' + escapeHtml(rejection.rejectedBy || 'Unknown') + '</div></div>' +
                             '<div class="rn-detail-item"><div class="rn-detail-label">Role</div><div class="rn-detail-value">' + escapeHtml(rejection.rejectedByRole || 'Editor') + '</div></div>' +
                             '<div class="rn-detail-item"><div class="rn-detail-label">Rejected at</div><div class="rn-detail-value">' + formatDateTime(rejection.rejectedAt) + '</div></div>' +
-                            '<div class="rn-detail-item"><div class="rn-detail-label">Author</div><div class="rn-detail-value">' + escapeHtml(article.author || 'N/A') + '</div></div>' +
+                            '<div class="rn-detail-item" style="grid-column: 1 / -1;"><div class="rn-detail-label">Reporter Details</div><div class="rn-detail-value" style="background:#f8f9fa; padding:10px; border-radius:8px;">' +
+                                (article.authorDetails && canViewReporterDetails ? `
+                                    <div style="font-weight:600; color:#1e293b;"><i class="fas fa-user-circle" style="color:#3b82f6;"></i> ${escapeHtml(article.authorDetails.name || 'N/A')}</div>
+                                    <div style="font-size: 0.9rem; color:#475569;">${escapeHtml(article.authorDetails.email || article.author)}</div>
+                                    ${article.authorDetails.mobileNumber ? `<div style="font-size: 0.9rem; color:#475569;">${escapeHtml(article.authorDetails.mobileNumber)}</div>` : ''}
+                                    ${article.authorDetails.constituency ? `<div style="font-size: 0.9rem; color:#475569;">${escapeHtml(article.authorDetails.constituency)}</div>` : ''}
+                                ` : escapeHtml(article.author || 'N/A')) +
+                            '</div></div>' +
                             '<div class="rn-detail-item"><div class="rn-detail-label">Views</div><div class="rn-detail-value">' + (article.views || 0).toLocaleString() + '</div></div>' +
                         '</div>' +
                     '</div>';

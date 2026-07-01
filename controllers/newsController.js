@@ -356,12 +356,14 @@ async function renderNewsListPage(req, res) {
       });
 
       const authorIds = [...new Set(newsList.map(news => news.authorId).filter(Boolean))];
-      const authors = await Admin.find({ _id: { $in: authorIds } }).select('_id role displayRole').lean();
+      const authors = await Admin.find({ _id: { $in: authorIds } }).select('_id role displayRole name email mobileNumber constituency').lean();
       const authorRoleMap = {};
       const authorSystemRoleMap = {};
+      const authorDetailsMap = {};
       authors.forEach(author => {
         authorRoleMap[author._id.toString()] = getAuthorRoleLabel(author);
         authorSystemRoleMap[author._id.toString()] = author.role || 'editor';
+        authorDetailsMap[author._id.toString()] = author;
       });
 
       // Add location codes to news items
@@ -370,7 +372,8 @@ async function renderNewsListPage(req, res) {
           ...news.toObject(),
           locationCode: news.location ? locationMap[news.location] : null,
           authorRole: authorRoleMap[news.authorId] || 'Reporter',
-          authorSystemRole: authorSystemRoleMap[news.authorId] || 'editor'
+          authorSystemRole: authorSystemRoleMap[news.authorId] || 'editor',
+          authorDetails: authorDetailsMap[news.authorId] || null
         };
       });
 

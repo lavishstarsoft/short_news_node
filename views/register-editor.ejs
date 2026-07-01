@@ -156,6 +156,67 @@
                                     </div>
                                 </section>
 
+                                <% if (admin.role === 'superadmin' || admin.role === 'admin') { %>
+                                <section class="reg-form-section">
+                                    <div class="reg-section-head">
+                                        <span class="reg-section-icon reg-section-icon--settings" style="background: rgba(30, 41, 59, 0.1); color: #1e293b;"><i class="fas fa-cog"></i></span>
+                                        <div>
+                                            <h2 class="reg-section-title">Admin Dashboard Settings</h2>
+                                            <p class="reg-section-desc">Additional access options for dashboard</p>
+                                        </div>
+                                    </div>
+                                    <div id="viewReporterDetailsWrapper" style="display: none;">
+                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                                            <input type="checkbox" id="canViewReporterDetails" name="canViewReporterDetails" value="true" style="width: auto; height: 18px; cursor: pointer;">
+                                            <label for="canViewReporterDetails" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can view reporter details</label>
+                                        </div>
+                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -10px; margin-bottom: 15px;">Allows this member to see the full details (Email, Phone, Constituency) of reporters in the news list.</div>
+                                    </div>
+                                    
+                                    <div id="dashboardAccessWrapper" style="display: none;">
+                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                                            <input type="checkbox" id="canAccessAdminDashboard" name="canAccessAdminDashboard" value="true" style="width: auto; height: 18px; cursor: pointer;">
+                                            <label for="canAccessAdminDashboard" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can access admin dashboard</label>
+                                        </div>
+                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -10px; margin-bottom: 15px;">Allows this sub-editor to log in to this admin dashboard.</div>
+                                    </div>
+                                    
+                                    <div id="approveNewsWrapper" style="display: none;">
+                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                                            <input type="checkbox" id="canApproveNews" name="canApproveNews" value="true" style="width: auto; height: 18px; cursor: pointer;">
+                                            <label for="canApproveNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can approve/reject news</label>
+                                        </div>
+                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -10px;">Allows this sub-editor to approve or reject pending news.</div>
+                                    </div>
+                                    <div id="sidebarAccessWrapper" style="display: none; margin-top: 20px;">
+                                        <h5 style="margin-bottom: 15px; font-size: 1rem; border-bottom: 1px solid #eaeaea; padding-bottom: 5px;">Sidebar Menu Access</h5>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                            <% const menus = [
+                                                { id: 'dashboard', label: 'Dashboard' },
+                                                { id: 'newsList', label: 'News List' },
+                                                { id: 'addNews', label: 'Add News' },
+                                                { id: 'pendingNews', label: 'Pending News' },
+                                                { id: 'rejectedNews', label: 'Rejected News' },
+                                                { id: 'plagiarismReport', label: 'Plagiarism Report' },
+                                                { id: 'viralVideos', label: 'Viral Videos' },
+                                                { id: 'polls', label: 'Polls' },
+                                                { id: 'longVideos', label: 'Long Videos / Programs' },
+                                                { id: 'categories', label: 'Categories' },
+                                                { id: 'programCategories', label: 'Program Categories' },
+                                                { id: 'locations', label: 'Locations' },
+                                                { id: 'reports', label: 'Reports' }
+                                            ]; %>
+                                            <% menus.forEach(menu => { %>
+                                                <div class="reg-field" style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                                                    <input type="checkbox" id="sidebar_<%= menu.id %>" name="sidebar[<%= menu.id %>]" value="true" checked style="width: auto; height: 16px; cursor: pointer;">
+                                                    <label for="sidebar_<%= menu.id %>" style="margin-bottom: 0; font-size: 0.9rem; cursor: pointer;"><%= menu.label %></label>
+                                                </div>
+                                            <% }) %>
+                                        </div>
+                                    </div>
+                                </section>
+                                <% } %>
+
                                 <div class="reg-form-footer">
                                     <button type="submit" class="reg-submit-btn" id="submitBtn">
                                         <i class="fas fa-user-plus"></i> Create team member
@@ -249,6 +310,28 @@
                         el.querySelector('i').className = 'fas fa-times';
                     }
                 });
+
+                const dashboardAccessWrapper = document.getElementById('dashboardAccessWrapper');
+                const viewReporterDetailsWrapper = document.getElementById('viewReporterDetailsWrapper');
+                const approveNewsWrapper = document.getElementById('approveNewsWrapper');
+                const sidebarAccessWrapper = document.getElementById('sidebarAccessWrapper');
+                
+                if (dashboardAccessWrapper && viewReporterDetailsWrapper && approveNewsWrapper && sidebarAccessWrapper) {
+                    if (role === 'subeditor') {
+                        dashboardAccessWrapper.style.display = 'block';
+                        viewReporterDetailsWrapper.style.display = 'block';
+                        approveNewsWrapper.style.display = 'block';
+                        sidebarAccessWrapper.style.display = 'block';
+                    } else {
+                        dashboardAccessWrapper.style.display = 'none';
+                        viewReporterDetailsWrapper.style.display = 'none';
+                        approveNewsWrapper.style.display = 'none';
+                        sidebarAccessWrapper.style.display = 'none';
+                        document.getElementById('canAccessAdminDashboard').checked = false;
+                        document.getElementById('canViewReporterDetails').checked = false;
+                        document.getElementById('canApproveNews').checked = false;
+                    }
+                }
             }
 
             roleCards.forEach(function (card) {

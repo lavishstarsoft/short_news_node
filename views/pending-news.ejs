@@ -147,6 +147,10 @@
 
                                 <div class="team-panel pn-panel">
                                     <div class="table-wrapper" id="pendingTableWrapper">
+                                        <% 
+                                            const showFullDetails = admin.role === 'superadmin' || (admin.permissions && admin.permissions.canViewReporterDetails);
+                                            const canApproveNews = admin.role === 'superadmin' || admin.role === 'admin' || (admin.role === 'subeditor' && admin.permissions && admin.permissions.canApproveNews);
+                                        %>
                                         <% if (pendingNews && pendingNews.length > 0) { %>
                                             <div class="news-grid" id="newsGrid">
                                                 <% pendingNews.forEach((news) => { %>
@@ -182,7 +186,20 @@
                                                             </div>
 
                                                             <div class="news-card-meta">
-                                                                <div class="meta-item"><i class="fas fa-user"></i><span><%= news.author %></span></div>
+                                                                <div class="meta-item author-details-block" style="display:flex; flex-direction:column; gap:4px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 8px; width: 100%;">
+                                                                    <% if (news.authorDetails && showFullDetails) { %>
+                                                                        <div style="font-weight: 600; color: #1e293b;"><i class="fas fa-user-circle" style="color:#3b82f6;"></i> <%= news.authorDetails.name || 'N/A' %></div>
+                                                                        <div style="font-size: 0.85rem; color: #64748b;"><i class="fas fa-envelope"></i> <%= news.authorDetails.email || news.author || 'N/A' %></div>
+                                                                        <% if (news.authorDetails.mobileNumber) { %>
+                                                                            <div style="font-size: 0.85rem; color: #64748b;"><i class="fas fa-phone-alt"></i> <%= news.authorDetails.mobileNumber %></div>
+                                                                        <% } %>
+                                                                        <% if (news.authorDetails.constituency) { %>
+                                                                            <div style="font-size: 0.85rem; color: #64748b;"><i class="fas fa-map-marker-alt"></i> <%= news.authorDetails.constituency %></div>
+                                                                        <% } %>
+                                                                    <% } else { %>
+                                                                        <div style="font-weight: 600; color: #1e293b;"><i class="fas fa-user-circle"></i> <%= news.author %></div>
+                                                                    <% } %>
+                                                                </div>
                                                                 <div class="meta-item"><i class="fas fa-map-marker-alt"></i><span><%= news.location || 'N/A' %></span></div>
                                                                 <div class="meta-item"><i class="fas fa-calendar"></i><span><%= new Date(news.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) %></span></div>
                                                             </div>
@@ -201,8 +218,10 @@
                                                                 <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
                                                                     <button type="button" class="btn-duplicate" onclick="viewDuplicates('<%= news._id %>')"><i class="fas fa-clone"></i> Duplicates</button>
                                                                 <% } %>
-                                                                <button type="button" class="btn-approve" onclick='approveNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-check"></i> Approve</button>
-                                                                <button type="button" class="btn-reject" onclick='rejectNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-xmark"></i> Reject</button>
+                                                                <% if (canApproveNews) { %>
+                                                                    <button type="button" class="btn-approve" onclick='approveNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-check"></i> Approve</button>
+                                                                    <button type="button" class="btn-reject" onclick='rejectNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-xmark"></i> Reject</button>
+                                                                <% } %>
                                                             </div>
                                                         </div>
                                                     </article>
@@ -382,6 +401,8 @@
                     .replace(/'/g, '&#039;');
             }
 
+            const canViewReporterDetails = <%= admin.role === 'superadmin' || (admin.permissions && admin.permissions.canViewReporterDetails) ? 'true' : 'false' %>;
+            const canApproveNewsJs = <%= admin.role === 'superadmin' || admin.role === 'admin' || (admin.role === 'subeditor' && admin.permissions && admin.permissions.canApproveNews) ? 'true' : 'false' %>;
             const newsLanguageLabels = <%- JSON.stringify(typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' }) %>;
 
             function getLanguageLabel(code) {
@@ -402,6 +423,7 @@
                     newsDataCache['<%= news._id %>'] = {
                         title: <%- JSON.stringify(news.title || '') %>,
                         author: <%- JSON.stringify(news.author || '') %>,
+                        authorDetails: <%- JSON.stringify(news.authorDetails || null) %>,
                         category: <%- JSON.stringify(news.category || 'Uncategorized') %>,
                         location: <%- JSON.stringify(news.location || 'Not specified') %>,
                         content: <%- JSON.stringify(news.content || '') %>,
@@ -553,9 +575,18 @@
 
                 let previewHTML = `
                     <div class="modal-meta pn-modal-meta">
-                        <div class="modal-meta-item pn-modal-meta-item">
-                            <strong>Reporter</strong>
-                            ${escapeHtml(news.author)}
+                        <div class="modal-meta-item pn-modal-meta-item" style="flex: 1 1 100%;">
+                            <strong>Reporter Details</strong>
+                            <div style="background: #f1f5f9; padding: 8px; border-radius: 6px; margin-top: 4px; font-size: 0.9rem;">
+                                ${news.authorDetails && canViewReporterDetails ? `
+                                    <div style="font-weight:600; color:#0f172a;"><i class="fas fa-user-circle" style="color:#3b82f6;"></i> ${escapeHtml(news.authorDetails.name || 'N/A')}</div>
+                                    <div style="color:#475569;"><i class="fas fa-envelope"></i> ${escapeHtml(news.authorDetails.email || news.author)}</div>
+                                    ${news.authorDetails.mobileNumber ? `<div style="color:#475569;"><i class="fas fa-phone-alt"></i> ${escapeHtml(news.authorDetails.mobileNumber)}</div>` : ''}
+                                    ${news.authorDetails.constituency ? `<div style="color:#475569;"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(news.authorDetails.constituency)}</div>` : ''}
+                                ` : `
+                                    <div style="font-weight:600; color:#0f172a;"><i class="fas fa-user-circle"></i> ${escapeHtml(news.author)}</div>
+                                `}
+                            </div>
                         </div>
                         <div class="modal-meta-item pn-modal-meta-item">
                             <strong>Category</strong>
@@ -642,6 +673,7 @@
 
                 previewHTML += `
                     <div class="modal-actions pn-modal-actions">
+                        ${canApproveNewsJs ? `
                         <button type="button" class="btn-preview" onclick="savePendingChanges('${newsId}', false)">
                             <i class="fas fa-floppy-disk"></i> Save changes
                         </button>
@@ -654,6 +686,7 @@
                         <button type="button" class="btn-reject" onclick="rejectNews('${newsId}', \`${news.title.replace(/`/g, '\\`')}\`); closePreview();">
                             <i class="fas fa-xmark"></i> Reject
                         </button>
+                        ` : ''}
                     </div>
                 `;
 

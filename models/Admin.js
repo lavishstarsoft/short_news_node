@@ -74,6 +74,26 @@ const adminSchema = new mongoose.Schema({
     showName: { type: Boolean, default: true },
     showConstituency: { type: Boolean, default: true }
   },
+  permissions: {
+    canViewReporterDetails: { type: Boolean, default: false },
+    canAccessAdminDashboard: { type: Boolean, default: false },
+    canApproveNews: { type: Boolean, default: false },
+    sidebar: {
+      dashboard: { type: Boolean, default: true },
+      newsList: { type: Boolean, default: true },
+      addNews: { type: Boolean, default: true },
+      pendingNews: { type: Boolean, default: true },
+      rejectedNews: { type: Boolean, default: true },
+      plagiarismReport: { type: Boolean, default: true },
+      viralVideos: { type: Boolean, default: true },
+      polls: { type: Boolean, default: true },
+      longVideos: { type: Boolean, default: true },
+      categories: { type: Boolean, default: true },
+      programCategories: { type: Boolean, default: true },
+      locations: { type: Boolean, default: true },
+      reports: { type: Boolean, default: true }
+    }
+  },
   loginHistory: [{
     ip: String,
     userAgent: String,

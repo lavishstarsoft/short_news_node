@@ -475,9 +475,11 @@
                                                 <div class="nd-author-avatar" id="newsDetailAuthorAvatar">?</div>
                                                 <div class="nd-author-details">
                                                     <div class="nd-author-name" id="newsDetailAuthor">-</div>
-                                                    <div class="nd-author-email" id="newsDetailAuthorEmail" style="display:none;"></div>
-                                                    <div class="nd-author-role"><span id="newsDetailAuthorRole">Reporter</span> · <span id="newsDetailAuthorId"></span></div>
-                                            </div>
+                                                    <div class="nd-author-email" id="newsDetailAuthorEmail" style="display:none; font-size:0.85rem; color:#64748b;"></div>
+                                                    <div class="nd-author-phone" id="newsDetailAuthorPhone" style="display:none; font-size:0.85rem; color:#64748b;"></div>
+                                                    <div class="nd-author-constituency" id="newsDetailAuthorConstituency" style="display:none; font-size:0.85rem; color:#64748b;"></div>
+                                                    <div class="nd-author-role" style="margin-top:4px;"><span id="newsDetailAuthorRole">Reporter</span> · <span id="newsDetailAuthorId"></span></div>
+                                                </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -759,20 +761,50 @@
                         const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authorRaw);
                         const nameEl = document.getElementById('newsDetailAuthor');
                         const emailEl = document.getElementById('newsDetailAuthorEmail');
+                        const phoneEl = document.getElementById('newsDetailAuthorPhone');
+                        const constEl = document.getElementById('newsDetailAuthorConstituency');
+                        
+                        const canViewReporterDetails = <%= admin.role === 'superadmin' || (admin.permissions && admin.permissions.canViewReporterDetails) ? 'true' : 'false' %>;
 
-                        if (isEmail) {
+                        if (newsItem.authorDetails && canViewReporterDetails) {
+                            nameEl.textContent = newsItem.authorDetails.name || 'N/A';
+                            emailEl.textContent = newsItem.authorDetails.email || authorRaw;
+                            emailEl.style.display = '';
+                            
+                            if (phoneEl) {
+                                if (newsItem.authorDetails.mobileNumber) {
+                                    phoneEl.textContent = newsItem.authorDetails.mobileNumber;
+                                    phoneEl.style.display = '';
+                                } else {
+                                    phoneEl.style.display = 'none';
+                                }
+                            }
+                            
+                            if (constEl) {
+                                if (newsItem.authorDetails.constituency) {
+                                    constEl.textContent = newsItem.authorDetails.constituency;
+                                    constEl.style.display = '';
+                                } else {
+                                    constEl.style.display = 'none';
+                                }
+                            }
+                        } else if (isEmail) {
                             nameEl.textContent = authorRaw.split('@')[0];
                             emailEl.textContent = authorRaw;
                             emailEl.style.display = '';
-                            } else {
+                            if(phoneEl) phoneEl.style.display = 'none';
+                            if(constEl) constEl.style.display = 'none';
+                        } else {
                             nameEl.textContent = authorRaw || '-';
                             emailEl.textContent = '';
                             emailEl.style.display = 'none';
+                            if(phoneEl) phoneEl.style.display = 'none';
+                            if(constEl) constEl.style.display = 'none';
                         }
 
-                            document.getElementById('newsDetailAuthorRole').textContent = newsItem.authorRole || 'Reporter';
+                        document.getElementById('newsDetailAuthorRole').textContent = newsItem.authorRole || 'Reporter';
                         document.getElementById('newsDetailAuthorId').textContent = newsItem.authorId ? `ID ${newsItem.authorId}` : '';
-                        const avatarSource = isEmail ? authorRaw.split('@')[0] : authorRaw;
+                        const avatarSource = newsItem.authorDetails ? newsItem.authorDetails.name : (isEmail ? authorRaw.split('@')[0] : authorRaw);
                         const authorInitials = (avatarSource || '?').split(/[\s._-]+/).filter(Boolean).map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?';
                         document.getElementById('newsDetailAuthorAvatar').textContent = authorInitials;
                     }
