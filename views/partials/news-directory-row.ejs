@@ -112,10 +112,22 @@
       </button>
       <ul class="dropdown-menu dropdown-menu-end team-dropdown-menu">
         <li><a class="dropdown-item" href="#" onclick="viewNews('<%= newsId %>'); return false;"><i class="fas fa-eye me-2"></i>View details</a></li>
+        <% 
+        const isSuperAdmin = admin && admin.role === 'superadmin';
+        const isAdmin = admin && admin.role === 'admin';
+        const hasEditPerm = admin && admin.role === 'subeditor' && admin.permissions && admin.permissions.canEditNews;
+        const canEditAny = isSuperAdmin || isAdmin || hasEditPerm;
+        const isOwnNews = admin && news.authorId && admin._id && news.authorId.toString() === admin._id.toString();
+        const isRejected = news.rejectionStatus && news.rejectionStatus.isRejected;
+        const canEdit = canEditAny || (isOwnNews && !isRejected);
+        %>
+        <% if (canEdit) { %>
         <li><a class="dropdown-item" href="#" onclick="editNews('<%= newsId %>'); return false;"><i class="fas fa-pen me-2"></i>Edit article</a></li>
+        <% } %>
         <% if (admin && (admin.role === 'superadmin' || admin.role === 'admin' || (admin.role === 'subeditor' && admin.permissions && admin.permissions.canSendNotifications))) { %>
         <li><a class="dropdown-item" href="#" onclick="sendNotificationForNews('<%= newsId %>'); return false;"><i class="fas fa-bell me-2"></i>Send notification</a></li>
         <% } %>
+        <% if (canEditAny || isOwnNews) { %>
         <li><hr class="dropdown-divider"></li>
         <li>
           <a class="dropdown-item" href="#"
@@ -125,6 +137,7 @@
           </a>
         </li>
         <li><a class="dropdown-item text-danger" href="#" onclick="deleteNews('<%= newsId %>'); return false;"><i class="fas fa-trash me-2"></i>Delete</a></li>
+        <% } %>
       </ul>
     </div>
   </td>

@@ -965,7 +965,22 @@
 
                         const editBtn = document.getElementById('newsDetailEditBtn');
                         if (editBtn) {
-                            editBtn.onclick = () => editNews(newsId);
+                            const isSuperAdmin = <%= (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') ? 'true' : 'false' %>;
+                            const isAdmin = <%= (typeof admin !== 'undefined' && admin && admin.role === 'admin') ? 'true' : 'false' %>;
+                            const hasEditPerm = <%= (typeof admin !== 'undefined' && admin && admin.role === 'subeditor' && admin.permissions && admin.permissions.canEditNews) ? 'true' : 'false' %>;
+                            const currentAdminId = '<%= (typeof admin !== 'undefined' && admin) ? admin._id : "" %>';
+                            const canEditAny = isSuperAdmin || isAdmin || hasEditPerm;
+                            const isOwnNews = newsItem.authorId === currentAdminId;
+                            const isRejected = newsItem.rejectionStatus && newsItem.rejectionStatus.isRejected;
+                            
+                            const canEdit = canEditAny || (isOwnNews && !isRejected);
+                            
+                            if (!canEdit) {
+                                editBtn.style.display = 'none';
+                            } else {
+                                editBtn.style.display = '';
+                                editBtn.onclick = () => editNews(newsId);
+                            }
                         }
 
                         const linksWrap = document.getElementById('newsDetailExternalLinks');

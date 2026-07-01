@@ -1449,6 +1449,10 @@ async function updateEditor(req, res) {
       if (!editor.permissions) editor.permissions = {};
       editor.permissions.canSendNotifications = req.body.canSendNotifications === 'true' || req.body.canSendNotifications === true;
     }
+    if (req.body.canEditNews !== undefined) {
+      if (!editor.permissions) editor.permissions = {};
+      editor.permissions.canEditNews = req.body.canEditNews === 'true' || req.body.canEditNews === true;
+    }
     
     if (sidebar !== undefined) {
       if (!editor.permissions) editor.permissions = {};
@@ -1674,7 +1678,7 @@ async function registerEditor(req, res) {
       return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
 
-    const { username, email, password, name, displayRole, location, assignedLocations, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, sidebar } = req.body;
+    const { username, email, password, name, displayRole, location, assignedLocations, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canEditNews, canSendNotifications, approvalScope, managedLocations, sidebar } = req.body;
 
     // Validate required fields
     if (!username || !email || !password) {
@@ -1708,6 +1712,7 @@ async function registerEditor(req, res) {
         canViewReporterDetails: canViewReporterDetails === 'true' || canViewReporterDetails === true,
         canAccessAdminDashboard: canAccessAdminDashboard === 'true' || canAccessAdminDashboard === true,
         canApproveNews: canApproveNews === 'true' || canApproveNews === true,
+        canEditNews: canEditNews === 'true' || canEditNews === true,
         canSendNotifications: canSendNotifications === 'true' || canSendNotifications === true,
         approvalScope: approvalScope || 'all',
         managedLocations: Array.isArray(managedLocations) ? managedLocations : (managedLocations ? [managedLocations] : []),

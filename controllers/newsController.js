@@ -607,9 +607,18 @@ async function renderEditNewsPage(req, res) {
       return res.status(404).json({ error: 'News not found' });
     }
 
+    const isSuperAdmin = req.admin.role === 'superadmin';
+    const hasEditPerm = req.admin.role === 'subeditor' && req.admin.permissions && req.admin.permissions.canEditNews;
+    const canEditAny = isSuperAdmin || req.admin.role === 'admin' || hasEditPerm;
+
     // Check if editor is trying to edit someone else's news
-    if (req.admin.role === 'editor' && news.authorId !== req.admin.id) {
+    if (!canEditAny && news.authorId !== req.admin.id) {
       return res.status(403).json({ error: 'Access denied. You can only edit your own news.' });
+    }
+
+    // Check if news is rejected and user is not superadmin/assigned subeditor
+    if (news.rejectionStatus && news.rejectionStatus.isRejected && !isSuperAdmin && !hasEditPerm) {
+      return res.status(403).json({ error: 'Access denied. Rejected news can only be edited by authorized admins.' });
     }
 
     const adminDoc = await Admin.findById(req.admin.id).select('workingLanguage').lean();
@@ -765,9 +774,18 @@ async function updateNews(req, res) {
       return res.status(404).json({ error: 'News not found' });
     }
 
+    const isSuperAdmin = req.admin.role === 'superadmin';
+    const hasEditPerm = req.admin.role === 'subeditor' && req.admin.permissions && req.admin.permissions.canEditNews;
+    const canEditAny = isSuperAdmin || req.admin.role === 'admin' || hasEditPerm;
+
     // Check if editor is trying to update someone else's news
-    if (req.admin.role === 'editor' && existingNews.authorId !== req.admin.id) {
+    if (!canEditAny && existingNews.authorId !== req.admin.id) {
       return res.status(403).json({ error: 'Access denied. You can only update your own news.' });
+    }
+
+    // Check if news is rejected and user is not superadmin/assigned subeditor
+    if (existingNews.rejectionStatus && existingNews.rejectionStatus.isRejected && !isSuperAdmin && !hasEditPerm) {
+      return res.status(403).json({ error: 'Access denied. Rejected news can only be edited by authorized admins.' });
     }
 
     // Validation (ignoring color tags for limit)

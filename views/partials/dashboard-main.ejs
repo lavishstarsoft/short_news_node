@@ -270,15 +270,31 @@
                                                             <i class="fas fa-bell"></i>
                                                         </button>
                                                         <% } %>
+                                                        <% 
+                                                        const isSuperAdmin = admin && admin.role === 'superadmin';
+                                                        const isAdmin = admin && admin.role === 'admin';
+                                                        const hasEditPerm = admin && admin.role === 'subeditor' && admin.permissions && admin.permissions.canEditNews;
+                                                        const canEditAny = isSuperAdmin || isAdmin || hasEditPerm;
+                                                        const isOwnNews = admin && news.authorId && admin._id && news.authorId.toString() === admin._id.toString();
+                                                        const isRejected = news.rejectionStatus && news.rejectionStatus.isRejected;
+                                                        const canEdit = canEditAny || (isOwnNews && !isRejected);
+                                                        %>
+                                                        <% if (canEditAny || isOwnNews) { %>
                                                         <button type="button" class="btn btn-sm btn-<%= news.isActive === false ? 'success' : 'outline-secondary' %> ripple" onclick="toggleNewsStatus('<%= news._id %>'); event.stopPropagation();">
                                                             <i class="fas fa-<%= news.isActive === false ? 'check' : 'pause' %>"></i>
                                                         </button>
+                                                        <% } %>
+                                                        
+                                                        <% if (canEdit) { %>
                                                         <button type="button" class="btn btn-sm btn-primary ripple" onclick="editNews('<%= news._id %>'); event.stopPropagation();">
                                                             <i class="fas fa-pen"></i>
                                                         </button>
+                                                        <% } %>
+                                                        <% if (canEditAny || isOwnNews) { %>
                                                         <button type="button" class="btn btn-sm btn-outline-danger ripple" onclick="deleteNews('<%= news._id %>'); event.stopPropagation();">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
+                                                        <% } %>
                                                     </div>
                                                 </div>
                                             </article>

@@ -212,12 +212,18 @@
                                         </div>
                                     </div>
                                     
-                                    <div id="sendNotificationsWrapper" style="display: none; margin-top: 15px;">
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                                    <div id="subEditorPermissionsWrapper" style="display: none; margin-top: 15px;">
+                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
                                             <input type="checkbox" id="canSendNotifications" name="canSendNotifications" value="true" style="width: auto; height: 18px; cursor: pointer;">
                                             <label for="canSendNotifications" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can send notifications</label>
                                         </div>
-                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -10px;">Allows this sub-editor to send push notifications for news articles.</div>
+                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -5px; margin-bottom: 15px;">Allows this sub-editor to send push notifications for news articles.</div>
+                                        
+                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
+                                            <input type="checkbox" id="canEditNews" name="canEditNews" value="true" style="width: auto; height: 18px; cursor: pointer;">
+                                            <label for="canEditNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can edit any news</label>
+                                        </div>
+                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -5px;">Allows this sub-editor to edit active, inactive, and rejected news (like super admin).</div>
                                     </div>
                                     
                                     <div id="sidebarAccessWrapper" style="display: none; margin-top: 20px;">
@@ -355,8 +361,8 @@
                         viewReporterDetailsWrapper.style.display = 'block';
                         approveNewsWrapper.style.display = 'block';
                         sidebarAccessWrapper.style.display = 'block';
-                        const sendNotificationsWrapper = document.getElementById('sendNotificationsWrapper');
-                        if (sendNotificationsWrapper) sendNotificationsWrapper.style.display = 'block';
+                        const subEditorPermissionsWrapper = document.getElementById('subEditorPermissionsWrapper');
+                        if (subEditorPermissionsWrapper) subEditorPermissionsWrapper.style.display = 'block';
                         
                         // Check checkbox status for dependent wrappers
                         if (document.getElementById('canApproveNews').checked) {
@@ -370,8 +376,8 @@
                         approveNewsWrapper.style.display = 'none';
                         sidebarAccessWrapper.style.display = 'none';
                         managedLocationsWrapper.style.display = 'none';
-                        const sendNotificationsWrapper = document.getElementById('sendNotificationsWrapper');
-                        if (sendNotificationsWrapper) sendNotificationsWrapper.style.display = 'none';
+                        const subEditorPermissionsWrapper = document.getElementById('subEditorPermissionsWrapper');
+                        if (subEditorPermissionsWrapper) subEditorPermissionsWrapper.style.display = 'none';
                         document.getElementById('canAccessAdminDashboard').checked = false;
                         document.getElementById('canViewReporterDetails').checked = false;
                         document.getElementById('canApproveNews').checked = false;
