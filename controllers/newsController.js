@@ -935,6 +935,50 @@ async function toggleNewsStatus(req, res) {
         return res.status(403).json({ error: 'Access denied. You can only toggle your own news.' });
       }
 
+      // Language Mismatch Check
+      if (isActive === true && !req.body.ignoreLanguageWarning) {
+        let expectedLanguageName = null;
+        try {
+            const { getActiveLanguages } = require('../services/languageRegistry');
+            const activeLanguages = getActiveLanguages();
+            
+            const language = existingNews.language;
+            const category = existingNews.category;
+            
+            if (language) {
+                const selectedLanguage = activeLanguages.find(l => l.code === language || l.name.toLowerCase() === language.toLowerCase());
+                if (selectedLanguage) {
+                    expectedLanguageName = selectedLanguage.name;
+                }
+            }
+            if (!expectedLanguageName && category) {
+                const categoryLanguage = activeLanguages.find(l => l.name.toLowerCase() === category.toLowerCase());
+                if (categoryLanguage) {
+                    expectedLanguageName = categoryLanguage.name;
+                }
+            }
+        } catch (err) {
+            console.error('Error getting language for validation:', err);
+        }
+        
+        if (expectedLanguageName && existingNews.content) {
+           const { detectPrimaryLanguage } = require('../utils/languageUtils');
+           const detectedData = detectPrimaryLanguage(existingNews.content);
+           if (detectedData && detectedData.language) {
+             const expectedLower = expectedLanguageName.toLowerCase();
+             if (detectedData.language !== 'english' && detectedData.language !== expectedLower) {
+                return res.status(409).json({
+                  error: 'Language mismatch',
+                  warning: true,
+                  message: `The language assigned to this reporter is ${expectedLanguageName} but the news posted is in ${detectedData.language.toUpperCase()}.`,
+                  detectedLanguage: detectedData.language,
+                  expectedCategory: expectedLanguageName
+                });
+             }
+           }
+        }
+      }
+
       // Toggle the isActive status
       const updatedHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
       updatedHistory.push(
@@ -977,6 +1021,50 @@ async function toggleNewsStatus(req, res) {
           newsAuthorId: newsData[newsIndex].authorId
         }); // Debug log
         return res.status(403).json({ error: 'Access denied. You can only toggle your own news.' });
+      }
+
+      // Language Mismatch Check
+      if (isActive === true && !req.body.ignoreLanguageWarning) {
+        let expectedLanguageName = null;
+        try {
+            const { getActiveLanguages } = require('../services/languageRegistry');
+            const activeLanguages = getActiveLanguages();
+            
+            const language = newsData[newsIndex].language;
+            const category = newsData[newsIndex].category;
+            
+            if (language) {
+                const selectedLanguage = activeLanguages.find(l => l.code === language || l.name.toLowerCase() === language.toLowerCase());
+                if (selectedLanguage) {
+                    expectedLanguageName = selectedLanguage.name;
+                }
+            }
+            if (!expectedLanguageName && category) {
+                const categoryLanguage = activeLanguages.find(l => l.name.toLowerCase() === category.toLowerCase());
+                if (categoryLanguage) {
+                    expectedLanguageName = categoryLanguage.name;
+                }
+            }
+        } catch (err) {
+            console.error('Error getting language for validation:', err);
+        }
+        
+        if (expectedLanguageName && newsData[newsIndex].content) {
+           const { detectPrimaryLanguage } = require('../utils/languageUtils');
+           const detectedData = detectPrimaryLanguage(newsData[newsIndex].content);
+           if (detectedData && detectedData.language) {
+             const expectedLower = expectedLanguageName.toLowerCase();
+             if (detectedData.language !== 'english' && detectedData.language !== expectedLower) {
+                return res.status(409).json({
+                  error: 'Language mismatch',
+                  warning: true,
+                  message: `The language assigned to this reporter is ${expectedLanguageName} but the news posted is in ${detectedData.language.toUpperCase()}.`,
+                  detectedLanguage: detectedData.language,
+                  expectedCategory: expectedLanguageName
+                });
+             }
+           }
+        }
       }
 
       // Toggle the isActive status

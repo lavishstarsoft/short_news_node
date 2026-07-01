@@ -1036,7 +1036,7 @@
                     }
 
                     // Toggle news active status function
-                    function toggleNewsStatus(newsId) {
+                    function toggleNewsStatus(newsId, ignoreLanguageWarning = false) {
                         // Find the news item in the newsListItems array
                         const newsItem = newsListItems.find(news => news._id === newsId);
 
@@ -1048,13 +1048,19 @@
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({
-                                    isActive: !newsItem.isActive
+                                    isActive: !newsItem.isActive,
+                                    ignoreLanguageWarning
                                 })
                             })
                                 .then(async response => {
                                     if (response.ok) {
                                         // Reload the page to reflect the changes
                                         location.reload();
+                                    } else if (response.status === 409) {
+                                        const errorData = await response.json();
+                                        if (confirm(errorData.message + '\n\nDo you want to publish it anyway? (Publish Anyway)')) {
+                                            toggleNewsStatus(newsId, true);
+                                        }
                                     } else {
                                         const errorData = await response.json().catch(() => ({}));
                                         const errorMessage = errorData.error || 'Failed to toggle news status';

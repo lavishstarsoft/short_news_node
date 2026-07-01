@@ -3162,6 +3162,50 @@ async function approveNews(req, res) {
       return res.status(404).json({ error: 'News not found' });
     }
 
+    // Language Mismatch Check
+    if (!req.body.ignoreLanguageWarning) {
+      let expectedLanguageName = null;
+      try {
+          const { getActiveLanguages } = require('../services/languageRegistry');
+          const activeLanguages = getActiveLanguages();
+          
+          const language = existingNews.language;
+          const category = existingNews.category;
+          
+          if (language) {
+              const selectedLanguage = activeLanguages.find(l => l.code === language || l.name.toLowerCase() === language.toLowerCase());
+              if (selectedLanguage) {
+                  expectedLanguageName = selectedLanguage.name;
+              }
+          }
+          if (!expectedLanguageName && category) {
+              const categoryLanguage = activeLanguages.find(l => l.name.toLowerCase() === category.toLowerCase());
+              if (categoryLanguage) {
+                  expectedLanguageName = categoryLanguage.name;
+              }
+          }
+      } catch (err) {
+          console.error('Error getting language for validation:', err);
+      }
+      
+      if (expectedLanguageName && existingNews.content) {
+         const { detectPrimaryLanguage } = require('../utils/languageUtils');
+         const detectedData = detectPrimaryLanguage(existingNews.content);
+         if (detectedData && detectedData.language) {
+           const expectedLower = expectedLanguageName.toLowerCase();
+           if (detectedData.language !== 'english' && detectedData.language !== expectedLower) {
+              return res.status(409).json({
+                error: 'Language mismatch',
+                warning: true,
+                message: `The language assigned to this reporter is ${expectedLanguageName} but the news posted is in ${detectedData.language.toUpperCase()}.`,
+                detectedLanguage: detectedData.language,
+                expectedCategory: expectedLanguageName
+              });
+           }
+         }
+      }
+    }
+
     const actionHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
     actionHistory.push(
       buildAdminNewsHistory(
