@@ -47,8 +47,8 @@ const checkLanguageMismatch = (req, res, next) => {
   if (detectedData && detectedData.language) {
     const expectedLower = expectedLanguageName.toLowerCase();
     
-    // Allow English mixed content by default or if the detected language matches the expected language
-    if (detectedData.language !== 'english' && detectedData.language !== expectedLower) {
+    // Check if the detected language matches the expected language
+    if (detectedData.language !== expectedLower) {
       return res.status(409).json({
         success: false,
         warning: true,

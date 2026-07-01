@@ -966,7 +966,7 @@ async function toggleNewsStatus(req, res) {
            const detectedData = detectPrimaryLanguage(existingNews.content);
            if (detectedData && detectedData.language) {
              const expectedLower = expectedLanguageName.toLowerCase();
-             if (detectedData.language !== 'english' && detectedData.language !== expectedLower) {
+             if (detectedData.language !== expectedLower) {
                 return res.status(409).json({
                   error: 'Language mismatch',
                   warning: true,
@@ -1054,7 +1054,7 @@ async function toggleNewsStatus(req, res) {
            const detectedData = detectPrimaryLanguage(newsData[newsIndex].content);
            if (detectedData && detectedData.language) {
              const expectedLower = expectedLanguageName.toLowerCase();
-             if (detectedData.language !== 'english' && detectedData.language !== expectedLower) {
+             if (detectedData.language !== expectedLower) {
                 return res.status(409).json({
                   error: 'Language mismatch',
                   warning: true,
