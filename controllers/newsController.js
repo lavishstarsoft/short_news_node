@@ -898,9 +898,18 @@ async function deleteNews(req, res) {
       return res.status(404).json({ error: 'News not found' });
     }
 
+    const isSuperAdmin = req.admin.role === 'superadmin';
+    const hasEditPerm = req.admin.role === 'subeditor' && req.admin.permissions && req.admin.permissions.canEditNews;
+    const canEditAny = isSuperAdmin || req.admin.role === 'admin' || hasEditPerm;
+
     // Check if editor is trying to delete someone else's news
-    if (req.admin.role === 'editor' && existingNews.authorId !== req.admin.id) {
+    if (!canEditAny && existingNews.authorId !== req.admin.id) {
       return res.status(403).json({ error: 'Access denied. You can only delete your own news.' });
+    }
+
+    // Check if news is rejected
+    if (existingNews.rejectionStatus && existingNews.rejectionStatus.isRejected && !isSuperAdmin && !hasEditPerm) {
+      return res.status(403).json({ error: 'Access denied. Rejected news cannot be deleted.' });
     }
 
     const news = await News.findByIdAndDelete(req.params.id);
@@ -947,13 +956,18 @@ async function toggleNewsStatus(req, res) {
         return res.status(404).json({ error: 'News not found' });
       }
 
-      // Check if editor is trying to toggle someone else's news
-      if (req.admin.role === 'editor' && existingNews.authorId !== req.admin.id) {
-        console.log('Editor trying to toggle someone else\'s news:', {
-          editorId: req.admin.id,
-          newsAuthorId: existingNews.authorId
-        }); // Debug log
+      const isSuperAdmin = req.admin.role === 'superadmin';
+      const hasEditPerm = req.admin.role === 'subeditor' && req.admin.permissions && req.admin.permissions.canEditNews;
+      const canEditAny = isSuperAdmin || req.admin.role === 'admin' || hasEditPerm;
+
+      // Check if user is trying to toggle someone else's news
+      if (!canEditAny && existingNews.authorId !== req.admin.id) {
         return res.status(403).json({ error: 'Access denied. You can only toggle your own news.' });
+      }
+
+      // Check if news is rejected
+      if (existingNews.rejectionStatus && existingNews.rejectionStatus.isRejected && !isSuperAdmin && !hasEditPerm) {
+        return res.status(403).json({ error: 'Access denied. Rejected news cannot be toggled.' });
       }
 
       // Language Mismatch Check

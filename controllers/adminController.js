@@ -2422,8 +2422,14 @@ const requireAuth = (req, res, next) => {
             }
             
             // Check if role was changed to reporter, or if subeditor lost dashboard access
-            if (latestAdmin.role === 'reporter' || 
-                (latestAdmin.role === 'subeditor' && (!latestAdmin.permissions || !latestAdmin.permissions.canAccessAdminDashboard))) {
+            const hasDashboardAccess = latestAdmin.role === 'superadmin' || latestAdmin.role === 'admin' || 
+                (latestAdmin.role === 'subeditor' && latestAdmin.permissions?.canAccessAdminDashboard);
+            
+            // Allow reporter app APIs (paths include mount point /news)
+            const isReporterAppApi = req.originalUrl.includes('/upload-media') || 
+                                     req.originalUrl.includes('/api/news');
+
+            if (!hasDashboardAccess && !isReporterAppApi) {
                 res.clearCookie('token');
                 if (isApiRequest) return res.status(403).json({ error: 'Access revoked' });
                 return res.redirect('/login');
