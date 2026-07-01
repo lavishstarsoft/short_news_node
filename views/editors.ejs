@@ -263,6 +263,27 @@
                                                 <input class="form-check-input" type="checkbox" id="editCanApproveNews">
                                                 <label class="form-check-label" for="editCanApproveNews">Can Approve/Reject News</label>
                                             </div>
+
+                                            <div id="editManagedLocationsWrapper" style="display: none; margin-top: 15px; margin-left: 25px; padding-left: 15px; border-left: 2px solid #e2e8f0;">
+                                                <div class="mb-2">
+                                                    <label class="form-label" style="font-size: 0.85rem;">Whose news can they approve?</label>
+                                                    <select class="form-select form-select-sm" id="editApprovalScope">
+                                                        <option value="all">All Reporters</option>
+                                                        <option value="locations">Reporters in Specific Locations</option>
+                                                    </select>
+                                                </div>
+                                                <div id="editManagedLocationsSelectWrapper" style="display: none;">
+                                                    <label class="form-label" style="font-size: 0.85rem;">Select Parent Locations</label>
+                                                    <% if (typeof locations !== 'undefined' && locations.length) { %>
+                                                    <select class="form-select form-select-sm" id="editManagedLocations" multiple size="4">
+                                                        <% locations.forEach(function(loc) { %>
+                                                        <option value="<%= loc.name %>"><%= loc.name %></option>
+                                                        <% }); %>
+                                                    </select>
+                                                    <small class="text-muted d-block mt-1">Hold Cmd/Ctrl to select multiple.</small>
+                                                    <% } %>
+                                                </div>
+                                            </div>
                                             
                                             <div id="editSidebarAccessWrapper" style="display: none; margin-top: 15px;">
                                                 <h6 class="fw-bold mb-2">Sidebar Menu Access</h6>
@@ -463,6 +484,29 @@
                             // Default to true if not explicitly false (backward compatibility)
                             cb.checked = sidebarPerms[menu] !== false;
                         });
+
+                        document.getElementById('editApprovalScope').value = permissions.approvalScope || 'all';
+                        
+                        const managedLocations = permissions.managedLocations || [];
+                        const managedSelectEl = document.getElementById('editManagedLocations');
+                        if (managedSelectEl) {
+                            Array.from(managedSelectEl.options).forEach(opt => {
+                                opt.selected = managedLocations.includes(opt.value);
+                            });
+                        }
+                        
+                        // Show/hide managed locations wrapper based on canApproveNews
+                        const managedLocWrapper = document.getElementById('editManagedLocationsWrapper');
+                        if (managedLocWrapper) {
+                            managedLocWrapper.style.display = permissions.canApproveNews === true ? 'block' : 'none';
+                        }
+                        
+                        // Show/hide location select based on approval scope
+                        const managedLocSelectWrapper = document.getElementById('editManagedLocationsSelectWrapper');
+                        if (managedLocSelectWrapper) {
+                            managedLocSelectWrapper.style.display = permissions.approvalScope === 'locations' ? 'block' : 'none';
+                        }
+                        
                         
                         // Show/hide the dashboard access option and reporter details view based on role
                         if (editor.role === 'subeditor') {
@@ -470,11 +514,15 @@
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'block';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'block';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'block';
+                            if (document.getElementById('editCanApproveNews').checked) {
+                                document.getElementById('editManagedLocationsWrapper').style.display = 'block';
+                            }
                         } else {
                             document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'none';
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'none';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'none';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'none';
+                            document.getElementById('editManagedLocationsWrapper').style.display = 'none';
                         }
 
                         // Only show admin settings for subeditors/editors if accessed by superadmin
@@ -496,15 +544,29 @@
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'block';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'block';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'block';
+                            if (document.getElementById('editCanApproveNews').checked) {
+                                document.getElementById('editManagedLocationsWrapper').style.display = 'block';
+                            }
                         } else {
                             document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'none';
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'none';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'none';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'none';
+                            document.getElementById('editManagedLocationsWrapper').style.display = 'none';
                             document.getElementById('editCanAccessAdminDashboard').checked = false;
                             document.getElementById('editCanViewReporterDetails').checked = false;
                             document.getElementById('editCanApproveNews').checked = false;
                         }
+                    });
+
+                    // Handle canApproveNews toggle
+                    document.getElementById('editCanApproveNews').addEventListener('change', function (e) {
+                        document.getElementById('editManagedLocationsWrapper').style.display = this.checked ? 'block' : 'none';
+                    });
+
+                    // Handle approvalScope toggle
+                    document.getElementById('editApprovalScope').addEventListener('change', function (e) {
+                        document.getElementById('editManagedLocationsSelectWrapper').style.display = this.value === 'locations' ? 'block' : 'none';
                     });
 
                     // Handle Edit Form Submit
@@ -518,6 +580,9 @@
                         document.querySelectorAll('.sidebar-menu-cb').forEach(cb => {
                             sidebarData[cb.getAttribute('data-menu')] = cb.checked;
                         });
+
+                        const managedLocSelectEl = document.getElementById('editManagedLocations');
+                        const managedLocations = managedLocSelectEl ? Array.from(managedLocSelectEl.selectedOptions).map(opt => opt.value).filter(val => val !== "") : [];
 
                         const data = {
                             name: document.getElementById('editName').value,
@@ -536,6 +601,8 @@
                             canViewReporterDetails: document.getElementById('editCanViewReporterDetails').checked,
                             canAccessAdminDashboard: document.getElementById('editCanAccessAdminDashboard').checked,
                             canApproveNews: document.getElementById('editCanApproveNews').checked,
+                            approvalScope: document.getElementById('editApprovalScope').value,
+                            managedLocations: managedLocations,
                             sidebar: sidebarData
                         };
 

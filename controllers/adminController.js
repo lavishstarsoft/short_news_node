@@ -1391,7 +1391,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, assignedLocations, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, sidebar } = req.body;
+    const { name, displayRole, location, assignedLocations, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, sidebar, approvalScope, managedLocations } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -1435,6 +1435,15 @@ async function updateEditor(req, res) {
       if (canApproveNews !== undefined) {
         editor.permissions.canApproveNews = canApproveNews === 'true' || canApproveNews === true;
       }
+    }
+    
+    if (approvalScope !== undefined) {
+      if (!editor.permissions) editor.permissions = {};
+      editor.permissions.approvalScope = approvalScope;
+    }
+    if (managedLocations !== undefined) {
+      if (!editor.permissions) editor.permissions = {};
+      editor.permissions.managedLocations = Array.isArray(managedLocations) ? managedLocations : (managedLocations ? [managedLocations] : []);
     }
     
     if (sidebar !== undefined) {
@@ -1695,6 +1704,8 @@ async function registerEditor(req, res) {
         canViewReporterDetails: canViewReporterDetails === 'true' || canViewReporterDetails === true,
         canAccessAdminDashboard: canAccessAdminDashboard === 'true' || canAccessAdminDashboard === true,
         canApproveNews: canApproveNews === 'true' || canApproveNews === true,
+        approvalScope: approvalScope || 'all',
+        managedLocations: Array.isArray(managedLocations) ? managedLocations : (managedLocations ? [managedLocations] : []),
         sidebar: sidebar ? {
             dashboard: sidebar.dashboard === 'true' || sidebar.dashboard === true,
             newsList: sidebar.newsList === 'true' || sidebar.newsList === true,
@@ -2890,7 +2901,7 @@ async function getReporterProfile(req, res) {
 // Duplicate check happens lazily via /admin/api/pending-news/duplicate-check
 async function renderPendingNewsPage(req, res) {
   try {
-    const adminDoc = await Admin.findById(req.admin.id).select('role workingLanguage').lean();
+    const adminDoc = await Admin.findById(req.admin.id).select('role workingLanguage permissions').lean();
 
     let selectedLanguage = '';
     const languageParamProvided = Object.prototype.hasOwnProperty.call(req.query, 'language');
@@ -2916,6 +2927,21 @@ async function renderPendingNewsPage(req, res) {
     const query = selectedLanguage
       ? { $and: [baseQuery, buildNewsLanguageFilter(selectedLanguage)] }
       : baseQuery;
+
+    // Apply location-based filtering for Sub-Editors
+    if (adminDoc?.role === 'subeditor' && adminDoc?.permissions?.approvalScope === 'locations') {
+      const managedLocations = adminDoc?.permissions?.managedLocations || [];
+      if (managedLocations.length > 0) {
+        if (query.$and) {
+          query.$and.push({ location: { $in: managedLocations } });
+        } else {
+          query.location = { $in: managedLocations };
+        }
+      } else {
+        // If scope is locations but none are managed, return nothing
+        query._id = null; 
+      }
+    }
 
     // Fetch pending news with only needed fields (uses compound index)
     const pendingNews = await News.find(query)

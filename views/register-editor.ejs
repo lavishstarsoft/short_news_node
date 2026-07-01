@@ -188,6 +188,30 @@
                                         </div>
                                         <div class="reg-field-hint" style="margin-left: 30px; margin-top: -10px;">Allows this sub-editor to approve or reject pending news.</div>
                                     </div>
+                                    
+                                    <div id="managedLocationsWrapper" style="display: none; margin-top: 15px; margin-left: 30px; padding-left: 15px; border-left: 2px solid #e2e8f0;">
+                                        <div class="reg-field" style="margin-bottom: 10px;">
+                                            <label style="font-size: 0.9rem;">Whose news can they approve?</label>
+                                            <select id="approvalScope" name="approvalScope" class="form-select" style="font-size: 0.9rem; padding: 6px 12px; height: auto;">
+                                                <option value="all">All Reporters</option>
+                                                <option value="locations">Reporters in Specific Locations</option>
+                                            </select>
+                                        </div>
+                                        <div class="reg-field" id="managedLocationsSelectWrapper" style="display: none;">
+                                            <label style="font-size: 0.9rem;">Select Parent Locations</label>
+                                            <% if (typeof locations !== 'undefined' && locations.length) { %>
+                                            <select id="managedLocations" name="managedLocations" multiple class="form-select" size="4" style="font-size: 0.9rem;">
+                                                <% locations.forEach(function(loc) { %>
+                                                <option value="<%= loc.name %>"><%= loc.name %></option>
+                                                <% }); %>
+                                            </select>
+                                            <div class="reg-field-hint">Hold Cmd/Ctrl to select multiple locations.</div>
+                                            <% } else { %>
+                                            <div class="alert alert-warning" style="font-size: 0.85rem; padding: 8px;">No locations found.</div>
+                                            <% } %>
+                                        </div>
+                                    </div>
+                                    
                                     <div id="sidebarAccessWrapper" style="display: none; margin-top: 20px;">
                                         <h5 style="margin-bottom: 15px; font-size: 1rem; border-bottom: 1px solid #eaeaea; padding-bottom: 5px;">Sidebar Menu Access</h5>
                                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -314,6 +338,7 @@
                 const dashboardAccessWrapper = document.getElementById('dashboardAccessWrapper');
                 const viewReporterDetailsWrapper = document.getElementById('viewReporterDetailsWrapper');
                 const approveNewsWrapper = document.getElementById('approveNewsWrapper');
+                const managedLocationsWrapper = document.getElementById('managedLocationsWrapper');
                 const sidebarAccessWrapper = document.getElementById('sidebarAccessWrapper');
                 
                 if (dashboardAccessWrapper && viewReporterDetailsWrapper && approveNewsWrapper && sidebarAccessWrapper) {
@@ -322,16 +347,50 @@
                         viewReporterDetailsWrapper.style.display = 'block';
                         approveNewsWrapper.style.display = 'block';
                         sidebarAccessWrapper.style.display = 'block';
+                        
+                        // Check checkbox status for dependent wrappers
+                        if (document.getElementById('canApproveNews').checked) {
+                            managedLocationsWrapper.style.display = 'block';
+                        } else {
+                            managedLocationsWrapper.style.display = 'none';
+                        }
                     } else {
                         dashboardAccessWrapper.style.display = 'none';
                         viewReporterDetailsWrapper.style.display = 'none';
                         approveNewsWrapper.style.display = 'none';
                         sidebarAccessWrapper.style.display = 'none';
+                        managedLocationsWrapper.style.display = 'none';
                         document.getElementById('canAccessAdminDashboard').checked = false;
                         document.getElementById('canViewReporterDetails').checked = false;
                         document.getElementById('canApproveNews').checked = false;
                     }
                 }
+            }
+
+            // Event listener for canApproveNews checkbox
+            const canApproveNewsCheckbox = document.getElementById('canApproveNews');
+            const managedLocationsWrapper = document.getElementById('managedLocationsWrapper');
+            if (canApproveNewsCheckbox && managedLocationsWrapper) {
+                canApproveNewsCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        managedLocationsWrapper.style.display = 'block';
+                    } else {
+                        managedLocationsWrapper.style.display = 'none';
+                    }
+                });
+            }
+
+            // Event listener for approvalScope dropdown
+            const approvalScopeSelect = document.getElementById('approvalScope');
+            const managedLocationsSelectWrapper = document.getElementById('managedLocationsSelectWrapper');
+            if (approvalScopeSelect && managedLocationsSelectWrapper) {
+                approvalScopeSelect.addEventListener('change', function() {
+                    if (this.value === 'locations') {
+                        managedLocationsSelectWrapper.style.display = 'block';
+                    } else {
+                        managedLocationsSelectWrapper.style.display = 'none';
+                    }
+                });
             }
 
             roleCards.forEach(function (card) {
@@ -372,7 +431,7 @@
                 const formData = new FormData(form);
                 const data = {};
                 formData.forEach(function (value, key) { 
-                    if (key === 'assignedLocations') {
+                    if (key === 'assignedLocations' || key === 'managedLocations') {
                         if (!data[key]) data[key] = [];
                         data[key].push(value);
                     } else {

@@ -78,6 +78,14 @@ const adminSchema = new mongoose.Schema({
     canViewReporterDetails: { type: Boolean, default: false },
     canAccessAdminDashboard: { type: Boolean, default: false },
     canApproveNews: { type: Boolean, default: false },
+    approvalScope: { 
+      type: String, 
+      enum: ['all', 'locations'],
+      default: 'all'
+    },
+    managedLocations: [{
+      type: String
+    }],
     sidebar: {
       dashboard: { type: Boolean, default: true },
       newsList: { type: Boolean, default: true },
