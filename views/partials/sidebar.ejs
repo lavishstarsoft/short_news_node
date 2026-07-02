@@ -25,10 +25,12 @@
                     if (!admin.permissions || !admin.permissions.sidebar) return true;
                     return admin.permissions.sidebar[menu] !== false;
                 };
+                const dashboardLink = (typeof isImpersonating !== 'undefined' && isImpersonating && admin) ? `/admin/editors/${admin.id}/dashboard` : '/news';
+                const newsListLink = (typeof isImpersonating !== 'undefined' && isImpersonating && admin) ? `/admin/editors/${admin.id}/news-list` : '/news-list';
             %>
-            <% if (canView('dashboard')) { %>
+            <% if (canView('dashboard') && (typeof isImpersonating === 'undefined' || !isImpersonating)) { %>
             <li class="nav-item">
-                <a class="nav-link ripple <%= activePage === 'dashboard' ? 'active' : '' %>" href="/news">
+                <a class="nav-link ripple <%= activePage === 'dashboard' ? 'active' : '' %>" href="<%= dashboardLink %>">
                     <i class="fas fa-home me-3"></i>
                     <span class="nav-text">Dashboard</span>
                 </a>
@@ -36,7 +38,7 @@
             <% } %>
             <% if (canView('newsList')) { %>
             <li class="nav-item">
-                <a class="nav-link ripple <%= activePage === 'news-list' ? 'active' : '' %>" href="/news-list">
+                <a class="nav-link ripple <%= activePage === 'news-list' ? 'active' : '' %>" href="<%= newsListLink %>">
                     <i class="fas fa-newspaper me-3"></i>
                     <span class="nav-text">News List</span>
                 </a>

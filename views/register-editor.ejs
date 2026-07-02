@@ -188,6 +188,14 @@
                                         </div>
                                         <div class="reg-field-hint" style="margin-left: 30px; margin-top: -10px;">Allows this sub-editor to approve or reject pending news.</div>
                                     </div>
+
+                                    <div id="viewAllNewsWrapper" style="display: none; margin-top: 15px;">
+                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                                            <input type="checkbox" id="canViewAllNews" name="canViewAllNews" value="true" style="width: auto; height: 18px; cursor: pointer;">
+                                            <label for="canViewAllNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">View all articles</label>
+                                        </div>
+                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -10px;">If off, sub-editor only sees their own articles and assigned reporters' articles.</div>
+                                    </div>
                                     
                                     <div id="managedLocationsWrapper" style="display: none; margin-top: 15px; margin-left: 30px; padding-left: 15px; border-left: 2px solid #e2e8f0;">
                                         <div class="reg-field" style="margin-bottom: 10px;">
@@ -352,14 +360,17 @@
                 const dashboardAccessWrapper = document.getElementById('dashboardAccessWrapper');
                 const viewReporterDetailsWrapper = document.getElementById('viewReporterDetailsWrapper');
                 const approveNewsWrapper = document.getElementById('approveNewsWrapper');
+                const viewAllNewsWrapper = document.getElementById('viewAllNewsWrapper');
                 const managedLocationsWrapper = document.getElementById('managedLocationsWrapper');
                 const sidebarAccessWrapper = document.getElementById('sidebarAccessWrapper');
+                const subEditorPermissionsWrapper = document.getElementById('subEditorPermissionsWrapper');
                 
                 if (dashboardAccessWrapper && viewReporterDetailsWrapper && approveNewsWrapper && sidebarAccessWrapper) {
                     if (role === 'subeditor') {
                         dashboardAccessWrapper.style.display = 'block';
                         viewReporterDetailsWrapper.style.display = 'block';
                         approveNewsWrapper.style.display = 'block';
+                        if (viewAllNewsWrapper) viewAllNewsWrapper.style.display = 'block';
                         sidebarAccessWrapper.style.display = 'block';
                         const subEditorPermissionsWrapper = document.getElementById('subEditorPermissionsWrapper');
                         if (subEditorPermissionsWrapper) subEditorPermissionsWrapper.style.display = 'block';
@@ -374,6 +385,7 @@
                         dashboardAccessWrapper.style.display = 'none';
                         viewReporterDetailsWrapper.style.display = 'none';
                         approveNewsWrapper.style.display = 'none';
+                        if (viewAllNewsWrapper) viewAllNewsWrapper.style.display = 'none';
                         sidebarAccessWrapper.style.display = 'none';
                         managedLocationsWrapper.style.display = 'none';
                         const subEditorPermissionsWrapper = document.getElementById('subEditorPermissionsWrapper');
@@ -381,6 +393,8 @@
                         document.getElementById('canAccessAdminDashboard').checked = false;
                         document.getElementById('canViewReporterDetails').checked = false;
                         document.getElementById('canApproveNews').checked = false;
+                        const canViewAllNews = document.getElementById('canViewAllNews');
+                        if (canViewAllNews) canViewAllNews.checked = false;
                         const canSendNotifCb = document.getElementById('canSendNotifications');
                         if (canSendNotifCb) canSendNotifCb.checked = false;
                     }

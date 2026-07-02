@@ -77,6 +77,7 @@ const adminSchema = new mongoose.Schema({
   permissions: {
     canViewReporterDetails: { type: Boolean, default: false },
     canAccessAdminDashboard: { type: Boolean, default: false },
+    canViewAllNews: { type: Boolean, default: false },
     canApproveNews: { type: Boolean, default: false },
     canEditNews: { type: Boolean, default: false },
     canSendNotifications: { type: Boolean, default: false },

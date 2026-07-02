@@ -85,11 +85,16 @@
                                             <input type="hidden" name="endDate" id="endDate" value="<%= endDate %>">
                                         </div>
                                         <select name="period" class="pa-period-select" onchange="document.getElementById('datePicker').value=''; document.getElementById('startDate').value=''; document.getElementById('endDate').value=''; this.form.submit();">
+                                            <option value="1" <%= period === '1' ? 'selected' : '' %>>Today</option>
+                                            <option value="yesterday" <%= period === 'yesterday' ? 'selected' : '' %>>Yesterday</option>
                                             <option value="7" <%= period === '7' ? 'selected' : '' %>>Last 7 days</option>
                                             <option value="30" <%= period === '30' ? 'selected' : '' %>>Last 30 days</option>
                                             <option value="90" <%= period === '90' ? 'selected' : '' %>>Last 90 days</option>
                                             <option value="all" <%= period === 'all' ? 'selected' : '' %>>All time</option>
                                         </select>
+                                        <button type="button" class="btn btn-outline-danger ms-2 fw-bold d-flex align-items-center shadow-sm" style="border-radius: 8px;" onclick="generatePDF()">
+                                            <i class="fas fa-file-pdf me-2"></i> PDF
+                                        </button>
                                     </form>
                                 </div>
 
@@ -357,11 +362,12 @@
             </div>
 
             <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
             <script>
                 flatpickr('#datePicker', {
                     mode: 'range',
                     dateFormat: 'Y-m-d',
-                    defaultDate: <%= startDate && endDate ? JSON.stringify([startDate, endDate]) : 'null' %>,
+                    defaultDate: <%- startDate && endDate ? JSON.stringify([startDate, endDate]) : 'null' %>,
                     onClose: function(selectedDates, dateStr, instance) {
                         if (selectedDates.length === 2) {
                             document.getElementById('startDate').value = instance.formatDate(selectedDates[0], 'Y-m-d');
@@ -370,6 +376,44 @@
                         }
                     }
                 });
+
+                function generatePDF() {
+                    const element = document.querySelector('.pa-page');
+                    
+                    // Create a temporary header for the PDF
+                    const header = document.createElement('div');
+                    header.style.textAlign = 'center';
+                    header.style.marginBottom = '20px';
+                    header.style.padding = '20px';
+                    header.style.borderBottom = '2px solid #ddd';
+                    header.innerHTML = `
+                        <img src="/images/logo.png" style="height: 60px; margin-bottom: 10px;" onerror="this.style.display='none'">
+                        <h1 style="color: #d32f2f; font-weight: 800; margin: 0; font-family: 'Arial', sans-serif; letter-spacing: 1px;">TEHELKA</h1>
+                        <p style="color: #666; margin: 5px 0 0 0;">Performance Analytics Report</p>
+                    `;
+                    
+                    // Add header before content
+                    element.insertBefore(header, element.firstChild);
+                    
+                    // Hide UI elements not needed in PDF
+                    const form = document.querySelector('.pa-hero-filters');
+                    if (form) form.style.display = 'none';
+
+                    const opt = {
+                        margin:       0.5,
+                        filename:     'Tehelka_Performance_Report.pdf',
+                        image:        { type: 'jpeg', quality: 0.98 },
+                        html2canvas:  { scale: 2, useCORS: true, logging: false },
+                        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+                    };
+
+                    // Generate PDF
+                    html2pdf().set(opt).from(element).save().then(() => {
+                        // Restore UI
+                        element.removeChild(header);
+                        if (form) form.style.display = 'flex';
+                    });
+                }
             </script>
 
             <%- include('partials/footer') %>

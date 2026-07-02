@@ -2,6 +2,7 @@
 <html lang="en">
 
 <%- include('partials/header', { title: 'News List' }) %>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="/css/editors-directory.css">
     <link rel="stylesheet" href="/css/news-directory.css">
     <link rel="stylesheet" href="/css/news-detail-modal.css">
@@ -52,16 +53,98 @@
     </head>
 
     <body>
-        <%- include('partials/top-nav', { pageTitle: 'News List' , backButton: true, backUrl: '/' }) %>
+        <% if (typeof isImpersonating === 'undefined' || !isImpersonating) { %>
+            <%- include('partials/top-nav', { pageTitle: 'News List' , backButton: true, backUrl: '/' }) %>
+        <% } %>
             <% const selectedAuthorIdSafe = (typeof selectedAuthorId !== 'undefined' && selectedAuthorId) ? selectedAuthorId : ''; %>
 
             <div class="container-fluid">
                 <div class="row">
-                    <!-- Sidebar -->
-                    <%- include('partials/sidebar', { activePage: 'news-list' }) %>
-
+                    <% if (typeof isImpersonating === 'undefined' || !isImpersonating) { %>
+                        <!-- Sidebar -->
+                        <%- include('partials/sidebar', { activePage: 'news-list' }) %>
+                        
                         <!-- Main Content -->
                         <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                    <% } else { %>
+                        <!-- Main Content (Full Width) -->
+                        <div class="col-12 px-md-4 main-content" id="mainContent" style="margin-left: 0 !important;">
+                    <% } %>
+                            <% if (typeof isImpersonating !== 'undefined' && isImpersonating) { %>
+                                <div class="alert alert-warning mb-4 mt-3 shadow-sm d-flex justify-content-between align-items-center" role="alert">
+                                    <div>
+                                        <i class="fas fa-user-secret me-2 fs-5"></i>
+                                        <strong>Impersonation Mode:</strong> You are securely viewing the dashboard of <strong><%= admin.name || admin.username %></strong>.
+                                    </div>
+                                    <a href="/news" class="btn btn-sm btn-outline-dark fw-bold px-3">
+                                        <i class="fas fa-sign-out-alt me-1"></i> Exit Impersonation
+                                    </a>
+                                </div>
+                            <% } %>
+                            <% if (typeof isImpersonating !== 'undefined' && isImpersonating && typeof impersonationMetrics !== 'undefined') { %>
+                                <div class="row mb-4">
+                                    <div class="col-md-3">
+                                        <div class="card shadow-sm text-center border-0 rounded-4 h-100" style="background: linear-gradient(135deg, #f8f9fa, #e9ecef);">
+                                            <div class="card-body py-3 d-flex flex-column justify-content-center">
+                                                <div class="text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">Total News</div>
+                                                <h2 class="display-6 fw-bold mb-0 text-dark"><%= impersonationMetrics.totalNews %></h2>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="card shadow-sm text-center border-0 rounded-4 h-100">
+                                            <div class="card-body py-3 d-flex flex-column justify-content-center">
+                                                <div class="text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">Today</div>
+                                                <h2 class="fw-bold mb-0 text-primary" style="font-size: 2rem;"><%= impersonationMetrics.todayNews %></h2>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="card shadow-sm text-center border-0 rounded-4 h-100">
+                                            <div class="card-body py-3 d-flex flex-column justify-content-center">
+                                                <div class="text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">Yesterday</div>
+                                                <h2 class="fw-bold mb-0 text-info" style="font-size: 2rem;"><%= impersonationMetrics.yesterdayNews %></h2>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="card shadow-sm text-center border-0 rounded-4 h-100">
+                                            <div class="card-body py-3 d-flex flex-column justify-content-center">
+                                                <div class="text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">7 Days</div>
+                                                <h2 class="fw-bold mb-0 text-success" style="font-size: 2rem;"><%= impersonationMetrics.sevenDaysNews %></h2>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card shadow-sm border-0 rounded-4 h-100" style="background: linear-gradient(135deg, #e0c3fc, #8ec5fc);">
+                                            <div class="card-body py-2 d-flex flex-column justify-content-center align-items-center">
+                                                <div class="text-white fw-bold mb-1 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">Custom Range</div>
+                                                <input type="text" id="customDateRangePicker" class="form-control form-control-sm border-0 shadow-none bg-white text-center rounded-3 mb-1" placeholder="Select dates..." style="max-width: 170px; font-weight: bold; color: #495057; font-size: 0.8rem; cursor: pointer;">
+                                                <h2 class="fw-bold mb-0 text-white" id="customNewsCountDisplay" style="font-size: 2rem;">-</h2>
+                                                <button id="downloadPdfBtn" class="btn btn-sm btn-light mt-1 fw-bold text-primary shadow-sm" style="display:none; font-size: 0.75rem;"><i class="fas fa-file-pdf text-danger"></i> Download PDF</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mb-4 justify-content-center">
+                                    <div class="col-md-3">
+                                        <div class="card shadow-sm text-center border-0 rounded-4 h-100">
+                                            <div class="card-body py-3 d-flex flex-column justify-content-center">
+                                                <div class="text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">Pending</div>
+                                                <h2 class="fw-bold mb-0 text-warning" style="font-size: 2rem;" id="pendingCountDisplay"><%= impersonationMetrics.pendingNews %></h2>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card shadow-sm text-center border-0 rounded-4 h-100">
+                                            <div class="card-body py-3 d-flex flex-column justify-content-center">
+                                                <div class="text-muted fw-bold mb-1 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">Rejected</div>
+                                                <h2 class="fw-bold mb-0 text-danger" style="font-size: 2rem;" id="rejectedCountDisplay"><%= impersonationMetrics.rejectedNews %></h2>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <% } %>
                             <div class="content-area mt-4">
                                 <% 
                                     const langLabels = typeof newsLanguageLabels !== 'undefined'
@@ -142,6 +225,7 @@
                                 </form>
 
                                 <div class="news-page">
+                                    <% if (typeof isImpersonating === 'undefined' || !isImpersonating) { %>
                                     <div class="team-page-header">
                                         <div>
                                             <h1 class="team-page-title">News Library</h1>
@@ -151,6 +235,7 @@
                                             <i class="fas fa-plus"></i> New article
                                         </a>
                                     </div>
+                                    <% } %>
 
                                     <% if (selectedAuthorIdSafe) { %>
                                     <div class="news-active-filters">
@@ -165,6 +250,7 @@
                                         </div>
                                     <% } %>
 
+                                    <% if (typeof isImpersonating === 'undefined' || !isImpersonating) { %>
                                     <div class="team-stats">
                                         <div class="team-stat">
                                             <div class="team-stat-value"><%= totalNews %></div>
@@ -181,7 +267,9 @@
                                         <div class="team-stat">
                                             <div class="team-stat-value"><%= pageViews.toLocaleString('en-IN') %></div>
                                             <div class="team-stat-label">Views on page</div>
+                                        </div>
                                     </div>
+                                    <% } %>
                                 </div>
 
                                     <div class="news-filters-card">
@@ -316,6 +404,65 @@
                                             <p style="margin-bottom:20px;">Try adjusting filters or publish a new story.</p>
                                             <a href="/add-news" class="team-btn-primary"><i class="fas fa-plus"></i> Add article</a>
                                         </div>
+                                        <% } else if (typeof isRestrictedSubEditor !== 'undefined' && isRestrictedSubEditor) { %>
+                                            <ul class="nav nav-tabs mb-4" id="subEditorNewsListTabs" role="tablist">
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link active fw-bold" id="my-list-tab" data-bs-toggle="tab" data-bs-target="#my-list" type="button" role="tab" style="color: #475569;"><i class="fas fa-user-edit"></i> My Articles</button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link fw-bold" id="team-list-tab" data-bs-toggle="tab" data-bs-target="#team-list" type="button" role="tab" style="color: #475569;"><i class="fas fa-users"></i> Assigned Reporters (For Approval)</button>
+                                                </li>
+                                            </ul>
+                                            <div class="tab-content" id="subEditorNewsListTabContent">
+                                                <div class="tab-pane fade show active" id="my-list" role="tabpanel">
+                                                    <div class="team-table-wrap">
+                                                        <table class="team-table news-table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Article</th>
+                                                                    <th>Category</th>
+                                                                    <th>Location</th>
+                                                                    <th>Language</th>
+                                                                    <th>Status</th>
+                                                                    <th>Engagement</th>
+                                                                    <% if (showAuthorCol) { %><th>Author</th><% } %>
+                                                                    <th>Published</th>
+                                                                    <th></th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <% newsList.filter(n => n.authorId === admin.id).forEach(function(news) { %>
+                                                                    <%- include('partials/news-directory-row', { news: news, newsLanguageLabels: langLabels, admin: admin }) %>
+                                                                <% }); %>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                <div class="tab-pane fade" id="team-list" role="tabpanel">
+                                                    <div class="team-table-wrap">
+                                                        <table class="team-table news-table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Article</th>
+                                                                    <th>Category</th>
+                                                                    <th>Location</th>
+                                                                    <th>Language</th>
+                                                                    <th>Status</th>
+                                                                    <th>Engagement</th>
+                                                                    <% if (showAuthorCol) { %><th>Author</th><% } %>
+                                                                    <th>Published</th>
+                                                                    <th></th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <% newsList.filter(n => n.authorId !== admin.id).forEach(function(news) { %>
+                                                                    <%- include('partials/news-directory-row', { news: news, newsLanguageLabels: langLabels, admin: admin }) %>
+                                                                <% }); %>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         <% } else { %>
                                         <div class="team-table-wrap">
                                             <table class="team-table news-table">
@@ -338,7 +485,8 @@
                                                     <% }); %>
                                                 </tbody>
                                             </table>
-            </div>
+                                        </div>
+                                        <% } %>
 
                                         <div class="news-pagination">
                                             <div class="news-pagination-info">
@@ -364,7 +512,6 @@
                                         </div>
                                             <% } %>
                                         </div>
-                                        <% } %>
                                     </div>
                                             </div>
                                                     </div>
@@ -1288,6 +1435,139 @@
                 </script>
 
     <%- include('partials/notification-modal') %>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('customDateRangePicker')) {
+                const adminId = '<%= typeof admin !== "undefined" ? admin._id : "" %>';
+                
+                // Initialize PDF generation logic
+                const downloadBtn = document.getElementById('downloadPdfBtn');
+                if (downloadBtn) {
+                    downloadBtn.addEventListener('click', function() {
+                        const element = document.getElementById('pdfReportTemplateContainer').cloneNode(true);
+                        element.style.display = 'block';
+                        
+                        const opt = {
+                            margin:       0.5,
+                            filename:     `SubEditor_Report_${document.getElementById('pdfDateRangeStr').innerText}.pdf`,
+                            image:        { type: 'jpeg', quality: 0.98 },
+                            html2canvas:  { scale: 2, useCORS: true },
+                            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+                        };
+                        
+                        // Temporarily append to body to render, then remove
+                        const tempContainer = document.createElement('div');
+                        tempContainer.style.position = 'absolute';
+                        tempContainer.style.left = '-9999px';
+                        tempContainer.appendChild(element);
+                        document.body.appendChild(tempContainer);
+                        
+                        html2pdf().set(opt).from(element).save().then(() => {
+                            document.body.removeChild(tempContainer);
+                        });
+                    });
+                }
+
+                flatpickr("#customDateRangePicker", {
+                    mode: "range",
+                    dateFormat: "Y-m-d",
+                    onChange: function(selectedDates, dateStr, instance) {
+                        if (selectedDates.length > 0) {
+                            const from = instance.formatDate(selectedDates[0], "Y-m-d");
+                            const to = instance.formatDate(selectedDates[selectedDates.length === 1 ? 0 : 1], "Y-m-d");
+                            const display = document.getElementById('customNewsCountDisplay');
+                            
+                            display.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 1.2rem;"></i>';
+                            
+                            fetch(`/admin/editors/${adminId}/custom-news-count?from=${from}&to=${to}`)
+                                .then(res => res.json())
+                                .then(data => {
+                                    if (data.error) {
+                                        display.innerText = 'Err';
+                                        console.error(data.error);
+                                    } else {
+                                        display.innerText = data.count;
+                                        
+                                        // Update on-screen metrics
+                                        const pendingDisplay = document.getElementById('pendingCountDisplay');
+                                        if(pendingDisplay) pendingDisplay.innerText = data.pendingCount !== undefined ? data.pendingCount : '-';
+                                        const rejectedDisplay = document.getElementById('rejectedCountDisplay');
+                                        if(rejectedDisplay) rejectedDisplay.innerText = data.rejectedCount !== undefined ? data.rejectedCount : '-';
+                                        
+                                        // Update PDF template data
+                                        document.getElementById('pdfDateRangeStr').innerText = `${from} to ${to}`;
+                                        document.getElementById('pdfTotalNews').innerText = data.count;
+                                        document.getElementById('pdfPendingNews').innerText = data.pendingCount || 0;
+                                        document.getElementById('pdfRejectedNews').innerText = data.rejectedCount || 0;
+                                        document.getElementById('pdfVideoNews').innerText = data.videoCount || 0;
+                                        document.getElementById('pdfNormalNews').innerText = data.normalCount || 0;
+                                        
+                                        // Show Download Button
+                                        if (downloadBtn) downloadBtn.style.display = 'inline-block';
+                                    }
+                                })
+                                .catch(err => {
+                                    display.innerText = 'Err';
+                                    console.error('Fetch error:', err);
+                                });
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+
+    <!-- Hidden PDF Template -->
+    <div id="pdfReportTemplateContainer" style="display: none;">
+        <div id="pdfReportTemplate" style="padding: 40px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; background: #fff;">
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #0056b3; padding-bottom: 20px;">
+                <img src="/images/logo.png" alt="Tehelka Logo" style="max-height: 80px; margin-bottom: 15px;">
+                <h1 style="color: #0056b3; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;">Sub-Editor Performance Report</h1>
+                <p style="color: #666; margin: 10px 0 0 0; font-size: 14px;"><strong>Editor:</strong> <%= typeof admin !== 'undefined' ? (admin.name || admin.username) : 'N/A' %></p>
+                <p style="color: #666; margin: 5px 0 0 0; font-size: 14px;"><strong>Date Range:</strong> <span id="pdfDateRangeStr"></span></p>
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+                <thead>
+                    <tr style="background-color: #f8f9fa;">
+                        <th style="padding: 12px 15px; border: 1px solid #dee2e6; text-align: left; font-weight: bold; color: #495057; width: 60%;">Metric</th>
+                        <th style="padding: 12px 15px; border: 1px solid #dee2e6; text-align: right; font-weight: bold; color: #495057; width: 40%;">Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 12px 15px; border: 1px solid #dee2e6; font-size: 14px; font-weight: 500;">Total News Published</td>
+                        <td style="padding: 12px 15px; border: 1px solid #dee2e6; text-align: right; font-size: 16px; font-weight: bold; color: #0d6efd;" id="pdfTotalNews">0</td>
+                    </tr>
+                    <tr style="background-color: #fafafa;">
+                        <td style="padding: 12px 15px; border: 1px solid #dee2e6; font-size: 14px;">&nbsp;&nbsp;├─ Normal News</td>
+                        <td style="padding: 12px 15px; border: 1px solid #dee2e6; text-align: right; font-size: 15px; font-weight: bold; color: #198754;" id="pdfNormalNews">0</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 15px; border: 1px solid #dee2e6; font-size: 14px;">&nbsp;&nbsp;└─ Video News</td>
+                        <td style="padding: 12px 15px; border: 1px solid #dee2e6; text-align: right; font-size: 15px; font-weight: bold; color: #6f42c1;" id="pdfVideoNews">0</td>
+                    </tr>
+                    <tr style="background-color: #fafafa;">
+                        <td style="padding: 12px 15px; border: 1px solid #dee2e6; font-size: 14px; font-weight: 500;">Pending Articles</td>
+                        <td style="padding: 12px 15px; border: 1px solid #dee2e6; text-align: right; font-size: 15px; font-weight: bold; color: #ffc107;" id="pdfPendingNews">0</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 15px; border: 1px solid #dee2e6; font-size: 14px; font-weight: 500;">Rejected Articles</td>
+                        <td style="padding: 12px 15px; border: 1px solid #dee2e6; text-align: right; font-size: 15px; font-weight: bold; color: #dc3545;" id="pdfRejectedNews">0</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 50px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #eee; padding-top: 15px;">
+                Generated automatically by ShortNews Admin Panel on <%= new Date().toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'}) %>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include html2pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     </body>
 

@@ -23,6 +23,10 @@ router.post('/profile/image', adminController.requireAuth, uploadCategoryMedia.s
 router.get('/register-editor', adminController.requireAdmin, adminController.renderRegisterEditorPage);
 router.post('/register-editor', adminController.requireAdmin, adminController.registerEditor);
 router.get('/editors', adminController.requireAuth, adminController.renderEditorsPage);
+router.get('/editors/:id/dashboard', adminController.requireAdmin, adminController.renderImpersonatedDashboard);
+router.get('/editors/:id/news-list', adminController.requireAdmin, adminController.renderImpersonatedNewsList);
+router.get('/editors/:id/custom-news-count', adminController.requireAdmin, adminController.getImpersonatedNewsCount);
+router.post('/editors/multi-report', adminController.requireAdmin, adminController.getMultiEditorReportData);
 router.get('/performance-analytics', adminController.requireAuth, adminController.renderPerformanceAnalyticsPage);
 router.put('/editors/:id', adminController.requireAuth, adminController.updateEditor);
 router.put('/editors/:id/status', adminController.requireAuth, adminController.toggleEditorStatus);

@@ -13,6 +13,9 @@
     data-role="<%= editor.role %>"
     data-language="<%= editor.workingLanguage || '' %>"
     data-search="<%= ((editor.name || '') + ' ' + (editor.username || '') + ' ' + (editor.email || '') + ' ' + (editor.assignedLocations ? editor.assignedLocations.join(' ') : (editor.location || '')) + ' ' + (editor.displayRole || '')).toLowerCase() %>">
+  <td style="width: 40px; text-align: center;">
+    <input type="checkbox" class="form-check-input editor-select-checkbox" value="<%= rowId %>">
+  </td>
   <td>
     <div class="team-member">
       <% if (editor.profileImage) { %>
@@ -59,6 +62,12 @@
         <i class="fas fa-ellipsis-vertical"></i>
       </button>
       <ul class="dropdown-menu dropdown-menu-end team-dropdown-menu">
+        <li>
+          <a class="dropdown-item" href="/admin/editors/<%= editor._id %>/news-list" target="_blank">
+            <i class="fas fa-eye me-2"></i>View News List
+          </a>
+        </li>
+
         <li><a class="dropdown-item" href="/admin/performance-analytics?authorId=<%= rowId %>"><i class="fas fa-chart-line me-2"></i>Analytics</a></li>
         <li><a class="dropdown-item" href="#" onclick="openEditEditorModal('<%= rowId %>'); return false;"><i class="fas fa-pen me-2"></i>Edit profile</a></li>
         <li><a class="dropdown-item" href="#" onclick="showEditorInsightsById('<%= rowId %>'); return false;"><i class="fas fa-chart-bar me-2"></i>Insights</a></li>

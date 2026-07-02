@@ -106,29 +106,49 @@ async function renderDashboard(req, res) {
     if (req.app.locals.isConnectedToMongoDB) {
       let newsList;
 
-      // Check user role
+      let newsQuery = {};
+      let isRestrictedSubEditor = false;
+
+      // Check user role and permissions
       if (req.admin.role === 'editor') {
         // Editors only see their own news
-        newsList = await News.find({ authorId: req.admin.id }).sort({ publishedAt: -1 }).limit(12);
-        totalNewsCount = await News.countDocuments({ authorId: req.admin.id });
-        activeNewsCount = await News.countDocuments({ authorId: req.admin.id, isActive: true });
-        inactiveNewsCount = await News.countDocuments({ authorId: req.admin.id, isActive: false });
-        pendingNewsCount = await News.countDocuments({
-          authorId: req.admin.id,
-          isActive: false,
-          'rejectionStatus.isRejected': { $ne: true }
-        });
-      } else {
-        // Admins and superadmins see all news, but limit to latest 12
-        newsList = await News.find().sort({ publishedAt: -1 }).limit(12);
-        totalNewsCount = await News.countDocuments();
-        activeNewsCount = await News.countDocuments({ isActive: true });
-        inactiveNewsCount = await News.countDocuments({ isActive: false });
-        pendingNewsCount = await News.countDocuments({
-          isActive: false,
-          'rejectionStatus.isRejected': { $ne: true }
-        });
+        newsQuery = { authorId: req.admin.id };
+      } else if (req.admin.role === 'subeditor' && (!req.admin.permissions || !req.admin.permissions.canViewAllNews)) {
+        isRestrictedSubEditor = true;
+        let assignedLocations = req.admin.assignedLocations || [];
+        if (req.admin.permissions?.managedLocations?.length > 0) {
+            assignedLocations = req.admin.permissions.managedLocations;
+        }
+        
+        // Find reporters in assigned locations
+        const assignedReporters = await Admin.find({ 
+            role: { $in: ['editor', 'reporter'] }, 
+            $or: [
+                { location: { $in: assignedLocations } },
+                { assignedLocations: { $in: assignedLocations } }
+            ]
+        }).select('_id');
+        
+        const assignedReporterIds = assignedReporters.map(r => r._id.toString());
+        
+        newsQuery = {
+            $or: [
+                { authorId: req.admin.id },
+                { authorId: { $in: assignedReporterIds } }
+            ]
+        };
       }
+
+      // Fetch news
+      newsList = await News.find(newsQuery).sort({ publishedAt: -1 }).limit(20);
+      totalNewsCount = await News.countDocuments(newsQuery);
+      activeNewsCount = await News.countDocuments({ ...newsQuery, isActive: true });
+      inactiveNewsCount = await News.countDocuments({ ...newsQuery, isActive: false });
+      pendingNewsCount = await News.countDocuments({
+        ...newsQuery,
+        isActive: false,
+        'rejectionStatus.isRejected': { $ne: true }
+      });
 
       const categories = await Category.find({ type: { $in: ['news', null] } });
       const locations = await Location.find();
@@ -194,7 +214,8 @@ async function renderDashboard(req, res) {
         inactiveNewsCount,
         pendingNewsCount,
         totalViews,
-        admin: req.admin
+        admin: req.admin,
+        isRestrictedSubEditor
       });
     } else {
       // Use in-memory storage
@@ -321,10 +342,53 @@ async function renderNewsListPage(req, res) {
         }
       }
 
-      // Check user role
+      let isRestrictedSubEditor = false;
+
+      // Check user role and permissions
       if (req.admin.role === 'editor') {
         // Editors only see their own news
         query.authorId = req.admin.id;
+      } else if (req.admin.role === 'subeditor' && (!req.admin.permissions || !req.admin.permissions.canViewAllNews)) {
+        isRestrictedSubEditor = true;
+        let assignedLocations = req.admin.assignedLocations || [];
+        if (req.admin.permissions?.managedLocations?.length > 0) {
+            assignedLocations = req.admin.permissions.managedLocations;
+        }
+        
+        // Find reporters in assigned locations
+        const assignedReporters = await Admin.find({ 
+            role: { $in: ['editor', 'reporter'] }, 
+            $or: [
+                { location: { $in: assignedLocations } },
+                { assignedLocations: { $in: assignedLocations } }
+            ]
+        }).select('_id');
+        
+        const assignedReporterIds = assignedReporters.map(r => r._id.toString());
+        
+        const subEditorQuery = {
+            $or: [
+                { authorId: req.admin.id },
+                { authorId: { $in: assignedReporterIds } }
+            ]
+        };
+
+        if (selectedAuthorId) {
+            // Ensure selected author is within allowed authors
+            if (selectedAuthorId === req.admin.id || assignedReporterIds.includes(selectedAuthorId)) {
+                query.authorId = selectedAuthorId;
+            } else {
+                // If they try to filter by an author they don't have access to, return no results
+                query.authorId = '000000000000000000000000'; // Fake ID
+            }
+        } else {
+            // Apply the $or query to the main query using $and to not overwrite other filters
+            if (Object.keys(query).length === 0) {
+                query = subEditorQuery;
+            } else {
+                query = { $and: [query, subEditorQuery] };
+            }
+        }
       } else if (selectedAuthorId) {
         query.authorId = selectedAuthorId;
       }
@@ -397,7 +461,8 @@ async function renderNewsListPage(req, res) {
           limit,
           hasNextPage: page < totalPages,
           hasPrevPage: page > 1
-        }
+        },
+        isRestrictedSubEditor
       });
     } else {
       console.log('Using in-memory storage'); // Debug log

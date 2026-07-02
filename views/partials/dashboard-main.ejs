@@ -228,11 +228,24 @@
                                             <h2>Recent articles</h2>
                                             <p>Latest submissions — click to view full analytics</p>
                                         </div>
-                                        <a href="/news-list" class="dash-link-btn"><i class="fas fa-arrow-right"></i> View all</a>
+                                        <a href="<%= typeof isImpersonating !== 'undefined' && isImpersonating ? '/admin/editors/' + admin._id + '/news-list' : '/news-list' %>" class="dash-link-btn"><i class="fas fa-arrow-right"></i> View all</a>
                                     </div>
-                                    <div class="dash-news-panel">
-                                        <div class="dash-articles-grid">
-                                            <% (typeof newsList !== 'undefined' ? newsList : []).forEach(function(news) { %>
+                                    
+                                    <% if (typeof isRestrictedSubEditor !== 'undefined' && isRestrictedSubEditor) { %>
+                                            <ul class="nav nav-tabs mb-4" id="subEditorDashboardTabs" role="tablist">
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link active fw-bold" id="my-dash-tab" data-bs-toggle="tab" data-bs-target="#my-dash" type="button" role="tab" style="color: #475569;"><i class="fas fa-user-edit"></i> My Articles</button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link fw-bold" id="team-dash-tab" data-bs-toggle="tab" data-bs-target="#team-dash" type="button" role="tab" style="color: #475569;"><i class="fas fa-users"></i> Assigned Reporters (For Approval)</button>
+                                                </li>
+                                            </ul>
+                                        <div class="tab-content" id="subEditorDashboardTabContent">
+                                            <div class="tab-pane fade" id="team-dash" role="tabpanel">
+                                                <div class="dash-news-panel">
+                                                    <div class="dash-articles-grid">
+                                                        <% (typeof newsList !== 'undefined' ? newsList : []).filter(n => n.authorId !== admin.id).forEach(function(news) { %>
+
                                             <article class="dash-article news-card" onclick="openNewsDetail('<%= news._id %>')">
                                                 <div class="dash-article-media">
                                                     <% if (news.mediaUrl) { %>
@@ -301,5 +314,115 @@
                                             <% }); %>
                                         </div>
                                     </div>
+                                </div>
+                                <div class="tab-pane fade show active" id="my-dash" role="tabpanel">
+                                    <div class="dash-news-panel">
+                                        <div class="dash-articles-grid">
+                                            <% (typeof newsList !== 'undefined' ? newsList : []).filter(n => n.authorId === admin.id).forEach(function(news) { %>
+                                                            <article class="dash-article news-card" onclick="openNewsDetail('<%= news._id %>')">
+                                                                <div class="dash-article-media">
+                                                                    <% if (news.mediaUrl) { %>
+                                                                        <% if (news.mediaType === 'video') { %>
+                                                                            <video src="<%= news.mediaUrl %>" onclick="event.stopPropagation()" controls></video>
+                                                                        <% } else { %>
+                                                                            <img src="<%= news.mediaUrl || news.imageUrl %>" alt="<%= news.title %>">
+                                                                        <% } %>
+                                                                    <% } else { %>
+                                                                        <div class="dash-article-media--empty"><i class="fas fa-image"></i></div>
+                                                                    <% } %>
+                                                                    <% if (news.location && news.locationCode) { %>
+                                                                        <span class="dash-article-chip"><i class="fas fa-map-marker-alt"></i> <%= news.locationCode %></span>
+                                                                    <% } %>
+                                                                    <span class="dash-article-status <%= news.isActive === false ? 'dash-article-status--off' : 'dash-article-status--on' %>">
+                                                                        <%= news.isActive === false ? 'Inactive' : 'Active' %>
+                                                                    </span>
+                                                                </div>
+                                                                <div class="dash-article-body">
+                                                                    <h3 class="dash-article-title rich-text"><%- renderRichText(news.title) %></h3>
+                                                                    <p class="dash-article-excerpt rich-text"><%- renderRichTextExcerpt(news.content, 90) %></p>
+                                                                    <div class="dash-article-meta">
+                                                                        <span><%= news.category %></span>
+                                                                        <span><%= new Date(news.publishedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) %></span>
+                                                                    </div>
+                                                                </div>
+                                                            </article>
+                                            <% }); %>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <% } else { %>
+                            <div class="dash-news-panel">
+                                <div class="dash-articles-grid">
+                                    <% (typeof newsList !== 'undefined' ? newsList : []).forEach(function(news) { %>
+                                        <article class="dash-article news-card" onclick="openNewsDetail('<%= news._id %>')">
+                                            <div class="dash-article-media">
+                                                <% if (news.mediaUrl) { %>
+                                                    <% if (news.mediaType === 'video') { %>
+                                                        <video src="<%= news.mediaUrl %>" onclick="event.stopPropagation()" controls></video>
+                                                    <% } else { %>
+                                                        <img src="<%= news.mediaUrl || news.imageUrl %>" alt="<%= news.title %>">
+                                                    <% } %>
+                                                <% } else { %>
+                                                    <div class="dash-article-media--empty"><i class="fas fa-image"></i></div>
+                                                <% } %>
+                                                <% if (news.location && news.locationCode) { %>
+                                                    <span class="dash-article-chip"><i class="fas fa-map-marker-alt"></i> <%= news.locationCode %></span>
+                                                <% } %>
+                                                <span class="dash-article-status <%= news.isActive === false ? 'dash-article-status--off' : 'dash-article-status--on' %>">
+                                                    <%= news.isActive === false ? 'Inactive' : 'Active' %>
+                                                </span>
+                                            </div>
+                                            <div class="dash-article-body">
+                                                <h3 class="dash-article-title rich-text"><%- renderRichText(news.title) %></h3>
+                                                <p class="dash-article-excerpt rich-text"><%- renderRichTextExcerpt(news.content, 90) %></p>
+                                                <div class="dash-article-meta">
+                                                    <span><%= news.category %></span>
+                                                    <span><%= new Date(news.publishedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) %></span>
+                                                    <% if (!dashIsEditor) { %><span><i class="fas fa-user"></i> <%= news.author %></span><% } %>
+                                                </div>
+                                                <div class="dash-article-engage">
+                                                    <span class="dash-engage-pill"><i class="fas fa-thumbs-up"></i> <%= news.likes || 0 %></span>
+                                                    <span class="dash-engage-pill"><i class="fas fa-comment"></i> <%= news.comments || 0 %></span>
+                                                    <span class="dash-engage-pill"><i class="fas fa-eye"></i> <%= news.views || 0 %></span>
+                                                </div>
+                                                <div class="dash-article-actions">
+                                                    <% if (news.isActive !== false && admin && (admin.role === 'superadmin' || admin.role === 'admin' || (admin.role === 'subeditor' && admin.permissions && admin.permissions.canSendNotifications))) { %>
+                                                    <button type="button" class="btn btn-sm btn-warning ripple" title="Send notification" onclick="sendNotificationForNews('<%= news._id %>'); event.stopPropagation();">
+                                                        <i class="fas fa-bell"></i>
+                                                    </button>
+                                                    <% } %>
+                                                    <% 
+                                                    const isSuperAdmin = admin && admin.role === 'superadmin';
+                                                    const isAdmin = admin && admin.role === 'admin';
+                                                    const hasEditPerm = admin && admin.role === 'subeditor' && admin.permissions && admin.permissions.canEditNews;
+                                                    const canEditAny = isSuperAdmin || isAdmin || hasEditPerm;
+                                                    const isOwnNews = admin && news.authorId && admin._id && news.authorId.toString() === admin._id.toString();
+                                                    const isRejected = news.rejectionStatus && news.rejectionStatus.isRejected;
+                                                    const canEdit = canEditAny || (isOwnNews && !isRejected);
+                                                    %>
+                                                    <% if (canEditAny || isOwnNews) { %>
+                                                    <button type="button" class="btn btn-sm btn-<%= news.isActive === false ? 'success' : 'outline-secondary' %> ripple" onclick="toggleNewsStatus('<%= news._id %>'); event.stopPropagation();">
+                                                        <i class="fas fa-<%= news.isActive === false ? 'check' : 'pause' %>"></i>
+                                                    </button>
+                                                    <% } %>
+                                                    
+                                                    <% if (canEdit) { %>
+                                                    <button type="button" class="btn btn-sm btn-primary ripple" onclick="editNews('<%= news._id %>'); event.stopPropagation();">
+                                                        <i class="fas fa-pen"></i>
+                                                    </button>
+                                                    <% } %>
+                                                    <% if (canEditAny || isOwnNews) { %>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger ripple" onclick="deleteNews('<%= news._id %>'); event.stopPropagation();">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                    <% } %>
+                                                </div>
+                                            </div>
+                                        </article>
+                                    <% }); %>
+                                </div>
+                            </div>
+                        <% } %>
                                 </section>
                             </div>

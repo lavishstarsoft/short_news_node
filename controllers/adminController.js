@@ -12,6 +12,7 @@ const mongoose = require('mongoose');
 const News = require('../models/News');
 const Location = require('../models/Location');
 const Category = require('../models/Category');
+const newsController = require('./newsController');
 const {
   normalizeNewsLanguage,
   buildNewsLanguageFilter,
@@ -742,7 +743,316 @@ async function renderDashboard(req, res) {
   }
 }
 
-// Render editors page
+// Render impersonated dashboard for a specific sub-editor
+async function renderImpersonatedDashboard(req, res) {
+  try {
+    const targetEditorId = req.params.id;
+    const targetAdmin = await Admin.findById(targetEditorId).lean();
+    if (!targetAdmin) {
+      return res.status(404).send('Editor not found');
+    }
+    
+    targetAdmin.id = targetAdmin._id.toString();
+    targetAdmin.isImpersonated = true;
+    targetAdmin.impersonatorName = req.admin.name || 'Super Admin';
+
+    let totalNewsCount = 0;
+    let activeNewsCount = 0;
+    let inactiveNewsCount = 0;
+    let pendingNewsCount = 0;
+    let todaysNewsCount = 0;
+
+    if (req.app.locals.isConnectedToMongoDB) {
+      // Force "editor" view to show only their stats, even if they are subeditor
+      const newsList = await News.find({ authorId: targetEditorId }).sort({ publishedAt: -1 }).limit(12);
+      totalNewsCount = await News.countDocuments({ authorId: targetEditorId });
+      activeNewsCount = await News.countDocuments({ authorId: targetEditorId, isActive: true });
+      inactiveNewsCount = await News.countDocuments({ authorId: targetEditorId, isActive: false });
+      pendingNewsCount = await News.countDocuments({
+        authorId: targetEditorId,
+        isActive: false,
+        'rejectionStatus.isRejected': { $ne: true }
+      });
+
+      const categories = await Category.find({ type: { $in: ['news', null] } });
+      const locations = await Location.find();
+
+      const locationMap = {};
+      locations.forEach(location => {
+        locationMap[location.name] = location.code;
+      });
+
+      const newsListWithCodes = newsList.map(news => {
+        return {
+          ...news.toObject(),
+          locationCode: news.location ? locationMap[news.location] : null,
+          authorRole: targetAdmin.displayRole || 'Reporter',
+          authorSystemRole: targetAdmin.role || 'editor'
+        };
+      });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      todaysNewsCount = await News.countDocuments({
+        authorId: targetEditorId,
+        publishedAt: { $gte: today }
+      });
+
+      const viewsAgg = await News.aggregate([
+        { $match: { authorId: targetEditorId } },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$views', 0] } } } }
+      ]);
+      const totalViews = viewsAgg[0]?.total || 0;
+
+      res.render('index', {
+        newsList: newsListWithCodes,
+        categories,
+        locations,
+        todaysNewsCount,
+        totalNewsCount,
+        activeNewsCount,
+        inactiveNewsCount,
+        pendingNewsCount,
+        totalViews,
+        admin: targetAdmin,
+        isImpersonating: true
+      });
+    } else {
+      res.status(500).send('MongoDB required for impersonation');
+    }
+  } catch (error) {
+    console.error('Error in renderImpersonatedDashboard:', error);
+    res.status(500).send('Server Error');
+  }
+}
+
+// Render impersonated news list for a specific sub-editor
+async function renderImpersonatedNewsList(req, res) {
+  try {
+    const targetEditorId = req.params.id;
+    const targetAdmin = await Admin.findById(targetEditorId).lean();
+    if (!targetAdmin) {
+      return res.status(404).send('Editor not found');
+    }
+    
+    targetAdmin.id = targetAdmin._id.toString();
+    targetAdmin.isImpersonated = true;
+    targetAdmin.impersonatorName = req.admin.name || 'Super Admin';
+
+    // Override req.admin so newsController thinks we are the subeditor
+    req.admin = targetAdmin;
+    
+    // Set locals so the view knows we are impersonating
+    res.locals.isImpersonating = true;
+
+    // Calculate metrics for the sub-editor (including assigned reporters)
+    let assignedLocations = targetAdmin.assignedLocations || [];
+    if (targetAdmin.permissions && targetAdmin.permissions.managedLocations && targetAdmin.permissions.managedLocations.length > 0) {
+      assignedLocations = targetAdmin.permissions.managedLocations;
+    }
+    const assignedReporters = await Admin.find({ 
+      role: { $in: ['editor', 'reporter'] }, 
+      $or: [
+        { location: { $in: assignedLocations } },
+        { assignedLocations: { $in: assignedLocations } }
+      ]
+    }).select('_id');
+    
+    const assignedReporterIds = assignedReporters.map(r => r._id.toString());
+    const queryCond = {
+      $or: [
+        { authorId: targetEditorId },
+        { authorId: { $in: assignedReporterIds } }
+      ]
+    };
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+    const sevenDaysAgo = new Date(todayStart);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+
+    res.locals.impersonationMetrics = {
+      totalNews: await News.countDocuments(queryCond),
+      todayNews: await News.countDocuments({ ...queryCond, publishedAt: { $gte: todayStart } }),
+      yesterdayNews: await News.countDocuments({ ...queryCond, publishedAt: { $gte: yesterdayStart, $lt: todayStart } }),
+      sevenDaysNews: await News.countDocuments({ ...queryCond, publishedAt: { $gte: sevenDaysAgo } }),
+      pendingNews: await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': { $ne: true } }),
+      rejectedNews: await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': true })
+    };
+
+    // Call the original news list controller function
+    return newsController.renderNewsListPage(req, res);
+  } catch (error) {
+    console.error('Error in renderImpersonatedNewsList:', error);
+    res.status(500).send('Server Error');
+  }
+}
+
+// Get news count for custom date range for impersonated sub-editor
+async function getImpersonatedNewsCount(req, res) {
+  try {
+    const targetEditorId = req.params.id;
+    const { from, to } = req.query;
+    
+    if (!from || !to) {
+      return res.status(400).json({ error: 'Missing from or to dates' });
+    }
+
+    const targetAdmin = await Admin.findById(targetEditorId).lean();
+    if (!targetAdmin) {
+      return res.status(404).json({ error: 'Editor not found' });
+    }
+
+    let assignedLocations = targetAdmin.assignedLocations || [];
+    if (targetAdmin.permissions && targetAdmin.permissions.managedLocations && targetAdmin.permissions.managedLocations.length > 0) {
+      assignedLocations = targetAdmin.permissions.managedLocations;
+    }
+    const assignedReporters = await Admin.find({ 
+      role: { $in: ['editor', 'reporter'] }, 
+      $or: [
+        { location: { $in: assignedLocations } },
+        { assignedLocations: { $in: assignedLocations } }
+      ]
+    }).select('_id');
+    
+    const assignedReporterIds = assignedReporters.map(r => r._id.toString());
+    const fromDate = new Date(`${from}T00:00:00.000+05:30`);
+    const toDate = new Date(`${to}T23:59:59.999+05:30`);
+
+    const queryCond = {
+      $or: [
+        { authorId: targetEditorId },
+        { authorId: { $in: assignedReporterIds } }
+      ],
+      publishedAt: {
+        $gte: fromDate,
+        $lte: toDate
+      }
+    };
+
+    const count = await News.countDocuments(queryCond);
+    const pendingCount = await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': { $ne: true } });
+    const rejectedCount = await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': true });
+    
+    // Calculate Video and Normal News
+    const videoCount = await News.countDocuments({
+      $and: [
+        queryCond,
+        { $or: [{ mediaType: 'video' }, { videoUrl: { $ne: null, $exists: true } }] }
+      ]
+    });
+    const normalCount = count - videoCount;
+
+    res.json({ count, pendingCount, rejectedCount, videoCount, normalCount });
+  } catch (error) {
+    console.error('Error in getImpersonatedNewsCount:', error);
+    res.status(500).json({ error: 'Server Error' });
+  }
+}
+
+// Get report data for multiple editors including hourly activity heatmap
+async function getMultiEditorReportData(req, res) {
+  try {
+    const { adminIds, from, to } = req.body;
+    
+    if (!adminIds || !Array.isArray(adminIds) || adminIds.length === 0 || !from || !to) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    const reportData = [];
+
+    for (const adminId of adminIds) {
+      const targetAdmin = await Admin.findById(adminId).lean();
+      if (!targetAdmin) continue;
+
+      let assignedLocations = targetAdmin.assignedLocations || [];
+      if (targetAdmin.permissions && targetAdmin.permissions.managedLocations && targetAdmin.permissions.managedLocations.length > 0) {
+        assignedLocations = targetAdmin.permissions.managedLocations;
+      }
+      const assignedReporters = await Admin.find({ 
+        role: { $in: ['editor', 'reporter'] }, 
+        $or: [
+          { location: { $in: assignedLocations } },
+          { assignedLocations: { $in: assignedLocations } }
+        ]
+      }).select('_id');
+      
+      const assignedReporterIds = assignedReporters.map(r => r._id.toString());
+      const fromDate = new Date(`${from}T00:00:00.000+05:30`);
+      const toDate = new Date(`${to}T23:59:59.999+05:30`);
+
+      const queryCond = {
+        $or: [
+          { authorId: adminId },
+          { authorId: { $in: assignedReporterIds } }
+        ],
+        publishedAt: {
+          $gte: fromDate,
+          $lte: toDate
+        }
+      };
+
+      const count = await News.countDocuments(queryCond);
+      const pendingCount = await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': { $ne: true } });
+      const rejectedCount = await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': true });
+      const videoCount = await News.countDocuments({
+        $and: [
+          queryCond,
+          { $or: [{ mediaType: 'video' }, { videoUrl: { $ne: null, $exists: true } }] }
+        ]
+      });
+      const normalCount = count - videoCount;
+
+      // Hourly Activity Heatmap (0-23 hours)
+      const hourlyData = new Array(24).fill(0);
+      try {
+        const hourlyStats = await News.aggregate([
+          { $match: queryCond },
+          { 
+            $project: { 
+              hour: { $hour: { date: "$publishedAt", timezone: "Asia/Kolkata" } } 
+            }
+          },
+          { 
+            $group: { 
+              _id: "$hour", 
+              count: { $sum: 1 } 
+            } 
+          }
+        ]);
+        
+        hourlyStats.forEach(stat => {
+          if (stat._id !== null && stat._id >= 0 && stat._id < 24) {
+            hourlyData[stat._id] = stat.count;
+          }
+        });
+      } catch (err) {
+        console.error('Error aggregating hourly stats:', err);
+      }
+
+      reportData.push({
+        id: adminId,
+        name: targetAdmin.name || targetAdmin.username,
+        role: targetAdmin.role,
+        count,
+        pendingCount,
+        rejectedCount,
+        videoCount,
+        normalCount,
+        hourlyData
+      });
+    }
+
+    res.json({ success: true, data: reportData });
+  } catch (error) {
+    console.error('Error in getMultiEditorReportData:', error);
+    res.status(500).json({ error: 'Server Error' });
+  }
+}
 async function renderEditorsPage(req, res) {
   try {
     const admin = await Admin.findById(req.admin.id);
@@ -981,7 +1291,7 @@ async function renderPerformanceAnalyticsPage(req, res) {
       return res.status(403).send('Access denied. Admins only.');
     }
 
-    const allowedPeriods = ['7', '30', '90', 'all'];
+    const allowedPeriods = ['1', 'yesterday', '7', '30', '90', 'all'];
     const period = allowedPeriods.includes(req.query.period) ? req.query.period : '30';
     const { startDate, endDate } = req.query;
 
@@ -998,9 +1308,21 @@ async function renderPerformanceAnalyticsPage(req, res) {
     }
 
     if (!startDate && period !== 'all') {
+      untilDate = new Date();
+      untilDate.setHours(23, 59, 59, 999);
       sinceDate = new Date();
-      sinceDate.setDate(sinceDate.getDate() - Number(period));
-      sinceDate.setHours(0, 0, 0, 0);
+      
+      if (period === '1') {
+        sinceDate.setHours(0, 0, 0, 0); // Today
+      } else if (period === 'yesterday') {
+        sinceDate.setDate(sinceDate.getDate() - 1);
+        sinceDate.setHours(0, 0, 0, 0);
+        untilDate = new Date(sinceDate);
+        untilDate.setHours(23, 59, 59, 999); // Exactly yesterday
+      } else {
+        sinceDate.setDate(sinceDate.getDate() - parseInt(period));
+        sinceDate.setHours(0, 0, 0, 0);
+      }
     }
 
     const members = await Admin.find({ role: { $in: ['editor', 'subeditor'] } })
@@ -1391,7 +1713,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, assignedLocations, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canSendNotifications, sidebar, approvalScope, managedLocations } = req.body;
+    const { name, displayRole, location, assignedLocations, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canSendNotifications, sidebar, approvalScope, managedLocations } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -1424,7 +1746,7 @@ async function updateEditor(req, res) {
       }
     }
 
-    if (canViewReporterDetails !== undefined || canAccessAdminDashboard !== undefined || canApproveNews !== undefined) {
+    if (canViewReporterDetails !== undefined || canAccessAdminDashboard !== undefined || canApproveNews !== undefined || canViewAllNews !== undefined) {
       if (!editor.permissions) editor.permissions = {};
       if (canViewReporterDetails !== undefined) {
         editor.permissions.canViewReporterDetails = canViewReporterDetails === 'true' || canViewReporterDetails === true;
@@ -1434,6 +1756,9 @@ async function updateEditor(req, res) {
       }
       if (canApproveNews !== undefined) {
         editor.permissions.canApproveNews = canApproveNews === 'true' || canApproveNews === true;
+      }
+      if (canViewAllNews !== undefined) {
+        editor.permissions.canViewAllNews = canViewAllNews === 'true' || canViewAllNews === true;
       }
     }
     
@@ -1571,7 +1896,7 @@ async function changeEditorPassword(req, res) {
     return res.json({ message: 'Editor password updated successfully' });
   } catch (error) {
     console.error('Change editor password error:', error);
-    return res.status(500).json({ error: 'An error occurred while updating password' });
+    res.status(500).json({ error: 'An error occurred while updating password' });
   }
 }
 
@@ -1678,7 +2003,7 @@ async function registerEditor(req, res) {
       return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
 
-    const { username, email, password, name, displayRole, location, assignedLocations, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canEditNews, canSendNotifications, approvalScope, managedLocations, sidebar } = req.body;
+    const { username, email, password, name, displayRole, location, assignedLocations, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canEditNews, canSendNotifications, approvalScope, managedLocations, sidebar } = req.body;
 
     // Validate required fields
     if (!username || !email || !password) {
@@ -1712,6 +2037,7 @@ async function registerEditor(req, res) {
         canViewReporterDetails: canViewReporterDetails === 'true' || canViewReporterDetails === true,
         canAccessAdminDashboard: canAccessAdminDashboard === 'true' || canAccessAdminDashboard === true,
         canApproveNews: canApproveNews === 'true' || canApproveNews === true,
+        canViewAllNews: canViewAllNews === 'true' || canViewAllNews === true,
         canEditNews: canEditNews === 'true' || canEditNews === true,
         canSendNotifications: canSendNotifications === 'true' || canSendNotifications === true,
         approvalScope: approvalScope || 'all',
@@ -2347,7 +2673,7 @@ async function renderNotificationsPage(req, res) {
             _id: null,
             totalRecipients: { $sum: "$totalRecipients" },
             totalOpened: { $sum: "$openedRecipients" },
-            totalReceived: { $sum: "$receivedRecipients" }
+            totalReceived: { $sum: "$totalReceived" }
           }
         }
       ]);
@@ -4012,6 +4338,10 @@ module.exports = {
   toggleEditorStatus,
   changeEditorPassword,
   deleteEditor,
+  renderImpersonatedDashboard,
+  renderImpersonatedNewsList,
+  getImpersonatedNewsCount,
+  getMultiEditorReportData,
   renderUsersListPage,
   getUserById,
   renderReportsPage,

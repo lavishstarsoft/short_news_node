@@ -98,11 +98,26 @@
                                                 <button type="button" class="team-segment" data-staff-filter="subeditor">Sub-editors<span class="team-segment-count"><%= subEditorList.length %></span></button>
                                             </div>
                                         </div>
+                                        
+                                        <div class="team-panel-toolbar d-flex align-items-center justify-content-between p-3 border-top" style="background-color: #fcfcfc;">
+                                            <div class="d-flex align-items-center gap-3">
+                                                <div class="fw-bold text-secondary small text-uppercase">Multi-Editor Report:</div>
+                                                <input type="text" id="multiReportDateRange" class="form-control form-control-sm" placeholder="Select Date Range..." style="width: 220px;">
+                                                <span class="text-muted small" id="multiReportSelectedCount">0 selected</span>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <button id="btnMultiReportPdf" class="btn btn-sm btn-outline-primary" disabled><i class="fas fa-file-pdf"></i> Download PDF</button>
+                                                <button id="btnMultiReportImage" class="btn btn-sm btn-outline-success" disabled><i class="fas fa-file-image"></i> Download Image</button>
+                                            </div>
+                                        </div>
 
                                         <div class="team-table-wrap">
                                             <table class="team-table">
                                                 <thead>
                                                     <tr>
+                                                        <th style="width: 40px; text-align: center;">
+                                                            <input type="checkbox" class="form-check-input" id="selectAllEditors">
+                                                        </th>
                                                         <th>Member</th>
                                                         <th>Role</th>
                                                         <th>Location</th>
@@ -301,9 +316,15 @@
                                         </div>
                                     </div>
                                     <div id="editCanApproveNewsWrapper" style="display: none; margin-bottom: 15px;">
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
                                             <input type="checkbox" id="editCanApproveNews" style="width: auto; height: 18px; cursor: pointer;">
                                             <label for="editCanApproveNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can approve/reject news</label>
+                                        </div>
+                                    </div>
+                                    <div id="editCanViewAllNewsWrapper" style="display: none; margin-bottom: 15px;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" id="editCanViewAllNews" style="width: auto; height: 18px; cursor: pointer;">
+                                            <label for="editCanViewAllNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">View all articles (If off, sees only assigned reporters)</label>
                                         </div>
                                     </div>
                                     
@@ -532,6 +553,7 @@
                         document.getElementById('editCanViewReporterDetails').checked = permissions.canViewReporterDetails === true;
                         document.getElementById('editCanAccessAdminDashboard').checked = permissions.canAccessAdminDashboard === true;
                         document.getElementById('editCanApproveNews').checked = permissions.canApproveNews === true;
+                        document.getElementById('editCanViewAllNews').checked = permissions.canViewAllNews === true;
                         document.getElementById('editCanSendNotifications').checked = permissions.canSendNotifications === true;
                         document.getElementById('editCanEditNews').checked = permissions.canEditNews === true;
                         
@@ -571,6 +593,7 @@
                             document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'block';
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'block';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'block';
+                            document.getElementById('editCanViewAllNewsWrapper').style.display = 'block';
                             document.getElementById('editSubEditorPermissionsWrapper').style.display = 'block';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'block';
                             if (document.getElementById('editCanApproveNews').checked) {
@@ -580,6 +603,7 @@
                             document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'none';
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'none';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'none';
+                            document.getElementById('editCanViewAllNewsWrapper').style.display = 'none';
                             document.getElementById('editSubEditorPermissionsWrapper').style.display = 'none';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'none';
                             document.getElementById('editManagedLocationsWrapper').style.display = 'none';
@@ -603,6 +627,7 @@
                             document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'block';
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'block';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'block';
+                            document.getElementById('editCanViewAllNewsWrapper').style.display = 'block';
                             document.getElementById('editSubEditorPermissionsWrapper').style.display = 'block';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'block';
                             if (document.getElementById('editCanApproveNews').checked) {
@@ -612,12 +637,14 @@
                             document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'none';
                             document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'none';
                             document.getElementById('editCanApproveNewsWrapper').style.display = 'none';
+                            document.getElementById('editCanViewAllNewsWrapper').style.display = 'none';
                             document.getElementById('editSubEditorPermissionsWrapper').style.display = 'none';
                             document.getElementById('editSidebarAccessWrapper').style.display = 'none';
                             document.getElementById('editManagedLocationsWrapper').style.display = 'none';
                             document.getElementById('editCanAccessAdminDashboard').checked = false;
                             document.getElementById('editCanViewReporterDetails').checked = false;
                             document.getElementById('editCanApproveNews').checked = false;
+                            document.getElementById('editCanViewAllNews').checked = false;
                             document.getElementById('editCanSendNotifications').checked = false;
                             document.getElementById('editCanEditNews').checked = false;
                         }
@@ -665,6 +692,7 @@
                             canViewReporterDetails: document.getElementById('editCanViewReporterDetails').checked,
                             canAccessAdminDashboard: document.getElementById('editCanAccessAdminDashboard').checked,
                             canApproveNews: document.getElementById('editCanApproveNews').checked,
+                            canViewAllNews: document.getElementById('editCanViewAllNews').checked,
                             canSendNotifications: document.getElementById('editCanSendNotifications').checked,
                             canEditNews: document.getElementById('editCanEditNews').checked,
                             approvalScope: document.getElementById('editApprovalScope').value,
@@ -1065,6 +1093,284 @@
             
             modal.show();
         }
+        }
+    </script>
+    
+    <!-- Multi-Editor Report Template -->
+    <div id="multiReportTemplateContainer" style="display: none;">
+        <div id="multiReportTemplate" style="padding: 40px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; background: #fff;">
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #0056b3; padding-bottom: 20px;">
+                <img src="/images/logo.png" alt="Tehelka Logo" style="max-height: 80px; margin-bottom: 15px;">
+                <h1 style="color: #0056b3; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;">Editors Performance Report</h1>
+                <p style="color: #666; margin: 10px 0 0 0; font-size: 14px;"><strong>Date Range:</strong> <span id="multiReportDateRangeStr"></span></p>
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+                <thead>
+                    <tr style="background-color: #f8f9fa;">
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: left; font-weight: bold; font-size: 12px; color: #495057;">Name & Role</th>
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Total</th>
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Normal</th>
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Video</th>
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Pending</th>
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Rejected</th>
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057; width: 140px;">24h Activity Timeline</th>
+                    </tr>
+                </thead>
+                <tbody id="multiReportTableBody">
+                    <!-- Rows injected here via JS -->
+                </tbody>
+                <tfoot id="multiReportTableFoot" style="background-color: #f1f5f9; border-top: 2px solid #cbd5e1;">
+                    <!-- Totals injected here via JS -->
+                </tfoot>
+            </table>
+
+            <div id="multiReportSummary" style="margin-top: 25px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #0056b3; border-radius: 4px;">
+                <!-- Summary injected here via JS -->
+            </div>
+            
+            <div style="margin-top: 50px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #eee; padding-top: 15px;">
+                Generated automatically by ShortNews Admin Panel on <%= new Date().toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'}) %>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Select All logic
+            const selectAll = document.getElementById('selectAllEditors');
+            const checkboxes = document.querySelectorAll('.editor-select-checkbox');
+            const selectedCount = document.getElementById('multiReportSelectedCount');
+            
+            function updateSelectedCount() {
+                const count = document.querySelectorAll('.editor-select-checkbox:checked').length;
+                selectedCount.innerText = `${count} selected`;
+                checkButtons();
+            }
+
+            if (selectAll) {
+                selectAll.addEventListener('change', function() {
+                    checkboxes.forEach(cb => {
+                        // Only check if row is visible
+                        const row = cb.closest('tr');
+                        if (row.style.display !== 'none') {
+                            cb.checked = this.checked;
+                        }
+                    });
+                    updateSelectedCount();
+                });
+            }
+
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', updateSelectedCount);
+            });
+
+            // Date Range Picker
+            let reportFrom = null;
+            let reportTo = null;
+            if (document.getElementById('multiReportDateRange')) {
+                flatpickr("#multiReportDateRange", {
+                    mode: "range",
+                    dateFormat: "Y-m-d",
+                    onChange: function(selectedDates, dateStr, instance) {
+                        if (selectedDates.length > 0) {
+                            reportFrom = instance.formatDate(selectedDates[0], "Y-m-d");
+                            reportTo = instance.formatDate(selectedDates[selectedDates.length === 1 ? 0 : 1], "Y-m-d");
+                            checkButtons();
+                        } else {
+                            reportFrom = null;
+                            reportTo = null;
+                            checkButtons();
+                        }
+                    }
+                });
+            }
+
+            function checkButtons() {
+                const count = document.querySelectorAll('.editor-select-checkbox:checked').length;
+                const btnPdf = document.getElementById('btnMultiReportPdf');
+                const btnImg = document.getElementById('btnMultiReportImage');
+                if (count > 0 && reportFrom && reportTo) {
+                    btnPdf.disabled = false;
+                    btnImg.disabled = false;
+                } else {
+                    btnPdf.disabled = true;
+                    btnImg.disabled = true;
+                }
+            }
+
+            async function generateMultiReport(format) {
+                const selectedIds = Array.from(document.querySelectorAll('.editor-select-checkbox:checked')).map(cb => cb.value);
+                if (selectedIds.length === 0 || !reportFrom || !reportTo) return;
+
+                const btnPdf = document.getElementById('btnMultiReportPdf');
+                const btnImg = document.getElementById('btnMultiReportImage');
+                btnPdf.disabled = true;
+                btnImg.disabled = true;
+                
+                const originalPdfText = btnPdf.innerHTML;
+                const originalImgText = btnImg.innerHTML;
+                
+                if (format === 'pdf') btnPdf.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+                else btnImg.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+                try {
+                    const response = await fetch('/admin/editors/multi-report', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ adminIds: selectedIds, from: reportFrom, to: reportTo })
+                    });
+                    const result = await response.json();
+                    
+                    if (!result.success) throw new Error(result.error || 'Failed to generate report');
+
+                    // Populate Template
+                    document.getElementById('multiReportDateRangeStr').innerText = `${reportFrom} to ${reportTo}`;
+                    const tbody = document.getElementById('multiReportTableBody');
+                    const tfoot = document.getElementById('multiReportTableFoot');
+                    const summaryDiv = document.getElementById('multiReportSummary');
+                    
+                    tbody.innerHTML = '';
+                    tfoot.innerHTML = '';
+                    summaryDiv.innerHTML = '';
+                    
+                    let totalNews = 0;
+                    let totalNormal = 0;
+                    let totalVideo = 0;
+                    let totalPending = 0;
+                    let totalRejected = 0;
+                    const aggregateHourly = new Array(24).fill(0);
+                    
+                    result.data.forEach((r, idx) => {
+                        const tr = document.createElement('tr');
+                        tr.style.backgroundColor = idx % 2 === 0 ? '#ffffff' : '#fafafa';
+                        
+                        let heatmapHtml = '<div style="display: flex; gap: 2px; align-items: center; justify-content: center;">';
+                        const maxCount = Math.max(...r.hourlyData, 1);
+                        r.hourlyData.forEach(count => {
+                            let color = '#ebedf0'; // gray (0)
+                            if (count > 0) {
+                                const intensity = count / maxCount;
+                                if (intensity < 0.3) color = '#9be9a8';
+                                else if (intensity < 0.6) color = '#40c463';
+                                else if (intensity < 0.9) color = '#30a14e';
+                                else color = '#216e39';
+                            }
+                            heatmapHtml += `<div style="width: 4px; height: 12px; background-color: ${color}; border-radius: 1px;"></div>`;
+                        });
+                        heatmapHtml += '</div>';
+
+                        tr.innerHTML = `
+                            <td style="padding: 10px; border: 1px solid #dee2e6; font-size: 13px;">
+                                <strong>${r.name}</strong><br>
+                                <span style="font-size: 10px; color: #888; text-transform: capitalize;">${r.role}</span>
+                            </td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 14px; font-weight: bold; color: #0d6efd;">${r.count}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 13px; color: #198754;">${r.normalCount}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 13px; color: #6f42c1;">${r.videoCount}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 13px; color: #ffc107;">${r.pendingCount}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 13px; color: #dc3545;">${r.rejectedCount}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; vertical-align: middle;">${heatmapHtml}</td>
+                        `;
+                        tbody.appendChild(tr);
+                        
+                        totalNews += r.count;
+                        totalNormal += r.normalCount;
+                        totalVideo += r.videoCount;
+                        totalPending += r.pendingCount;
+                        totalRejected += r.rejectedCount;
+                        r.hourlyData.forEach((val, h) => { aggregateHourly[h] += val; });
+                    });
+
+                    // Add Totals Row
+                    tfoot.innerHTML = `
+                        <tr>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; font-size: 14px; font-weight: bold; text-align: right;">GRAND TOTAL</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 15px; font-weight: bold; color: #0d6efd;">${totalNews}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 14px; font-weight: bold; color: #198754;">${totalNormal}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 14px; font-weight: bold; color: #6f42c1;">${totalVideo}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 14px; font-weight: bold; color: #ffc107;">${totalPending}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 14px; font-weight: bold; color: #dc3545;">${totalRejected}</td>
+                            <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center;">-</td>
+                        </tr>
+                    `;
+
+                    // Add Summary Section
+                    if (totalNews > 0) {
+                        let peakHour = 0;
+                        let peakCount = aggregateHourly[0];
+                        for(let i=1; i<24; i++) {
+                            if(aggregateHourly[i] > peakCount) {
+                                peakCount = aggregateHourly[i];
+                                peakHour = i;
+                            }
+                        }
+                        
+                        const formatHour = (h) => {
+                            const ampm = h >= 12 ? 'PM' : 'AM';
+                            const formatted = h % 12 || 12;
+                            return `${formatted}:00 ${ampm}`;
+                        };
+                        const nextHour = (peakHour + 1) % 24;
+                        
+                        summaryDiv.innerHTML = `
+                            <h4 style="margin: 0 0 5px 0; color: #0056b3; font-size: 16px;">Overall Insights</h4>
+                            <p style="margin: 0; font-size: 14px; color: #444;">
+                                <strong>Peak Activity Time:</strong> The most active period was between <strong>${formatHour(peakHour)} and ${formatHour(nextHour)}</strong>, 
+                                during which the team collectively posted <strong>${peakCount}</strong> articles.
+                            </p>
+                        `;
+                    } else {
+                        summaryDiv.innerHTML = `<p style="margin: 0; font-style: italic; color: #666;">No activity recorded in the selected period.</p>`;
+                    }
+
+                    const element = document.getElementById('multiReportTemplateContainer').cloneNode(true);
+                    element.style.display = 'block';
+                    
+                    const tempContainer = document.createElement('div');
+                    tempContainer.style.position = 'absolute';
+                    tempContainer.style.left = '-9999px';
+                    tempContainer.appendChild(element);
+                    document.body.appendChild(tempContainer);
+
+                    if (format === 'pdf') {
+                        const opt = {
+                            margin:       0.5,
+                            filename:     `Team_Performance_${reportFrom}_to_${reportTo}.pdf`,
+                            image:        { type: 'jpeg', quality: 0.98 },
+                            html2canvas:  { scale: 2, useCORS: true },
+                            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+                        };
+                        await html2pdf().set(opt).from(element).save();
+                    } else if (format === 'image') {
+                        const canvas = await html2canvas(element.firstElementChild, { scale: 2, useCORS: true });
+                        const link = document.createElement('a');
+                        link.download = `Team_Performance_${reportFrom}_to_${reportTo}.png`;
+                        link.href = canvas.toDataURL('image/png');
+                        link.click();
+                    }
+                    
+                    document.body.removeChild(tempContainer);
+                } catch (err) {
+                    alert('Error generating report: ' + err.message);
+                } finally {
+                    btnPdf.disabled = false;
+                    btnImg.disabled = false;
+                    btnPdf.innerHTML = originalPdfText;
+                    btnImg.innerHTML = originalImgText;
+                }
+            }
+
+            if (document.getElementById('btnMultiReportPdf')) {
+                document.getElementById('btnMultiReportPdf').addEventListener('click', () => generateMultiReport('pdf'));
+            }
+            if (document.getElementById('btnMultiReportImage')) {
+                document.getElementById('btnMultiReportImage').addEventListener('click', () => generateMultiReport('image'));
+            }
+        });
     </script>
     </body>
 </html>
