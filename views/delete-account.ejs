@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Account & Data</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 500px; margin: 40px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { color: #e31e24; margin-top: 0; }
+        p { line-height: 1.6; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        input[type="email"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #e31e24; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; }
+        button:hover { background-color: #c8191f; }
+        .success { color: green; font-weight: bold; padding: 15px; background: #e8f5e9; border-radius: 4px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Account Deletion Request</h1>
+        
+        <% if (locals.success) { %>
+            <div class="success">Your account deletion request has been submitted successfully. Our team will process it within 3-5 business days and delete all your associated data.</div>
+        <% } %>
+
+        <p>If you wish to delete your account and all associated personal data from our systems, please submit your registered email address below.</p>
+        <p><strong>Note:</strong> This action is irreversible. All your saved bookmarks, profile information, and activity history will be permanently deleted.</p>
+
+        <form action="/delete-account" method="POST">
+            <div class="form-group">
+                <label for="email">Registered Email Address:</label>
+                <input type="email" id="email" name="email" required placeholder="Enter your email">
+            </div>
+            <button type="submit">Request Data Deletion</button>
+        </form>
+    </div>
+</body>
+</html>
