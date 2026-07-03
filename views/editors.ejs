@@ -1106,16 +1106,8 @@
             </div>
             
             <table style="width: 100%; border-collapse: collapse; margin-top: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
-                <thead>
-                    <tr style="background-color: #f8f9fa;">
-                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: left; font-weight: bold; font-size: 12px; color: #495057;">Name & Role</th>
-                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Total</th>
-                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Normal</th>
-                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Video</th>
-                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Pending</th>
-                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Rejected</th>
-                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057; width: 140px;">24h Activity Timeline</th>
-                    </tr>
+                <thead id="multiReportTableHead">
+                    <!-- Header injected via JS -->
                 </thead>
                 <tbody id="multiReportTableBody">
                     <!-- Rows injected here via JS -->
@@ -1237,11 +1229,47 @@
                     tfoot.innerHTML = '';
                     summaryDiv.innerHTML = '';
                     
+                    // Gather all unique languages with count > 0 across all selected editors
+                    const allLanguages = new Set();
+                    result.data.forEach(r => {
+                        if (r.languageData) {
+                            for (const lang in r.languageData) {
+                                if (r.languageData[lang] > 0) {
+                                    allLanguages.add(lang);
+                                }
+                            }
+                        }
+                    });
+                    const languagesArray = Array.from(allLanguages).sort();
+
+                    // Generate Dynamic Header
+                    const thead = document.getElementById('multiReportTableHead');
+                    let headerHtml = `
+                    <tr style="background-color: #f8f9fa;">
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: left; font-weight: bold; font-size: 12px; color: #495057;">Name & Role</th>
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Total</th>
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Normal</th>
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Video</th>
+                    `;
+                    languagesArray.forEach(lang => {
+                        const capitalizedLang = lang.charAt(0).toUpperCase() + lang.slice(1);
+                        headerHtml += `<th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #084298; background-color: #e0f2fe;">${capitalizedLang}</th>`;
+                    });
+                    headerHtml += `
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Pending</th>
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057;">Rejected</th>
+                        <th style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 12px; color: #495057; width: 140px;">24h Activity Timeline</th>
+                    </tr>`;
+                    thead.innerHTML = headerHtml;
+
                     let totalNews = 0;
                     let totalNormal = 0;
                     let totalVideo = 0;
                     let totalPending = 0;
                     let totalRejected = 0;
+                    const languageTotals = {};
+                    languagesArray.forEach(lang => languageTotals[lang] = 0);
+                    
                     const aggregateHourly = new Array(24).fill(0);
                     
                     result.data.forEach((r, idx) => {
@@ -1263,6 +1291,13 @@
                         });
                         heatmapHtml += '</div>';
 
+                        let langCellsHtml = '';
+                        languagesArray.forEach(lang => {
+                            const count = (r.languageData && r.languageData[lang]) || 0;
+                            languageTotals[lang] += count;
+                            langCellsHtml += `<td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 13px; font-weight: bold; color: #084298; background-color: #f0f9ff;">${count}</td>`;
+                        });
+
                         tr.innerHTML = `
                             <td style="padding: 10px; border: 1px solid #dee2e6; font-size: 13px;">
                                 <strong>${r.name}</strong><br>
@@ -1271,6 +1306,7 @@
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 14px; font-weight: bold; color: #0d6efd;">${r.count}</td>
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 13px; color: #198754;">${r.normalCount}</td>
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 13px; color: #6f42c1;">${r.videoCount}</td>
+                            ${langCellsHtml}
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 13px; color: #ffc107;">${r.pendingCount}</td>
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 13px; color: #dc3545;">${r.rejectedCount}</td>
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; vertical-align: middle;">${heatmapHtml}</td>
@@ -1286,12 +1322,18 @@
                     });
 
                     // Add Totals Row
+                    let totalsLangCellsHtml = '';
+                    languagesArray.forEach(lang => {
+                        totalsLangCellsHtml += `<td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 14px; font-weight: bold; color: #084298; background-color: #e0f2fe;">${languageTotals[lang]}</td>`;
+                    });
+
                     tfoot.innerHTML = `
                         <tr>
                             <td style="padding: 10px; border: 1px solid #dee2e6; font-size: 14px; font-weight: bold; text-align: right;">GRAND TOTAL</td>
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 15px; font-weight: bold; color: #0d6efd;">${totalNews}</td>
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 14px; font-weight: bold; color: #198754;">${totalNormal}</td>
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 14px; font-weight: bold; color: #6f42c1;">${totalVideo}</td>
+                            ${totalsLangCellsHtml}
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 14px; font-weight: bold; color: #ffc107;">${totalPending}</td>
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-size: 14px; font-weight: bold; color: #dc3545;">${totalRejected}</td>
                             <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center;">-</td>

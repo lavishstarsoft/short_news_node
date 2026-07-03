@@ -1034,6 +1034,27 @@ async function getMultiEditorReportData(req, res) {
         console.error('Error aggregating hourly stats:', err);
       }
 
+      // Language Breakdown
+      const languageData = {};
+      try {
+        const langStats = await News.aggregate([
+          { $match: queryCond },
+          { 
+            $group: { 
+              _id: "$language", 
+              count: { $sum: 1 } 
+            } 
+          }
+        ]);
+        
+        langStats.forEach(stat => {
+          const lang = stat._id || 'Unknown';
+          languageData[lang] = stat.count;
+        });
+      } catch (err) {
+        console.error('Error aggregating language stats:', err);
+      }
+
       reportData.push({
         id: adminId,
         name: targetAdmin.name || targetAdmin.username,
@@ -1043,7 +1064,8 @@ async function getMultiEditorReportData(req, res) {
         rejectedCount,
         videoCount,
         normalCount,
-        hourlyData
+        hourlyData,
+        languageData
       });
     }
 
