@@ -245,6 +245,12 @@ const uploadAdMedia = createMulterR2Interface({
     limitSize: 50 * 1024 * 1024
 });
 
+const uploadRegistrationMedia = createMulterR2Interface({
+    folder: 'short_news_images', 
+    resize: false,
+    limitSize: 50 * 1024 * 1024
+});
+
 const uploadCategoryMedia = createMulterR2Interface({
     folder: 'short_news_categories',
     width: 500,
@@ -256,5 +262,6 @@ module.exports = {
     upload,
     uploadMedia,
     uploadAdMedia,
-    uploadCategoryMedia
+    uploadCategoryMedia,
+    uploadRegistrationMedia
 };

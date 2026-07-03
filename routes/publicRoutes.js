@@ -14,7 +14,7 @@ const Admin = require('../models/Admin');
 const { cacheMiddleware, clearCache } = require('../middleware/cache');
 
 // Import upload middleware for profile image upload
-const { uploadMedia } = require('../middleware/upload');
+const { uploadMedia, uploadRegistrationMedia } = require('../middleware/upload');
 const { verifyMobileUser } = require('../middleware/mobileAuth');
 
 // Strip PII (email) from interaction arrays before returning them publicly.
@@ -1725,7 +1725,7 @@ router.post('/api/public/upload-profile-image', uploadMedia.single('media'), asy
 });
 
 // Generic endpoint for registration file uploads (Docs, PDFs, etc.)
-router.post('/api/public/upload-registration-file', uploadMedia.single('media'), async (req, res) => {
+router.post('/api/public/upload-registration-file', uploadRegistrationMedia.single('media'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
