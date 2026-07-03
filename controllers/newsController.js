@@ -695,6 +695,7 @@ async function renderEditNewsPage(req, res) {
       admin: req.admin,
       defaultLanguage: news.language || adminDoc?.workingLanguage || languageViewData.defaultLanguage,
       displayConfigByLanguage: getDisplayConfigMap(),
+      source: req.query.source || '',
       ...languageViewData
     });
   } catch (error) {
@@ -715,6 +716,9 @@ async function createNews(req, res) {
     }
     if (req.body.content && stripTags(req.body.content).length > limits.contentMax) {
       return res.status(400).json({ error: `Content cannot exceed ${limits.contentMax} characters` });
+    }
+    if (req.admin.role === 'subeditor' && req.body.content && stripTags(req.body.content).length < (limits.contentMin || 0)) {
+      return res.status(400).json({ error: `Content must be at least ${limits.contentMin} characters for Sub Editors` });
     }
 
     if (req.body.content) {
@@ -861,6 +865,9 @@ async function updateNews(req, res) {
     }
     if (req.body.content && stripTags(req.body.content).length > limits.contentMax) {
       return res.status(400).json({ error: `Content cannot exceed ${limits.contentMax} characters` });
+    }
+    if (req.admin.role === 'subeditor' && req.body.content && stripTags(req.body.content).length < (limits.contentMin || 0)) {
+      return res.status(400).json({ error: `Content must be at least ${limits.contentMin} characters for Sub Editors` });
     }
 
     if (req.body.content) {

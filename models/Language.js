@@ -46,6 +46,7 @@ const languageSchema = new mongoose.Schema({
   displayConfig: {
     titleMax: { type: Number, min: 20, max: 120 },
     contentMax: { type: Number, min: 80, max: 1200 },
+    contentMin: { type: Number, min: 0, max: 1000 },
     titleFontSize: { type: Number, min: 10, max: 32 },
     contentFontSize: { type: Number, min: 10, max: 32 },
     titleLineHeight: { type: Number, min: 1, max: 2.5 },

@@ -209,9 +209,12 @@
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
                 <script src="/js/rich-text.js"></script>
                 <script>
+                    const pageSource = '<%= typeof source !== "undefined" ? source : "" %>';
                     const DISPLAY_CONFIG_BY_LANGUAGE = <%- JSON.stringify(typeof displayConfigByLanguage !== 'undefined' ? displayConfigByLanguage : {}) %>;
                     let TITLE_MAX = <%= newsTitleMax %>;
                     let CONTENT_MAX = <%= newsContentMax %>;
+                    let CONTENT_MIN = 0;
+                    const CURRENT_USER_ROLE = '<%= admin.role %>';
 
                     function getDisplayConfigForLanguage(code) {
                         const normalized = String(code || 'te').trim().toLowerCase();
@@ -224,6 +227,7 @@
                         const cfg = getDisplayConfigForLanguage(code);
                         TITLE_MAX = cfg.titleMax;
                         CONTENT_MAX = cfg.contentMax;
+                        CONTENT_MIN = cfg.contentMin || 0;
                         const titleWrap = document.getElementById('titleCountWrap');
                         const contentWrap = document.getElementById('contentCountWrap');
                         if (titleWrap) {
@@ -292,6 +296,11 @@
 
                         if (stripTags(content).length > CONTENT_MAX) {
                             showFeedback(`Content cannot exceed ${CONTENT_MAX} characters`, 'error');
+                            return;
+                        }
+
+                        if (CURRENT_USER_ROLE === 'subeditor' && stripTags(content).length < CONTENT_MIN) {
+                            showFeedback(`Content must be at least ${CONTENT_MIN} characters for Sub Editors`, 'error');
                             return;
                         }
 
@@ -366,11 +375,36 @@
                                 const responseData = await response.json();
 
                                 if (newsId) {
-                                    // Update flow - just show success
-                                    showFeedback('News updated successfully!', 'success');
-                                    setTimeout(() => {
-                                        window.location.href = '/news-list';
-                                    }, 1500);
+                                    if (typeof pageSource !== 'undefined' && pageSource === 'pending') {
+                                        const wantsToApprove = confirm("News updated successfully! Do you also want to approve this news? Click OK to approve, Cancel to just save changes.");
+                                        if (wantsToApprove) {
+                                            try {
+                                                showLoader('Approving news...');
+                                                await fetch(`/admin/api/news/${newsId}/approve`, {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ ignoreLanguageWarning: true })
+                                                });
+                                                hideLoader();
+                                                showFeedback('News updated and approved successfully!', 'success');
+                                            } catch(e) {
+                                                console.error(e);
+                                                hideLoader();
+                                                showFeedback('News updated but failed to approve.', 'warning');
+                                            }
+                                        } else {
+                                            showFeedback('Changes saved successfully.', 'success');
+                                        }
+                                        setTimeout(() => {
+                                            window.location.href = '/admin/pending-news';
+                                        }, 1500);
+                                    } else {
+                                        // Update flow - just show success
+                                        showFeedback('News updated successfully!', 'success');
+                                        setTimeout(() => {
+                                            window.location.href = '/news-list';
+                                        }, 1500);
+                                    }
                                 } else {
                                     // Direct save - no notification popup
                                     showFeedback('✅ News added successfully!', 'success');

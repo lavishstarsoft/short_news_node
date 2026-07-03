@@ -7,6 +7,7 @@ const {
 const BASE_DEFAULTS = {
   titleMax: NEWS_TITLE_MAX,
   contentMax: NEWS_CONTENT_MAX,
+  contentMin: 0,
   titleFontSize: 20,
   contentFontSize: 18,
   titleLineHeight: 1.3,
@@ -39,6 +40,7 @@ function sanitizeDisplayConfig(input, languageCode) {
   return {
     titleMax: normalizeNumber(source.titleMax, defaults.titleMax, 20, 120),
     contentMax: normalizeNumber(source.contentMax, defaults.contentMax, 80, 1200),
+    contentMin: normalizeNumber(source.contentMin, defaults.contentMin, 0, 1000),
     titleFontSize: normalizeNumber(source.titleFontSize, defaults.titleFontSize, 10, 32),
     contentFontSize: normalizeNumber(source.contentFontSize, defaults.contentFontSize, 10, 32),
     titleLineHeight: normalizeNumber(source.titleLineHeight, defaults.titleLineHeight, 1, 2.5),

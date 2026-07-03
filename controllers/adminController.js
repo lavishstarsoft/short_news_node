@@ -3324,12 +3324,15 @@ async function renderPendingNewsPage(req, res) {
       }
     }));
 
+    const { getDisplayConfigMap } = require('../services/languageRegistry');
+
     res.render('pending-news', {
       pendingNews: pendingNewsWithDefaults || [],
       title: 'Pending News Review',
       selectedLanguage,
       admin: req.admin,
       adminRole: adminDoc?.role || req.admin.role,
+      displayConfigByLanguage: getDisplayConfigMap(),
       ...(await getLanguageViewData())
     });
   } catch (error) {

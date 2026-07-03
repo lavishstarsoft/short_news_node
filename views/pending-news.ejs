@@ -215,6 +215,7 @@
 
                                                             <div class="card-actions">
                                                                 <button type="button" class="btn-preview" onclick="openPreview('<%= news._id %>')"><i class="fas fa-pen-to-square"></i> Preview</button>
+                                                                <button type="button" class="btn-preview" onclick="window.location.href='/edit-news/<%= news._id %>?source=pending'" style="background-color: #3b82f6; color: white;"><i class="fas fa-pen"></i> Edit</button>
                                                                 <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
                                                                     <button type="button" class="btn-duplicate" onclick="viewDuplicates('<%= news._id %>')"><i class="fas fa-clone"></i> Duplicates</button>
                                                                 <% } %>
@@ -342,8 +343,17 @@
             let pendingRejectNewsId = null;
             let newsDataCache = {};
             let duplicateDataCache = {};
-            const TITLE_MAX = <%= newsTitleMax %>;
-            const CONTENT_MAX = <%= newsContentMax %>;
+            const TITLE_MAX_GLOBAL = <%= newsTitleMax %>;
+            const CONTENT_MAX_GLOBAL = <%= newsContentMax %>;
+            const DISPLAY_CONFIG_BY_LANGUAGE = <%- JSON.stringify(typeof displayConfigByLanguage !== 'undefined' ? displayConfigByLanguage : {}) %>;
+            const CURRENT_USER_ROLE = '<%= adminRole %>';
+
+            function getDisplayConfigForLanguage(code) {
+                const normalized = String(code || 'te').trim().toLowerCase();
+                const cfg = DISPLAY_CONFIG_BY_LANGUAGE[normalized];
+                if (cfg) return cfg;
+                return DISPLAY_CONFIG_BY_LANGUAGE.te || { titleMax: TITLE_MAX_GLOBAL, contentMax: CONTENT_MAX_GLOBAL, contentMin: 0 };
+            }
             const categoryOptions = <%- JSON.stringify([...(pendingNews ? new Set(pendingNews.map(n => n.category).filter(Boolean)) : [])]) %>;
             const locationOptions = <%- JSON.stringify([...(pendingNews ? new Set(pendingNews.map(n => n.location).filter(Boolean)) : [])]) %>;
 
@@ -658,7 +668,7 @@
                             <div class="pn-field">
                                 <label for="editContent-${newsId}">Content</label>
                                 <textarea id="editContent-${newsId}" rows="6" maxlength="1200" oninput="updateContentCounter('${newsId}')">${escapeHtml(news.content)}</textarea>
-                                <div id="editContentCount-${newsId}" class="pn-char-count">${stripTags(news.content || '').length}/${CONTENT_MAX}</div>
+                                <div id="editContentCount-${newsId}" class="pn-char-count">${stripTags(news.content || '').length}/${getDisplayConfigForLanguage(news.language).contentMax}</div>
                             </div>
                         </div>
                     </div>
@@ -720,19 +730,20 @@
                 const count = document.getElementById(`editContentCount-${newsId}`);
                 if (!input || !count) return;
                 
+                const news = newsDataCache[newsId];
+                const limits = getDisplayConfigForLanguage(news?.language);
                 let plainText = stripTags(input.value);
                 let current = plainText.length;
                 
-                if (current > CONTENT_MAX) {
-                    // Trim to limit
-                    input.value = trimToPlainLimit(input.value, CONTENT_MAX);
+                if (current > limits.contentMax) {
+                    input.value = trimToPlainLimit(input.value, limits.contentMax);
                     plainText = stripTags(input.value);
                     current = plainText.length;
                 }
                 
-                count.style.color = current >= CONTENT_MAX ? '#dc3545' : '#777';
-                count.style.fontWeight = current >= CONTENT_MAX ? 'bold' : '';
-                count.textContent = `${current}/${CONTENT_MAX}`;
+                count.style.color = current >= limits.contentMax ? '#dc3545' : '#777';
+                count.style.fontWeight = current >= limits.contentMax ? 'bold' : '';
+                count.textContent = `${current}/${limits.contentMax}`;
             }
 
             async function savePendingChanges(newsId, approveAfterSave = false) {
@@ -760,13 +771,21 @@
                     return;
                 }
 
-                if (stripTags(payload.title).length > TITLE_MAX) {
-                    alert(`Title must be ${TITLE_MAX} characters or less (excluding color tags).`);
+                const news = newsDataCache[newsId];
+                const limits = getDisplayConfigForLanguage(news?.language);
+
+                if (stripTags(payload.title).length > limits.titleMax) {
+                    alert(`Title must be ${limits.titleMax} characters or less (excluding color tags).`);
                     return;
                 }
 
-                if (stripTags(payload.content).length > CONTENT_MAX) {
-                    alert(`Content must be ${CONTENT_MAX} characters or less (excluding color tags).`);
+                if (stripTags(payload.content).length > limits.contentMax) {
+                    alert(`Content must be ${limits.contentMax} characters or less (excluding color tags).`);
+                    return;
+                }
+
+                if (CURRENT_USER_ROLE === 'subeditor' && stripTags(payload.content).length < (limits.contentMin || 0)) {
+                    alert(`Content must be at least ${limits.contentMin} characters for Sub Editors.`);
                     return;
                 }
 
