@@ -268,6 +268,7 @@ const defaultAllowedOrigins = [
   'https://news.lavishstar.in', 'https://report.cbnyellowsingam.in',
   'https://www.news.cbnyellowsingam.in', 'https://news.cbnyellowsingam.in',
   'https://www.news.tehelkanews.in', 'https://news.tehelkanews.in',
+  'https://report.tehelkanews.in'
 ];
 const allowedOrigins = new Set([
   ...defaultAllowedOrigins,
