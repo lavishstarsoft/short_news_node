@@ -21,7 +21,7 @@
       <% if (editor.profileImage) { %>
         <img src="<%= editor.profileImage %>" class="team-avatar" alt="">
       <% } else { %>
-        <div class="team-avatar team-avatar-fallback <%= isSubEditor ? 'team-avatar-sub' : 'team-avatar-reporter' %>"><%= initials %></div>
+        <img src="https://ui-avatars.com/api/?name=<%= encodeURIComponent(editor.name || editor.username || 'User') %>&background=E31E24&color=fff&size=200" class="team-avatar" alt="">
       <% } %>
       <div>
         <div class="team-member-name"><%= editor.name || editor.username %></div>

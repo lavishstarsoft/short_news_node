@@ -116,7 +116,12 @@ const detectAdvancedLocation = async (ip) => {
 
     // Fetch latitude and longitude using iplocation
     try {
-      const ipLocationData = await iplocation(ip);
+      // Add a 2-second timeout to prevent iplocation from hanging the login process
+      const ipLocationData = await Promise.race([
+        iplocation(ip),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('iplocation timeout')), 2000))
+      ]);
+      
       if (ipLocationData && ipLocationData.latitude && ipLocationData.longitude) {
         locationDetails.latitude = ipLocationData.latitude;
         locationDetails.longitude = ipLocationData.longitude;
