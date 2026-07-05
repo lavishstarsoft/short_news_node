@@ -557,7 +557,8 @@
                                             <span id="newsDetailDate" class="nd-pill nd-pill-date"></span>
                                             <span id="newsDetailStatus" class="nd-pill nd-pill-active"></span>
                                             <span id="newsDetailShortId" class="nd-pill nd-pill-link"></span>
-                                                        </div>
+                                        </div>
+                                        <div id="newsDetailSourceLink" style="display:none; background-color: #ffeaea; border: 1px solid #ffb3b3; color: #cc0000; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.95rem;"></div>
                                         <h1 id="newsDetailTitle" class="nd-article-title"></h1>
                                         <div id="newsDetailContent" class="nd-article-content rich-content-area"></div>
                                         <div id="newsDetailExternalLinks" class="nd-external-links" style="display:none;">
@@ -1080,6 +1081,18 @@
                         refreshEngagementPanel(newsItem);
 
                         renderNewsDetailMedia(newsItem);
+
+                        const sourceLinkEl = document.getElementById('newsDetailSourceLink');
+                        if (newsItem.sourceLink) {
+                            let sourceDisplay = escapeHtml(newsItem.sourceLink);
+                            if (newsItem.sourceLink.startsWith('http')) {
+                                sourceDisplay = `<a href="${escapeHtml(newsItem.sourceLink)}" target="_blank" rel="noopener" style="color: #d32f2f; text-decoration: underline;">${escapeHtml(newsItem.sourceLink)}</a>`;
+                            }
+                            sourceLinkEl.innerHTML = `<i class="fas fa-link me-2"></i><strong>Source:</strong> ${sourceDisplay}`;
+                            sourceLinkEl.style.display = 'block';
+                        } else {
+                            sourceLinkEl.style.display = 'none';
+                        }
 
                         document.getElementById('newsDetailTitle').innerHTML = renderRichText(newsItem.title || '');
                         document.getElementById('newsDetailContent').innerHTML = renderRichText(newsItem.content || '');

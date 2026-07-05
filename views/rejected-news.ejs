@@ -488,10 +488,22 @@
                     editLink.href = '/edit-news/' + newsItem._id;
                     editLink.style.display = 'inline-flex';
 
+                    let sourceHtml = '';
+                    if (newsItem.sourceLink) {
+                        let sourceDisplay = escapeHtml(newsItem.sourceLink);
+                        if (newsItem.sourceLink.startsWith('http')) {
+                            sourceDisplay = '<a href="' + escapeHtml(newsItem.sourceLink) + '" target="_blank" rel="noopener" style="color: #d32f2f; text-decoration: underline;">' + escapeHtml(newsItem.sourceLink) + '</a>';
+                        }
+                        sourceHtml = '<div style="background-color: #ffeaea; border: 1px solid #ffb3b3; color: #cc0000; padding: 12px 16px; border-radius: 8px; margin-top: 16px; margin-bottom: 16px; font-size: 0.95rem;">' +
+                            '<i class="fas fa-link me-2"></i><strong>Source:</strong> ' + sourceDisplay +
+                        '</div>';
+                    }
+
                     document.getElementById('rejectModalBody').innerHTML =
                         '<div class="rn-preview-layout">' +
                             '<div class="rn-preview-main">' +
                                 renderRejectedMedia(newsItem) +
+                                sourceHtml +
                                 '<div class="rn-preview-meta">' +
                                     '<span class="rn-preview-pill rejected"><i class="fas fa-ban"></i> Rejected</span>' +
                                     '<span class="rn-preview-pill"><i class="fas fa-tag"></i> ' + escapeHtml(newsItem.category || 'General') + '</span>' +
