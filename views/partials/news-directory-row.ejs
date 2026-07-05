@@ -88,6 +88,11 @@
     <div class="news-author author-details-block" style="display:flex; flex-direction:column; gap:2px; min-width:160px;" title="<%= news.author %>">
       <% if (news.authorDetails && showFullDetails) { %>
           <div style="font-weight: 600; color: #1e293b;"><i class="fas fa-user-circle" style="color:#3b82f6;"></i> <%= news.authorDetails.name || 'N/A' %></div>
+          <% if (news.authorSystemRole === 'subeditor') { %>
+            <div><span style="background-color:#eef2ff; color:#4338ca; border:1px solid #c7d2fe; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; display:inline-flex; align-items:center; gap:4px; margin:2px 0;"><i class="fas fa-user-pen"></i> By Sub-Editor</span></div>
+          <% } else if (!news.authorSystemRole || news.authorSystemRole === 'editor' || news.authorSystemRole === 'reporter') { %>
+            <div><span style="background-color:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; display:inline-flex; align-items:center; gap:4px; margin:2px 0;"><i class="fas fa-microphone-lines"></i> By Reporter</span></div>
+          <% } %>
           <div style="font-size: 0.85rem; color: #64748b;"><%= news.authorDetails.email || news.author || 'N/A' %></div>
           <% if (news.authorDetails.mobileNumber) { %>
               <div style="font-size: 0.85rem; color: #64748b;"><%= news.authorDetails.mobileNumber %></div>
@@ -97,6 +102,11 @@
           <% } %>
       <% } else { %>
           <div style="font-weight: 600; color: #1e293b;"><i class="fas fa-user-circle"></i> <%= news.author %></div>
+          <% if (news.authorSystemRole === 'subeditor') { %>
+            <div><span style="background-color:#eef2ff; color:#4338ca; border:1px solid #c7d2fe; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; display:inline-flex; align-items:center; gap:4px; margin:2px 0;"><i class="fas fa-user-pen"></i> By Sub-Editor</span></div>
+          <% } else if (!news.authorSystemRole || news.authorSystemRole === 'editor' || news.authorSystemRole === 'reporter') { %>
+            <div><span style="background-color:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600; display:inline-flex; align-items:center; gap:4px; margin:2px 0;"><i class="fas fa-microphone-lines"></i> By Reporter</span></div>
+          <% } %>
       <% } %>
     </div>
   </td>

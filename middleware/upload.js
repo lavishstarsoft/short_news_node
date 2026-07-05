@@ -263,5 +263,6 @@ module.exports = {
     uploadMedia,
     uploadAdMedia,
     uploadCategoryMedia,
-    uploadRegistrationMedia
+    uploadRegistrationMedia,
+    uploadToR2
 };

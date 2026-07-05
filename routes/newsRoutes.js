@@ -71,6 +71,9 @@ router.delete('/api/news/:id/comments/:commentId', requireAuth, newsController.d
 router.put('/api/news/:id', requireAuth, checkLanguageMismatch, newsController.updateNews);
 router.delete('/api/news/:id', requireAuth, newsController.deleteNews);
 
+// Image moderation route
+router.post('/api/news/process-image', requireAuth, newsController.processImage);
+
 // Media upload routes - Apply auth middleware
 router.post('/upload-media', requireAuth, uploadMedia.single('media'), newsController.uploadMedia);
 // New route for ad media upload - preserves exact crop from admin (no transformation)

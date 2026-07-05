@@ -115,11 +115,12 @@
                                                 <div class="an-panel-head"><i class="fas fa-image me-2"></i>Media</div>
                                                 <div class="an-panel-body">
                                                     <div class="an-media-compact">
-                                                        <div class="an-media-preview-sm" id="mediaPreviewContainer">
+                                                        <div class="an-media-preview-sm position-relative" id="mediaPreviewContainer">
                                                             <img id="imagePreview"
                                                                 src="<%= typeof news !== 'undefined' ? (news.mediaUrl || news.imageUrl) : '/images/placeholder.png' %>"
                                                                 onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmZmZmYiPkltYWdlIFVwbG9hZDwvdGV4dD48L3N2Zz4='"
                                                                 alt="Preview">
+                                                            <button type="button" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 m-2 p-1" style="font-size:12px; z-index:10; display: <%= typeof news !== 'undefined' && (news.mediaUrl || news.imageUrl) ? 'block' : 'none' %>;" id="mainModerateBtn" onclick="openModeratorForMainImage()"><i class="fas fa-magic"></i> Edit</button>
                                                             <video id="videoPreview" src="" controls style="display:none;width:100%;height:100%;object-fit:contain;"></video>
                                                         </div>
                                                         <button type="button" class="an-upload-btn-sm" id="uploadMediaButton"><i class="fas fa-upload"></i> Upload image / video</button>
@@ -658,8 +659,35 @@
                             removeBtn.style.fontSize = '14px';
                             removeBtn.style.lineHeight = '0';
                             removeBtn.style.cursor = 'pointer';
+                            removeBtn.style.zIndex = '10';
 
-                            removeBtn.onclick = function () {
+                            const moderateBtn = document.createElement('button');
+                            moderateBtn.innerHTML = '<i class="fas fa-magic"></i>';
+                            moderateBtn.title = 'Moderate Image';
+                            moderateBtn.className = 'btn btn-sm btn-primary p-1';
+                            moderateBtn.style.position = 'absolute';
+                            moderateBtn.style.bottom = '5px';
+                            moderateBtn.style.right = '5px';
+                            moderateBtn.style.fontSize = '10px';
+                            moderateBtn.style.borderRadius = '4px';
+                            
+                            moderateBtn.onclick = function (e) {
+                                e.preventDefault();
+                                openImageModerator(url, function(newUrl) {
+                                    urls[i] = newUrl;
+                                    document.getElementById('imageUrls').value = JSON.stringify(urls);
+                                    
+                                    // If this was the first image, update main mediaUrl too
+                                    if (i === 0) {
+                                        document.getElementById('mediaUrl').value = newUrl;
+                                        document.getElementById('imagePreview').src = newUrl;
+                                    }
+                                    refreshMultipleImagesUI();
+                                });
+                            };
+
+                            removeBtn.onclick = function (e) {
+                                e.preventDefault();
                                 urls.splice(i, 1);
                                 document.getElementById('imageUrls').value = JSON.stringify(urls);
                                 refreshMultipleImagesUI();
@@ -667,7 +695,26 @@
 
                             wrapper.appendChild(img);
                             wrapper.appendChild(removeBtn);
+                            wrapper.appendChild(moderateBtn);
                             container.appendChild(wrapper);
+                        });
+                    }
+
+                    window.openModeratorForMainImage = function() {
+                        const currentUrl = document.getElementById('mediaUrl').value;
+                        if (!currentUrl) return;
+                        openImageModerator(currentUrl, function(newUrl) {
+                            document.getElementById('mediaUrl').value = newUrl;
+                            document.getElementById('imagePreview').src = newUrl;
+                            
+                            // update in multiple images if it's there
+                            let urls = [];
+                            try { urls = JSON.parse(document.getElementById('imageUrls').value) || []; } catch(e){}
+                            if (urls.length > 0) {
+                                urls[0] = newUrl;
+                                document.getElementById('imageUrls').value = JSON.stringify(urls);
+                                refreshMultipleImagesUI();
+                            }
                         });
                     }
 
@@ -702,12 +749,16 @@
                                 mediaTypeInput.value = 'video';
                                 thumbnailSelection.style.display = 'block';
                                 generateVideoThumbnails(data.mediaUrl, data.thumbnailUrl);
+                                const editBtn = document.getElementById('mainModerateBtn');
+                                if (editBtn) editBtn.style.display = 'none';
                             } else {
                                 videoPreview.style.display = 'none';
                                 imagePreview.src = data.mediaUrl;
                                 imagePreview.style.display = 'block';
                                 mediaTypeInput.value = 'image';
                                 thumbnailSelection.style.display = 'none';
+                                const editBtn = document.getElementById('mainModerateBtn');
+                                if (editBtn) editBtn.style.display = 'block';
                             }
 
                             mediaUrlInput.value = data.mediaUrl;
@@ -895,6 +946,6 @@
                         }
                     }
                 </script>
+        <%- include('partials/image-moderator') %>
     </body>
-
 </html>

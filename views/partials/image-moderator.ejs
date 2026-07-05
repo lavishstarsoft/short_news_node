@@ -1,0 +1,188 @@
+<div class="modal fade" id="imageModeratorModal" tabindex="-1" aria-hidden="true" style="z-index: 10600 !important;">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header border-bottom-0">
+        <h5 class="modal-title"><i class="fas fa-magic me-2 text-primary"></i>Moderate Image</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0" style="background-color: #f8f9fa;">
+        <div class="d-flex flex-column flex-md-row">
+            <!-- Canvas Container -->
+            <div class="p-3 w-100 d-flex justify-content-center align-items-center" style="min-height: 400px; background: #e9ecef; position: relative;">
+                <canvas id="moderatorCanvas" style="max-width: 100%; max-height: 60vh; cursor: crosshair; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px;"></canvas>
+            </div>
+            
+            <!-- Controls -->
+            <div class="p-4 bg-white border-start" style="min-width: 300px;">
+                <h6 class="fw-bold mb-3">Moderation Tools</h6>
+                <p class="text-muted small mb-4">Select an area on the image to apply blur, or apply a filter to the whole image.</p>
+                
+                <button class="btn btn-outline-dark w-100 mb-3 text-start" onclick="applyGrayscale()">
+                    <i class="fas fa-circle-half-stroke me-2"></i> Convert to Black & White
+                </button>
+                
+                <hr>
+                
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">1. Select Area</label>
+                    <p class="small text-muted mb-2">Drag on the image to select an area.</p>
+                </div>
+                
+                <button class="btn btn-outline-danger w-100 text-start" id="btnApplyBlur" onclick="applyBlur()" disabled>
+                    <i class="fas fa-droplet me-2"></i> Blur Selected Area
+                </button>
+
+                <!-- Loading overlay state -->
+                <div id="moderatorLoading" class="mt-4 text-center" style="display:none;">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <span class="ms-2 small text-muted">Processing image...</span>
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let modCanvas = document.getElementById('moderatorCanvas');
+let modCtx = modCanvas.getContext('2d');
+let modImage = new Image();
+let isModDrawing = false;
+let modStartX, modStartY, modCurrentX, modCurrentY;
+let modSelection = null; // {x, y, width, height}
+let currentModImageUrl = '';
+let onModImageProcessed = null; 
+
+function openImageModerator(imageUrl, callback) {
+    currentModImageUrl = imageUrl;
+    onModImageProcessed = callback;
+    modSelection = null;
+    document.getElementById('btnApplyBlur').disabled = true;
+    document.getElementById('moderatorLoading').style.display = 'none';
+    
+    modImage.crossOrigin = "Anonymous";
+    modImage.onload = function() {
+        modCanvas.width = modImage.width;
+        modCanvas.height = modImage.height;
+        modCtx.drawImage(modImage, 0, 0);
+    };
+    
+    // Add timestamp to bypass cache if re-editing the same url
+    modImage.src = imageUrl.includes('?') ? imageUrl + '&t=' + Date.now() : imageUrl + '?t=' + Date.now();
+    
+    const modModal = new bootstrap.Modal(document.getElementById('imageModeratorModal'));
+    modModal.show();
+}
+
+function getMousePos(canvas, evt) {
+    let rect = canvas.getBoundingClientRect();
+    return {
+        x: (evt.clientX - rect.left) * (canvas.width / rect.width),
+        y: (evt.clientY - rect.top) * (canvas.height / rect.height)
+    };
+}
+
+modCanvas.addEventListener('mousedown', function(e) {
+    isModDrawing = true;
+    let pos = getMousePos(modCanvas, e);
+    modStartX = pos.x;
+    modStartY = pos.y;
+    modCurrentX = pos.x;
+    modCurrentY = pos.y;
+});
+
+modCanvas.addEventListener('mousemove', function(e) {
+    if (!isModDrawing) return;
+    let pos = getMousePos(modCanvas, e);
+    modCurrentX = pos.x;
+    modCurrentY = pos.y;
+    
+    // Redraw image and selection
+    modCtx.clearRect(0, 0, modCanvas.width, modCanvas.height);
+    modCtx.drawImage(modImage, 0, 0);
+    
+    // Draw semi-transparent overlay
+    modCtx.fillStyle = 'rgba(0,0,0,0.3)';
+    modCtx.fillRect(0, 0, modCanvas.width, modCanvas.height);
+    
+    // Clear the selected area
+    let x = Math.min(modStartX, modCurrentX);
+    let y = Math.min(modStartY, modCurrentY);
+    let w = Math.abs(modCurrentX - modStartX);
+    let h = Math.abs(modCurrentY - modStartY);
+    
+    modCtx.clearRect(x, y, w, h);
+    modCtx.drawImage(modImage, x, y, w, h, x, y, w, h);
+    
+    // Draw red dashed border
+    modCtx.strokeStyle = '#dc3545';
+    modCtx.lineWidth = 2 * (modCanvas.width / modCanvas.getBoundingClientRect().width);
+    modCtx.setLineDash([5, 5]);
+    modCtx.strokeRect(x, y, w, h);
+    modCtx.setLineDash([]);
+});
+
+modCanvas.addEventListener('mouseup', function(e) {
+    if (!isModDrawing) return;
+    isModDrawing = false;
+    
+    let x = Math.min(modStartX, modCurrentX);
+    let y = Math.min(modStartY, modCurrentY);
+    let w = Math.abs(modCurrentX - modStartX);
+    let h = Math.abs(modCurrentY - modStartY);
+    
+    if (w > 10 && h > 10) {
+        modSelection = { x, y, width: w, height: h };
+        document.getElementById('btnApplyBlur').disabled = false;
+    } else {
+        modSelection = null;
+        document.getElementById('btnApplyBlur').disabled = true;
+        // Reset view
+        modCtx.clearRect(0, 0, modCanvas.width, modCanvas.height);
+        modCtx.drawImage(modImage, 0, 0);
+    }
+});
+
+modCanvas.addEventListener('mouseleave', function(e) {
+    if(isModDrawing) {
+        let fakeEvent = { clientX: e.clientX, clientY: e.clientY };
+        modCanvas.dispatchEvent(new MouseEvent('mouseup', fakeEvent));
+    }
+});
+
+async function applyGrayscale() {
+    await processImageRequest({ action: 'grayscale', imageUrl: currentModImageUrl });
+}
+
+async function applyBlur() {
+    if (!modSelection) return;
+    await processImageRequest({ action: 'blur', imageUrl: currentModImageUrl, coordinates: modSelection });
+}
+
+async function processImageRequest(payload) {
+    document.getElementById('moderatorLoading').style.display = 'block';
+    try {
+        const response = await fetch('/news/api/news/process-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('imageModeratorModal')).hide();
+            // Call callback
+            if (onModImageProcessed) onModImageProcessed(result.url, currentModImageUrl);
+        } else {
+            alert('Error processing image: ' + result.message);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('An error occurred while processing the image.');
+    } finally {
+        document.getElementById('moderatorLoading').style.display = 'none';
+    }
+}
+</script>

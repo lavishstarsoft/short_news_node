@@ -17,6 +17,9 @@ const path = require('path');
 const fs = require('fs');
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
+const axios = require('axios');
+const sharp = require('sharp');
+const { uploadToR2 } = require('../middleware/upload');
 
 // Import the Notification and User models
 const Notification = require('../models/Notification');
@@ -1208,6 +1211,60 @@ async function toggleNewsStatus(req, res) {
     res.status(500).json({ error: 'Error updating news status: ' + error.message });
   }
 }
+// --- Image Moderation Processing ---
+async function processImage(req, res) {
+  try {
+    const { imageUrl, action, coordinates } = req.body;
+    
+    if (!imageUrl || !action) {
+      return res.status(400).json({ success: false, message: 'Missing imageUrl or action' });
+    }
+
+    // 1. Download image buffer
+    const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+    const buffer = Buffer.from(response.data, 'binary');
+
+    let processedBuffer;
+    
+    // 2. Process image with sharp
+    if (action === 'grayscale') {
+      processedBuffer = await sharp(buffer)
+        .grayscale()
+        .webp({ quality: 80 })
+        .toBuffer();
+    } else if (action === 'blur') {
+      if (!coordinates || coordinates.width <= 0 || coordinates.height <= 0) {
+        return res.status(400).json({ success: false, message: 'Invalid coordinates for blur' });
+      }
+      
+      const { x, y, width, height } = coordinates;
+      
+      // Extract the region to blur
+      const region = await sharp(buffer)
+        .extract({ left: Math.round(x), top: Math.round(y), width: Math.round(width), height: Math.round(height) })
+        .blur(25)
+        .toBuffer();
+        
+      // Composite back
+      processedBuffer = await sharp(buffer)
+        .composite([{ input: region, left: Math.round(x), top: Math.round(y) }])
+        .webp({ quality: 80 })
+        .toBuffer();
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid action' });
+    }
+
+    // 3. Upload back to R2
+    const originalName = 'processed_image.webp'; 
+    const folderName = 'short_news_images'; 
+    const newImageUrl = await uploadToR2(processedBuffer, folderName, originalName, 'image/webp');
+
+    res.json({ success: true, url: newImageUrl });
+  } catch (error) {
+    console.error('Error processing image:', error);
+    res.status(500).json({ success: false, message: 'Failed to process image' });
+  }
+}
 
 // Upload media (images or videos) and extract thumbnail for videos
 async function uploadMedia(req, res) {
@@ -1451,6 +1508,7 @@ module.exports = {
   updateNews,
   deleteNews,
   uploadMedia,
+  processImage,
   updateViewCount,
   updateLikeCount,
   updateDislikeCount,
