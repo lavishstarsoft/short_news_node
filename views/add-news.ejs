@@ -140,6 +140,19 @@
                                             <div class="an-panel">
                                                 <div class="an-panel-head"><i class="fas fa-link me-2"></i>Links</div>
                                                 <div class="an-panel-body">
+                                                    <% if ((admin.role === 'subeditor' && admin.permissions && admin.permissions.requiresSourceLink) || admin.role === 'superadmin' || admin.role === 'admin') { %>
+                                                    <div class="an-field">
+                                                        <label for="sourceLink" class="an-label">Source (Link or Text)
+                                                            <% if (admin.role === 'subeditor') { %>
+                                                                <span class="an-label-hint" style="color: #dc3545;">* mandatory</span>
+                                                            <% } else { %>
+                                                                <span class="an-label-hint">optional</span>
+                                                            <% } %>
+                                                        </label>
+                                                        <input type="text" class="an-input" id="sourceLink" placeholder="e.g. TV9 link, WhatsApp, Telegram..." <%= admin.role === 'subeditor' ? 'required' : '' %>
+                                                            value="<%= typeof news !== 'undefined' ? (news.sourceLink || '') : '' %>">
+                                                    </div>
+                                                    <% } %>
                                                     <div class="an-field">
                                                         <label for="readFullLink" class="an-label">Read full link <span class="an-label-hint">optional</span></label>
                                                         <input type="url" class="an-input" id="readFullLink" placeholder="https://..."
@@ -335,11 +348,15 @@
 
                         const readFullLink = document.getElementById('readFullLink').value;
                         const ePaperLink = document.getElementById('ePaperLink').value;
+                        const sourceLinkEl = document.getElementById('sourceLink');
                         if (readFullLink) {
                             newsData.readFullLink = readFullLink;
                         }
                         if (ePaperLink) {
                             newsData.ePaperLink = ePaperLink;
+                        }
+                        if (sourceLinkEl && sourceLinkEl.value) {
+                            newsData.sourceLink = sourceLinkEl.value;
                         }
 
                         try {

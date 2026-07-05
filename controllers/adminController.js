@@ -1805,6 +1805,10 @@ async function updateEditor(req, res) {
       if (!editor.permissions) editor.permissions = {};
       editor.permissions.canEditNews = req.body.canEditNews === 'true' || req.body.canEditNews === true;
     }
+    if (req.body.requiresSourceLink !== undefined) {
+      if (!editor.permissions) editor.permissions = {};
+      editor.permissions.requiresSourceLink = req.body.requiresSourceLink === 'true' || req.body.requiresSourceLink === true;
+    }
     
     if (sidebar !== undefined) {
       if (!editor.permissions) editor.permissions = {};
@@ -2030,7 +2034,7 @@ async function registerEditor(req, res) {
       return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
 
-    const { username, email, password, name, displayRole, location, assignedLocations, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canEditNews, canSendNotifications, approvalScope, managedLocations, sidebar } = req.body;
+    const { username, email, password, name, displayRole, location, assignedLocations, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canEditNews, requiresSourceLink, canSendNotifications, approvalScope, managedLocations, sidebar } = req.body;
 
     // Validate required fields
     if (!username || !email || !password) {
@@ -2066,6 +2070,7 @@ async function registerEditor(req, res) {
         canApproveNews: canApproveNews === 'true' || canApproveNews === true,
         canViewAllNews: canViewAllNews === 'true' || canViewAllNews === true,
         canEditNews: canEditNews === 'true' || canEditNews === true,
+        requiresSourceLink: requiresSourceLink === 'true' || requiresSourceLink === true,
         canSendNotifications: canSendNotifications === 'true' || canSendNotifications === true,
         approvalScope: approvalScope || 'all',
         managedLocations: Array.isArray(managedLocations) ? managedLocations : (managedLocations ? [managedLocations] : []),

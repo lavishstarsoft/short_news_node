@@ -710,6 +710,12 @@ async function createNews(req, res) {
     const articleLanguage = normalizeNewsLanguage(req.body.language || authorDetails?.workingLanguage);
     const limits = await getDisplayLimitsForLanguage(articleLanguage);
 
+    if (req.admin.permissions?.requiresSourceLink) {
+      if (!req.body.sourceLink || req.body.sourceLink.trim() === '') {
+        return res.status(400).json({ error: 'Source Link is mandatory' });
+      }
+    }
+
     // Validation (ignoring color tags for limit)
     if (req.body.title && stripTags(req.body.title).length > limits.titleMax) {
       return res.status(400).json({ error: `Title cannot exceed ${limits.titleMax} characters` });
@@ -855,6 +861,12 @@ async function updateNews(req, res) {
     // Check if news is rejected and user is not superadmin/assigned subeditor
     if (existingNews.rejectionStatus && existingNews.rejectionStatus.isRejected && !isSuperAdmin && !hasEditPerm) {
       return res.status(403).json({ error: 'Access denied. Rejected news can only be edited by authorized admins.' });
+    }
+
+    if (req.admin.permissions?.requiresSourceLink) {
+      if (!req.body.sourceLink || req.body.sourceLink.trim() === '') {
+        return res.status(400).json({ error: 'Source Link is mandatory' });
+      }
     }
 
     // Validation (ignoring color tags for limit)

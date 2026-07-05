@@ -8,6 +8,7 @@ const newsSchema = new mongoose.Schema({
   mediaUrl: { type: String }, // New field for both images and videos
   mediaType: { type: String, enum: ['image', 'video'] }, // New field to specify media type
   thumbnailUrl: { type: String }, // New field for video thumbnails
+  sourceLink: { type: String }, // New field for source link assigned by super admin
   category: { type: String, required: true },
   location: { type: String },
   language: {

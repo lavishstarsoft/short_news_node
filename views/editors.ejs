@@ -362,7 +362,13 @@
                                             <input type="checkbox" id="editCanEditNews" style="width: auto; height: 18px; cursor: pointer;">
                                             <label for="editCanEditNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can edit any news</label>
                                         </div>
-                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -5px;">Allows this sub-editor to edit active, inactive, and rejected news (like super admin).</div>
+                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -5px; margin-bottom: 15px;">Allows this sub-editor to edit active, inactive, and rejected news (like super admin).</div>
+
+                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
+                                            <input type="checkbox" id="editRequiresSourceLink" style="width: auto; height: 18px; cursor: pointer;">
+                                            <label for="editRequiresSourceLink" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Must provide source link for news</label>
+                                        </div>
+                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -5px;">Requires this sub-editor to provide a source link when adding news.</div>
                                     </div>
 
                                     <div id="editSidebarAccessWrapper" style="display: none; margin-top: 25px;">
@@ -556,6 +562,7 @@
                         document.getElementById('editCanViewAllNews').checked = permissions.canViewAllNews === true;
                         document.getElementById('editCanSendNotifications').checked = permissions.canSendNotifications === true;
                         document.getElementById('editCanEditNews').checked = permissions.canEditNews === true;
+                        document.getElementById('editRequiresSourceLink').checked = permissions.requiresSourceLink === true;
                         
                         // Populate sidebar permissions
                         const sidebarPerms = permissions.sidebar || {};
@@ -647,6 +654,7 @@
                             document.getElementById('editCanViewAllNews').checked = false;
                             document.getElementById('editCanSendNotifications').checked = false;
                             document.getElementById('editCanEditNews').checked = false;
+                            document.getElementById('editRequiresSourceLink').checked = false;
                         }
                     });
 
@@ -695,6 +703,7 @@
                             canViewAllNews: document.getElementById('editCanViewAllNews').checked,
                             canSendNotifications: document.getElementById('editCanSendNotifications').checked,
                             canEditNews: document.getElementById('editCanEditNews').checked,
+                            requiresSourceLink: document.getElementById('editRequiresSourceLink').checked,
                             approvalScope: document.getElementById('editApprovalScope').value,
                             managedLocations: managedLocations,
                             sidebar: sidebarData

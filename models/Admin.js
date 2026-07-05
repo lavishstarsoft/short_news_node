@@ -81,6 +81,7 @@ const adminSchema = new mongoose.Schema({
     canApproveNews: { type: Boolean, default: false },
     canEditNews: { type: Boolean, default: false },
     canSendNotifications: { type: Boolean, default: false },
+    requiresSourceLink: { type: Boolean, default: false },
     approvalScope: { 
       type: String, 
       enum: ['all', 'locations'],
