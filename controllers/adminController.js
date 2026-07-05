@@ -4312,13 +4312,41 @@ async function deleteAllRejectedNews(req, res) {
     // Delete all news where rejectionStatus.isRejected is true
     const result = await News.deleteMany({ 'rejectionStatus.isRejected': true });
     
-    res.json({ 
-      success: true, 
-      message: `Successfully deleted ${result.deletedCount} rejected news articles.` 
-    });
+    if (result.deletedCount === 0) {
+      return res.status(200).json({ success: true, message: 'No rejected news found to delete' });
+    }
+    
+    res.status(200).json({ success: true, message: `Successfully deleted ${result.deletedCount} rejected news` });
   } catch (error) {
-    console.error('Error deleting rejected news:', error);
+    console.error('Error in deleteAllRejectedNews:', error);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+}
+
+// Update Reporter Application
+async function updateReporterApplication(req, res) {
+  try {
+    const { id } = req.params;
+    const { data } = req.body;
+
+    if (!data) {
+      return res.status(400).json({ success: false, message: 'Missing data to update' });
+    }
+
+    const application = await ReporterApplication.findById(id);
+    if (!application) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    // Merge existing data with new data
+    application.data = { ...application.data, ...data };
+    
+    await application.save();
+
+    res.json({ success: true, message: 'Application updated successfully', data: application.data });
+  } catch (error) {
+    console.error('Error updating reporter application:', error);
+    res.status(500).json({ success: false, message: 'Error updating application' });
   }
 }
 
@@ -4411,6 +4439,7 @@ module.exports = {
   getEditorRangeStats,
   renderRegistrationFieldsPage,
   renderReporterApplicationsPage,
+  updateReporterApplication,
   renderPollsPage,
   createPollRest,
   deletePollRest,

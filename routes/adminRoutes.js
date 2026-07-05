@@ -91,4 +91,7 @@ router.delete('/api/polls/:id', adminController.requireAuth, adminController.del
 router.put('/api/polls/:id/status', adminController.requireAuth, adminController.updatePollStatusRest);
 router.put('/api/polls/:id', adminController.requireAuth, adminController.updatePollRest);
 
+// Reporter Applications routes
+router.put('/api/reporter-applications/:id', adminController.requireAuth, adminController.updateReporterApplication);
+
 module.exports = router;

@@ -146,15 +146,15 @@
                                             <%= app.status %>
                                         </span>
                                         <span class="ra-date"><i class="far fa-clock me-1"></i>
-                                            <%= new Date(app.createdAt).toLocaleString('en-IN', { day: 'numeric' ,
-                                                month: 'short' , year: 'numeric' , hour: '2-digit' , minute: '2-digit'
-                                                }) %>
+                                            <%= new Date(app.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) %>
                                         </span>
                                     </div>
                                     <div class="ra-actions">
                                         <button type="button" class="ra-action-btn ra-action-btn--view"
                                             onclick="openApplicationDetail('<%= app._id %>')"><i class="fas fa-eye"></i>
                                             View</button>
+                                        <button type="button" class="ra-action-btn ra-action-btn--edit" style="color: #6366f1; border-color: #c7d2fe; background: #e0e7ff;"
+                                            onclick="openEditApplicationModal('<%= app._id %>')"><i class="fas fa-edit"></i> Edit</button>
                                         <button type="button" class="ra-action-btn ra-action-btn--pdf"
                                             onclick="downloadApplicationPDF('<%= app._id %>')"><i
                                                 class="fas fa-file-pdf"></i> PDF</button>
@@ -202,7 +202,7 @@
                                         style="font-size: 11px;">
                                         <strong>OFFICE USE ONLY</strong><br>
                                         App ID: <%= app._id.toString().substring(0, 8).toUpperCase() %><br>
-                                            Date: <%= new Date(app.createdAt).toLocaleDateString('en-IN') %><br>
+                                            Date: <%= new Date(app.createdAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) %><br>
                                                 Status: <strong>
                                                     <%= app.status.toUpperCase() %>
                                                 </strong>
@@ -311,7 +311,7 @@
                         <div class="print-footer text-center mt-4 pt-2 border-top border-dark"
                             style="font-size: 10px; font-family: Arial, sans-serif;">
                             <p class="m-0">Tehelka News Network &bull; Generated on <%= new
-                                    Date().toLocaleDateString('en-IN') %>
+                                    Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }) %>
                             </p>
                         </div>
                     </div>
@@ -355,6 +355,25 @@
                             <button type="button" class="btn btn-outline-secondary"
                                 data-bs-dismiss="modal">Cancel</button>
                             <button type="button" class="btn" id="raReviewConfirmBtn">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal fade ra-modal" id="raEditModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Edit Application</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body" id="raEditBody">
+                            <form id="raEditForm">
+                                <!-- Dynamic form fields will be injected here -->
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="raEditSaveBtn">Save Changes</button>
                         </div>
                     </div>
                 </div>
@@ -506,7 +525,7 @@
                             <div class="border border-dark p-2 text-start d-inline-block" style="font-size: 11px;">
                                 <strong>OFFICE USE ONLY</strong><br>
                                 App ID: ${app._id.toString().substring(0, 8).toUpperCase()}<br>
-                                Date: ${new Date(app.createdAt).toLocaleDateString('en-IN')}<br>
+                                Date: ${new Date(app.createdAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}<br>
                                 Status: <strong>${app.status.toUpperCase()}</strong>
                             </div>
                         </div>
@@ -659,6 +678,75 @@
                             console.error('Error deleting application:', error);
                         }
                     };
+
+                    let currentEditAppId = null;
+                    window.openEditApplicationModal = function(appId) {
+                        const app = raApplications.find(a => a._id === appId);
+                        if (!app) return;
+                        currentEditAppId = appId;
+
+                        let html = '';
+                        // Always iterate over raRegistrationFields, so we have fields for the form
+                        // Some may not be in app.data if they were empty
+                        raRegistrationFields.forEach(field => {
+                            const val = app.data[field.name] || '';
+                            html += `
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">${field.label}</label>
+                            `;
+                            
+                            if (field.type === 'textarea') {
+                                html += `<textarea class="form-control" name="${field.name}" rows="3">${val}</textarea>`;
+                            } else if (field.type === 'file' || field.type === 'image') {
+                                html += `
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="text" class="form-control" name="${field.name}" value="${val}" placeholder="File URL">
+                                    ${val ? `<a href="${val}" target="_blank" class="btn btn-sm btn-outline-secondary">View</a>` : ''}
+                                </div>
+                                <small class="text-muted">Enter media/file URL directly to edit.</small>`;
+                            } else {
+                                html += `<input type="${field.type === 'email' ? 'email' : 'text'}" class="form-control" name="${field.name}" value="${val}">`;
+                            }
+                            html += `</div>`;
+                        });
+
+                        document.getElementById('raEditForm').innerHTML = html;
+                        const modal = new bootstrap.Modal(document.getElementById('raEditModal'));
+                        modal.show();
+                    };
+
+                    document.getElementById('raEditSaveBtn').addEventListener('click', async function() {
+                        if (!currentEditAppId) return;
+                        const form = document.getElementById('raEditForm');
+                        const formData = new FormData(form);
+                        const data = {};
+                        formData.forEach((value, key) => {
+                            data[key] = value;
+                        });
+                        
+                        this.disabled = true;
+                        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                        
+                        try {
+                            const response = await fetch(`/api/reporter-applications/${currentEditAppId}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ data })
+                            });
+                            const result = await response.json();
+                            if (result.success) {
+                                location.reload();
+                            } else {
+                                alert(result.message || 'Error updating application');
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            alert('An error occurred while saving.');
+                        } finally {
+                            this.disabled = false;
+                            this.innerHTML = 'Save Changes';
+                        }
+                    });
 
                     function setupMobileMenu() {
                         const menuToggle = document.getElementById('menuToggle');
