@@ -69,6 +69,7 @@
                                                                 <input type="color" class="an-color-picker" onchange="applyTextColor('content', this.value)">
                                                                 <span class="an-toolbar-divider"></span>
                                                                 <button type="button" class="an-tool-btn" onclick="applyBoldText('content')"><i class="fas fa-bold"></i></button>
+                                                                <button type="button" class="an-tool-btn" onclick="insertLink('content')" title="Insert Link"><i class="fas fa-link"></i></button>
                                                                 <button type="button" class="an-tool-btn" onclick="removeStyling('content')"><i class="fas fa-eraser"></i></button>
                                                             </div>
                                                             <div id="contentEditor" class="an-rich-editor an-rich-editor-content" contenteditable="true" data-placeholder="Enter news content"></div>
@@ -943,6 +944,35 @@
                         if (!cfg) return;
                         if (!removeRichStyling(cfg.editorId, cfg.hiddenId, cfg.max, cfg.singleLine, cfg.singleParagraph)) {
                             showFeedback('Please select styled text first', 'info');
+                        }
+                    }
+
+                    function insertLink(fieldKey) {
+                        const cfg = EDITOR_MAP[fieldKey];
+                        if (!cfg) return;
+                        
+                        const editor = document.getElementById(cfg.editorId);
+                        editor.focus();
+                        
+                        const url = prompt("Enter the link URL (e.g., https://example.com):");
+                        if (url) {
+                            let finalUrl = url.trim();
+                            if (!/^https?:\/\//i.test(finalUrl)) {
+                                finalUrl = 'http://' + finalUrl;
+                            }
+                            
+                            document.execCommand('createLink', false, finalUrl);
+                            
+                            // Force links to open in a new tab if possible
+                            const links = editor.querySelectorAll('a');
+                            links.forEach(link => {
+                                link.setAttribute('target', '_blank');
+                                link.setAttribute('rel', 'noopener noreferrer');
+                            });
+                            
+                            if (typeof window.onRichEditorChange === 'function') {
+                                window.onRichEditorChange(cfg.hiddenId, cfg.max);
+                            }
                         }
                     }
                 </script>
