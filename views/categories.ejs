@@ -306,12 +306,16 @@
                                         <input type="text" class="form-control" id="categoryName" name="name" required>
                                     </div>
                                     <div class="col-md-6 mb-3">
+                                        <label for="categoryDisplayName" class="form-label">Display Name (Flutter App)</label>
+                                        <input type="text" class="form-control" id="categoryDisplayName" name="displayName" placeholder="e.g. Politics">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
                                         <label for="categoryColor" class="form-label">Color</label>
                                         <input type="color" class="form-control" id="categoryColor" name="color"
                                             value="#007bff">
                                     </div>
-                                </div>
-                                <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label for="categoryIcon" class="form-label">Icon</label>
                                         <select class="form-select" id="categoryIcon" name="icon">
@@ -329,11 +333,20 @@
                                             <option value="fas fa-utensils">🍽️ Food</option>
                                         </select>
                                     </div>
+                                </div>
+                                <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label for="categoryStatus" class="form-label">Status</label>
                                         <select class="form-select" id="categoryStatus" name="isActive">
                                             <option value="true">Active</option>
                                             <option value="false">Inactive</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="categoryShowToReporters" class="form-label">Show to Reporters</label>
+                                        <select class="form-select" id="categoryShowToReporters" name="showToReporters">
+                                            <option value="true">Yes</option>
+                                            <option value="false">No (Admin Only)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -555,6 +568,7 @@
                         <div class="d-flex align-items-center">
                             <div>
                                 <h6 class="mb-0">${category.name}</h6>
+                                <small class="text-muted">Display Name: ${category.displayName || category.name}</small>
                             </div>
                         </div>
                     </td>
@@ -562,8 +576,11 @@
                         <p class="mb-0 text-muted" style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${category.description}</p>
                     </td>
                     <td class="text-left">
-                        <span class="badge ${category.isActive ? 'bg-success' : 'bg-secondary'} status-badge">
+                        <span class="badge ${category.isActive ? 'bg-success' : 'bg-secondary'} status-badge d-block mb-1">
                             ${category.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                        <span class="badge ${category.showToReporters ? 'bg-primary' : 'bg-dark'} status-badge d-block">
+                            ${category.showToReporters ? 'Reporters: Yes' : 'Reporters: No'}
                         </span>
                     </td>
                     <td class="text-left">
@@ -596,6 +613,7 @@
                         document.getElementById('categoryColor').value = '#007bff';
                         document.getElementById('categoryIcon').value = 'fas fa-folder';
                         document.getElementById('categoryStatus').value = 'true';
+                        document.getElementById('categoryShowToReporters').value = 'true';
                         document.getElementById('imagePreviewContainer').style.display = 'none';
                         new bootstrap.Modal(document.getElementById('categoryModal')).show();
                     }
@@ -609,10 +627,12 @@
                         document.getElementById('categoryModalLabel').textContent = 'Edit Category';
                         document.getElementById('categoryId').value = category._id;
                         document.getElementById('categoryName').value = category.name;
+                        document.getElementById('categoryDisplayName').value = category.displayName || '';
                         document.getElementById('categoryDescription').value = category.description;
                         document.getElementById('categoryColor').value = category.color;
                         document.getElementById('categoryIcon').value = category.icon;
                         document.getElementById('categoryStatus').value = category.isActive.toString();
+                        document.getElementById('categoryShowToReporters').value = (category.showToReporters === true).toString();
 
                         // Handle image preview
                         if (category.imageUrl && category.imageUrl !== '/uploads/default-category.png') {

@@ -97,6 +97,8 @@ const typeDefs = gql`
     id: ID!
     _id: ID # Backward compatibility
     name: String!
+    displayName: String
+    showToReporters: Boolean
     description: String
     icon: String
     color: String

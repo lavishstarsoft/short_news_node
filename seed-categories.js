@@ -4,45 +4,84 @@ require('dotenv').config();
 
 const categories = [
     {
-        name: 'మీకోసం', // For You
-        description: 'Personalized news for you',
-        color: '#2196F3', // Blue
-        icon: 'person',
-        isActive: true
-    },
-    {
-        name: 'వార్తలు', // News
-        description: 'General news updates',
-        color: '#FFC107', // Amber
-        icon: 'article',
-        isActive: true
-    },
-    {
-        name: 'రాజకీయాలు', // Politics
-        description: 'Political news and updates',
+        name: 'Political/Happening',
+        displayName: 'Politics',
+        showToReporters: true,
+        description: 'Political news and happening events',
         color: '#F44336', // Red
         icon: 'account_balance',
         isActive: true
     },
     {
-        name: 'వ్యాపారం', // Business
-        description: 'Business and finance news',
+        name: 'Administration/Infra',
+        displayName: 'News',
+        showToReporters: true,
+        description: 'Administration and infrastructure news',
         color: '#607D8B', // BlueGrey
         icon: 'business_center',
         isActive: true
     },
     {
-        name: 'క్రీడలు', // Sports
-        description: 'Sports news',
+        name: 'Crime/Accident',
+        displayName: 'News',
+        showToReporters: true,
+        description: 'Crime and accident news',
+        color: '#dc3545', // Red
+        icon: 'gavel',
+        isActive: true
+    },
+    {
+        name: 'Event/Sports',
+        displayName: 'Sports',
+        showToReporters: true,
+        description: 'Event and sports news',
         color: '#FF5722', // DeepOrange
         icon: 'emoji_events',
         isActive: true
     },
     {
-        name: 'సినిమా', // Cinema
+        name: 'Issues',
+        displayName: 'Special',
+        showToReporters: true,
+        description: 'Public issues and protests',
+        color: '#ffc107', // Amber
+        icon: 'report_problem',
+        isActive: true
+    },
+    {
+        name: 'Movies',
+        displayName: 'Movies',
+        showToReporters: false,
         description: 'Movies and entertainment',
         color: '#9C27B0', // Purple
         icon: 'movie',
+        isActive: true
+    },
+    {
+        name: 'Special',
+        displayName: 'Special',
+        showToReporters: false,
+        description: 'Special news and features',
+        color: '#ffc107', // Amber
+        icon: 'star',
+        isActive: true
+    },
+    {
+        name: 'Business',
+        displayName: 'Business',
+        showToReporters: false,
+        description: 'Business and finance news',
+        color: '#2196F3', // Blue
+        icon: 'trending_up',
+        isActive: true
+    },
+    {
+        name: 'Health & Fitness',
+        displayName: 'Health & Fitness',
+        showToReporters: false,
+        description: 'Health, wellness, and fitness tips',
+        color: '#20c997', // Teal
+        icon: 'health_and_safety',
         isActive: true
     }
 ];

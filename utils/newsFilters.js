@@ -21,17 +21,32 @@ async function resolveCategoryFilter(category) {
   const input = normalizeFilterInput(category);
   if (!input) return null;
 
+  let resolvedName = input;
   if (isObjectIdString(input)) {
     const byId = await Category.findById(input).select('name').lean();
-    if (byId?.name) return byId.name;
+    if (byId?.name) resolvedName = byId.name;
+  } else {
+    const byName = await Category.findOne({ name: input }).select('name').lean();
+    if (byName?.name) resolvedName = byName.name;
   }
 
-  const byName = await Category.findOne({ name: input }).select('name').lean();
-  if (byName?.name) return byName.name;
+  // Map display category filters to query database category names
+  const lower = resolvedName.toLowerCase();
+  if (lower.includes('politics') || lower.includes('political') || lower.includes('happening') || lower.includes('రాజకీయాలు')) {
+    return { $in: ['Politics', 'Political/Happening', 'రాజకీయాలు'] };
+  } else if (lower.includes('business') || lower.includes('వ్యాపారం')) {
+    return { $in: ['Business', 'వ్యాపారం'] };
+  } else if (lower.includes('sports') || lower.includes('event') || lower.includes('క్రీడలు')) {
+    return { $in: ['Sports', 'Event/Sports', 'క్రీడలు'] };
+  } else if (lower.includes('movie') || lower.includes('cinema') || lower.includes('సినిమా')) {
+    return { $in: ['Movies', 'సినిమాలు', 'సినిమా', 'Cinema'] };
+  } else if (lower.includes('special') || lower.includes('issue') || lower.includes('ప్రత్యేకం')) {
+    return { $in: ['Special', 'Issues', 'ప్రత్యేకం'] };
+  } else if (lower.includes('news') || lower.includes('admin') || lower.includes('infra') || lower.includes('crime') || lower.includes('accident') || lower.includes('వార్తలు')) {
+    return { $in: ['News', 'వార్తలు', 'Administration/Infra', 'Crime/Accident'] };
+  }
 
-  // News articles store category names; allow direct name match even if
-  // the category was removed from the master list.
-  return input;
+  return resolvedName;
 }
 
 /**

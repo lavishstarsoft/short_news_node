@@ -9,6 +9,15 @@ const categorySchema = new mongoose.Schema({
     minlength: 2,
     maxlength: 50
   },
+  displayName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  showToReporters: {
+    type: Boolean,
+    default: false
+  },
   type: {
     type: String,
     enum: ['news', 'program'],
