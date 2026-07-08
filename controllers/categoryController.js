@@ -78,7 +78,7 @@ exports.getCategoryById = async (req, res) => {
 // Create new category
 exports.createCategory = async (req, res) => {
   try {
-    const { name, displayName, showToReporters, description, color, icon, isActive, type } = req.body;
+    const { name, displayName, showToReporters, order, showInApp, description, color, icon, isActive, type } = req.body;
     let imageUrl = '/uploads/default-category.png';
 
     // Handle image upload if provided
@@ -113,6 +113,8 @@ exports.createCategory = async (req, res) => {
         name: name.trim(),
         displayName: displayName ? displayName.trim() : '',
         showToReporters: showToReporters === 'true',
+        order: parseInt(order, 10) || 0,
+        showInApp: showInApp !== 'false',
         description: description.trim(),
         color: color || '#007bff',
         icon: icon || 'fas fa-folder',
@@ -143,6 +145,8 @@ exports.createCategory = async (req, res) => {
         name: name.trim(),
         displayName: displayName ? displayName.trim() : '',
         showToReporters: showToReporters === 'true',
+        order: parseInt(order, 10) || 0,
+        showInApp: showInApp !== 'false',
         description: description.trim(),
         color: color || '#007bff',
         icon: icon || 'fas fa-folder',
@@ -166,7 +170,7 @@ exports.createCategory = async (req, res) => {
 // Update category
 exports.updateCategory = async (req, res) => {
   try {
-    const { name, displayName, showToReporters, description, color, icon, isActive } = req.body;
+    const { name, displayName, showToReporters, order, showInApp, description, color, icon, isActive } = req.body;
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
 
     if (isConnectedToMongoDB) {
@@ -193,6 +197,8 @@ exports.updateCategory = async (req, res) => {
       if (name) category.name = name.trim();
       if (displayName !== undefined) category.displayName = displayName.trim();
       if (showToReporters !== undefined) category.showToReporters = showToReporters === 'true';
+      if (order !== undefined) category.order = parseInt(order, 10) || 0;
+      if (showInApp !== undefined) category.showInApp = showInApp === 'true';
       if (description) category.description = description.trim();
       if (color) category.color = color;
       if (icon) category.icon = icon;
@@ -238,6 +244,8 @@ exports.updateCategory = async (req, res) => {
       if (name) category.name = name.trim();
       if (displayName !== undefined) category.displayName = displayName.trim();
       if (showToReporters !== undefined) category.showToReporters = showToReporters === 'true';
+      if (order !== undefined) category.order = parseInt(order, 10) || 0;
+      if (showInApp !== undefined) category.showInApp = showInApp === 'true';
       if (description) category.description = description.trim();
       if (color) category.color = color;
       if (icon) category.icon = icon;

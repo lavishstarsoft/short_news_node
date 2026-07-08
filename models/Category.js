@@ -18,6 +18,14 @@ const categorySchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  order: {
+    type: Number,
+    default: 0
+  },
+  showInApp: {
+    type: Boolean,
+    default: true
+  },
   type: {
     type: String,
     enum: ['news', 'program'],

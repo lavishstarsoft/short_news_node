@@ -99,6 +99,8 @@ const typeDefs = gql`
     name: String!
     displayName: String
     showToReporters: Boolean
+    order: Int
+    showInApp: Boolean
     description: String
     icon: String
     color: String

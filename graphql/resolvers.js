@@ -786,6 +786,8 @@ const resolvers = {
         _id: (parent) => parent.id || parent._id.toString(),
         displayName: (parent) => parent.displayName || parent.name,
         showToReporters: (parent) => parent.showToReporters === true,
+        order: (parent) => parent.order || 0,
+        showInApp: (parent) => parent.showInApp !== false,
         image_url: (parent) => parent.imageUrl,
         newsCount: (parent) => parent.newsCount || 0,
         isActive: (parent) => parent.isActive !== false,

@@ -350,6 +350,19 @@
                                         </select>
                                     </div>
                                 </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="categoryOrder" class="form-label">Sort Order</label>
+                                        <input type="number" class="form-control" id="categoryOrder" name="order" value="0">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="categoryShowInApp" class="form-label">Show in Mobile App</label>
+                                        <select class="form-select" id="categoryShowInApp" name="showInApp">
+                                            <option value="true">Yes</option>
+                                            <option value="false">No</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <div class="mb-3">
                                     <label for="categoryImage" class="form-label">Category Image</label>
                                     <input type="file" class="form-control" id="categoryImage" name="image"
@@ -577,10 +590,16 @@
                     </td>
                     <td class="text-left">
                         <span class="badge ${category.isActive ? 'bg-success' : 'bg-secondary'} status-badge d-block mb-1">
-                            ${category.isActive ? 'Active' : 'Inactive'}
+                            Status: ${category.isActive ? 'Active' : 'Inactive'}
                         </span>
-                        <span class="badge ${category.showToReporters ? 'bg-primary' : 'bg-dark'} status-badge d-block">
-                            ${category.showToReporters ? 'Reporters: Yes' : 'Reporters: No'}
+                        <span class="badge ${category.showToReporters ? 'bg-primary' : 'bg-dark'} status-badge d-block mb-1">
+                            Reporters: ${category.showToReporters ? 'Yes' : 'No'}
+                        </span>
+                        <span class="badge ${category.showInApp !== false ? 'bg-info' : 'bg-warning'} status-badge d-block mb-1">
+                            App Show: ${category.showInApp !== false ? 'Yes' : 'No'}
+                        </span>
+                        <span class="badge bg-secondary status-badge d-block">
+                            Order: ${category.order || 0}
                         </span>
                     </td>
                     <td class="text-left">
@@ -614,6 +633,8 @@
                         document.getElementById('categoryIcon').value = 'fas fa-folder';
                         document.getElementById('categoryStatus').value = 'true';
                         document.getElementById('categoryShowToReporters').value = 'true';
+                        document.getElementById('categoryOrder').value = '0';
+                        document.getElementById('categoryShowInApp').value = 'true';
                         document.getElementById('imagePreviewContainer').style.display = 'none';
                         new bootstrap.Modal(document.getElementById('categoryModal')).show();
                     }
@@ -633,6 +654,8 @@
                         document.getElementById('categoryIcon').value = category.icon;
                         document.getElementById('categoryStatus').value = category.isActive.toString();
                         document.getElementById('categoryShowToReporters').value = (category.showToReporters === true).toString();
+                        document.getElementById('categoryOrder').value = category.order !== undefined ? category.order : '0';
+                        document.getElementById('categoryShowInApp').value = (category.showInApp !== false).toString();
 
                         // Handle image preview
                         if (category.imageUrl && category.imageUrl !== '/uploads/default-category.png') {
