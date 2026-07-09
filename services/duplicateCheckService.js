@@ -1,7 +1,7 @@
 const News = require('../models/News');
 const { checkDuplicateFast, generateContentHash } = require('../utils/similarityDetector');
 
-const CORPUS_DAYS = 30;
+const CORPUS_DAYS = 3;
 const MIN_MATCH_SCORE = 50;
 
 function normalizeDuplicateCheck(raw) {

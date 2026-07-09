@@ -361,6 +361,15 @@
                             newsData.sourceLink = sourceLinkEl.value;
                         }
 
+                        const saveBtnIds = ['saveNewsButton', 'saveNewsButtonMobile', 'saveNewsButtonDesktop', 'saveNewsBtn'];
+                        saveBtnIds.forEach(id => {
+                            const btn = document.getElementById(id);
+                            if (btn) {
+                                btn.disabled = true;
+                                btn.style.pointerEvents = 'none';
+                            }
+                        });
+
                         try {
                             showLoader(newsId ? 'Updating news...' : 'Saving news...');
                             let response;
@@ -450,6 +459,14 @@
                                     }
                                     const warnModal = new bootstrap.Modal(document.getElementById('languageWarningModal'));
                                     warnModal.show();
+                                    
+                                    saveBtnIds.forEach(id => {
+                                        const btn = document.getElementById(id);
+                                        if (btn) {
+                                            btn.disabled = false;
+                                            btn.style.pointerEvents = 'auto';
+                                        }
+                                    });
                                     return;
                                 }
                                 const errorText = await response.text();
@@ -459,11 +476,25 @@
                                 } catch (e) {
                                     showFeedback('Error saving news: ' + errorText, 'error');
                                 }
+                                saveBtnIds.forEach(id => {
+                                    const btn = document.getElementById(id);
+                                    if (btn) {
+                                        btn.disabled = false;
+                                        btn.style.pointerEvents = 'auto';
+                                    }
+                                });
                             }
                         } catch (error) {
                             hideLoader();
                             console.error('Error:', error);
                             showFeedback('Error saving news: ' + error.message, 'error');
+                            saveBtnIds.forEach(id => {
+                                const btn = document.getElementById(id);
+                                if (btn) {
+                                    btn.disabled = false;
+                                    btn.style.pointerEvents = 'auto';
+                                }
+                            });
                         }
                     }
 
