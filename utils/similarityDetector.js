@@ -1,13 +1,101 @@
 const crypto = require('crypto');
+const { detectPrimaryLanguage } = require('./languageUtils');
+
+const LANG_CODE_MAP = {
+  telugu: 'te',
+  hindi: 'hi',
+  tamil: 'ta',
+  english: 'en',
+  kannada: 'kn',
+  malayalam: 'ml'
+};
+
+/**
+ * Tokens that should not influence duplicate scoring (numbers, years, etc.)
+ */
+function isNoiseToken(token) {
+  if (!token) return true;
+  const value = token.toLowerCase();
+  if (value.length <= 2) return true;
+  if (/^\d+$/.test(value)) return true;
+  if (/^(19|20)\d{2}$/.test(value)) return true;
+  return false;
+}
+
+const INDIC_WORD_REGEX = /[\u0900-\u097F\u0C00-\u0C7F\u0B80-\u0BFF\u0C80-\u0CFF\u0D00-\u0D7Fa-z0-9]+/g;
+
+function tokenizeForSimilarity(text) {
+  const normalized = String(text || '').toLowerCase();
+  const tokens = normalized.match(INDIC_WORD_REGEX) || [];
+  return tokens.filter(token => !isNoiseToken(token));
+}
+
+function normalizeLangCode(lang) {
+  if (!lang) return null;
+  const normalized = String(lang).toLowerCase().trim();
+  return LANG_CODE_MAP[normalized] || normalized;
+}
+
+function languagesCompatible(article1, article2) {
+  const lang1 = normalizeLangCode(article1?.language);
+  const lang2 = normalizeLangCode(article2?.language);
+  if (lang1 && lang2 && lang1 !== lang2) return false;
+  return true;
+}
+
+/**
+ * Skip comparisons when both texts clearly use different scripts (e.g. Telugu vs Hindi).
+ */
+function scriptsCompatible(text1, text2) {
+  const detection1 = detectPrimaryLanguage(text1);
+  const detection2 = detectPrimaryLanguage(text2);
+  if (!detection1?.language || !detection2?.language) return true;
+
+  const script1 = detection1.language;
+  const script2 = detection2.language;
+  if (script1 === script2) return true;
+
+  const count1 = detection1.percentages?.[script1] || 0;
+  const count2 = detection2.percentages?.[script2] || 0;
+  const total1 = Object.values(detection1.percentages || {}).reduce((sum, n) => sum + n, 0) || 1;
+  const total2 = Object.values(detection2.percentages || {}).reduce((sum, n) => sum + n, 0) || 1;
+
+  const strength1 = count1 / total1;
+  const strength2 = count2 / total2;
+
+  if (strength1 >= 0.25 && strength2 >= 0.25) return false;
+  return true;
+}
+
+function computeOverallScore(titleSimilarity, contentSimilarity, keywordMatch) {
+  let overall = Math.round(
+    titleSimilarity * 0.2 + contentSimilarity * 0.5 + keywordMatch * 0.3
+  );
+
+  // Title-only overlap (often numbers) should not inflate duplicate score.
+  if (contentSimilarity < 15 && titleSimilarity > 25) {
+    overall = Math.min(overall, 35);
+  }
+  if (contentSimilarity < 30) {
+    overall = Math.min(overall, 55);
+  }
+
+  return overall;
+}
+
+function classifyDuplicateMatch(overallScore, contentSimilarity) {
+  const isDuplicate = overallScore >= 80 && contentSimilarity >= 50;
+  const isSuspicious = !isDuplicate && overallScore >= 60 && contentSimilarity >= 30;
+  return { isDuplicate, isSuspicious };
+}
 
 /**
  * Calculate Cosine Similarity between two strings (0-100%)
  * Used for detecting similar titles and content
  */
 function cosineSimilarity(text1, text2) {
-  // Tokenize and convert to lowercase
-  const tokens1 = text1.toLowerCase().split(/\W+/).filter(t => t.length > 0);
-  const tokens2 = text2.toLowerCase().split(/\W+/).filter(t => t.length > 0);
+  const tokens1 = tokenizeForSimilarity(text1);
+  const tokens2 = tokenizeForSimilarity(text2);
 
   // Create frequency maps
   const freq1 = {};
@@ -87,13 +175,13 @@ function generateContentHash(title, content) {
  * For keyword-based similarity
  */
 function extractKeywords(text, limit = 10) {
-  const words = text
-    .toLowerCase()
-    .split(/\W+/)
-    .filter(word => word.length > 3); // Only words > 3 chars
+  const words = tokenizeForSimilarity(text)
+    .filter(word => word.length > 2); // Meaningful words (Indic + English)
 
-  // Remove common stop words
-  const stopWords = ['the', 'and', 'with', 'from', 'that', 'this', 'have', 'will', 'about'];
+  const stopWords = [
+    'the', 'and', 'with', 'from', 'that', 'this', 'have', 'will', 'about',
+    'news', 'live', 'update', 'updates', 'breaking', 'latest'
+  ];
   const filtered = words.filter(w => !stopWords.includes(w));
 
   // Count frequency
@@ -132,6 +220,12 @@ function checkDuplicate(newArticle, existingArticles) {
   const results = [];
 
   existingArticles.forEach(existing => {
+    if (!languagesCompatible(newArticle, existing)) return;
+
+    const newCombined = `${newArticle.title || ''} ${newArticle.content || ''}`;
+    const existingCombined = `${existing.title || ''} ${existing.content || ''}`;
+    if (!scriptsCompatible(newCombined, existingCombined)) return;
+
     // Title similarity
     const titleSimilarity = cosineSimilarity(newArticle.title, existing.title);
     const titleFuzzy = levenshteinDistance(newArticle.title, existing.title);
@@ -153,10 +247,8 @@ function checkDuplicate(newArticle, existingArticles) {
     );
     const keywordMatch = keywordSimilarity(newKeywords, existingKeywords);
 
-    // Overall score calculation
-    const overallScore = Math.round(
-      (titleSimilarity * 0.3 + contentSimilarity * 0.4 + keywordMatch * 0.3)
-    );
+    const overallScore = computeOverallScore(titleSimilarity, contentSimilarity, keywordMatch);
+    const classification = classifyDuplicateMatch(overallScore, contentSimilarity);
 
     results.push({
       articleId: existing._id,
@@ -173,8 +265,8 @@ function checkDuplicate(newArticle, existingArticles) {
         keywords: keywordMatch,
         overall: overallScore
       },
-      isDuplicate: overallScore >= 80, // >= 80% is duplicate
-      isSuspicious: overallScore >= 60 // 60-80% is suspicious
+      isDuplicate: classification.isDuplicate,
+      isSuspicious: classification.isSuspicious
     });
   });
 
@@ -197,8 +289,15 @@ function checkDuplicateFast(newArticle, existingArticles) {
     (newArticle.title || '') + ' ' + (newArticle.content || '')
   );
 
+  const newCombined = `${newArticle.title || ''} ${newArticle.content || ''}`;
+
   for (let i = 0; i < existingArticles.length; i++) {
     const existing = existingArticles[i];
+
+    if (!languagesCompatible(newArticle, existing)) continue;
+
+    const existingCombined = `${existing.title || ''} ${existing.content || ''}`;
+    if (!scriptsCompatible(newCombined, existingCombined)) continue;
 
     // Step 1: Quick title cosine check
     const titleSimilarity = cosineSimilarity(newArticle.title || '', existing.title || '');
@@ -218,10 +317,8 @@ function checkDuplicateFast(newArticle, existingArticles) {
     );
     const keywordMatch = keywordSimilarity(newKeywords, existingKeywords);
 
-    // Overall score
-    const overallScore = Math.round(
-      titleSimilarity * 0.3 + contentSimilarity * 0.4 + keywordMatch * 0.3
-    );
+    const overallScore = computeOverallScore(titleSimilarity, contentSimilarity, keywordMatch);
+    const classification = classifyDuplicateMatch(overallScore, contentSimilarity);
 
     // Only include if overall >= 40% (skip irrelevant matches)
     if (overallScore >= 40) {
@@ -238,8 +335,8 @@ function checkDuplicateFast(newArticle, existingArticles) {
           keywords: keywordMatch,
           overall: overallScore
         },
-        isDuplicate: overallScore >= 80,
-        isSuspicious: overallScore >= 60
+        isDuplicate: classification.isDuplicate,
+        isSuspicious: classification.isSuspicious
       });
     }
   }
@@ -264,6 +361,12 @@ module.exports = {
   generateContentHash,
   extractKeywords,
   keywordSimilarity,
+  isNoiseToken,
+  tokenizeForSimilarity,
+  languagesCompatible,
+  scriptsCompatible,
+  computeOverallScore,
+  classifyDuplicateMatch,
   checkDuplicate,
   checkDuplicateFast,
   generateBatchHashes

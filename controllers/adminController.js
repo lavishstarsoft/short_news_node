@@ -36,7 +36,12 @@ const ReporterApplication = require('../models/ReporterApplication');
 const oneSignalService = require('../services/oneSignalService');
 
 // Import Similarity Detector
-const { checkDuplicate, checkDuplicateFast, generateContentHash } = require('../utils/similarityDetector');
+const { checkDuplicate, generateContentHash } = require('../utils/similarityDetector');
+const {
+  runDuplicateCheck,
+  applyDuplicateCheckToNews,
+  normalizeDuplicateCheck
+} = require('../services/duplicateCheckService');
 
 // Import cache clearing functionality
 const { clearCache } = require('../middleware/cache');
@@ -3333,7 +3338,7 @@ async function renderPendingNewsPage(req, res) {
 
     // Fetch pending news with only needed fields (uses compound index)
     const pendingNews = await News.find(query)
-      .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl imageUrls readFullLink ePaperLink views')
+      .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl imageUrls readFullLink ePaperLink views duplicateCheck')
       .sort({ publishedAt: -1 })
       .limit(100)
       .lean();
@@ -3343,17 +3348,10 @@ async function renderPendingNewsPage(req, res) {
     const authorMap = {};
     authors.forEach(a => authorMap[a._id.toString()] = a);
 
-    // Add empty duplicateCheck defaults so the template doesn't break
     const pendingNewsWithDefaults = pendingNews.map(article => ({
       ...article,
       authorDetails: article.authorId ? authorMap[article.authorId.toString()] : null,
-      duplicateCheck: {
-        isDuplicate: false,
-        isSuspicious: false,
-        score: 0,
-        matchCount: 0,
-        similarArticles: []
-      }
+      duplicateCheck: normalizeDuplicateCheck(article.duplicateCheck)
     }));
 
     const { getDisplayConfigMap } = require('../services/languageRegistry');
@@ -3373,10 +3371,9 @@ async function renderPendingNewsPage(req, res) {
   }
 }
 
-// ⚡ Lazy duplicate check API — called in background after page load
+// ⚡ Lazy duplicate check API — refreshes stale/missing checks and persists to DB
 async function getPendingNewsDuplicateCheck(req, res) {
   try {
-    // Fetch pending news (title + content + language needed for language-based filtering)
     const pendingNews = await News.find({
       isActive: false,
       $or: [
@@ -3384,7 +3381,7 @@ async function getPendingNewsDuplicateCheck(req, res) {
         { rejectionStatus: { $exists: false } }
       ]
     })
-      .select('_id title content language')
+      .select('_id title content language duplicateCheck')
       .sort({ publishedAt: -1 })
       .limit(100)
       .lean();
@@ -3393,45 +3390,22 @@ async function getPendingNewsDuplicateCheck(req, res) {
       return res.json({ success: true, results: [] });
     }
 
-    // Only fetch published articles from last 7 days (not ALL articles)
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const recentPublished = await News.find({
-      isActive: true,
-      publishedAt: { $gte: sevenDaysAgo }
-    })
-      .select('_id title content publishedAt author category location language')
-      .lean();
+    const results = [];
 
-    // Run optimized fast duplicate check for each pending article
-    // ✅ LANGUAGE FILTER: Only compare articles in the SAME language to avoid cross-language false positives
-    const results = pendingNews.map(article => {
-      const articleLang = (article.language || 'te').toLowerCase();
+    for (const article of pendingNews) {
+      const hasFreshCheck = article.duplicateCheck?.checkedAt;
+      let duplicateCheck = normalizeDuplicateCheck(article.duplicateCheck);
 
-      // Filter published news to only include same language articles
-      const sameLangPublished = recentPublished.filter(p =>
-        (p.language || 'te').toLowerCase() === articleLang
-      );
+      if (!hasFreshCheck) {
+        duplicateCheck = await applyDuplicateCheckToNews(article._id);
+        duplicateCheck = normalizeDuplicateCheck(duplicateCheck);
+      }
 
-      const duplicateResults = checkDuplicateFast(
-        { title: article.title, content: article.content },
-        sameLangPublished
-      );
-
-      const topMatches = duplicateResults
-        .filter(r => r.similarity.overall >= 50)
-        .slice(0, 5);
-
-      return {
+      results.push({
         newsId: article._id.toString(),
-        duplicateCheck: {
-          isDuplicate: duplicateResults.some(r => r.isDuplicate),
-          isSuspicious: duplicateResults.some(r => r.isSuspicious && !r.isDuplicate),
-          score: topMatches.length > 0 ? topMatches[0].similarity.overall : 0,
-          matchCount: topMatches.length,
-          similarArticles: topMatches
-        }
-      };
-    });
+        duplicateCheck
+      });
+    }
 
     res.json({ success: true, results });
   } catch (error) {
@@ -3465,31 +3439,31 @@ async function getPendingNewsDuplicateMatches(req, res) {
       return res.status(400).json({ success: false, error: 'Rejected articles cannot be compared here' });
     }
 
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const pendingLang = (pendingArticle.language || 'te').toLowerCase();
 
-    const recentPublished = await News.find({
-      isActive: true,
-      publishedAt: { $gte: sevenDaysAgo },
-      _id: { $ne: pendingArticle._id },
-      // ✅ LANGUAGE FILTER: Only compare with same-language published articles
-      language: pendingLang
-    })
-      .select('_id title content publishedAt author category location language')
-      .lean();
-
-    const duplicateResults = checkDuplicateFast(
-      { title: pendingArticle.title, content: pendingArticle.content },
-      recentPublished
+    const { duplicateCheck: storedCheck } = await runDuplicateCheck(
+      {
+        title: pendingArticle.title,
+        content: pendingArticle.content,
+        language: pendingLang
+      },
+      {
+        excludeId: pendingArticle._id,
+        includePendingCorpus: true
+      }
     );
 
-    const matches = duplicateResults
-      .filter(r => r.similarity.overall >= 50)
+    await News.findByIdAndUpdate(pendingArticle._id, {
+      duplicateCheck: storedCheck,
+      contentHash: generateContentHash(pendingArticle.title || '', pendingArticle.content || '')
+    });
+
+    const matches = (storedCheck.similarArticles || [])
       .slice(0, 10)
       .map(match => ({
         articleId: match.articleId,
         articleTitle: match.articleTitle,
-        content: recentPublished.find(a => a._id.toString() === match.articleId.toString())?.content || '',
+        content: match.content || '',
         author: match.author,
         category: match.category,
         location: match.location,
@@ -3498,6 +3472,15 @@ async function getPendingNewsDuplicateMatches(req, res) {
         isDuplicate: match.isDuplicate,
         isSuspicious: match.isSuspicious
       }));
+
+    // Load matched article content for side-by-side modal when missing
+    for (const match of matches) {
+      if (match.content) continue;
+      const matchedArticle = await News.findById(match.articleId)
+        .select('content')
+        .lean();
+      match.content = matchedArticle?.content || '';
+    }
 
     res.json({
       success: true,
@@ -3511,13 +3494,7 @@ async function getPendingNewsDuplicateMatches(req, res) {
         language: pendingArticle.language,
         publishedAt: pendingArticle.publishedAt
       },
-      duplicateCheck: {
-        isDuplicate: duplicateResults.some(r => r.isDuplicate),
-        isSuspicious: duplicateResults.some(r => r.isSuspicious && !r.isDuplicate),
-        score: matches.length > 0 ? matches[0].similarity.overall : 0,
-        matchCount: matches.length,
-        similarArticles: matches
-      }
+      duplicateCheck: normalizeDuplicateCheck(storedCheck)
     });
   } catch (error) {
     console.error('Error fetching pending duplicate matches:', error);
@@ -3627,10 +3604,16 @@ async function updatePendingNews(req, res) {
       { new: true }
     ).lean();
 
+    if (changedFields.includes('title') || changedFields.includes('content')) {
+      await applyDuplicateCheckToNews(id);
+    }
+
+    const freshNews = await News.findById(id).lean();
+
     return res.json({
       success: true,
       message: 'Pending news updated successfully',
-      news: updatedNews
+      news: freshNews || updatedNews
     });
   } catch (error) {
     console.error('Error updating pending news:', error);

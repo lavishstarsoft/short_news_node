@@ -30,6 +30,7 @@ const oneSignalService = require('../services/oneSignalService');
 
 // Import cache middleware for cache invalidation
 const { clearCache } = require('../middleware/cache');
+const { runDuplicateCheck } = require('../services/duplicateCheckService');
 
 // Import Cloudflare R2 deletion utility
 const { deleteFromR2 } = require('../config/cloudflare');
@@ -790,6 +791,18 @@ async function createNews(req, res) {
     }
 
     const news = new News(newsData);
+
+    const { contentHash, duplicateCheck } = await runDuplicateCheck(
+      {
+        title: news.title,
+        content: news.content,
+        language: news.language
+      },
+      { includePendingCorpus: true }
+    );
+    news.contentHash = contentHash;
+    news.duplicateCheck = duplicateCheck;
+
     await news.save();
 
     // Send WebSocket notifications based on role
@@ -836,7 +849,20 @@ async function createNews(req, res) {
     await clearCache('cache:/api/public/locations*');
 
     // Send JSON response for API calls
-    res.status(201).json(news);
+    const responsePayload = news.toObject();
+    if (duplicateCheck.isDuplicate || duplicateCheck.isSuspicious) {
+      responsePayload.duplicateWarning = {
+        isDuplicate: duplicateCheck.isDuplicate,
+        isSuspicious: duplicateCheck.isSuspicious,
+        score: duplicateCheck.score,
+        matchCount: duplicateCheck.matchCount,
+        message: duplicateCheck.isDuplicate
+          ? 'Duplicate content detected. This article closely matches existing news.'
+          : 'Similar content detected. Please review before approval.'
+      };
+    }
+
+    res.status(201).json(responsePayload);
   } catch (error) {
     console.error('Error creating news:', error);
     res.status(400).json({ error: 'Error creating news: ' + error.message });
@@ -953,6 +979,28 @@ async function updateNews(req, res) {
     }
 
     const news = await News.findByIdAndUpdate(req.params.id, newsData, { new: true });
+
+    const titleChanged = typeof req.body.title !== 'undefined';
+    const contentChanged = typeof req.body.content !== 'undefined';
+    const languageChanged = typeof req.body.language !== 'undefined';
+
+    if (titleChanged || contentChanged || languageChanged) {
+      const { contentHash, duplicateCheck } = await runDuplicateCheck(
+        {
+          title: news.title,
+          content: news.content,
+          language: news.language
+        },
+        {
+          excludeId: news._id,
+          includePendingCorpus: true
+        }
+      );
+
+      news.contentHash = contentHash;
+      news.duplicateCheck = duplicateCheck;
+      await news.save();
+    }
 
     // 🔄 Clear news cache after updating
     await clearCache('cache:/api/public/news*');

@@ -4,6 +4,7 @@ const LongVideo = require('../models/LongVideo');
 const path = require('path');
 const fs = require('fs');
 const { deleteFromR2 } = require('../config/cloudflare');
+const { invalidateCache } = require('../graphql/cache');
 
 // Get all categories
 exports.getAllCategories = async (req, res) => {
@@ -124,6 +125,7 @@ exports.createCategory = async (req, res) => {
       });
 
       await category.save();
+      await invalidateCache('graphql:categories:*');
       res.status(201).json(category);
     } else {
       // Use in-memory storage
@@ -159,6 +161,7 @@ exports.createCategory = async (req, res) => {
 
       categories.push(newCategory);
       req.app.locals.categoryData = categories;
+      await invalidateCache('graphql:categories:*');
       res.status(201).json(newCategory);
     }
   } catch (error) {
@@ -215,6 +218,7 @@ exports.updateCategory = async (req, res) => {
       }
 
       await category.save();
+      await invalidateCache('graphql:categories:*');
       res.json(category);
     } else {
       // Use in-memory storage
@@ -260,6 +264,7 @@ exports.updateCategory = async (req, res) => {
 
       categories[categoryIndex] = category;
       req.app.locals.categoryData = categories;
+      await invalidateCache('graphql:categories:*');
       res.json(category);
     }
   } catch (error) {
@@ -302,6 +307,7 @@ exports.deleteCategory = async (req, res) => {
       }
 
       await Category.findByIdAndDelete(req.params.id);
+      await invalidateCache('graphql:categories:*');
       res.json({ message: 'Category deleted successfully' });
     } else {
       // Use in-memory storage
@@ -326,6 +332,7 @@ exports.deleteCategory = async (req, res) => {
 
       categories.splice(categoryIndex, 1);
       req.app.locals.categoryData = categories;
+      await invalidateCache('graphql:categories:*');
       res.json({ message: 'Category deleted successfully' });
     }
   } catch (error) {
@@ -347,6 +354,7 @@ exports.toggleCategoryStatus = async (req, res) => {
 
       category.isActive = !category.isActive;
       await category.save();
+      await invalidateCache('graphql:categories:*');
 
       res.json({
         message: `Category ${category.isActive ? 'activated' : 'deactivated'} successfully`,
@@ -367,6 +375,7 @@ exports.toggleCategoryStatus = async (req, res) => {
 
       categories[categoryIndex] = category;
       req.app.locals.categoryData = categories;
+      await invalidateCache('graphql:categories:*');
 
       res.json({
         message: `Category ${category.isActive ? 'activated' : 'deactivated'} successfully`,

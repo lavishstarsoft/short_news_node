@@ -236,19 +236,10 @@ const resolvers = {
             }
         },
 
-        // Category queries (with Redis caching - 30 minutes TTL)
+        // Category queries (Direct DB fetch to ensure real-time settings update)
         categories: async () => {
             try {
-                // Check cache first
-                const cached = await getCachedData('categories');
-                if (cached) return cached;
-
-                // Cache miss - fetch from DB
                 const categories = await Category.find({ type: { $in: ['news', null] } }).lean();
-
-                // Cache the result (1800s = 30 minutes - categories rarely change)
-                await setCachedData('categories', {}, categories, 1800);
-
                 return categories;
             } catch (error) {
                 console.error('Error fetching categories:', error);

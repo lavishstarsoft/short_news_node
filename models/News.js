@@ -35,11 +35,10 @@ const newsSchema = new mongoose.Schema({
   duplicateCheck: {
     isDuplicate: { type: Boolean, default: false },
     isSuspicious: { type: Boolean, default: false },
-    similarArticles: [{
-      articleId: mongoose.Schema.Types.ObjectId,
-      similarity: Number,
-      foundAt: { type: Date, default: Date.now }
-    }]
+    score: { type: Number, default: 0 },
+    matchCount: { type: Number, default: 0 },
+    checkedAt: { type: Date },
+    similarArticles: { type: mongoose.Schema.Types.Mixed, default: [] }
   },
 
   // Rejection Details
