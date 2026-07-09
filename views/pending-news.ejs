@@ -436,6 +436,7 @@
                         authorDetails: <%- JSON.stringify(news.authorDetails || null) %>,
                         category: <%- JSON.stringify(news.category || 'Uncategorized') %>,
                         location: <%- JSON.stringify(news.location || 'Not specified') %>,
+                        language: <%- JSON.stringify(news.language || 'te') %>,
                         content: <%- JSON.stringify(news.content || '') %>,
                         mediaUrl: <%- JSON.stringify(news.mediaUrl || '') %>,
                         imageUrls: <%- JSON.stringify(news.imageUrls || []) %>,
@@ -580,8 +581,15 @@
             };
 
             function openPreview(newsId) {
-                const news = newsDataCache[newsId];
-                if (!news) return;
+                const cacheKey = String(newsId);
+                const news = newsDataCache[cacheKey];
+                if (!news) {
+                    console.error('Preview cache miss for news:', cacheKey);
+                    alert('Preview is not ready for this article. Please refresh the page.');
+                    return;
+                }
+
+                const limits = getDisplayConfigForLanguage(news.language || 'te');
 
                 let previewHTML = `
                     <div class="modal-meta pn-modal-meta">
@@ -665,7 +673,7 @@
                             <div class="pn-field">
                                 <label for="editTitle-${newsId}">Title</label>
                                 <input id="editTitle-${newsId}" type="text" maxlength="800" value="${escapeHtml(news.title)}" oninput="updateTitleCounter('${newsId}')">
-                                <div id="editTitleCount-${newsId}" class="pn-char-count">${stripTags(news.title || '').length}/${TITLE_MAX}</div>
+                                <div id="editTitleCount-${newsId}" class="pn-char-count">${stripTags(news.title || '').length}/${limits.titleMax}</div>
                             </div>
                             <div class="pn-field">
                                 <label for="editCategory-${newsId}">Category</label>
@@ -719,6 +727,7 @@
                 document.getElementById('previewBody').innerHTML = previewHTML;
                 document.getElementById('previewModal').classList.add('active');
             }
+            window.openPreview = openPreview;
 
             function openModeratorForPendingNews(newsId, idx = null) {
                 const news = newsDataCache[newsId];
@@ -753,20 +762,21 @@
                 const input = document.getElementById(`editTitle-${newsId}`);
                 const count = document.getElementById(`editTitleCount-${newsId}`);
                 if (!input || !count) return;
-                
+
+                const news = newsDataCache[String(newsId)];
+                const limits = getDisplayConfigForLanguage(news?.language);
                 let plainText = stripTags(input.value);
                 let current = plainText.length;
-                
-                if (current > TITLE_MAX) {
-                    // Trim to limit
-                    input.value = trimToPlainLimit(input.value, TITLE_MAX);
+
+                if (current > limits.titleMax) {
+                    input.value = trimToPlainLimit(input.value, limits.titleMax);
                     plainText = stripTags(input.value);
                     current = plainText.length;
                 }
-                
-                count.style.color = current >= TITLE_MAX ? '#dc3545' : '#777';
-                count.style.fontWeight = current >= TITLE_MAX ? 'bold' : '';
-                count.textContent = `${current}/${TITLE_MAX}`;
+
+                count.style.color = current >= limits.titleMax ? '#dc3545' : '#777';
+                count.style.fontWeight = current >= limits.titleMax ? 'bold' : '';
+                count.textContent = `${current}/${limits.titleMax}`;
             }
 
             function updateContentCounter(newsId) {
@@ -1130,16 +1140,17 @@
 
                 if (typeof newsDataCache !== 'undefined') {
                     newsDataCache[newsIdStr] = {
-                        title: (news.title || '').replace(/'/g, "\\'"),
+                        title: news.title || '',
                         author: news.author || 'Reporter',
-                        category: news.category || "Uncategorized",
-                        location: news.location || "Not specified",
-                        content: (news.content || '').replace(/`/g, "\\`").replace(/'/g, "\\'"),
-                        mediaUrl: news.mediaUrl || "",
+                        category: news.category || 'Uncategorized',
+                        location: news.location || 'Not specified',
+                        language: news.language || 'te',
+                        content: news.content || '',
+                        mediaUrl: news.mediaUrl || '',
                         imageUrls: news.imageUrls || [],
-                        mediaType: news.mediaType || "image",
-                        readFullLink: news.readFullLink || "",
-                        ePaperLink: news.ePaperLink || "",
+                        mediaType: news.mediaType || 'image',
+                        readFullLink: news.readFullLink || '',
+                        ePaperLink: news.ePaperLink || '',
                         publishedAt: publishDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
                     };
                 }
@@ -1366,7 +1377,7 @@
                                         <span class="pn-dup-article-label">Published match</span>
                                         <h4 class="rich-text">${renderNewsText(selected.articleTitle)}</h4>
                                     </header>
-                                    <div class="pn-dup-article-body rich-text">${renderNewsText(selected.content)}</div>
+                                    <div class="pn-dup-article-body rich-text">${selected.content ? renderNewsText(selected.content) : '<span class="pn-dup-empty-inline">Content not available</span>'}</div>
                                 </article>
                             </div>
                         </section>
@@ -1460,7 +1471,6 @@
                         const dc = result.duplicateCheck;
                         if (!dc || dc.matchCount === 0) return;
 
-                        // Update duplicateDataCache for "View Duplicates" modal
                         duplicateDataCache[result.newsId] = {
                             isDuplicate: dc.isDuplicate,
                             isSuspicious: dc.isSuspicious,
@@ -1469,13 +1479,16 @@
                             similarArticles: dc.similarArticles || []
                         };
 
-                        // Find the card in the DOM
                         const card = document.querySelector('.news-card[data-id="' + result.newsId + '"]');
                         if (!card) return;
 
-                        // Add duplicate/suspicious badge dynamically
+                        // Server already rendered duplicate UI — only refresh cache, don't duplicate buttons/badges.
+                        if (card.querySelector('.btn-duplicate') || card.querySelector('.duplicate-warning')) {
+                            return;
+                        }
+
                         const badgeGroup = card.querySelector('.badge-group');
-                        if (badgeGroup) {
+                        if (badgeGroup && !badgeGroup.querySelector('.badge-duplicate, .badge-suspicious')) {
                             if (dc.isDuplicate) {
                                 const badge = document.createElement('span');
                                 badge.className = 'badge badge-duplicate';
@@ -1491,10 +1504,9 @@
                             }
                         }
 
-                        // Add duplicate warning box dynamically
                         const cardContent = card.querySelector('.news-card-content');
                         const cardActions = card.querySelector('.card-actions');
-                        if (cardContent && cardActions) {
+                        if (cardContent && cardActions && !card.querySelector('.duplicate-warning')) {
                             const warningDiv = document.createElement('div');
                             warningDiv.className = 'duplicate-warning';
                             warningDiv.innerHTML = buildDuplicateWarningHtml(dc, result.newsId, true);
@@ -1505,7 +1517,7 @@
                             dupBtn.className = 'btn-duplicate';
                             dupBtn.onclick = function() { viewDuplicates(result.newsId); };
                             dupBtn.innerHTML = '<i class="fas fa-clone"></i> Duplicates';
-                            cardActions.insertBefore(dupBtn, cardActions.firstChild.nextSibling);
+                            cardActions.insertBefore(dupBtn, cardActions.firstChild);
                         }
                     });
 

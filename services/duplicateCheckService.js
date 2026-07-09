@@ -31,6 +31,7 @@ function buildExactMatchEntry(exactMatch) {
   return {
     articleId: exactMatch._id,
     articleTitle: exactMatch.title,
+    content: exactMatch.content || '',
     publishedAt: exactMatch.publishedAt,
     author: exactMatch.author,
     category: exactMatch.category,
@@ -154,6 +155,13 @@ async function runDuplicateCheck(article, options = {}) {
     { title, content, language },
     corpus
   );
+
+  duplicateResults.forEach((result) => {
+    const matchedArticle = corpus.find(
+      (item) => String(item._id) === String(result.articleId)
+    );
+    result.content = matchedArticle?.content || '';
+  });
 
   return {
     contentHash,

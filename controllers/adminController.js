@@ -3476,7 +3476,8 @@ async function getPendingNewsDuplicateMatches(req, res) {
     // Load matched article content for side-by-side modal when missing
     for (const match of matches) {
       if (match.content) continue;
-      const matchedArticle = await News.findById(match.articleId)
+      const articleId = match.articleId?._id || match.articleId;
+      const matchedArticle = await News.findById(String(articleId))
         .select('content')
         .lean();
       match.content = matchedArticle?.content || '';
