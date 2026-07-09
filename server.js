@@ -621,6 +621,8 @@ mongoose.connect(mongoUri, {
         languageRegistry.refreshCache();
         const { refreshLanguageRanges } = require('./utils/languageUtils');
         if (typeof refreshLanguageRanges === 'function') refreshLanguageRanges();
+        const { startAdScheduleSync } = require('./services/adScheduleService');
+        startAdScheduleSync();
       });
   })
   .catch((err) => {

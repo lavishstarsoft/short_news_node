@@ -895,14 +895,11 @@ router.get('/api/public/ads', cacheMiddleware(300), async (req, res) => {
 
     if (isConnectedToMongoDB) {
       const { lang } = req.query;
-      const query = { isActive: true };
-      
-      if (lang) {
-        query.language = lang;
-      }
+      const { buildPublicAdQuery, syncScheduledAds } = require('../services/adScheduleService');
+      const now = new Date();
+      await syncScheduledAds();
 
-      // Fetch active ads from MongoDB based on language
-      const ads = await Ad.find(query).sort({ createdAt: -1 });
+      const ads = await Ad.find(buildPublicAdQuery(now, lang)).sort({ createdAt: -1 });
 
       // Transform data for Flutter app
       const transformedAds = ads.map(ad => {
@@ -930,9 +927,9 @@ router.get('/api/public/ads', cacheMiddleware(300), async (req, res) => {
 
       res.json(transformedAds);
     } else {
-      // Use in-memory storage
+      const { filterAdsForPublic } = require('../services/adScheduleService');
       const adsData = req.app.locals.adsData || [];
-      const activeAds = adsData.filter(ad => ad.isActive !== false)
+      const activeAds = filterAdsForPublic(adsData, new Date(), req.query.lang || null)
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
       // Transform data for Flutter app

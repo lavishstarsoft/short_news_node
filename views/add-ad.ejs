@@ -278,6 +278,34 @@
                                                             position, high priority ads are shown first.</div>
                                                     </div>
 
+                                                    </div>
+
+                                                    <!-- Ad Schedule -->
+                                                    <div class="settings-section">
+                                                        <h5 class="mb-3"><i class="fas fa-clock me-2"></i>Ad Schedule</h5>
+                                                        <div class="form-check form-switch mb-3">
+                                                            <input class="form-check-input" type="checkbox" id="scheduleEnabled"
+                                                                <%= (typeof ad !== 'undefined' && ad.scheduleEnabled) ? 'checked' : '' %>>
+                                                            <label class="form-check-label" for="scheduleEnabled">Enable schedule (auto active/inactive)</label>
+                                                        </div>
+                                                        <div id="scheduleFields" style="<%= (typeof ad !== 'undefined' && ad.scheduleEnabled) ? '' : 'display:none;' %>">
+                                                            <div class="row">
+                                                                <div class="col-md-6 mb-3">
+                                                                    <label for="scheduleStart" class="form-label">Start date &amp; time</label>
+                                                                    <input type="datetime-local" class="form-control" id="scheduleStart"
+                                                                        value="<%= typeof ad !== 'undefined' && ad.scheduleStart ? toDatetimeLocalValue(ad.scheduleStart) : '' %>">
+                                                                    <div class="form-text">Ad becomes active at this time.</div>
+                                                                </div>
+                                                                <div class="col-md-6 mb-3">
+                                                                    <label for="scheduleEnd" class="form-label">End date &amp; time</label>
+                                                                    <input type="datetime-local" class="form-control" id="scheduleEnd"
+                                                                        value="<%= typeof ad !== 'undefined' && ad.scheduleEnd ? toDatetimeLocalValue(ad.scheduleEnd) : '' %>">
+                                                                    <div class="form-text">Ad becomes inactive after this time.</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
                                                     <!-- Intelligent Ad Settings -->
                                                     <div class="settings-section">
                                                         <h5 class="mb-3"><i class="fas fa-brain me-2"></i>Intelligent Ad
@@ -436,7 +464,14 @@
                             imageUrls = imageUrlsInput.value.split(',').filter(url => url.trim() !== '');
                         }
 
-                        // Update carousel if we have images
+                        const scheduleEnabled = document.getElementById('scheduleEnabled');
+                        const scheduleFields = document.getElementById('scheduleFields');
+                        if (scheduleEnabled && scheduleFields) {
+                            scheduleEnabled.addEventListener('change', function () {
+                                scheduleFields.style.display = this.checked ? '' : 'none';
+                            });
+                        }
+
                         updateCarousel();
                         setupMobileMenu();
                     });
@@ -459,6 +494,9 @@
                         const useAdMob = document.getElementById('useAdMob').checked;
                         const adMobAppId = document.getElementById('adMobAppId').value;
                         const adMobUnitId = document.getElementById('adMobUnitId').value;
+                        const scheduleEnabled = document.getElementById('scheduleEnabled').checked;
+                        const scheduleStart = document.getElementById('scheduleStart').value;
+                        const scheduleEnd = document.getElementById('scheduleEnd').value;
 
                         // Validate required fields
                         if (!language) {
@@ -467,6 +505,14 @@
                         }
                         if (!title) {
                             showFeedback('Please enter a title', 'error');
+                            return;
+                        }
+                        if (scheduleEnabled && (!scheduleStart || !scheduleEnd)) {
+                            showFeedback('Please select both schedule start and end time', 'error');
+                            return;
+                        }
+                        if (scheduleEnabled && new Date(scheduleEnd) <= new Date(scheduleStart)) {
+                            showFeedback('Schedule end must be after schedule start', 'error');
                             return;
                         }
 
@@ -489,7 +535,10 @@
                             // AdMob fields
                             useAdMob,
                             adMobAppId,
-                            adMobUnitId
+                            adMobUnitId,
+                            scheduleEnabled,
+                            scheduleStart: scheduleEnabled ? scheduleStart : null,
+                            scheduleEnd: scheduleEnabled ? scheduleEnd : null
                         };
 
                         try {

@@ -16,11 +16,20 @@
 
             <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
                 <% 
+                    function adStatusMeta(ad) {
+                        const status = ad.displayStatus || (ad.isActive === false ? 'paused' : 'live');
+                        if (status === 'scheduled') return { label: 'Scheduled', className: 'ads-pill--scheduled' };
+                        if (status === 'expired') return { label: 'Expired', className: 'ads-pill--expired' };
+                        if (status === 'paused') return { label: 'Paused', className: 'ads-pill--paused' };
+                        return { label: 'Live', className: 'ads-pill--live' };
+                    }
+
                     const adsItems = typeof adsList !== 'undefined' ? adsList : [];
                     const adsTotal = adsItems.length;
                     let adsActive = 0, adsInactive = 0, adsAdMob = 0, adsAvgInterval = 0;
                     adsItems.forEach(function(ad) {
-                        if (ad.isActive !== false) adsActive++;
+                        const status = ad.displayStatus || (ad.isActive === false ? 'paused' : 'live');
+                        if (status === 'live') adsActive++;
                         else adsInactive++;
                         if (ad.useAdMob) adsAdMob++;
                         adsAvgInterval += (ad.positionInterval || 3);
@@ -135,6 +144,7 @@
                                     <% adsItems.forEach(function(ad) {
                                         const adPriority = ad.priority || 'medium';
                                         const adSearchText = ((ad.title || '') + ' ' + (ad.content || '') + ' ' + (ad.author || '')).toLowerCase();
+                                        const statusMeta = adStatusMeta(ad);
                                     %>
                                     <tr class="ads-row" data-ad-id="<%= ad._id %>" data-search="<%= adSearchText.replace(/"/g, '&quot;') %>" onclick="viewAd('<%= ad._id %>')">
                                         <td>
@@ -154,10 +164,17 @@
                                             <span class="badge bg-secondary"><%= (ad.language || 'en').toUpperCase() %></span>
                                         </td>
                                         <td>
-                                            <span class="ads-pill <%= ad.isActive === false ? 'ads-pill--paused' : 'ads-pill--live' %>">
+                                            <span class="ads-pill <%= statusMeta.className %>">
                                                 <i class="fas fa-circle" style="font-size:0.45rem;"></i>
-                                                <%= ad.isActive === false ? 'Paused' : 'Live' %>
+                                                <%= statusMeta.label %>
                                             </span>
+                                            <% if (ad.scheduleEnabled && ad.scheduleStart && ad.scheduleEnd) { %>
+                                            <div class="ads-schedule-note">
+                                                <%= new Date(ad.scheduleStart).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %>
+                                                –
+                                                <%= new Date(ad.scheduleEnd).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %>
+                                            </div>
+                                            <% } %>
                                         </td>
                                         <td><span class="ads-mono">Every <%= ad.positionInterval || 3 %> items</span></td>
                                         <td><span class="ads-pill ads-pill--<%= adPriority %>"><%= adPriority.charAt(0).toUpperCase() + adPriority.slice(1) %></span></td>
@@ -189,6 +206,7 @@
                             <% adsItems.forEach(function(ad) {
                                 const adPriority = ad.priority || 'medium';
                                 const adSearchText = ((ad.title || '') + ' ' + (ad.content || '') + ' ' + (ad.author || '')).toLowerCase();
+                                const statusMeta = adStatusMeta(ad);
                             %>
                             <article class="ads-card" data-ad-id="<%= ad._id %>" data-search="<%= adSearchText.replace(/"/g, '&quot;') %>" onclick="viewAd('<%= ad._id %>')">
                                 <div class="ads-card-media <%= ad.imageUrl ? '' : 'ads-card-media--empty' %>">
@@ -197,8 +215,8 @@
                                     <% } else { %>
                                     <i class="fas fa-image"></i>
                                     <% } %>
-                                    <span class="ads-card-status ads-pill <%= ad.isActive === false ? 'ads-pill--paused' : 'ads-pill--live' %>">
-                                        <%= ad.isActive === false ? 'Paused' : 'Live' %>
+                                    <span class="ads-card-status ads-pill <%= statusMeta.className %>">
+                                        <%= statusMeta.label %>
                                     </span>
                                 </div>
                                 <div class="ads-card-body">

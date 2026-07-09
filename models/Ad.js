@@ -7,6 +7,9 @@ const adSchema = new mongoose.Schema({
   imageUrls: { type: [String], default: [] }, // New field for multiple images
   linkUrl: { type: String },
   isActive: { type: Boolean, default: true },
+  scheduleEnabled: { type: Boolean, default: false },
+  scheduleStart: { type: Date },
+  scheduleEnd: { type: Date },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
   author: { type: String, required: true },
@@ -25,5 +28,8 @@ const adSchema = new mongoose.Schema({
   priority: { type: String, enum: ['high', 'medium', 'low'], default: 'medium' }, // Ad priority
   language: { type: String, required: true }, // The language this ad belongs to (e.g. 'en', 'te', 'hi')
 });
+
+adSchema.index({ scheduleEnabled: 1, scheduleStart: 1, scheduleEnd: 1 });
+adSchema.index({ isActive: 1, language: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Ad', adSchema);

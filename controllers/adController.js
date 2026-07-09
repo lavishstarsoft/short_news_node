@@ -2,6 +2,14 @@ const Ad = require('../models/Ad');
 const AdInteraction = require('../models/AdInteraction');
 const Language = require('../models/Language');
 const { deleteFromR2 } = require('../config/cloudflare');
+const {
+  applyScheduleFields,
+  buildPublicAdQuery,
+  filterAdsForPublic,
+  getAdDisplayStatus,
+  syncScheduledAds,
+  toDatetimeLocalValue
+} = require('../services/adScheduleService');
 
 // Render ads list page
 async function renderAdsListPage(req, res) {
@@ -19,13 +27,17 @@ async function renderAdsListPage(req, res) {
       }
 
       const adsList = await Ad.find(query).sort({ createdAt: -1 }).lean();
+      const enrichedAds = adsList.map((ad) => ({
+        ...ad,
+        displayStatus: getAdDisplayStatus(ad)
+      }));
       console.log(`DEBUG: Found ${adsList.length} ads in MongoDB.`);
       if (adsList.length > 0) {
         console.log('DEBUG: Ad Titles:', adsList.map(a => a.title).join(', '));
       }
 
       res.render('ads-list', {
-        adsList,
+        adsList: enrichedAds,
         selectedStatus,
         admin: req.admin
       });
@@ -45,9 +57,13 @@ async function renderAdsListPage(req, res) {
 
       // Sort by created date
       filteredAdsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const enrichedAds = filteredAdsData.map((ad) => ({
+        ...ad,
+        displayStatus: getAdDisplayStatus(ad)
+      }));
 
       res.render('ads-list', {
-        adsList: filteredAdsData,
+        adsList: enrichedAds,
         selectedStatus,
         admin: req.admin
       });
@@ -62,10 +78,10 @@ async function renderAdsListPage(req, res) {
 async function renderAddAdPage(req, res) {
   try {
     const languages = await Language.getActiveLanguages();
-    res.render('add-ad', { admin: req.admin, languages });
+    res.render('add-ad', { admin: req.admin, languages, toDatetimeLocalValue });
   } catch (error) {
     console.error('Error fetching languages for add ad page:', error);
-    res.render('add-ad', { admin: req.admin, languages: [] });
+    res.render('add-ad', { admin: req.admin, languages: [], toDatetimeLocalValue });
   }
 }
 
@@ -88,7 +104,7 @@ async function renderEditAdPage(req, res) {
 
     const languages = await Language.getActiveLanguages();
 
-    res.render('add-ad', { ad, admin: req.admin, languages });
+    res.render('add-ad', { ad, admin: req.admin, languages, toDatetimeLocalValue });
   } catch (error) {
     console.error('Error fetching ad for editing:', error);
     res.status(500).json({ error: 'Error fetching ad for editing' });
@@ -105,6 +121,8 @@ async function createAd(req, res) {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+
+    applyScheduleFields(adData, req.body);
 
     // Set default values for intelligent ad fields if not provided
     adData.maxViewsPerDay = adData.maxViewsPerDay || 3;
@@ -172,6 +190,8 @@ async function updateAd(req, res) {
     if (updateData.imageUrls && updateData.imageUrls.length > 0) {
       updateData.imageUrl = updateData.imageUrls[0];
     }
+
+    applyScheduleFields(updateData, req.body);
 
     // If image is being updated, delete the old image from Cloudflare R2
     if (updateData.imageUrl && ad.imageUrl && updateData.imageUrl !== ad.imageUrl) {
@@ -260,7 +280,17 @@ async function toggleAdStatus(req, res) {
     let ad;
 
     if (req.app.locals.isConnectedToMongoDB) {
-      ad = await Ad.findByIdAndUpdate(id, { isActive: isActive, updatedAt: new Date() }, { new: true });
+      ad = await Ad.findById(id);
+      if (!ad) {
+        return res.status(404).json({ error: 'Ad not found' });
+      }
+
+      ad.isActive = isActive;
+      ad.scheduleEnabled = false;
+      ad.scheduleStart = null;
+      ad.scheduleEnd = null;
+      ad.updatedAt = new Date();
+      await ad.save();
     } else {
       // Using in-memory storage
       const adsData = req.app.locals.adsData || [];
@@ -271,6 +301,9 @@ async function toggleAdStatus(req, res) {
       }
 
       adsData[adIndex].isActive = isActive;
+      adsData[adIndex].scheduleEnabled = false;
+      adsData[adIndex].scheduleStart = null;
+      adsData[adIndex].scheduleEnd = null;
       adsData[adIndex].updatedAt = new Date();
       ad = adsData[adIndex];
     }
@@ -289,22 +322,16 @@ async function toggleAdStatus(req, res) {
 async function getActiveAds(req, res) {
   try {
     const { lang } = req.query;
+    const now = new Date();
     let adsList;
 
     if (req.app.locals.isConnectedToMongoDB) {
-      const query = { isActive: true };
-      if (lang) {
-        query.language = lang;
-      }
-      adsList = await Ad.find(query).sort({ createdAt: -1 });
+      await syncScheduledAds();
+      adsList = await Ad.find(buildPublicAdQuery(now, lang)).sort({ createdAt: -1 }).lean();
     } else {
-      // Use in-memory storage
       const adsData = req.app.locals.adsData || [];
-      adsList = adsData.filter(ad => {
-        if (ad.isActive === false) return false;
-        if (lang && ad.language !== lang) return false;
-        return true;
-      }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      adsList = filterAdsForPublic(adsData, now, lang)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
     res.json(adsList);
