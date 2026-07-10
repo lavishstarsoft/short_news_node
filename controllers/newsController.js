@@ -377,6 +377,12 @@ async function renderNewsListPage(req, res) {
             ]
         };
 
+        if (req.query.tab === 'team-list') {
+            subEditorQuery.$or = [{ authorId: { $in: assignedReporterIds } }];
+        } else if (req.query.tab === 'my-list') {
+            subEditorQuery.$or = [{ authorId: req.admin.id }];
+        }
+
         if (selectedAuthorId) {
             // Ensure selected author is within allowed authors
             if (selectedAuthorId === req.admin.id || assignedReporterIds.includes(selectedAuthorId)) {
@@ -466,7 +472,8 @@ async function renderNewsListPage(req, res) {
           hasNextPage: page < totalPages,
           hasPrevPage: page > 1
         },
-        isRestrictedSubEditor
+        isRestrictedSubEditor,
+        currentTab: req.query.tab || 'my-list'
       });
     } else {
       console.log('Using in-memory storage'); // Debug log

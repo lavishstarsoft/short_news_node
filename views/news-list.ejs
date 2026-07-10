@@ -189,6 +189,7 @@
                                     const currentLanguage = paginationLanguage;
                                     const currentFromDate = paginationFromDate;
                                     const currentToDate = paginationToDate;
+                                    const currentTabSafe = typeof currentTab !== 'undefined' ? currentTab : 'my-list';
 
                                     function newsFilterUrl(overrides) {
                                         const parts = [];
@@ -199,8 +200,10 @@
                                         const language = Object.prototype.hasOwnProperty.call(overrides, 'language') ? overrides.language : currentLanguage;
                                         const from = Object.prototype.hasOwnProperty.call(overrides, 'fromDate') ? overrides.fromDate : currentFromDate;
                                         const to = Object.prototype.hasOwnProperty.call(overrides, 'toDate') ? overrides.toDate : currentToDate;
+                                        const tab = Object.prototype.hasOwnProperty.call(overrides, 'tab') ? overrides.tab : currentTabSafe;
 
                                         if (authorId) parts.push('authorId=' + encodeURIComponent(authorId));
+                                        if (tab) parts.push('tab=' + encodeURIComponent(tab));
                                         if (search) parts.push('search=' + encodeURIComponent(search));
                                         if (location) parts.push('location=' + encodeURIComponent(location));
                                         if (status) parts.push('status=' + encodeURIComponent(status));
@@ -215,6 +218,7 @@
                                 %>
 
                                 <form id="filterForm" class="d-none" method="GET">
+                                    <input type="hidden" id="tabFilterInput" name="tab" value="<%= currentTabSafe %>">
                                     <input type="hidden" id="authorFilterInput" name="authorId" value="<%= selectedAuthorIdSafe %>">
                                     <input type="hidden" id="searchFilterInput" name="search" value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
                                     <input type="hidden" id="locationFilterInput" name="location" value="<%= typeof selectedLocation !== 'undefined' ? selectedLocation : '' %>">
@@ -407,14 +411,14 @@
                                         <% } else if (typeof isRestrictedSubEditor !== 'undefined' && isRestrictedSubEditor) { %>
                                             <ul class="nav nav-tabs mb-4" id="subEditorNewsListTabs" role="tablist">
                                                 <li class="nav-item" role="presentation">
-                                                    <button class="nav-link active fw-bold" id="my-list-tab" data-bs-toggle="tab" data-bs-target="#my-list" type="button" role="tab" style="color: #475569;"><i class="fas fa-user-edit"></i> My Articles</button>
+                                                    <button class="nav-link <%= typeof currentTab !== 'undefined' && currentTab === 'my-list' ? 'active' : '' %> fw-bold" id="my-list-tab" onclick="document.getElementById('tabFilterInput').value='my-list'; document.getElementById('filterForm').submit();" type="button" role="tab" style="color: #475569;"><i class="fas fa-user-edit"></i> My Articles</button>
                                                 </li>
                                                 <li class="nav-item" role="presentation">
-                                                    <button class="nav-link fw-bold" id="team-list-tab" data-bs-toggle="tab" data-bs-target="#team-list" type="button" role="tab" style="color: #475569;"><i class="fas fa-users"></i> Assigned Reporters (For Approval)</button>
+                                                    <button class="nav-link <%= typeof currentTab !== 'undefined' && currentTab === 'team-list' ? 'active' : '' %> fw-bold" id="team-list-tab" onclick="document.getElementById('tabFilterInput').value='team-list'; document.getElementById('filterForm').submit();" type="button" role="tab" style="color: #475569;"><i class="fas fa-users"></i> Assigned Reporters (For Approval)</button>
                                                 </li>
                                             </ul>
                                             <div class="tab-content" id="subEditorNewsListTabContent">
-                                                <div class="tab-pane fade show active" id="my-list" role="tabpanel">
+                                                <div class="tab-pane fade <%= typeof currentTab !== 'undefined' && currentTab === 'my-list' ? 'show active' : '' %>" id="my-list" role="tabpanel">
                                                     <div class="team-table-wrap">
                                                         <table class="team-table news-table">
                                                             <thead>
@@ -431,14 +435,14 @@
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                <% newsList.filter(n => n.authorId === admin.id).forEach(function(news) { %>
+                                                                <% newsList.filter(n => n.authorId && admin && (admin.id || admin._id) && n.authorId.toString() === (admin.id || admin._id).toString()).forEach(function(news) { %>
                                                                     <%- include('partials/news-directory-row', { news: news, newsLanguageLabels: langLabels, admin: admin }) %>
                                                                 <% }); %>
                                                             </tbody>
                                                         </table>
                                                     </div>
                                                 </div>
-                                                <div class="tab-pane fade" id="team-list" role="tabpanel">
+                                                <div class="tab-pane fade <%= typeof currentTab !== 'undefined' && currentTab === 'team-list' ? 'show active' : '' %>" id="team-list" role="tabpanel">
                                                     <div class="team-table-wrap">
                                                         <table class="team-table news-table">
                                                             <thead>
@@ -455,7 +459,7 @@
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                <% newsList.filter(n => n.authorId !== admin.id).forEach(function(news) { %>
+                                                                <% newsList.filter(n => n.authorId && admin && (admin.id || admin._id) && n.authorId.toString() !== (admin.id || admin._id).toString()).forEach(function(news) { %>
                                                                     <%- include('partials/news-directory-row', { news: news, newsLanguageLabels: langLabels, admin: admin }) %>
                                                                 <% }); %>
                                                             </tbody>
