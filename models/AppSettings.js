@@ -60,6 +60,10 @@ const appSettingsSchema = new mongoose.Schema({
   termsAndConditions: {
     type: String,
     default: ''
+  },
+  feedbackUrl: {
+    type: String,
+    default: 'https://wa.me/919999999999'
   }
 }, { timestamps: true });
 

@@ -314,6 +314,17 @@
                                     </div>
                                 </div>
                             </div>
+                            
+                            <hr class="my-4 opacity-10">
+                            
+                            <div class="mb-2">
+                                <label class="form-label fw-bold text-dark"><i class="fas fa-comment-dots me-2 text-primary"></i>Feedback Link URL</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-link text-muted"></i></span>
+                                    <input type="url" class="form-control border-start-0 ps-0" id="feedbackUrl" name="feedbackUrl" value="<%= settings.feedbackUrl || 'https://wa.me/' %>" placeholder="https://wa.me/919999999999">
+                                </div>
+                                <small class="text-muted mt-2 d-block">This link will open when users tap the "Feedback" button in the app's settings.</small>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -415,7 +426,8 @@
             contactUs: document.getElementById('contactUs').value,
             privacyPolicy: document.getElementById('privacyPolicy').value,
             aboutUs: document.getElementById('aboutUs').value,
-            termsAndConditions: document.getElementById('termsAndConditions').value
+            termsAndConditions: document.getElementById('termsAndConditions').value,
+            feedbackUrl: document.getElementById('feedbackUrl').value
         };
 
         try {
