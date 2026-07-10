@@ -1,0 +1,92 @@
+require('dotenv').config();
+const mongoose = require('mongoose');
+const ZodiacDaily = require('./models/ZodiacDaily');
+const Language = require('./models/Language');
+
+const defaultSigns = {
+  te: ["మేషం", "వృషభం", "మిథునం", "కర్కాటకం", "సింహం", "కన్య", "తుల", "వృశ్చికం", "ధనుస్సు", "మకరం", "కుంభం", "మీనం"],
+  en: ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"],
+  hi: ["मेष", "वृषभ", "मिथुन", "कर्क", "सिंह", "कन्या", "तुला", "वृश्चिक", "धनु", "मकर", "कुंभ", "मीन"],
+  mr: ["मेष", "वृषभ", "मिथुन", "कर्क", "सिंह", "कन्या", "तूळ", "वृश्चिक", "धनु", "मकर", "कुंभ", "मीन"],
+  mt: ["मेष", "वृषभ", "मिथुन", "कर्क", "सिंह", "कन्या", "तूळ", "वृश्चिक", "धनु", "मकर", "कुंभ", "मीन"],
+  ta: ["மேஷம்", "ரிஷபம்", "மிதுனம்", "கடகம்", "சிம்மம்", "கன்னி", "துலாம்", "விருச்சிகம்", "தனுசு", "மகரம்", "கும்பம்", "மீனம்"]
+};
+
+const defaultChooseTitles = {
+  te: "మీ రాశిని ఎంచుకోండి",
+  en: "Choose your zodiac sign",
+  hi: "अपनी राशि चुनें",
+  mr: "तुमची रास निवडा",
+  mt: "तुमची रास निवडा",
+  ta: "உங்கள் ராசியைத் தேர்ந்தெடுக்கவும்"
+};
+
+const defaultKnowTitles = {
+  te: "మీ రాశి తెలుసుకోండి",
+  en: "Know your zodiac sign",
+  hi: "अपनी राशि जानें",
+  mr: "तुमची रास जाणून घ्या",
+  mt: "तुमची रास जाणून घ्या",
+  ta: "உங்கள் ராசியை அறியுங்கள்"
+};
+
+// Dummy text generators with Rich HTML (colors and links)
+const generateResult = (lang, signName) => {
+  if (lang === 'te') {
+    return `<p>ఈ రోజు <strong>${signName}</strong> రాశి వారికి చాలా అనుకూలంగా ఉంటుంది. <span style="color: rgb(230, 0, 0);">ఆర్థికంగా లాభాలు రావచ్చు.</span> మరిన్ని వివరాలకు <a href="https://example.com/telugu-astrology" target="_blank">ఇక్కడ క్లిక్ చేయండి</a>.</p>`;
+  } else if (lang === 'hi') {
+    return `<p>आज <strong>${signName}</strong> राशि के लोगों के लिए दिन बहुत शुभ है। <span style="color: rgb(0, 138, 0);">आर्थिक लाभ हो सकता है।</span> अधिक जानकारी के लिए <a href="https://example.com/hindi-astrology" target="_blank">यहाँ क्लिक करें</a>।</p>`;
+  } else if (lang === 'mr' || lang === 'mt') {
+    return `<p>आजचा दिवस <strong>${signName}</strong> राशीच्या लोकांसाठी खूप शुभ आहे. <span style="color: rgb(0, 102, 204);">आर्थिक लाभ होऊ शकतो.</span> अधिक माहितीसाठी <a href="https://example.com/marathi-astrology" target="_blank">येथे क्लिक करा</a>.</p>`;
+  } else if (lang === 'ta') {
+    return `<p>இன்று <strong>${signName}</strong> ராசிக்காரர்களுக்கு மிகவும் உகந்த நாள். <span style="color: rgb(230, 0, 0);">நிதி ரீதியாக நன்மைகள் கிடைக்கும்.</span> மேலும் அறிய <a href="https://example.com/tamil-astrology" target="_blank">இங்கே கிளிக் செய்யவும்</a>.</p>`;
+  } else {
+    // English default
+    return `<p>Today is a very favorable day for <strong>${signName}</strong>. <span style="color: rgb(102, 51, 255);">You may experience financial gains.</span> For more details, <a href="https://example.com/english-astrology" target="_blank">click here</a>.</p>`;
+  }
+};
+
+mongoose.connect(process.env.MONGODB_URI).then(async () => {
+  try {
+    const langs = await Language.find({ isActive: true });
+    const date = '2026-07-10';
+    
+    for (const langObj of langs) {
+      const code = langObj.code;
+      const signsNames = defaultSigns[code] || defaultSigns['en'];
+      
+      const signsArray = signsNames.map((name, index) => {
+        return {
+          signId: (index + 1).toString(),
+          name: name,
+          result: generateResult(code, name)
+        };
+      });
+
+      const existing = await ZodiacDaily.findOne({ date, language: code });
+      if (existing) {
+        existing.chooseTitle = defaultChooseTitles[code] || defaultChooseTitles['en'];
+        existing.knowTitle = defaultKnowTitles[code] || defaultKnowTitles['en'];
+        existing.signs = signsArray;
+        await existing.save();
+        console.log(`Updated zodiac for ${code} on ${date}`);
+      } else {
+        const newZodiac = new ZodiacDaily({
+          date,
+          language: code,
+          chooseTitle: defaultChooseTitles[code] || defaultChooseTitles['en'],
+          knowTitle: defaultKnowTitles[code] || defaultKnowTitles['en'],
+          signs: signsArray
+        });
+        await newZodiac.save();
+        console.log(`Inserted zodiac for ${code} on ${date}`);
+      }
+    }
+    
+    console.log('Seeding completed successfully!');
+    process.exit(0);
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+});

@@ -93,6 +93,14 @@
                 </a>
             </li>
             <% } %>
+            <% if (canView('zodiac')) { %>
+            <li class="nav-item">
+                <a class="nav-link ripple <%= activePage === 'zodiac' ? 'active' : '' %>" href="/admin/zodiac">
+                    <i class="fas fa-calendar-alt me-3"></i>
+                    <span class="nav-text">Zodiac Calendar</span>
+                </a>
+            </li>
+            <% } %>
             <% if (canView('longVideos')) { %>
             <li class="nav-item">
                 <a class="nav-link ripple <%= activePage === 'long-videos' ? 'active' : '' %>" href="/long-videos">

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<%- include('partials/header', { title: 'Zodiac Calendar' }) %>
+
+<style>
+    @import url('https://cdn.quilljs.com/1.3.6/quill.snow.css');
+    .zodiac-card {
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        margin-bottom: 24px;
+        border: 1px solid #edf2f9;
+    }
+    .zodiac-header {
+        background-color: #f8f9fa;
+        padding: 15px 20px;
+        border-bottom: 1px solid #edf2f9;
+        border-radius: 12px 12px 0 0;
+        font-weight: 600;
+    }
+    .zodiac-body {
+        padding: 20px;
+    }
+    .nav-tabs .nav-link {
+        color: #6c757d;
+        font-weight: 500;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 12px 20px;
+    }
+    .nav-tabs .nav-link.active {
+        color: #0d6efd;
+        border-bottom: 3px solid #0d6efd;
+        background: transparent;
+    }
+    .nav-tabs {
+        border-bottom: 1px solid #edf2f9;
+        margin-bottom: 20px;
+    }
+    .sign-row {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border: 1px solid #e9ecef;
+    }
+</style>
+
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Zodiac Calendar Management', backButton: true, backUrl: '/', actions: [] }) %>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <%- include('partials/sidebar', { activePage: 'zodiac' }) %>
+
+            <!-- Main Content -->
+            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                <div class="content-area mt-4">
+                    
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card zodiac-card">
+                                <div class="zodiac-header d-flex justify-content-between align-items-center">
+                                    <span>Manage Daily Zodiac</span>
+                                    <div>
+                                        <input type="date" id="zodiacDate" class="form-control d-inline-block w-auto" value="<%= new Date().toISOString().split('T')[0] %>">
+                                    </div>
+                                </div>
+                                <div class="zodiac-body">
+                                    <% if(languages && languages.length > 0) { %>
+                                        <ul class="nav nav-tabs" id="zodiacTabs" role="tablist">
+                                            <% languages.forEach((lang, index) => { %>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link <%= index === 0 ? 'active' : '' %>" 
+                                                            id="tab-<%= lang.code %>" 
+                                                            data-bs-toggle="tab" 
+                                                            data-bs-target="#content-<%= lang.code %>" 
+                                                            type="button" role="tab" 
+                                                            aria-controls="content-<%= lang.code %>" 
+                                                            aria-selected="<%= index === 0 ? 'true' : 'false' %>">
+                                                        <%= lang.name %>
+                                                    </button>
+                                                </li>
+                                            <% }) %>
+                                        </ul>
+                                        
+                                        <div class="tab-content" id="zodiacTabsContent">
+                                            <% const signIds = ['aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo', 'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces']; %>
+                                            
+                                            <% languages.forEach((lang, index) => { %>
+                                                <div class="tab-pane fade <%= index === 0 ? 'show active' : '' %>" 
+                                                     id="content-<%= lang.code %>" 
+                                                     role="tabpanel" 
+                                                     aria-labelledby="tab-<%= lang.code %>">
+                                                     
+                                                     <form id="form-<%= lang.code %>" class="zodiac-form" data-lang="<%= lang.code %>">
+                                                         <div class="row mb-4">
+                                                             <div class="col-md-4">
+                                                                 <label class="form-label">"Choose your zodiac" Title</label>
+                                                                 <input type="text" class="form-control choose-title" placeholder="e.g. మీ రాశిని ఎంచుకోండి" required>
+                                                             </div>
+                                                             <div class="col-md-4">
+                                                                 <label class="form-label">"Know your zodiac" Title</label>
+                                                                 <input type="text" class="form-control know-title" placeholder="e.g. మీ రాశి తెలుసుకోండి" required>
+                                                             </div>
+                                                             <div class="col-md-4">
+                                                                 <label class="form-label">Result Title Format</label>
+                                                                 <input type="text" class="form-control result-title-format" placeholder="e.g. {sign} రాశి ఫ‌లితాలు {date}" required>
+                                                                 <small class="text-muted">Use {sign} and {date} as placeholders.</small>
+                                                             </div>
+                                                         </div>
+
+                                                         <hr>
+                                                         <h5 class="mb-3">Zodiac Signs Content</h5>
+
+                                                         <% signIds.forEach((signId, i) => { %>
+                                                             <div class="sign-row">
+                                                                 <div class="row">
+                                                                     <div class="col-md-3">
+                                                                         <label class="form-label">Sign ID</label>
+                                                                         <input type="text" class="form-control sign-id" value="<%= signId %>" readonly>
+                                                                         <label class="form-label mt-2">Sign Name</label>
+                                                                         <input type="text" class="form-control sign-name" placeholder="e.g. మేషం" required>
+                                                                     </div>
+                                                                     <div class="col-md-9">
+                                                                         <label class="form-label">Result / Horoscope</label>
+                                                                         <div class="quill-container">
+                                                                             <div class="quill-editor sign-result-editor" style="height: 150px;"></div>
+                                                                             <textarea class="form-control sign-result d-none" required></textarea>
+                                                                         </div>
+                                                                     </div>
+                                                                 </div>
+                                                             </div>
+                                                         <% }) %>
+
+                                                         <div class="text-end mt-4">
+                                                             <button type="submit" class="btn btn-primary px-4"><i class="fas fa-save me-2"></i>Save for <%= lang.name %></button>
+                                                         </div>
+                                                     </form>
+                                                </div>
+                                            <% }) %>
+                                        </div>
+                                    <% } else { %>
+                                        <div class="alert alert-warning">No languages found. Please add languages in the Language settings first.</div>
+                                    <% } %>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const quillInstances = new Map();
+            
+            document.querySelectorAll('.quill-editor').forEach(editorEl => {
+                const quill = new Quill(editorEl, {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            ['bold', 'italic', 'underline', 'strike'],
+                            [{ 'color': [] }, { 'background': [] }],
+                            ['link', 'clean']
+                        ]
+                    }
+                });
+                
+                const textarea = editorEl.nextElementSibling;
+                quill.on('text-change', function() {
+                    textarea.value = quill.root.innerHTML;
+                });
+                
+                quillInstances.set(editorEl, quill);
+            });
+
+            const dateInput = document.getElementById('zodiacDate');
+            
+            async function fetchZodiacData(date) {
+                // Clear all forms
+                document.querySelectorAll('.zodiac-form').forEach(form => {
+                    form.reset();
+                });
+
+                try {
+                    const activeTabBtn = document.querySelector('.nav-link.active');
+                    if (!activeTabBtn) return;
+                    const activeLang = activeTabBtn.id.replace('tab-', '');
+                    
+                    fetchTabZodiacData(activeLang, date);
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+
+            async function fetchTabZodiacData(lang, date) {
+                try {
+                    const res = await fetch(`/api/zodiac/today?date=${date}&lang=${lang}`);
+                    const data = await res.json();
+                    
+                    const form = document.getElementById(`form-${lang}`);
+                    if (!form) return;
+                    
+                    form.reset(); // clear existing
+                    form.querySelectorAll('.quill-editor').forEach(editorEl => {
+                        if (quillInstances.has(editorEl)) {
+                            quillInstances.get(editorEl).root.innerHTML = '';
+                        }
+                    });
+                    
+                    // Default values for known languages
+                    const defaultSigns = {
+                        te: ["మేషం", "వృషభం", "మిథునం", "కర్కాటకం", "సింహం", "కన్య", "తుల", "వృశ్చికం", "ధనుస్సు", "మకరం", "కుంభం", "మీనం"],
+                        en: ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"],
+                        hi: ["मेष", "वृषभ", "मिथुन", "कर्क", "सिंह", "कन्या", "तुला", "वृश्चिक", "धनु", "मकर", "कुंभ", "मीन"],
+                        mr: ["मेष", "वृषभ", "मिथुन", "कर्क", "सिंह", "कन्या", "तूळ", "वृश्चिक", "धनु", "मकर", "कुंभ", "मीन"],
+                        mt: ["मेष", "वृषभ", "मिथुन", "कर्क", "सिंह", "कन्या", "तूळ", "वृश्चिक", "धनु", "मकर", "कुंभ", "मीन"]
+                    };
+                    
+                    const defaultChooseTitles = {
+                        te: "మీ రాశిని ఎంచుకోండి",
+                        en: "Choose your zodiac sign",
+                        hi: "अपनी राशि चुनें",
+                        mr: "तुमची रास निवडा",
+                        mt: "तुमची रास निवडा"
+                    };
+                    
+                    const defaultKnowTitles = {
+                        te: "మీ రాశి తెలుసుకోండి",
+                        en: "Know your zodiac sign",
+                        hi: "अपनी राशि जानें",
+                        mr: "तुमची रास जाणून घ्या",
+                        mt: "तुमची रास जाणून घ्या"
+                    };
+                    
+                    const defaultResultTitleFormats = {
+                        te: "{sign} రాశి ఫ‌లితాలు ({date})",
+                        en: "{sign} Horoscope ({date})",
+                        hi: "{sign} राशिफल ({date})",
+                        mr: "{sign} राशीभविष्य ({date})",
+                        mt: "{sign} राशीभविष्य ({date})"
+                    };
+                    
+                    const rows = form.querySelectorAll('.sign-row');
+
+                    // Pre-fill default names first
+                    if (defaultSigns[lang]) {
+                        rows.forEach((row, index) => {
+                            if (index < 12) {
+                                row.querySelector('.sign-name').value = defaultSigns[lang][index];
+                            }
+                        });
+                    }
+                    
+                    if (defaultChooseTitles[lang]) {
+                        form.querySelector('.choose-title').value = defaultChooseTitles[lang];
+                    }
+                    
+                    if (defaultKnowTitles[lang]) {
+                        form.querySelector('.know-title').value = defaultKnowTitles[lang];
+                    }
+
+                    if (defaultResultTitleFormats[lang]) {
+                        form.querySelector('.result-title-format').value = defaultResultTitleFormats[lang];
+                    }
+
+                    if (data.success && data.data) {
+                        const zodiac = data.data;
+                        if (zodiac.chooseTitle) form.querySelector('.choose-title').value = zodiac.chooseTitle;
+                        if (zodiac.knowTitle) form.querySelector('.know-title').value = zodiac.knowTitle;
+                        if (zodiac.resultTitleFormat) form.querySelector('.result-title-format').value = zodiac.resultTitleFormat;
+                        
+                        zodiac.signs.forEach(sign => {
+                            // find row with sign.signId
+                            rows.forEach(row => {
+                                const idInput = row.querySelector('.sign-id');
+                                if (idInput.value === sign.signId) {
+                                    row.querySelector('.sign-name').value = sign.name || '';
+                                    const resultInput = row.querySelector('.sign-result');
+                                    resultInput.value = sign.result || '';
+                                    const editorEl = row.querySelector('.quill-editor');
+                                    if (editorEl && quillInstances.has(editorEl)) {
+                                        quillInstances.get(editorEl).root.innerHTML = sign.result || '';
+                                    }
+                                }
+                            });
+                        });
+                    }
+                } catch (e) {
+                    console.error('Error fetching data for tab', e);
+                }
+            }
+
+            dateInput.addEventListener('change', (e) => {
+                fetchZodiacData(e.target.value);
+            });
+
+            // Handle tab changes
+            const tabEls = document.querySelectorAll('button[data-bs-toggle="tab"]');
+            tabEls.forEach(tab => {
+                tab.addEventListener('shown.bs.tab', function (event) {
+                    const lang = event.target.id.replace('tab-', '');
+                    fetchTabZodiacData(lang, dateInput.value);
+                });
+            });
+
+            // Initial fetch
+            fetchZodiacData(dateInput.value);
+
+            // Handle form submits
+            document.querySelectorAll('.zodiac-form').forEach(form => {
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const lang = form.getAttribute('data-lang');
+                    const date = dateInput.value;
+                    const chooseTitle = form.querySelector('.choose-title').value;
+                    const knowTitle = form.querySelector('.know-title').value;
+                    const resultTitleFormat = form.querySelector('.result-title-format').value;
+                    
+                    const signs = [];
+                    form.querySelectorAll('.sign-row').forEach(row => {
+                        signs.push({
+                            signId: row.querySelector('.sign-id').value,
+                            name: row.querySelector('.sign-name').value,
+                            result: row.querySelector('.sign-result').value
+                        });
+                    });
+
+                    try {
+                        const response = await fetch('/admin/api/zodiac', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                date,
+                                language: lang,
+                                chooseTitle,
+                                knowTitle,
+                                resultTitleFormat,
+                                signs
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        if (data.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Saved!',
+                                text: `Zodiac for ${lang.toUpperCase()} saved successfully.`,
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            Swal.fire('Error', data.message || 'Error saving data', 'error');
+                        }
+                    } catch (err) {
+                        Swal.fire('Error', 'Internal Server Error', 'error');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

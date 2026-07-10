@@ -1,5 +1,6 @@
 const express = require('express');
 const adminController = require('../controllers/adminController');
+const zodiacController = require('../controllers/zodiacController');
 
 const router = express.Router();
 
@@ -93,5 +94,9 @@ router.put('/api/polls/:id', adminController.requireAuth, adminController.update
 
 // Reporter Applications routes
 router.put('/api/reporter-applications/:id', adminController.requireAuth, adminController.updateReporterApplication);
+
+// Zodiac Calendar route
+router.get('/zodiac', adminController.requireAuth, zodiacController.renderZodiacPage);
+router.post('/api/zodiac', adminController.requireAuth, zodiacController.saveZodiac);
 
 module.exports = router;

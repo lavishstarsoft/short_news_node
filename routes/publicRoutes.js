@@ -9,6 +9,7 @@ const Ad = require('../models/Ad');
 const ViralVideo = require('../models/ViralVideo');
 const CommentReport = require('../models/CommentReport');
 const Admin = require('../models/Admin');
+const zodiacController = require('../controllers/zodiacController');
 
 // Import cache middleware for Redis caching
 const { cacheMiddleware, clearCache } = require('../middleware/cache');
@@ -1998,5 +1999,12 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
+// --- Zodiac Calendar Public API Routes ---
+router.get('/api/zodiac/today', zodiacController.getZodiacToday);
+router.post('/api/zodiac/:id/like', zodiacController.likeZodiac);
+router.post('/api/zodiac/:id/dislike', zodiacController.dislikeZodiac);
+router.post('/api/zodiac/:id/comment', zodiacController.commentZodiac);
+router.get('/api/zodiac/:id/comments', zodiacController.getZodiacComments);
 
 module.exports = router;
