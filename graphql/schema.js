@@ -222,6 +222,7 @@ const typeDefs = gql`
     getRegistrationFields: [RegistrationField!]!
     getReporterApplications: [ReporterApplication!]!
     getReporterApplicationById(id: ID!): ReporterApplication
+    getReporterApplicationStatus(email: String!): ApplicationStatusResponse
 
     # Existing extensions
     getLiveStreamStatus: LiveStreamStatus
@@ -244,6 +245,12 @@ const typeDefs = gql`
     options: [String]
     order: Int
     isActive: Boolean
+  }
+
+  type ApplicationStatusResponse {
+    hasApplied: Boolean!
+    status: String
+    adminNotes: String
   }
 
   type ReporterApplication {

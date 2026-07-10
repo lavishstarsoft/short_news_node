@@ -604,9 +604,27 @@ const resolvers = {
                 };
             } catch (error) {
                 console.error('Error fetching application by ID:', error);
-                return null;
+                throw new Error('Failed to fetch application');
             }
-        }
+        },
+
+        getReporterApplicationStatus: async (_, { email }) => {
+            try {
+                // Since data is a Map, we query by "data.email"
+                const app = await ReporterApplication.findOne({ "data.email": email }).sort({ createdAt: -1 });
+                if (!app) {
+                    return { hasApplied: false, status: null, adminNotes: null };
+                }
+                return {
+                    hasApplied: true,
+                    status: app.status,
+                    adminNotes: app.adminNotes
+                };
+            } catch (error) {
+                console.error('Error checking reporter application status:', error);
+                throw new Error('Failed to check application status');
+            }
+        },
     },
 
     // Field resolvers for News type
