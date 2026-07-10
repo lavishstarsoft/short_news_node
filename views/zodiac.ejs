@@ -127,7 +127,7 @@
                                                                          <label class="form-label">Result / Horoscope</label>
                                                                          <div class="quill-container">
                                                                              <div class="quill-editor sign-result-editor" style="height: 150px;"></div>
-                                                                             <textarea class="form-control sign-result d-none" required></textarea>
+                                                                             <textarea class="form-control sign-result d-none"></textarea>
                                                                          </div>
                                                                      </div>
                                                                  </div>
@@ -160,26 +160,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const quillInstances = new Map();
-            
-            document.querySelectorAll('.quill-editor').forEach(editorEl => {
-                const quill = new Quill(editorEl, {
-                    theme: 'snow',
-                    modules: {
-                        toolbar: [
-                            ['bold', 'italic', 'underline', 'strike'],
-                            [{ 'color': [] }, { 'background': [] }],
-                            ['link', 'clean']
-                        ]
-                    }
-                });
-                
-                const textarea = editorEl.nextElementSibling;
-                quill.on('text-change', function() {
-                    textarea.value = quill.root.innerHTML;
-                });
-                
-                quillInstances.set(editorEl, quill);
-            });
 
             const dateInput = document.getElementById('zodiacDate');
             
@@ -190,11 +170,11 @@
                 });
 
                 try {
-                    const activeTabBtn = document.querySelector('.nav-link.active');
-                    if (!activeTabBtn) return;
-                    const activeLang = activeTabBtn.id.replace('tab-', '');
-                    
-                    fetchTabZodiacData(activeLang, date);
+                    const tabEls = document.querySelectorAll('button[data-bs-toggle="tab"]');
+                    tabEls.forEach(tabBtn => {
+                        const lang = tabBtn.id.replace('tab-', '');
+                        fetchTabZodiacData(lang, date);
+                    });
                 } catch (err) {
                     console.error(err);
                 }
@@ -210,8 +190,27 @@
                     
                     form.reset(); // clear existing
                     form.querySelectorAll('.quill-editor').forEach(editorEl => {
-                        if (quillInstances.has(editorEl)) {
-                            quillInstances.get(editorEl).root.innerHTML = '';
+                        // Initialize Quill if not already initialized
+                        if (!quillInstances.has(editorEl)) {
+                            const quill = new Quill(editorEl, {
+                                theme: 'snow',
+                                modules: {
+                                    toolbar: [
+                                        ['bold', 'italic', 'underline', 'strike'],
+                                        [{ 'color': [] }, { 'background': [] }],
+                                        ['link', 'clean']
+                                    ]
+                                }
+                            });
+                            
+                            const textarea = editorEl.nextElementSibling;
+                            quill.on('text-change', function() {
+                                textarea.value = quill.root.innerHTML;
+                            });
+                            
+                            quillInstances.set(editorEl, quill);
+                        } else {
+                            quillInstances.get(editorEl).setText('');
                         }
                     });
                     
@@ -241,11 +240,12 @@
                     };
                     
                     const defaultResultTitleFormats = {
-                        te: "{sign} రాశి ఫ‌లితాలు ({date})",
+                        te: "{sign} రాశి ఫలితాలు ({date})",
                         en: "{sign} Horoscope ({date})",
                         hi: "{sign} राशिफल ({date})",
                         mr: "{sign} राशीभविष्य ({date})",
-                        mt: "{sign} राशीभविष्य ({date})"
+                        mt: "{sign} राशीभविष्य ({date})",
+                        ta: "{sign} ராசி பலன் ({date})"
                     };
                     
                     const rows = form.querySelectorAll('.sign-row');
@@ -287,7 +287,7 @@
                                     resultInput.value = sign.result || '';
                                     const editorEl = row.querySelector('.quill-editor');
                                     if (editorEl && quillInstances.has(editorEl)) {
-                                        quillInstances.get(editorEl).root.innerHTML = sign.result || '';
+                                        quillInstances.get(editorEl).clipboard.dangerouslyPasteHTML(sign.result || '');
                                     }
                                 }
                             });
@@ -302,12 +302,20 @@
                 fetchZodiacData(e.target.value);
             });
 
-            // Handle tab changes
+            // Handle tab changes (optional, since we fetch all on load, but good to keep if they want fresh data)
             const tabEls = document.querySelectorAll('button[data-bs-toggle="tab"]');
             tabEls.forEach(tab => {
                 tab.addEventListener('shown.bs.tab', function (event) {
+                    // We already fetched everything, but if Quill needs a layout refresh we can do it here
                     const lang = event.target.id.replace('tab-', '');
-                    fetchTabZodiacData(lang, dateInput.value);
+                    const form = document.getElementById(`form-${lang}`);
+                    if (form) {
+                        form.querySelectorAll('.quill-editor').forEach(editorEl => {
+                            if (quillInstances.has(editorEl)) {
+                                // Refresh quill layout if needed? Not directly supported, but we can re-set content
+                            }
+                        });
+                    }
                 });
             });
 
@@ -327,6 +335,11 @@
                     
                     const signs = [];
                     form.querySelectorAll('.sign-row').forEach(row => {
+                        const editorEl = row.querySelector('.quill-editor');
+                        if (editorEl && quillInstances.has(editorEl)) {
+                            row.querySelector('.sign-result').value = quillInstances.get(editorEl).root.innerHTML;
+                        }
+                        
                         signs.push({
                             signId: row.querySelector('.sign-id').value,
                             name: row.querySelector('.sign-name').value,
