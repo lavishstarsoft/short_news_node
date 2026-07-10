@@ -44,6 +44,22 @@ const appSettingsSchema = new mongoose.Schema({
   showLongVideos: {
     type: Boolean,
     default: true
+  },
+  contactUs: {
+    type: String,
+    default: ''
+  },
+  privacyPolicy: {
+    type: String,
+    default: ''
+  },
+  aboutUs: {
+    type: String,
+    default: ''
+  },
+  termsAndConditions: {
+    type: String,
+    default: ''
   }
 }, { timestamps: true });
 

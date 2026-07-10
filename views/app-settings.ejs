@@ -1,7 +1,8 @@
 <%- include('partials/header') %>
 <%- include('partials/sidebar') %>
 
-<style>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <style>
     /* Custom Premium Styles for App Settings */
     .settings-container {
         max-width: 1200px;
@@ -93,6 +94,78 @@
         color: #2d3748;
         display: flex;
         align-items: center;
+    }
+    
+    /* Legal Pages styles */
+    .legal-tab {
+        border-radius: 10px 10px 0 0;
+        font-weight: 600;
+    }
+    .ql-container {
+        height: 350px !important;
+        font-family: 'Inter', sans-serif;
+        font-size: 15px;
+    }
+    .mobile-preview-frame {
+        width: 320px;
+        height: 600px;
+        border: 12px solid #2d3748;
+        border-radius: 36px;
+        overflow: hidden;
+        background: #fff;
+        position: relative;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        margin: 0 auto;
+    }
+    .mobile-preview-header {
+        height: 60px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        align-items: center;
+        padding: 0 15px;
+        font-weight: 600;
+        color: #333;
+    }
+    .mobile-preview-content {
+        height: calc(100% - 60px);
+        overflow-y: auto;
+        padding: 20px;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #333;
+    }
+
+    /* Shortcode Preview Styles */
+    .sc-section-title {
+        border-left: 4px solid #FFC107;
+        padding-left: 10px;
+        font-weight: bold;
+        font-size: 18px;
+        color: #333;
+        margin: 20px 0 10px 0;
+    }
+    .sc-box {
+        border: 1px solid #eee;
+        border-radius: 12px;
+        padding: 15px;
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+        background: #fff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
+    .sc-icon {
+        color: #FFC107;
+        font-size: 24px;
+        margin-right: 15px;
+    }
+    .sc-content strong {
+        display: block;
+        color: #666;
+        font-size: 12px;
+        text-transform: uppercase;
+        margin-bottom: 3px;
     }
 </style>
 
@@ -236,6 +309,66 @@
                     </div>
                 </div>
 
+                <!-- Legal Pages Tab Section -->
+                <div class="col-12 mt-5">
+                    <div class="premium-card">
+                        <div class="card-header-gradient d-flex justify-content-between align-items-center">
+                            <h5 class="section-title mb-0">
+                                <div class="icon-box icon-global"><i class="fas fa-file-contract"></i></div>
+                                Legal & Static Pages
+                            </h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="row g-0">
+                                <div class="col-md-7 col-lg-8 border-end p-4">
+                                    <ul class="nav nav-tabs mb-4" id="legalTabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active legal-tab" id="contact-tab" data-bs-toggle="tab" data-bs-target="#contact" type="button" role="tab" data-field="contactUs">Contact Us</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link legal-tab" id="privacy-tab" data-bs-toggle="tab" data-bs-target="#privacy" type="button" role="tab" data-field="privacyPolicy">Privacy Policy</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link legal-tab" id="about-tab" data-bs-toggle="tab" data-bs-target="#about" type="button" role="tab" data-field="aboutUs">About Us</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link legal-tab" id="terms-tab" data-bs-toggle="tab" data-bs-target="#terms" type="button" role="tab" data-field="termsAndConditions">Terms & Conditions</button>
+                                        </li>
+                                    </ul>
+                                    <div class="mb-3 d-flex gap-2 flex-wrap">
+                                        <span class="text-muted small align-self-center me-2">Widgets:</span>
+                                        <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="insertShortcode('section-title', 'Section Title')"><i class="fas fa-heading me-1"></i> Title</button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="insertShortcode('email-box', 'email@example.com')"><i class="fas fa-envelope me-1"></i> Email Box</button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="insertShortcode('whatsapp-box', 'Open WhatsApp')"><i class="fab fa-whatsapp me-1"></i> WhatsApp Box</button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="insertShortcode('address-box', 'Door No. 4-105...')"><i class="fas fa-map-marker-alt me-1"></i> Address Box</button>
+                                    </div>
+                                    <div class="tab-content" id="legalTabsContent">
+                                        <!-- Shared Editor Container -->
+                                        <div id="legalEditor"></div>
+                                        
+                                        <!-- Hidden inputs to store HTML data -->
+                                        <input type="hidden" id="contactUs" name="contactUs" value="<%= settings.contactUs || '' %>">
+                                        <input type="hidden" id="privacyPolicy" name="privacyPolicy" value="<%= settings.privacyPolicy || '' %>">
+                                        <input type="hidden" id="aboutUs" name="aboutUs" value="<%= settings.aboutUs || '' %>">
+                                        <input type="hidden" id="termsAndConditions" name="termsAndConditions" value="<%= settings.termsAndConditions || '' %>">
+                                    </div>
+                                </div>
+                                <div class="col-md-5 col-lg-4 p-4 bg-light">
+                                    <h6 class="fw-bold mb-4 text-center text-muted">Mobile App Preview</h6>
+                                    <div class="mobile-preview-frame">
+                                        <div class="mobile-preview-header">
+                                            <i class="fas fa-arrow-left me-3"></i> <span id="previewTitle">Contact Us</span>
+                                        </div>
+                                        <div class="mobile-preview-content" id="previewContent">
+                                            <!-- Preview rendered here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Footer Action -->
                 <div class="col-12 mt-4 text-end">
                     <button type="submit" class="btn btn-primary btn-save px-5">
@@ -269,7 +402,11 @@
             forceUpdate: document.getElementById('forceUpdate').checked,
             swipeStreakMilestone: document.getElementById('swipeStreakMilestone').value,
             isSwipeStreakEnabled: document.getElementById('isSwipeStreakEnabled').checked,
-            showLongVideos: document.getElementById('showLongVideos').checked
+            showLongVideos: document.getElementById('showLongVideos').checked,
+            contactUs: document.getElementById('contactUs').value,
+            privacyPolicy: document.getElementById('privacyPolicy').value,
+            aboutUs: document.getElementById('aboutUs').value,
+            termsAndConditions: document.getElementById('termsAndConditions').value
         };
 
         try {
@@ -311,6 +448,70 @@
             }, 4000);
         }
     });
+</script>
+
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script>
+    // Initialize Quill Editor
+    var quill = new Quill('#legalEditor', {
+        theme: 'snow',
+        modules: {
+            toolbar: [
+                [{ 'header': [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                ['link', 'clean']
+            ]
+        }
+    });
+
+    // Track active field
+    let activeField = 'contactUs';
+
+    // Populate editor on load
+    const loadEditorContent = () => {
+        const html = document.getElementById(activeField).value;
+        quill.root.innerHTML = html;
+        updatePreview();
+    };
+
+    const updatePreview = () => {
+        let html = quill.root.innerHTML;
+        
+        // Parse shortcodes to render them nicely in the mobile preview
+        html = html.replace(/\[section-title\](.*?)\[\/section-title\]/g, '<div class="sc-section-title">$1</div>');
+        html = html.replace(/\[email-box\](.*?)\[\/email-box\]/g, '<div class="sc-box"><div class="sc-icon"><i class="far fa-envelope"></i></div><div class="sc-content"><strong>Email</strong><span>$1</span></div></div>');
+        html = html.replace(/\[whatsapp-box\](.*?)\[\/whatsapp-box\]/g, '<div class="sc-box"><div class="sc-icon"><i class="far fa-comment-dots"></i></div><div class="sc-content"><strong>WhatsApp</strong><span>$1</span></div></div>');
+        html = html.replace(/\[address-box\](.*?)\[\/address-box\]/g, '<div class="sc-box"><div class="sc-icon"><i class="fas fa-map-marker-alt"></i></div><div class="sc-content"><strong>Address</strong><span>$1</span></div></div>');
+
+        document.getElementById('previewContent').innerHTML = html;
+    };
+
+    // Insert shortcode function
+    window.insertShortcode = (tag, defaultText) => {
+        const range = quill.getSelection(true);
+        quill.insertText(range.index, `\n[${tag}]${defaultText}[/${tag}]\n`);
+    };
+
+    // Listen for text changes
+    quill.on('text-change', function() {
+        const html = quill.root.innerHTML;
+        document.getElementById(activeField).value = html;
+        updatePreview();
+    });
+
+    // Handle tab changes
+    const tabEls = document.querySelectorAll('.legal-tab');
+    tabEls.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function (event) {
+            activeField = event.target.getAttribute('data-field');
+            document.getElementById('previewTitle').innerText = event.target.innerText;
+            loadEditorContent();
+        });
+    });
+
+    // Initial load
+    loadEditorContent();
 </script>
 
 <%- include('partials/footer') %>
