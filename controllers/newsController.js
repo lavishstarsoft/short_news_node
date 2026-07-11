@@ -20,6 +20,7 @@ const exec = util.promisify(require('child_process').exec);
 const axios = require('axios');
 const sharp = require('sharp');
 const { uploadToR2 } = require('../middleware/upload');
+const { buildSubEditorAuthorFilter, getManagedReporterIds } = require('../utils/editorCoverageHelper');
 
 // Import the Notification and User models
 const Notification = require('../models/Notification');
@@ -119,28 +120,11 @@ async function renderDashboard(req, res) {
         newsQuery = { authorId: req.admin.id };
       } else if (req.admin.role === 'subeditor' && (!req.admin.permissions || !req.admin.permissions.canViewAllNews)) {
         isRestrictedSubEditor = true;
-        let assignedLocations = req.admin.assignedLocations || [];
-        if (req.admin.permissions?.managedLocations?.length > 0) {
-            assignedLocations = req.admin.permissions.managedLocations;
+        const adminDoc = await Admin.findById(req.admin.id).lean();
+        const subEditorQuery = await buildSubEditorAuthorFilter(Admin, adminDoc);
+        if (subEditorQuery) {
+          newsQuery = subEditorQuery;
         }
-        
-        // Find reporters in assigned locations
-        const assignedReporters = await Admin.find({ 
-            role: { $in: ['editor', 'reporter'] }, 
-            $or: [
-                { location: { $in: assignedLocations } },
-                { assignedLocations: { $in: assignedLocations } }
-            ]
-        }).select('_id');
-        
-        const assignedReporterIds = assignedReporters.map(r => r._id.toString());
-        
-        newsQuery = {
-            $or: [
-                { authorId: req.admin.id },
-                { authorId: { $in: assignedReporterIds } }
-            ]
-        };
       }
 
       // Fetch news
@@ -354,50 +338,34 @@ async function renderNewsListPage(req, res) {
         query.authorId = req.admin.id;
       } else if (req.admin.role === 'subeditor' && (!req.admin.permissions || !req.admin.permissions.canViewAllNews)) {
         isRestrictedSubEditor = true;
-        let assignedLocations = req.admin.assignedLocations || [];
-        if (req.admin.permissions?.managedLocations?.length > 0) {
-            assignedLocations = req.admin.permissions.managedLocations;
-        }
-        
-        // Find reporters in assigned locations
-        const assignedReporters = await Admin.find({ 
-            role: { $in: ['editor', 'reporter'] }, 
-            $or: [
-                { location: { $in: assignedLocations } },
-                { assignedLocations: { $in: assignedLocations } }
-            ]
-        }).select('_id');
-        
-        const assignedReporterIds = assignedReporters.map(r => r._id.toString());
-        
-        const subEditorQuery = {
-            $or: [
-                { authorId: req.admin.id },
-                { authorId: { $in: assignedReporterIds } }
-            ]
-        };
+        const adminDoc = await Admin.findById(req.admin.id).lean();
+        const subEditorQuery = await buildSubEditorAuthorFilter(Admin, adminDoc);
 
-        if (req.query.tab === 'team-list') {
-            subEditorQuery.$or = [{ authorId: { $in: assignedReporterIds } }];
-        } else if (req.query.tab === 'my-list') {
+        if (subEditorQuery) {
+          if (req.query.tab === 'team-list') {
+            const reporterIds = (subEditorQuery.$or || [])
+              .flatMap(clause => clause.authorId?.$in || (clause.authorId && clause.authorId !== req.admin.id ? [clause.authorId] : []))
+              .filter(id => id && id !== req.admin.id);
+            subEditorQuery.$or = reporterIds.length ? [{ authorId: { $in: reporterIds } }] : [{ authorId: null }];
+          } else if (req.query.tab === 'my-list') {
             subEditorQuery.$or = [{ authorId: req.admin.id }];
+          }
         }
 
         if (selectedAuthorId) {
-            // Ensure selected author is within allowed authors
-            if (selectedAuthorId === req.admin.id || assignedReporterIds.includes(selectedAuthorId)) {
-                query.authorId = selectedAuthorId;
-            } else {
-                // If they try to filter by an author they don't have access to, return no results
-                query.authorId = '000000000000000000000000'; // Fake ID
-            }
-        } else {
-            // Apply the $or query to the main query using $and to not overwrite other filters
-            if (Object.keys(query).length === 0) {
-                query = subEditorQuery;
-            } else {
-                query = { $and: [query, subEditorQuery] };
-            }
+          const allowedIds = await getManagedReporterIds(Admin, adminDoc);
+          const allowed = allowedIds === null || allowedIds.includes(selectedAuthorId) || selectedAuthorId === req.admin.id;
+          if (allowed) {
+            query.authorId = selectedAuthorId;
+          } else {
+            query.authorId = '000000000000000000000000';
+          }
+        } else if (subEditorQuery) {
+          if (Object.keys(query).length === 0) {
+            Object.assign(query, subEditorQuery);
+          } else {
+            query = { $and: [query, subEditorQuery] };
+          }
         }
       } else if (selectedAuthorId) {
         query.authorId = selectedAuthorId;
@@ -753,11 +721,13 @@ async function createNews(req, res) {
       authorProfileImage: authorDetails?.profileImage || null,
       authorConstituency: authorDetails?.constituency || null,
       language: articleLanguage,
+      scope: req.body.scope || 'state',
       actionHistory: [
         buildHistoryEntry('created', req.admin, 'News article created', {
           title: req.body.title,
           category: req.body.category,
-          location: req.body.location || null
+          location: req.body.location || null,
+          scope: req.body.scope || 'state'
         })
       ],
       publishedAt: new Date() // Explicitly set the timestamp

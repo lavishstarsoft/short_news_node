@@ -62,6 +62,23 @@ const adminSchema = new mongoose.Schema({
   assignedLocations: [{
     type: String
   }],
+  assignedState: {
+    type: String,
+    default: null
+  },
+  assignedStates: [{
+    type: String
+  }],
+  assignedDistricts: [{
+    type: String
+  }],
+  assignedConstituencies: [{
+    type: String
+  }],
+  allowedScopes: [{
+    type: String,
+    enum: ['district', 'state', 'national', 'international']
+  }],
   mobileNumber: {
     type: String,
     default: null
@@ -84,9 +101,21 @@ const adminSchema = new mongoose.Schema({
     requiresSourceLink: { type: Boolean, default: false },
     approvalScope: { 
       type: String, 
-      enum: ['all', 'locations'],
+      enum: ['all', 'locations', 'geography', 'reporters'],
       default: 'all'
     },
+    managedStates: [{
+      type: String
+    }],
+    managedDistricts: [{
+      type: String
+    }],
+    managedConstituencies: [{
+      type: String
+    }],
+    managedReporterIds: [{
+      type: String
+    }],
     managedLocations: [{
       type: String
     }],

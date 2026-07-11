@@ -25,6 +25,13 @@ const {
   NEWS_CONTENT_MAX,
 } = require('../constants/newsLimits');
 const { getDisplayConfigForCode, refreshCache: refreshLanguageCache } = require('../services/languageRegistry');
+const {
+  applyReporterCoverageFields,
+  applySubEditorCoveragePermissions,
+  buildSubEditorAuthorFilter,
+  buildPendingNewsFilterForSubEditor,
+  getManagedReporterIds
+} = require('../utils/editorCoverageHelper');
 
 // Import the Notification model
 const Notification = require('../models/Notification');
@@ -856,25 +863,8 @@ async function renderImpersonatedNewsList(req, res) {
     res.locals.isImpersonating = true;
 
     // Calculate metrics for the sub-editor (including assigned reporters)
-    let assignedLocations = targetAdmin.assignedLocations || [];
-    if (targetAdmin.permissions && targetAdmin.permissions.managedLocations && targetAdmin.permissions.managedLocations.length > 0) {
-      assignedLocations = targetAdmin.permissions.managedLocations;
-    }
-    const assignedReporters = await Admin.find({ 
-      role: { $in: ['editor', 'reporter'] }, 
-      $or: [
-        { location: { $in: assignedLocations } },
-        { assignedLocations: { $in: assignedLocations } }
-      ]
-    }).select('_id');
-    
-    const assignedReporterIds = assignedReporters.map(r => r._id.toString());
-    const queryCond = {
-      $or: [
-        { authorId: targetEditorId },
-        { authorId: { $in: assignedReporterIds } }
-      ]
-    };
+    const authorFilter = await buildSubEditorAuthorFilter(Admin, targetAdmin);
+    const queryCond = authorFilter || { authorId: targetEditorId };
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -917,27 +907,12 @@ async function getImpersonatedNewsCount(req, res) {
       return res.status(404).json({ error: 'Editor not found' });
     }
 
-    let assignedLocations = targetAdmin.assignedLocations || [];
-    if (targetAdmin.permissions && targetAdmin.permissions.managedLocations && targetAdmin.permissions.managedLocations.length > 0) {
-      assignedLocations = targetAdmin.permissions.managedLocations;
-    }
-    const assignedReporters = await Admin.find({ 
-      role: { $in: ['editor', 'reporter'] }, 
-      $or: [
-        { location: { $in: assignedLocations } },
-        { assignedLocations: { $in: assignedLocations } }
-      ]
-    }).select('_id');
-    
-    const assignedReporterIds = assignedReporters.map(r => r._id.toString());
+    const authorFilter = await buildSubEditorAuthorFilter(Admin, targetAdmin);
     const fromDate = new Date(`${from}T00:00:00.000+05:30`);
     const toDate = new Date(`${to}T23:59:59.999+05:30`);
 
     const queryCond = {
-      $or: [
-        { authorId: targetEditorId },
-        { authorId: { $in: assignedReporterIds } }
-      ],
+      ...(authorFilter || { authorId: targetEditorId }),
       publishedAt: {
         $gte: fromDate,
         $lte: toDate
@@ -979,27 +954,12 @@ async function getMultiEditorReportData(req, res) {
       const targetAdmin = await Admin.findById(adminId).lean();
       if (!targetAdmin) continue;
 
-      let assignedLocations = targetAdmin.assignedLocations || [];
-      if (targetAdmin.permissions && targetAdmin.permissions.managedLocations && targetAdmin.permissions.managedLocations.length > 0) {
-        assignedLocations = targetAdmin.permissions.managedLocations;
-      }
-      const assignedReporters = await Admin.find({ 
-        role: { $in: ['editor', 'reporter'] }, 
-        $or: [
-          { location: { $in: assignedLocations } },
-          { assignedLocations: { $in: assignedLocations } }
-        ]
-      }).select('_id');
-      
-      const assignedReporterIds = assignedReporters.map(r => r._id.toString());
+      const authorFilter = await buildSubEditorAuthorFilter(Admin, targetAdmin);
       const fromDate = new Date(`${from}T00:00:00.000+05:30`);
       const toDate = new Date(`${to}T23:59:59.999+05:30`);
 
       const queryCond = {
-        $or: [
-          { authorId: adminId },
-          { authorId: { $in: assignedReporterIds } }
-        ],
+        ...(authorFilter || { authorId: adminId }),
         publishedAt: {
           $gte: fromDate,
           $lte: toDate
@@ -1745,7 +1705,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, assignedLocations, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canSendNotifications, sidebar, approvalScope, managedLocations } = req.body;
+    const { name, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canSendNotifications, sidebar, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -1756,10 +1716,14 @@ async function updateEditor(req, res) {
     if (name !== undefined) editor.name = name || null;
     if (displayRole !== undefined) editor.displayRole = displayRole || 'Reporter';
     if (location !== undefined) editor.location = location || null;
-    if (assignedLocations !== undefined) {
-      editor.assignedLocations = Array.isArray(assignedLocations) ? assignedLocations : (assignedLocations ? [assignedLocations] : []);
-    }
+    applyReporterCoverageFields(editor, {
+      assignedStates, assignedState, assignedDistricts, assignedConstituencies,
+      assignedLocations, constituency
+    });
     if (constituency !== undefined) editor.constituency = constituency || null;
+    if (allowedScopes !== undefined) {
+      editor.allowedScopes = Array.isArray(allowedScopes) ? allowedScopes : [];
+    }
     if (mobileNumber !== undefined) editor.mobileNumber = mobileNumber || null;
     if (profileImage !== undefined) editor.profileImage = profileImage || null;
     if (workingLanguage !== undefined) editor.workingLanguage = normalizeNewsLanguage(workingLanguage);
@@ -1794,13 +1758,13 @@ async function updateEditor(req, res) {
       }
     }
     
-    if (approvalScope !== undefined) {
+    if (approvalScope !== undefined || managedLocations !== undefined || managedStates !== undefined ||
+        managedDistricts !== undefined || managedConstituencies !== undefined || managedReporterIds !== undefined) {
       if (!editor.permissions) editor.permissions = {};
-      editor.permissions.approvalScope = approvalScope;
-    }
-    if (managedLocations !== undefined) {
-      if (!editor.permissions) editor.permissions = {};
-      editor.permissions.managedLocations = Array.isArray(managedLocations) ? managedLocations : (managedLocations ? [managedLocations] : []);
+      applySubEditorCoveragePermissions(editor, {
+        approvalScope, managedLocations, managedStates, managedDistricts,
+        managedConstituencies, managedReporterIds
+      });
     }
     if (req.body.canSendNotifications !== undefined) {
       if (!editor.permissions) editor.permissions = {};
@@ -2039,7 +2003,7 @@ async function registerEditor(req, res) {
       return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
 
-    const { username, email, password, name, displayRole, location, assignedLocations, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canEditNews, requiresSourceLink, canSendNotifications, approvalScope, managedLocations, sidebar } = req.body;
+    const { username, email, password, name, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canEditNews, requiresSourceLink, canSendNotifications, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds, sidebar } = req.body;
 
     // Validate required fields
     if (!username || !email || !password) {
@@ -2065,8 +2029,12 @@ async function registerEditor(req, res) {
       name: name || null,
       displayRole: displayRole || (selectedRole === 'subeditor' ? 'Sub-Editor' : 'Reporter'),
       location: location || null,
-      assignedLocations: Array.isArray(assignedLocations) ? assignedLocations : (assignedLocations ? [assignedLocations] : []),
       constituency: constituency || null,
+      assignedStates: [],
+      assignedDistricts: [],
+      assignedConstituencies: [],
+      assignedLocations: [],
+      allowedScopes: Array.isArray(allowedScopes) ? allowedScopes : (allowedScopes ? [allowedScopes] : []),
       mobileNumber: mobileNumber || null,
       workingLanguage: normalizeNewsLanguage(workingLanguage),
       permissions: {
@@ -2078,7 +2046,11 @@ async function registerEditor(req, res) {
         requiresSourceLink: requiresSourceLink === 'true' || requiresSourceLink === true,
         canSendNotifications: canSendNotifications === 'true' || canSendNotifications === true,
         approvalScope: approvalScope || 'all',
-        managedLocations: Array.isArray(managedLocations) ? managedLocations : (managedLocations ? [managedLocations] : []),
+        managedStates: [],
+        managedDistricts: [],
+        managedConstituencies: [],
+        managedReporterIds: [],
+        managedLocations: [],
         sidebar: sidebar ? {
             dashboard: sidebar.dashboard === 'true' || sidebar.dashboard === true,
             newsList: sidebar.newsList === 'true' || sidebar.newsList === true,
@@ -2096,6 +2068,15 @@ async function registerEditor(req, res) {
         } : undefined
       },
       createdBy: admin._id
+    });
+
+    applyReporterCoverageFields(newEditor, {
+      assignedStates, assignedState, assignedDistricts, assignedConstituencies,
+      assignedLocations, constituency
+    });
+    applySubEditorCoveragePermissions(newEditor, {
+      approvalScope, managedLocations, managedStates, managedDistricts,
+      managedConstituencies, managedReporterIds
     });
 
     await newEditor.save();
@@ -3317,24 +3298,11 @@ async function renderPendingNewsPage(req, res) {
       ]
     };
 
-    const query = selectedLanguage
+    let query = selectedLanguage
       ? { $and: [baseQuery, buildNewsLanguageFilter(selectedLanguage)] }
       : baseQuery;
 
-    // Apply location-based filtering for Sub-Editors
-    if (adminDoc?.role === 'subeditor' && adminDoc?.permissions?.approvalScope === 'locations') {
-      const managedLocations = adminDoc?.permissions?.managedLocations || [];
-      if (managedLocations.length > 0) {
-        if (query.$and) {
-          query.$and.push({ location: { $in: managedLocations } });
-        } else {
-          query.location = { $in: managedLocations };
-        }
-      } else {
-        // If scope is locations but none are managed, return nothing
-        query._id = null; 
-      }
-    }
+    query = await buildPendingNewsFilterForSubEditor(Admin, adminDoc, query);
 
     // Fetch pending news with only needed fields (uses compound index)
     const pendingNews = await News.find(query)

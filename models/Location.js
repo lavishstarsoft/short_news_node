@@ -9,6 +9,12 @@ const locationSchema = new mongoose.Schema({
     minlength: 2,
     maxlength: 50
   },
+  localName: { 
+    type: String, 
+    required: false,
+    trim: true,
+    maxlength: 100
+  },
   teluguName: { 
     type: String, 
     required: false,
@@ -23,6 +29,29 @@ const locationSchema = new mongoose.Schema({
     minlength: 2,
     maxlength: 10
   },
+  locationType: {
+    type: String,
+    enum: ['country', 'state', 'district', 'constituency', 'scope'],
+    default: 'state'
+  },
+  parent: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Location',
+    default: null
+  },
+  parentName: {
+    type: String,
+    default: null
+  },
+  coordinates: {
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null }
+  },
+  languages: [{
+    type: String,
+    trim: true,
+    lowercase: true
+  }],
   isActive: { 
     type: Boolean, 
     default: true 
@@ -47,9 +76,40 @@ locationSchema.pre('save', function(next) {
   next();
 });
 
-// Static method to get active locations
+locationSchema.index({ locationType: 1, isActive: 1 });
+locationSchema.index({ parent: 1 });
+locationSchema.index({ parentName: 1 });
+
+// Static method to get active locations (backward compatible)
 locationSchema.statics.getActiveLocations = function() {
   return this.find({ isActive: true }).sort({ name: 1 });
+};
+
+// Get states only
+locationSchema.statics.getActiveStates = function() {
+  return this.find({ isActive: true, locationType: 'state' }).sort({ name: 1 });
+};
+
+// Get districts for a given state
+locationSchema.statics.getDistrictsForState = function(stateName) {
+  return this.find({ isActive: true, locationType: 'district', parentName: stateName }).sort({ name: 1 });
+};
+
+// Get full hierarchy tree (states → districts → constituencies)
+locationSchema.statics.getHierarchy = async function() {
+  const states = await this.find({ isActive: true, locationType: 'state' }).sort({ name: 1 }).lean();
+  const districts = await this.find({ isActive: true, locationType: 'district' }).sort({ name: 1 }).lean();
+  const constituencies = await this.find({ isActive: true, locationType: 'constituency' }).sort({ name: 1 }).lean();
+
+  return states.map(state => ({
+    ...state,
+    districts: districts
+      .filter(d => d.parentName === state.name)
+      .map(d => ({
+        ...d,
+        constituencies: constituencies.filter(c => c.parentName === d.name)
+      }))
+  }));
 };
 
 module.exports = mongoose.model('Location', locationSchema);

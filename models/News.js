@@ -11,6 +11,11 @@ const newsSchema = new mongoose.Schema({
   sourceLink: { type: String }, // New field for source link assigned by super admin
   category: { type: String, required: true },
   location: { type: String },
+  scope: {
+    type: String,
+    enum: ['district', 'state', 'national', 'international'],
+    default: 'state'
+  },
   language: {
     type: String,
     default: 'te',
@@ -133,6 +138,7 @@ newsSchema.index({ isActive: 1, publishedAt: -1 }); // Published news (duplicate
 newsSchema.index({ language: 1, isActive: 1, publishedAt: -1 }); // Language-filtered feed
 newsSchema.index({ category: 1, isActive: 1, publishedAt: -1 }); // Category feed
 newsSchema.index({ location: 1, isActive: 1, publishedAt: -1 }); // Location feed
+newsSchema.index({ scope: 1, location: 1, language: 1, isActive: 1, publishedAt: -1 }); // Smart feed
 newsSchema.index({ authorId: 1, publishedAt: -1 }); // Reporter's own news list
 
 module.exports = mongoose.model('News', newsSchema);

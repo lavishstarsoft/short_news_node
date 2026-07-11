@@ -25,6 +25,111 @@
         .feedback-message.success { background-color: #10b981; }
         .feedback-message.error { background-color: #ef4444; }
         .cropper-view-box, .cropper-face { border-radius: 50%; }
+
+        /* ── Editor modal (add / edit) ── */
+        .editor-modal .modal-dialog {
+            max-height: calc(100vh - 3.5rem);
+            margin: 1.75rem auto;
+        }
+        .editor-modal .modal-content {
+            border: none; border-radius: 16px; overflow: hidden;
+            display: flex; flex-direction: column;
+            max-height: calc(100vh - 3.5rem);
+        }
+        .editor-modal .modal-header,
+        .editor-modal .editor-tabs {
+            flex-shrink: 0;
+        }
+        .editor-modal form {
+            display: flex; flex-direction: column;
+            flex: 1 1 auto; min-height: 0; overflow: hidden;
+        }
+        .editor-modal .editor-tab-body {
+            flex: 1 1 auto; min-height: 0;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        .editor-modal-header {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: #fff; padding: 20px 24px;
+        }
+        .editor-modal-header .modal-title { font-weight: 700; margin: 0; }
+        .editor-modal-sub { opacity: .85; font-size: 13px; margin: 4px 0 0; }
+        .editor-tabs {
+            display: flex; gap: 4px; padding: 12px 16px 0;
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+            overflow-x: auto;
+        }
+        .editor-tab-btn {
+            border: none; background: transparent; padding: 10px 16px;
+            border-radius: 10px 10px 0 0; font-weight: 600; font-size: 13px;
+            color: #64748b; white-space: nowrap; cursor: pointer; transition: .2s;
+        }
+        .editor-tab-btn.active {
+            background: #fff; color: #4f46e5;
+            box-shadow: 0 -2px 0 #4f46e5 inset;
+        }
+        .editor-tab-panel { display: none; padding: 20px 24px; }
+        .editor-tab-panel.active { display: block; }
+        .editor-help {
+            background: linear-gradient(135deg, #eef2ff, #f0f9ff);
+            border: 1px solid #c7d2fe; border-radius: 12px;
+            padding: 14px 16px; margin-bottom: 18px; font-size: 13px; color: #475569;
+        }
+        .editor-help strong { color: #3730a3; }
+        .editor-section-title {
+            font-size: 14px; font-weight: 700; color: #1e293b;
+            margin: 0 0 14px; display: flex; align-items: center; gap: 8px;
+        }
+        .editor-role-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .editor-role-card {
+            border: 2px solid #e2e8f0; border-radius: 12px; padding: 14px;
+            cursor: pointer; transition: .2s; background: #fff; text-align: left;
+        }
+        .editor-role-card.selected { border-color: #4f46e5; background: #eef2ff; }
+        .editor-role-card strong { display: block; color: #1e293b; margin-bottom: 4px; }
+        .editor-role-card small { color: #64748b; line-height: 1.4; }
+        .editor-chip-grid {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            max-height: 200px; overflow-y: auto; padding: 12px;
+            border: 1px solid #e2e8f0; border-radius: 12px; background: #fafafa;
+        }
+        .editor-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 12px; border-radius: 20px; font-size: 13px;
+            border: 1px solid #cbd5e1; background: #fff; cursor: pointer;
+            user-select: none; transition: .15s;
+        }
+        .editor-chip.selected { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+        .editor-chip input { display: none; }
+        .editor-scope-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .editor-scope-card {
+            border: 2px solid #e2e8f0; border-radius: 10px; padding: 12px;
+            cursor: pointer; text-align: center; transition: .2s;
+        }
+        .editor-scope-card.selected { border-color: #059669; background: #ecfdf5; }
+        .editor-scope-card .te { font-size: 12px; color: #64748b; }
+        .editor-perm-card {
+            border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px;
+            margin-bottom: 10px; background: #fff;
+        }
+        .editor-perm-card label { font-weight: 600; cursor: pointer; margin: 0; }
+        .editor-perm-card .hint { font-size: 12px; color: #94a3b8; margin: 4px 0 0 28px; }
+        .editor-modal-footer {
+            flex-shrink: 0;
+            padding: 16px 24px; border-top: 1px solid #e2e8f0;
+            background: #f8fafc; display: flex; justify-content: space-between; gap: 12px;
+        }
+        .editor-field { margin-bottom: 14px; }
+        .editor-field label { font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 6px; display: block; }
+        .editor-field input, .editor-field select {
+            width: 100%; border: 1px solid #cbd5e1; border-radius: 10px;
+            padding: 10px 12px; font-size: 14px;
+        }
+        .editor-field-hint { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+        .editor-profile-wrap { text-align: center; margin-bottom: 20px; }
+        @media (max-width: 768px) {
+            .editor-role-cards, .editor-scope-row { grid-template-columns: 1fr; }
+        }
     </style>
 
     </head>
@@ -54,9 +159,9 @@
                                             <h1 class="team-page-title">Team Directory</h1>
                                             <p class="team-page-subtitle">Manage reporters and sub-editors — search, filter, and track performance.</p>
                                         </div>
-                                        <a href="/register-editor" class="team-btn-primary">
-                                            <i class="fas fa-plus"></i> Add member
-                                        </a>
+                                        <button type="button" class="team-btn-primary" onclick="openAddEditorModal()">
+                                            <i class="fas fa-plus"></i> Add Member
+                                        </button>
                                     </div>
 
                                     <div class="team-stats">
@@ -183,227 +288,407 @@
                 </div>
             </div>
 
-            <!-- Edit Editor Modal -->
-            <div class="modal fade" id="editEditorModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-lg">
+            <!-- Edit Editor Modal (tabbed — easy for super admin) -->
+            <div class="modal fade editor-modal" id="editEditorModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-xl">
                     <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title"><i class="fas fa-user-edit me-2"></i>Edit Editor Details</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                aria-label="Close"></button>
+                        <div class="modal-header editor-modal-header">
+                            <div>
+                                <h5 class="modal-title"><i class="fas fa-user-edit me-2"></i>Edit Member</h5>
+                                <p class="editor-modal-sub" id="editModalSubtitle">Reporter / Sub-Editor details</p>
+                            </div>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                         </div>
-                        <div class="modal-body">
-                            <form id="editEditorForm" class="reg-layout" style="display: block; padding: 0;">
-                                <input type="hidden" id="editEditorId">
-                                
-                                <div class="col-md-12 mb-4 text-center">
+
+                        <div class="editor-tabs" id="editEditorTabs">
+                            <button type="button" class="editor-tab-btn active" data-tab="edit-tab-profile"><i class="fas fa-user me-1"></i> 1. Details</button>
+                            <button type="button" class="editor-tab-btn" data-tab="edit-tab-location"><i class="fas fa-map-marker-alt me-1"></i> 2. Location</button>
+                            <button type="button" class="editor-tab-btn" data-tab="edit-tab-display"><i class="fas fa-mobile-alt me-1"></i> 3. App Display</button>
+                            <button type="button" class="editor-tab-btn" data-tab="edit-tab-perms" id="editTabPermsBtn"><i class="fas fa-shield-alt me-1"></i> 4. Permissions</button>
+                        </div>
+
+                        <form id="editEditorForm">
+                            <input type="hidden" id="editEditorId">
+                            <input type="hidden" id="editProfileImageUrl">
+                            <select id="editAssignedLocations" multiple class="d-none"><option value=""></option></select>
+                            <select id="editAssignedStates" multiple class="d-none"></select>
+                            <select id="editAssignedDistricts" multiple class="d-none"></select>
+                            <select id="editAssignedConstituencies" multiple class="d-none"></select>
+                            <select id="editManagedStates" multiple class="d-none"></select>
+                            <select id="editManagedDistricts" multiple class="d-none"></select>
+                            <select id="editManagedConstituencies" multiple class="d-none"></select>
+                            <select id="editManagedReporterIds" multiple class="d-none"></select>
+                            <select id="editAllowedScopes" multiple class="d-none">
+                                <option value="district">district</option>
+                                <option value="state">state</option>
+                                <option value="national">national</option>
+                                <option value="international">international</option>
+                            </select>
+                            <select id="editRole" class="d-none">
+                                <option value="editor">editor</option>
+                                <option value="subeditor">subeditor</option>
+                            </select>
+
+                            <div class="editor-tab-body">
+                            <!-- Tab 1: Profile -->
+                            <div class="editor-tab-panel active" id="edit-tab-profile">
+                                <div class="editor-profile-wrap">
                                     <div class="position-relative d-inline-block">
-                                        <img id="editProfilePreview" src="" class="rounded-circle img-thumbnail shadow-sm" style="width: 100px; height: 100px; object-fit: cover; border-width: 3px; background-color: #f8fafc;">
-                                        <label for="editProfileImageUpload" class="position-absolute bottom-0 end-0 btn btn-sm btn-primary rounded-circle shadow" style="cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 2px solid white;">
-                                            <i class="fas fa-camera" style="font-size: 0.8rem;"></i>
+                                        <img id="editProfilePreview" src="" class="rounded-circle img-thumbnail shadow" style="width:96px;height:96px;object-fit:cover;background:#f1f5f9">
+                                        <label for="editProfileImageUpload" class="position-absolute bottom-0 end-0 btn btn-sm btn-light rounded-circle shadow" style="cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:2px solid #fff">
+                                            <i class="fas fa-camera" style="font-size:.75rem"></i>
                                         </label>
                                         <input type="file" id="editProfileImageUpload" class="d-none" accept="image/*">
-                                        <input type="hidden" id="editProfileImageUrl">
+                                    </div>
+                                    <div class="editor-field-hint mt-2">Click the camera icon to change photo</div>
+                                </div>
+
+                                <p class="editor-section-title"><i class="fas fa-id-badge text-primary"></i> What type of member?</p>
+                                <div class="editor-role-cards" id="editRoleCards">
+                                    <div class="editor-role-card selected" data-role="editor">
+                                        <strong><i class="fas fa-pen-nib me-1"></i> Reporter</strong>
+                                        <small>Writes and submits news. Requires admin approval.</small>
+                                    </div>
+                                    <div class="editor-role-card" data-role="subeditor">
+                                        <strong><i class="fas fa-user-check me-1"></i> Sub-Editor</strong>
+                                        <small>Can approve/reject news. Has dashboard access.</small>
                                     </div>
                                 </div>
 
-                                <section class="reg-form-section" style="margin-bottom: 20px;">
-                                    <div class="reg-section-head" style="margin-bottom: 15px;">
-                                        <span class="reg-section-icon reg-section-icon--account"><i class="fas fa-user-edit"></i></span>
-                                        <div>
-                                            <h2 class="reg-section-title">Basic Details</h2>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="editor-field">
+                                            <label for="editName">Full Name</label>
+                                            <input type="text" id="editName" placeholder="e.g. Ravi Kumar">
                                         </div>
                                     </div>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="editName">Full Name</label>
-                                                <input type="text" id="editName" placeholder="e.g. John Doe">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="editRole">Role</label>
-                                                <select id="editRole">
-                                                    <option value="editor">Reporter</option>
-                                                    <option value="subeditor">Sub-Editor</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="editDisplayRole">Display Role</label>
-                                                <input type="text" id="editDisplayRole" placeholder="e.g. Senior Reporter">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="editAssignedLocations">Location</label>
-                                                <select id="editAssignedLocations" multiple size="4">
-                                                    <option value="" disabled>Select Locations (hold Cmd/Ctrl)</option>
-                                                    <% locations.forEach(function(loc) { %>
-                                                        <option value="<%= loc.name %>"><%= loc.name %></option>
-                                                    <% }); %>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="editWorkingLanguage">News Language</label>
-                                                <select id="editWorkingLanguage">
-                                                    <%- include('partials/language-select-options', { selectedValue: 'te' }) %>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="editConstituency">Constituency</label>
-                                                <input type="text" id="editConstituency">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="editMobile">Mobile Number</label>
-                                                <input type="text" id="editMobile">
-                                            </div>
+                                    <div class="col-md-6">
+                                        <div class="editor-field">
+                                            <label for="editDisplayRole">Display Role (shown in app)</label>
+                                            <input type="text" id="editDisplayRole" placeholder="e.g. Senior Reporter">
+                                            <div class="editor-field-hint">This title appears next to their articles</div>
                                         </div>
                                     </div>
-                                </section>
+                                    <div class="col-md-6">
+                                        <div class="editor-field">
+                                            <label for="editMobile">Mobile Number</label>
+                                            <input type="text" id="editMobile" placeholder="+91 98765 43210">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                                <section class="reg-form-section" style="margin-bottom: 20px;">
-                                    <div class="reg-section-head" style="margin-bottom: 15px;">
-                                        <span class="reg-section-icon reg-section-icon--role"><i class="fas fa-mobile-alt"></i></span>
-                                        <div>
-                                            <h2 class="reg-section-title">App Display Settings</h2>
-                                            <p class="reg-section-desc">What shows up on the mobile app</p>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex flex-wrap gap-4 mt-2">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="editShowProfileImage" checked>
-                                            <label class="form-check-label" for="editShowProfileImage">Show Profile Image</label>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="editShowName" checked>
-                                            <label class="form-check-label" for="editShowName">Show Name</label>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="editShowConstituency" checked>
-                                            <label class="form-check-label" for="editShowConstituency">Show Constituency</label>
-                                        </div>
-                                    </div>
-                                </section>
+                            <!-- Tab 2: Location -->
+                            <div class="editor-tab-panel" id="edit-tab-location">
+                                <div class="editor-help">
+                                    <strong>Reporter coverage — which regions can they work in?</strong><br>
+                                    ① Select one or more <strong>States</strong> → ② Select <strong>Districts</strong> → ③ Optionally select <strong>Constituencies</strong> → ④ Set <strong>Allowed Scopes</strong>.
+                                </div>
 
-                                <section class="reg-form-section" id="adminSettingsSection" style="display:none; margin-bottom: 20px;">
-                                    <div class="reg-section-head" style="margin-bottom: 15px;">
-                                        <span class="reg-section-icon reg-section-icon--account"><i class="fas fa-shield-alt"></i></span>
-                                        <div>
-                                            <h2 class="reg-section-title">Admin Dashboard Settings</h2>
-                                            <p class="reg-section-desc">Dashboard access and permissions</p>
+                                <div class="editor-field">
+                                    <label>States (multiple)</label>
+                                    <div class="editor-chip-grid" id="editStateChips">
+                                        <span class="text-muted small">Loading states...</span>
+                                    </div>
+                                </div>
+
+                                <div class="editor-field">
+                                    <label>Districts (multiple)</label>
+                                    <div class="editor-chip-grid" id="editDistrictChips">
+                                        <span class="text-muted small">Select at least one state...</span>
+                                    </div>
+                                </div>
+
+                                <div class="editor-field">
+                                    <label>Constituencies (multiple, optional)</label>
+                                    <div class="editor-chip-grid" id="editConstituencyChips">
+                                        <span class="text-muted small">Select districts to see constituencies...</span>
+                                    </div>
+                                </div>
+
+                                <div class="editor-field">
+                                    <label>Allowed Scopes — which news levels can they post?</label>
+                                    <div class="editor-scope-row" id="editScopeCards">
+                                        <div class="editor-scope-card" data-scope="district"><strong>Local</strong><div class="te">District</div></div>
+                                        <div class="editor-scope-card" data-scope="state"><strong>State</strong><div class="te">State-wide</div></div>
+                                        <div class="editor-scope-card" data-scope="national"><strong>National</strong><div class="te">National</div></div>
+                                        <div class="editor-scope-card" data-scope="international"><strong>International</strong><div class="te">International</div></div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="editor-field">
+                                            <label for="editConstituency">Primary Constituency (shown in app)</label>
+                                            <input type="text" id="editConstituency" placeholder="e.g. Malakpet">
+                                            <div class="editor-field-hint">Pick from selected constituencies or type manually</div>
                                         </div>
                                     </div>
-                                    
-                                    <div id="editCanViewReporterDetailsWrapper" style="display: none; margin-bottom: 15px;">
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
-                                            <input type="checkbox" id="editCanViewReporterDetails" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="editCanViewReporterDetails" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can view reporter details</label>
+                                    <div class="col-md-6">
+                                        <div class="editor-field">
+                                            <label for="editWorkingLanguage">News Language</label>
+                                            <select id="editWorkingLanguage">
+                                                <%- include('partials/language-select-options', { selectedValue: 'te' }) %>
+                                            </select>
                                         </div>
                                     </div>
-                                    <div id="editCanAccessAdminDashboardWrapper" style="display: none; margin-bottom: 15px;">
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
-                                            <input type="checkbox" id="editCanAccessAdminDashboard" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="editCanAccessAdminDashboard" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can access admin dashboard (Sub-editors)</label>
+                                </div>
+                            </div>
+
+                            <!-- Tab 3: App Display -->
+                            <div class="editor-tab-panel" id="edit-tab-display">
+                                <div class="editor-help">Choose what member info to show next to their articles in the mobile app.</div>
+                                <div class="editor-perm-card">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="editShowProfileImage" checked>
+                                        <label class="form-check-label" for="editShowProfileImage"><strong>Show Profile Photo</strong></label>
+                                    </div>
+                                </div>
+                                <div class="editor-perm-card">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="editShowName" checked>
+                                        <label class="form-check-label" for="editShowName"><strong>Show Name</strong></label>
+                                    </div>
+                                </div>
+                                <div class="editor-perm-card">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="editShowConstituency" checked>
+                                        <label class="form-check-label" for="editShowConstituency"><strong>Show Constituency</strong></label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tab 4: Permissions (sub-editor) -->
+                            <div class="editor-tab-panel" id="edit-tab-perms">
+                                <section id="adminSettingsSection">
+                                    <div class="editor-help">Sub-Editor only — select dashboard permissions below.</div>
+
+                                    <div id="editCanAccessAdminDashboardWrapper" style="display:none">
+                                        <div class="editor-perm-card">
+                                            <input type="checkbox" id="editCanAccessAdminDashboard" class="form-check-input me-2">
+                                            <label for="editCanAccessAdminDashboard">Admin Dashboard login access</label>
+                                            <div class="hint">This sub-editor can log in to the dashboard</div>
                                         </div>
                                     </div>
-                                    <div id="editCanApproveNewsWrapper" style="display: none; margin-bottom: 15px;">
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <input type="checkbox" id="editCanApproveNews" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="editCanApproveNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can approve/reject news</label>
+                                    <div id="editCanViewReporterDetailsWrapper" style="display:none">
+                                        <div class="editor-perm-card">
+                                            <input type="checkbox" id="editCanViewReporterDetails" class="form-check-input me-2">
+                                            <label for="editCanViewReporterDetails">Can view reporter details</label>
+                                            <div class="hint">Email, phone, constituency visible</div>
                                         </div>
                                     </div>
-                                    <div id="editCanViewAllNewsWrapper" style="display: none; margin-bottom: 15px;">
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <input type="checkbox" id="editCanViewAllNews" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="editCanViewAllNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">View all articles (If off, sees only assigned reporters)</label>
+                                    <div id="editCanApproveNewsWrapper" style="display:none">
+                                        <div class="editor-perm-card">
+                                            <input type="checkbox" id="editCanApproveNews" class="form-check-input me-2">
+                                            <label for="editCanApproveNews">Can approve/reject news</label>
                                         </div>
                                     </div>
-                                    
-                                    <div id="editManagedLocationsWrapper" style="display: none; margin-top: 15px; margin-bottom: 15px; margin-left: 30px; padding-left: 15px; border-left: 2px solid #e2e8f0;">
-                                        <div class="reg-field" style="margin-bottom: 10px;">
-                                            <label style="font-size: 0.9rem;">Whose news can they approve?</label>
-                                            <select id="editApprovalScope" style="font-size: 0.9rem; padding: 6px 12px; height: auto;">
+                                    <div id="editCanViewAllNewsWrapper" style="display:none">
+                                        <div class="editor-perm-card">
+                                            <input type="checkbox" id="editCanViewAllNews" class="form-check-input me-2">
+                                            <label for="editCanViewAllNews">Can view all articles</label>
+                                            <div class="hint">If off, only sees assigned reporters' news</div>
+                                        </div>
+                                    </div>
+
+                                    <div id="editManagedLocationsWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #e2e8f0">
+                                        <div class="editor-field">
+                                            <label for="editApprovalScope">Who can this sub-editor manage / approve?</label>
+                                            <select id="editApprovalScope">
                                                 <option value="all">All Reporters</option>
-                                                <option value="locations">Reporters in Specific Locations</option>
+                                                <option value="geography">By Geography (States / Districts / Constituencies)</option>
+                                                <option value="reporters">Specific Reporters (pick by name)</option>
                                             </select>
                                         </div>
-                                        <div class="reg-field" id="editManagedLocationsSelectWrapper" style="display: none;">
-                                            <label style="font-size: 0.9rem;">Select Parent Locations</label>
-                                            <% if (typeof locations !== 'undefined' && locations.length) { %>
-                                            <select id="editManagedLocations" multiple size="4" style="font-size: 0.9rem;">
-                                                <% locations.forEach(function(loc) { %>
-                                                <option value="<%= loc.name %>"><%= loc.name %></option>
-                                                <% }); %>
-                                            </select>
-                                            <div class="reg-field-hint">Hold Cmd/Ctrl to select multiple locations.</div>
-                                            <% } else { %>
-                                            <div class="alert alert-warning" style="font-size: 0.85rem; padding: 8px;">No locations found.</div>
-                                            <% } %>
+
+                                        <div id="editManagedGeographyWrapper" style="display:none">
+                                            <div class="editor-field">
+                                                <label>Managed States</label>
+                                                <div class="editor-chip-grid" id="editManagedStateChips"><span class="text-muted small">Loading...</span></div>
+                                            </div>
+                                            <div class="editor-field">
+                                                <label>Managed Districts</label>
+                                                <div class="editor-chip-grid" id="editManagedDistrictChips"><span class="text-muted small">Select states first...</span></div>
+                                            </div>
+                                            <div class="editor-field">
+                                                <label>Managed Constituencies</label>
+                                                <div class="editor-chip-grid" id="editManagedConstituencyChips"><span class="text-muted small">Select districts first...</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div id="editManagedReportersWrapper" style="display:none">
+                                            <div class="editor-field">
+                                                <label for="editReporterSearch">Search Reporters</label>
+                                                <input type="text" id="editReporterSearch" placeholder="Search by name, district..." class="form-control">
+                                            </div>
+                                            <div class="editor-reporter-list" id="editManagedReporterList" style="max-height:220px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:10px;background:#fafafa"></div>
                                         </div>
                                     </div>
 
-                                    <div id="editSubEditorPermissionsWrapper" style="display: none; margin-bottom: 15px;">
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
-                                            <input type="checkbox" id="editCanSendNotifications" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="editCanSendNotifications" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can send notifications</label>
+                                    <div id="editSubEditorPermissionsWrapper" style="display:none">
+                                        <div class="editor-perm-card">
+                                            <input type="checkbox" id="editCanSendNotifications" class="form-check-input me-2">
+                                            <label for="editCanSendNotifications">Can send push notifications</label>
                                         </div>
-                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -5px; margin-bottom: 15px;">Allows this sub-editor to send push notifications for news articles.</div>
-                                        
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
-                                            <input type="checkbox" id="editCanEditNews" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="editCanEditNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can edit any news</label>
+                                        <div class="editor-perm-card">
+                                            <input type="checkbox" id="editCanEditNews" class="form-check-input me-2">
+                                            <label for="editCanEditNews">Can edit any news article</label>
                                         </div>
-                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -5px; margin-bottom: 15px;">Allows this sub-editor to edit active, inactive, and rejected news (like super admin).</div>
-
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
-                                            <input type="checkbox" id="editRequiresSourceLink" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="editRequiresSourceLink" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Must provide source link for news</label>
+                                        <div class="editor-perm-card">
+                                            <input type="checkbox" id="editRequiresSourceLink" class="form-check-input me-2">
+                                            <label for="editRequiresSourceLink">Source link required</label>
                                         </div>
-                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -5px;">Requires this sub-editor to provide a source link when adding news.</div>
                                     </div>
 
-                                    <div id="editSidebarAccessWrapper" style="display: none; margin-top: 25px;">
-                                        <h5 style="margin-bottom: 15px; font-size: 1rem; border-bottom: 1px solid #eaeaea; padding-bottom: 5px;">Sidebar Menu Access</h5>
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div id="editSidebarAccessWrapper" style="display:none;margin-top:16px">
+                                        <p class="editor-section-title"><i class="fas fa-bars"></i> Sidebar Menu Access</p>
+                                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                                             <% const sidebarMenus = [
-                                                { id: 'dashboard', label: 'Dashboard' },
-                                                { id: 'newsList', label: 'News List' },
-                                                { id: 'addNews', label: 'Add News' },
-                                                { id: 'pendingNews', label: 'Pending News' },
-                                                { id: 'rejectedNews', label: 'Rejected News' },
-                                                { id: 'plagiarismReport', label: 'Plagiarism Report' },
-                                                { id: 'viralVideos', label: 'Viral Videos' },
-                                                { id: 'polls', label: 'Polls' },
-                                                { id: 'longVideos', label: 'Long Videos' },
-                                                { id: 'categories', label: 'Categories' },
-                                                { id: 'programCategories', label: 'Program Categories' },
-                                                { id: 'locations', label: 'Locations' },
+                                                { id: 'dashboard', label: 'Dashboard' }, { id: 'newsList', label: 'News List' },
+                                                { id: 'addNews', label: 'Add News' }, { id: 'pendingNews', label: 'Pending News' },
+                                                { id: 'rejectedNews', label: 'Rejected News' }, { id: 'plagiarismReport', label: 'Plagiarism' },
+                                                { id: 'viralVideos', label: 'Viral Videos' }, { id: 'polls', label: 'Polls' },
+                                                { id: 'longVideos', label: 'Long Videos' }, { id: 'categories', label: 'Categories' },
+                                                { id: 'programCategories', label: 'Program Categories' }, { id: 'locations', label: 'Locations' },
                                                 { id: 'reports', label: 'Reports' }
                                             ]; %>
                                             <% sidebarMenus.forEach(menu => { %>
-                                                <div class="reg-field" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
-                                                    <input type="checkbox" id="editSidebar_<%= menu.id %>" class="sidebar-menu-cb" data-menu="<%= menu.id %>" checked style="width: auto; height: 16px; cursor: pointer;">
-                                                    <label for="editSidebar_<%= menu.id %>" style="margin-bottom: 0; font-weight: normal; cursor: pointer;"><%= menu.label %></label>
-                                                </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" id="editSidebar_<%= menu.id %>" class="form-check-input sidebar-menu-cb" data-menu="<%= menu.id %>" checked>
+                                                <label for="editSidebar_<%= menu.id %>" class="form-check-label"><%= menu.label %></label>
+                                            </div>
                                             <% }) %>
                                         </div>
                                     </div>
                                 </section>
+                            </div>
 
-                                <div class="d-grid mt-4">
-                                    <button type="submit" class="reg-btn reg-btn--primary">Save Changes</button>
-                                </div>
-                            </form>
+                            </div><!-- /.editor-tab-body -->
+
+                            <div class="editor-modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary px-4"><i class="fas fa-save me-1"></i> Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Editor Modal -->
+            <div class="modal fade editor-modal" id="addEditorModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header editor-modal-header" style="background:linear-gradient(135deg,#059669,#047857)">
+                            <div>
+                                <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i>Add New Member</h5>
+                                <p class="editor-modal-sub">Create a Reporter or Sub-Editor account</p>
+                            </div>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                         </div>
+
+                        <div class="editor-tabs" id="addEditorTabs">
+                            <button type="button" class="editor-tab-btn active" data-tab="add-tab-account"><i class="fas fa-key me-1"></i> 1. Login</button>
+                            <button type="button" class="editor-tab-btn" data-tab="add-tab-profile"><i class="fas fa-user me-1"></i> 2. Details</button>
+                            <button type="button" class="editor-tab-btn" data-tab="add-tab-location"><i class="fas fa-map-marker-alt me-1"></i> 3. Location</button>
+                            <button type="button" class="editor-tab-btn" data-tab="add-tab-perms" id="addTabPermsBtn"><i class="fas fa-shield-alt me-1"></i> 4. Permissions</button>
+                        </div>
+
+                        <form id="addEditorForm">
+                            <select id="addRole" class="d-none"><option value="editor">editor</option><option value="subeditor">subeditor</option></select>
+                            <select id="addAssignedStates" multiple class="d-none"></select>
+                            <select id="addAssignedDistricts" multiple class="d-none"></select>
+                            <select id="addAssignedConstituencies" multiple class="d-none"></select>
+                            <select id="addManagedStates" multiple class="d-none"></select>
+                            <select id="addManagedDistricts" multiple class="d-none"></select>
+                            <select id="addManagedConstituencies" multiple class="d-none"></select>
+                            <select id="addManagedReporterIds" multiple class="d-none"></select>
+                            <select id="addAllowedScopes" multiple class="d-none">
+                                <option value="district">district</option><option value="state">state</option>
+                                <option value="national">national</option><option value="international">international</option>
+                            </select>
+
+                            <div class="editor-tab-body">
+                            <div class="editor-tab-panel active" id="add-tab-account">
+                                <div class="editor-help"><strong>Login details</strong> — username, email, and password are required.</div>
+                                <div class="row">
+                                    <div class="col-md-6"><div class="editor-field"><label for="addUsername">Username *</label><input type="text" id="addUsername" required placeholder="ravi_reporter"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addEmail">Email *</label><input type="email" id="addEmail" required placeholder="name@news.com"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addPassword">Password *</label><input type="password" id="addPassword" required minlength="6" placeholder="Minimum 6 characters"></div></div>
+                                </div>
+                            </div>
+
+                            <div class="editor-tab-panel" id="add-tab-profile">
+                                <p class="editor-section-title">What type of member?</p>
+                                <div class="editor-role-cards" id="addRoleCards">
+                                    <div class="editor-role-card selected" data-role="editor">
+                                        <strong><i class="fas fa-pen-nib me-1"></i> Reporter</strong>
+                                        <small>Submits news articles</small>
+                                    </div>
+                                    <div class="editor-role-card" data-role="subeditor">
+                                        <strong><i class="fas fa-user-check me-1"></i> Sub-Editor</strong>
+                                        <small>Approve/reject + dashboard</small>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6"><div class="editor-field"><label for="addName">Full Name</label><input type="text" id="addName" placeholder="Display name"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addDisplayRole">Display Role</label><input type="text" id="addDisplayRole" placeholder="Senior Reporter"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addMobile">Mobile</label><input type="text" id="addMobile" placeholder="+91..."></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addWorkingLanguage">News Language *</label>
+                                        <select id="addWorkingLanguage" required><%- include('partials/language-select-options', { selectedValue: 'te' }) %></select>
+                                    </div></div>
+                                </div>
+                            </div>
+
+                            <div class="editor-tab-panel" id="add-tab-location">
+                                <div class="editor-help">Select States → Districts → Constituencies (optional) → Allowed Scopes.</div>
+                                <div class="editor-field"><label>States (multiple)</label><div class="editor-chip-grid" id="addStateChips"><span class="text-muted small">Loading...</span></div></div>
+                                <div class="editor-field"><label>Districts (multiple)</label><div class="editor-chip-grid" id="addDistrictChips"><span class="text-muted small">Select states first...</span></div></div>
+                                <div class="editor-field"><label>Constituencies (optional)</label><div class="editor-chip-grid" id="addConstituencyChips"><span class="text-muted small">Select districts first...</span></div></div>
+                                <div class="editor-field"><label>Allowed Scopes</label>
+                                    <div class="editor-scope-row" id="addScopeCards">
+                                        <div class="editor-scope-card" data-scope="district"><strong>Local</strong><div class="te">District</div></div>
+                                        <div class="editor-scope-card" data-scope="state"><strong>State</strong><div class="te">State-wide</div></div>
+                                        <div class="editor-scope-card" data-scope="national"><strong>National</strong><div class="te">National</div></div>
+                                        <div class="editor-scope-card" data-scope="international"><strong>International</strong><div class="te">International</div></div>
+                                    </div>
+                                </div>
+                                <div class="editor-field"><label for="addConstituency">Primary Constituency</label><input type="text" id="addConstituency" placeholder="e.g. Malakpet"></div>
+                            </div>
+
+                            <div class="editor-tab-panel" id="add-tab-perms">
+                                <div class="editor-help">Sub-Editor permissions — not needed for Reporters.</div>
+                                <div id="addSubEditorPerms" style="display:none">
+                                    <div class="editor-perm-card"><input type="checkbox" id="addCanAccessAdminDashboard" class="form-check-input me-2"><label for="addCanAccessAdminDashboard">Dashboard access</label></div>
+                                    <div class="editor-perm-card"><input type="checkbox" id="addCanApproveNews" class="form-check-input me-2"><label for="addCanApproveNews">Approve/Reject news</label></div>
+                                    <div class="editor-perm-card"><input type="checkbox" id="addCanViewAllNews" class="form-check-input me-2"><label for="addCanViewAllNews">View all articles</label></div>
+                                    <div class="editor-field" id="addApprovalScopeWrapper" style="display:none">
+                                        <label for="addApprovalScope">Who can they manage?</label>
+                                        <select id="addApprovalScope" class="form-select">
+                                            <option value="all">All Reporters</option>
+                                            <option value="geography">By Geography</option>
+                                            <option value="reporters">Specific Reporters</option>
+                                        </select>
+                                    </div>
+                                    <div id="addManagedGeographyWrapper" style="display:none">
+                                        <div class="editor-field"><label>Managed States</label><div class="editor-chip-grid" id="addManagedStateChips"></div></div>
+                                        <div class="editor-field"><label>Managed Districts</label><div class="editor-chip-grid" id="addManagedDistrictChips"></div></div>
+                                        <div class="editor-field"><label>Managed Constituencies</label><div class="editor-chip-grid" id="addManagedConstituencyChips"></div></div>
+                                    </div>
+                                    <div id="addManagedReportersWrapper" style="display:none">
+                                        <div class="editor-field"><input type="text" id="addReporterSearch" placeholder="Search reporters..." class="form-control"></div>
+                                        <div id="addManagedReporterList" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:10px"></div>
+                                    </div>
+                                </div>
+                                <div id="addReporterNote" class="editor-help">Reporter role selected — no permissions needed. Click Save to finish.</div>
+                            </div>
+
+                            </div><!-- /.editor-tab-body -->
+
+                            <div class="editor-modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-success px-4"><i class="fas fa-user-plus me-1"></i> Add Member</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -457,6 +742,15 @@
                             }
                         }
                         initStaffFilters();
+                        populateLegacyLocationOptions();
+                        initEditorTabButtons('editEditorTabs');
+                        initEditorTabButtons('addEditorTabs');
+                        initRoleCards('editRoleCards', 'editRole', applyEditSubEditorVisibility);
+                        initRoleCards('addRoleCards', 'addRole', applyAddSubEditorVisibility);
+                        initScopeCards('editScopeCards', 'editAllowedScopes');
+                        initScopeCards('addScopeCards', 'addAllowedScopes');
+                        initApprovalScopeHandlers('edit');
+                        initApprovalScopeHandlers('add');
                     });
 
                     function initStaffFilters() {
@@ -516,8 +810,414 @@
                         );
                     }
 
+                    // ── Editor modal helpers (tabs, chips, scopes) ──
+                    let _editorHierarchy = null;
+
+                    function switchEditorTab(tabsRootId, panelId) {
+                        const root = document.getElementById(tabsRootId);
+                        if (!root) return;
+                        root.querySelectorAll('.editor-tab-btn').forEach(btn => {
+                            btn.classList.toggle('active', btn.dataset.tab === panelId);
+                        });
+                        const modalContent = root.closest('.modal-content');
+                        if (modalContent) {
+                            modalContent.querySelectorAll('.editor-tab-panel').forEach(p => {
+                                p.classList.toggle('active', p.id === panelId);
+                            });
+                            const tabBody = modalContent.querySelector('.editor-tab-body');
+                            if (tabBody) tabBody.scrollTop = 0;
+                        }
+                    }
+
+                    function initEditorTabButtons(tabsRootId) {
+                        const root = document.getElementById(tabsRootId);
+                        if (!root || root.dataset.bound) return;
+                        root.dataset.bound = '1';
+                        root.querySelectorAll('.editor-tab-btn').forEach(btn => {
+                            btn.addEventListener('click', () => switchEditorTab(tabsRootId, btn.dataset.tab));
+                        });
+                    }
+
+                    function initRoleCards(cardsId, hiddenSelectId, onChange) {
+                        const cards = document.getElementById(cardsId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!cards || !sel || cards.dataset.bound) return;
+                        cards.dataset.bound = '1';
+                        cards.querySelectorAll('.editor-role-card').forEach(card => {
+                            card.addEventListener('click', () => {
+                                cards.querySelectorAll('.editor-role-card').forEach(c => c.classList.remove('selected'));
+                                card.classList.add('selected');
+                                sel.value = card.dataset.role;
+                                sel.dispatchEvent(new Event('change'));
+                                if (onChange) onChange(sel.value);
+                            });
+                        });
+                    }
+
+                    function setRoleCards(cardsId, role) {
+                        const cards = document.getElementById(cardsId);
+                        if (!cards) return;
+                        cards.querySelectorAll('.editor-role-card').forEach(c => {
+                            c.classList.toggle('selected', c.dataset.role === role);
+                        });
+                    }
+
+                    function initScopeCards(cardsId, hiddenSelectId) {
+                        const row = document.getElementById(cardsId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!row || !sel || row.dataset.bound) return;
+                        row.dataset.bound = '1';
+                        row.querySelectorAll('.editor-scope-card').forEach(card => {
+                            card.addEventListener('click', () => {
+                                card.classList.toggle('selected');
+                                const scope = card.dataset.scope;
+                                const opt = Array.from(sel.options).find(o => o.value === scope);
+                                if (opt) opt.selected = card.classList.contains('selected');
+                            });
+                        });
+                    }
+
+                    function syncScopeCardsFromSelect(cardsId, hiddenSelectId) {
+                        const row = document.getElementById(cardsId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!row || !sel) return;
+                        const selected = new Set(Array.from(sel.selectedOptions).map(o => o.value));
+                        row.querySelectorAll('.editor-scope-card').forEach(card => {
+                            card.classList.toggle('selected', selected.has(card.dataset.scope));
+                        });
+                    }
+
+                    function getSelectedFromHidden(selectId) {
+                        const sel = document.getElementById(selectId);
+                        if (!sel) return [];
+                        return Array.from(sel.selectedOptions).map(o => o.value).filter(Boolean);
+                    }
+
+                    function renderChipGrid(gridId, hiddenSelectId, items, selectedNames, emptyMsg, onChange) {
+                        const grid = document.getElementById(gridId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!grid || !sel) return;
+                        const selected = new Set(selectedNames || []);
+                        sel.innerHTML = '';
+                        grid.innerHTML = '';
+                        if (!items || !items.length) {
+                            grid.innerHTML = `<span class="text-muted small">${emptyMsg}</span>`;
+                            return;
+                        }
+                        items.forEach(item => {
+                            const name = typeof item === 'string' ? item : item.name;
+                            const label = typeof item === 'string' ? item : (item.localName ? `${item.name} (${item.localName})` : item.name);
+                            const opt = document.createElement('option');
+                            opt.value = name;
+                            opt.textContent = label;
+                            opt.selected = selected.has(name);
+                            sel.appendChild(opt);
+
+                            const chip = document.createElement('label');
+                            chip.className = 'editor-chip' + (selected.has(name) ? ' selected' : '');
+                            chip.innerHTML = `<input type="checkbox" value="${name}" ${selected.has(name) ? 'checked' : ''}>${label}`;
+                            chip.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                chip.classList.toggle('selected');
+                                const cb = chip.querySelector('input');
+                                cb.checked = chip.classList.contains('selected');
+                                const o = Array.from(sel.options).find(x => x.value === name);
+                                if (o) o.selected = cb.checked;
+                                if (onChange) onChange();
+                            });
+                            grid.appendChild(chip);
+                        });
+                    }
+
+                    function getDistrictsForStates(stateNames) {
+                        if (!_editorHierarchy || !stateNames?.length) return [];
+                        const districts = [];
+                        stateNames.forEach(sn => {
+                            const st = _editorHierarchy.find(s => s.name === sn);
+                            if (st?.districts) districts.push(...st.districts);
+                        });
+                        return districts.sort((a, b) => a.name.localeCompare(b.name));
+                    }
+
+                    function getConstituenciesForDistricts(districtNames) {
+                        if (!_editorHierarchy || !districtNames?.length) return [];
+                        const list = [];
+                        _editorHierarchy.forEach(st => {
+                            (st.districts || []).forEach(d => {
+                                if (districtNames.includes(d.name) && d.constituencies?.length) {
+                                    list.push(...d.constituencies);
+                                }
+                            });
+                        });
+                        return list.sort((a, b) => a.name.localeCompare(b.name));
+                    }
+
+                    function refreshReporterLocation(prefix) {
+                        const states = getSelectedFromHidden(prefix + 'AssignedStates');
+                        const districts = getSelectedFromHidden(prefix + 'AssignedDistricts');
+                        renderChipGrid(prefix + 'StateChips', prefix + 'AssignedStates',
+                            (_editorHierarchy || []).map(s => s), states, 'No states found', () => refreshReporterLocation(prefix));
+                        renderChipGrid(prefix + 'DistrictChips', prefix + 'AssignedDistricts',
+                            getDistrictsForStates(getSelectedFromHidden(prefix + 'AssignedStates')),
+                            districts, 'Select at least one state', () => refreshReporterLocation(prefix));
+                        const validDistricts = getSelectedFromHidden(prefix + 'AssignedDistricts');
+                        renderChipGrid(prefix + 'ConstituencyChips', prefix + 'AssignedConstituencies',
+                            getConstituenciesForDistricts(validDistricts),
+                            getSelectedFromHidden(prefix + 'AssignedConstituencies'),
+                            'No constituencies for selected districts (optional)');
+                    }
+
+                    function refreshManagedGeography(prefix) {
+                        const states = getSelectedFromHidden(prefix + 'ManagedStates');
+                        renderChipGrid(prefix + 'ManagedStateChips', prefix + 'ManagedStates',
+                            (_editorHierarchy || []).map(s => s), states, 'No states', () => refreshManagedGeography(prefix));
+                        renderChipGrid(prefix + 'ManagedDistrictChips', prefix + 'ManagedDistricts',
+                            getDistrictsForStates(getSelectedFromHidden(prefix + 'ManagedStates')),
+                            getSelectedFromHidden(prefix + 'ManagedDistricts'), 'Select managed states', () => refreshManagedGeography(prefix));
+                        renderChipGrid(prefix + 'ManagedConstituencyChips', prefix + 'ManagedConstituencies',
+                            getConstituenciesForDistricts(getSelectedFromHidden(prefix + 'ManagedDistricts')),
+                            getSelectedFromHidden(prefix + 'ManagedConstituencies'), 'Select managed districts (optional)');
+                    }
+
+                    function getReporterList() {
+                        return (editors || []).filter(e => e.role === 'editor');
+                    }
+
+                    function renderReporterPicker(listId, hiddenSelectId, searchId, selectedIds) {
+                        const listEl = document.getElementById(listId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        const searchEl = searchId ? document.getElementById(searchId) : null;
+                        if (!listEl || !sel) return;
+                        const selected = new Set((selectedIds || []).map(String));
+                        const q = (searchEl?.value || '').trim().toLowerCase();
+
+                        sel.innerHTML = '';
+                        listEl.innerHTML = '';
+                        const reporters = getReporterList().filter(r => {
+                            if (!q) return true;
+                            const hay = [r.name, r.username, r.location, ...(r.assignedDistricts || []), ...(r.assignedStates || []), r.constituency].join(' ').toLowerCase();
+                            return hay.includes(q);
+                        });
+
+                        if (!reporters.length) {
+                            listEl.innerHTML = '<span class="text-muted small">No reporters found</span>';
+                            return;
+                        }
+
+                        reporters.forEach(r => {
+                            const id = r._id;
+                            const opt = document.createElement('option');
+                            opt.value = id;
+                            opt.selected = selected.has(String(id));
+                            sel.appendChild(opt);
+
+                            const districts = (r.assignedDistricts || []).slice(0, 2).join(', ') || r.location || '—';
+                            const row = document.createElement('label');
+                            row.className = 'd-flex align-items-start gap-2 mb-2';
+                            row.style.cursor = 'pointer';
+                            row.innerHTML = `<input type="checkbox" class="form-check-input mt-1" value="${id}" ${selected.has(String(id)) ? 'checked' : ''}>
+                                <span><strong>${r.name || r.username}</strong><br><small class="text-muted">${districts}</small></span>`;
+                            row.querySelector('input').addEventListener('change', (e) => {
+                                const o = Array.from(sel.options).find(x => x.value === id);
+                                if (o) o.selected = e.target.checked;
+                            });
+                            listEl.appendChild(row);
+                        });
+                    }
+
+                    function syncApprovalScopeUI(prefix) {
+                        const scopeEl = document.getElementById(prefix + 'ApprovalScope');
+                        if (!scopeEl) return;
+                        let scope = scopeEl.value;
+                        if (scope === 'locations') scope = 'geography';
+                        const geo = document.getElementById(prefix + 'ManagedGeographyWrapper');
+                        const reps = document.getElementById(prefix + 'ManagedReportersWrapper');
+                        if (geo) geo.style.display = scope === 'geography' ? 'block' : 'none';
+                        if (reps) reps.style.display = scope === 'reporters' ? 'block' : 'none';
+                        if (scope === 'geography') refreshManagedGeography(prefix);
+                        if (scope === 'reporters') renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', getSelectedFromHidden(prefix + 'ManagedReporterIds'));
+                    }
+
+                    function initApprovalScopeHandlers(prefix) {
+                        const scopeEl = document.getElementById(prefix + 'ApprovalScope');
+                        if (scopeEl && !scopeEl.dataset.bound) {
+                            scopeEl.dataset.bound = '1';
+                            scopeEl.addEventListener('change', () => syncApprovalScopeUI(prefix));
+                        }
+                        const searchEl = document.getElementById(prefix + 'ReporterSearch');
+                        if (searchEl && !searchEl.dataset.bound) {
+                            searchEl.dataset.bound = '1';
+                            searchEl.addEventListener('input', () => renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', getSelectedFromHidden(prefix + 'ManagedReporterIds')));
+                        }
+                        const approveCb = document.getElementById(prefix === 'edit' ? 'editCanApproveNews' : 'addCanApproveNews');
+                        const wrap = document.getElementById(prefix === 'edit' ? 'editManagedLocationsWrapper' : 'addApprovalScopeWrapper');
+                        if (approveCb && !approveCb.dataset.coverageBound) {
+                            approveCb.dataset.coverageBound = '1';
+                            approveCb.addEventListener('change', () => {
+                                if (prefix === 'edit') {
+                                    if (wrap) wrap.style.display = approveCb.checked ? 'block' : 'none';
+                                } else {
+                                    ['addApprovalScopeWrapper', 'addManagedGeographyWrapper', 'addManagedReportersWrapper'].forEach(id => {
+                                        const el = document.getElementById(id);
+                                        if (el) el.style.display = 'none';
+                                    });
+                                    if (approveCb.checked) {
+                                        const scopeWrap = document.getElementById('addApprovalScopeWrapper');
+                                        if (scopeWrap) scopeWrap.style.display = 'block';
+                                        syncApprovalScopeUI('add');
+                                    }
+                                }
+                            });
+                        }
+                    }
+
+                    function renderDistrictChips(gridId, hiddenSelectId, districts, selectedNames) {
+                        renderChipGrid(gridId, hiddenSelectId, districts, selectedNames, 'No districts found for this state');
+                    }
+
+                    function loadReporterCoverage(prefix, editor) {
+                        const states = editor?.assignedStates?.length ? editor.assignedStates : (editor?.assignedState ? [editor.assignedState] : []);
+                        renderChipGrid(prefix + 'StateChips', prefix + 'AssignedStates', (_editorHierarchy || []).map(s => s), states, 'No states', () => refreshReporterLocation(prefix));
+                        refreshReporterLocation(prefix);
+                        if (editor?.assignedDistricts?.length) {
+                            renderChipGrid(prefix + 'DistrictChips', prefix + 'AssignedDistricts', getDistrictsForStates(states), editor.assignedDistricts, 'Select states', () => refreshReporterLocation(prefix));
+                        }
+                        if (editor?.assignedConstituencies?.length) {
+                            renderChipGrid(prefix + 'ConstituencyChips', prefix + 'AssignedConstituencies', getConstituenciesForDistricts(editor.assignedDistricts || []), editor.assignedConstituencies, 'Optional');
+                        }
+                    }
+
+                    function loadManagedCoverage(prefix, permissions) {
+                        const perms = permissions || {};
+                        let scope = perms.approvalScope || 'all';
+                        if (scope === 'locations') scope = 'geography';
+                        const scopeEl = document.getElementById(prefix + 'ApprovalScope');
+                        if (scopeEl) scopeEl.value = scope;
+                        refreshManagedGeography(prefix);
+                        const mStates = perms.managedStates || [];
+                        const mDistricts = perms.managedDistricts || [];
+                        const mConst = perms.managedConstituencies || [];
+                        if (mStates.length) renderChipGrid(prefix + 'ManagedStateChips', prefix + 'ManagedStates', (_editorHierarchy || []).map(s => s), mStates, 'No states', () => refreshManagedGeography(prefix));
+                        if (mDistricts.length) renderChipGrid(prefix + 'ManagedDistrictChips', prefix + 'ManagedDistricts', getDistrictsForStates(mStates.length ? mStates : getSelectedFromHidden(prefix + 'ManagedStates')), mDistricts, 'Select states', () => refreshManagedGeography(prefix));
+                        if (mConst.length) renderChipGrid(prefix + 'ManagedConstituencyChips', prefix + 'ManagedConstituencies', getConstituenciesForDistricts(mDistricts), mConst, 'Optional');
+                        renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', perms.managedReporterIds || []);
+                        syncApprovalScopeUI(prefix);
+                    }
+
+                    async function loadEditorLocationHierarchy(editor) {
+                        await ensureEditorHierarchy();
+                        loadReporterCoverage('edit', editor);
+                        const scopesEl = document.getElementById('editAllowedScopes');
+                        Array.from(scopesEl.options).forEach(opt => { opt.selected = false; });
+                        if (editor?.allowedScopes?.length) {
+                            Array.from(scopesEl.options).forEach(opt => {
+                                opt.selected = editor.allowedScopes.includes(opt.value);
+                            });
+                        }
+                        syncScopeCardsFromSelect('editScopeCards', 'editAllowedScopes');
+                    }
+
+                    async function loadAddEditorLocationHierarchy() {
+                        await ensureEditorHierarchy();
+                        loadReporterCoverage('add', null);
+                        const scopesEl = document.getElementById('addAllowedScopes');
+                        Array.from(scopesEl.options).forEach(opt => { opt.selected = false; });
+                        syncScopeCardsFromSelect('addScopeCards', 'addAllowedScopes');
+                        refreshManagedGeography('add');
+                    }
+
+                    function collectCoveragePayload(prefix) {
+                        return {
+                            assignedStates: getSelectedFromHidden(prefix + 'AssignedStates'),
+                            assignedDistricts: getSelectedFromHidden(prefix + 'AssignedDistricts'),
+                            assignedConstituencies: getSelectedFromHidden(prefix + 'AssignedConstituencies'),
+                            managedStates: getSelectedFromHidden(prefix + 'ManagedStates'),
+                            managedDistricts: getSelectedFromHidden(prefix + 'ManagedDistricts'),
+                            managedConstituencies: getSelectedFromHidden(prefix + 'ManagedConstituencies'),
+                            managedReporterIds: getSelectedFromHidden(prefix + 'ManagedReporterIds')
+                        };
+                    }
+
+                    function populateLegacyLocationOptions() {
+                        const selectEl = document.getElementById('editAssignedLocations');
+                        if (!selectEl || selectEl.dataset.populated) return;
+                        selectEl.dataset.populated = '1';
+                        selectEl.innerHTML = '';
+                        <% if (typeof locations !== 'undefined' && locations.length) { %>
+                        <% locations.forEach(function(loc) { %>
+                        (function () {
+                            const opt = document.createElement('option');
+                            opt.value = <%- JSON.stringify(loc.name) %>;
+                            opt.textContent = <%- JSON.stringify(loc.name) %>;
+                            selectEl.appendChild(opt);
+                        })();
+                        <% }); %>
+                        <% } %>
+                    }
+
+                    function applyEditSubEditorVisibility(role) {
+                        const isSub = role === 'subeditor';
+                        const permsTab = document.getElementById('editTabPermsBtn');
+                        if (permsTab) permsTab.style.display = isSub ? '' : 'none';
+                        ['editCanAccessAdminDashboardWrapper', 'editCanViewReporterDetailsWrapper', 'editCanApproveNewsWrapper',
+                         'editCanViewAllNewsWrapper', 'editSubEditorPermissionsWrapper', 'editSidebarAccessWrapper'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) el.style.display = isSub ? 'block' : 'none';
+                        });
+                        const managedLocWrapper = document.getElementById('editManagedLocationsWrapper');
+                        if (managedLocWrapper) {
+                            managedLocWrapper.style.display = (isSub && document.getElementById('editCanApproveNews').checked) ? 'block' : 'none';
+                        }
+                        if (!isSub) {
+                            ['editCanAccessAdminDashboard', 'editCanViewReporterDetails', 'editCanApproveNews', 'editCanViewAllNews',
+                             'editCanSendNotifications', 'editCanEditNews', 'editRequiresSourceLink'].forEach(id => {
+                                const el = document.getElementById(id);
+                                if (el) el.checked = false;
+                            });
+                        }
+                    }
+
+                    function applyAddSubEditorVisibility(role) {
+                        const isSub = role === 'subeditor';
+                        const permsTab = document.getElementById('addTabPermsBtn');
+                        if (permsTab) permsTab.style.display = isSub ? '' : 'none';
+                        const subPerms = document.getElementById('addSubEditorPerms');
+                        const repNote = document.getElementById('addReporterNote');
+                        if (subPerms) subPerms.style.display = isSub ? 'block' : 'none';
+                        if (repNote) repNote.style.display = isSub ? 'none' : 'block';
+                        const approveWrap = document.getElementById('addApprovalScopeWrapper');
+                        if (approveWrap && isSub) {
+                            approveWrap.style.display = document.getElementById('addCanApproveNews')?.checked ? 'block' : 'none';
+                        }
+                    }
+
+                    async function ensureEditorHierarchy() {
+                        if (!_editorHierarchy) {
+                            try {
+                                const resp = await fetch('/api/public/location-hierarchy');
+                                _editorHierarchy = await resp.json();
+                            } catch (e) {
+                                console.error('Failed to load hierarchy:', e);
+                                _editorHierarchy = [];
+                            }
+                        }
+                        return _editorHierarchy;
+                    }
+
+                    function openAddEditorModal() {
+                        document.getElementById('addEditorForm').reset();
+                        document.getElementById('addRole').value = 'editor';
+                        setRoleCards('addRoleCards', 'editor');
+                        applyAddSubEditorVisibility('editor');
+                        switchEditorTab('addEditorTabs', 'add-tab-account');
+                        loadAddEditorLocationHierarchy();
+                        refreshManagedGeography('add');
+                        new bootstrap.Modal(document.getElementById('addEditorModal')).show();
+                    }
+
                     // Open Edit Modal
                     function openEditEditorModal(editorId) {
+                        populateLegacyLocationOptions();
                         const editor = editors.find(e => e._id === editorId);
                         if (!editor) {
                             showFeedback('Editor data not found', 'error');
@@ -526,25 +1226,28 @@
 
                         document.getElementById('editEditorId').value = editor._id;
                         document.getElementById('editProfileImageUrl').value = editor.profileImage || '';
-                        
-                        // Set image preview or a default avatar/initials graphic
+                        document.getElementById('editModalSubtitle').textContent = (editor.username || '') + ' — ' + (editor.email || '');
+
                         if (editor.profileImage) {
                             document.getElementById('editProfilePreview').src = editor.profileImage;
-                            document.getElementById('editProfilePreview').style.display = 'inline-block';
                         } else {
-                            // Empty string so styling like background-color shows, or could use a placeholder image
                             document.getElementById('editProfilePreview').src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2394a3b8"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
                         }
 
                         document.getElementById('editName').value = editor.name || '';
-                        document.getElementById('editRole').value = editor.role || 'editor';
+                        const role = editor.role || 'editor';
+                        document.getElementById('editRole').value = role;
+                        setRoleCards('editRoleCards', role);
+                        applyEditSubEditorVisibility(role);
+
                         document.getElementById('editDisplayRole').value = editor.displayRole || '';
-                        // Handle multiple assignedLocations selection
                         const assignedLocations = editor.assignedLocations || (editor.location ? [editor.location] : []);
                         const selectEl = document.getElementById('editAssignedLocations');
                         Array.from(selectEl.options).forEach(opt => {
                             opt.selected = assignedLocations.includes(opt.value);
                         });
+
+                        loadEditorLocationHierarchy(editor);
 
                         document.getElementById('editWorkingLanguage').value = editor.workingLanguage || 'te';
                         document.getElementById('editConstituency').value = editor.constituency || '';
@@ -563,131 +1266,52 @@
                         document.getElementById('editCanSendNotifications').checked = permissions.canSendNotifications === true;
                         document.getElementById('editCanEditNews').checked = permissions.canEditNews === true;
                         document.getElementById('editRequiresSourceLink').checked = permissions.requiresSourceLink === true;
-                        
-                        // Populate sidebar permissions
+
                         const sidebarPerms = permissions.sidebar || {};
-                        document.querySelectorAll('.sidebar-menu-cb').forEach(cb => {
+                        document.querySelectorAll('#editEditorModal .sidebar-menu-cb').forEach(cb => {
                             const menu = cb.getAttribute('data-menu');
-                            // Default to true if not explicitly false (backward compatibility)
                             cb.checked = sidebarPerms[menu] !== false;
                         });
 
-                        document.getElementById('editApprovalScope').value = permissions.approvalScope || 'all';
-                        
-                        const managedLocations = permissions.managedLocations || [];
-                        const managedSelectEl = document.getElementById('editManagedLocations');
-                        if (managedSelectEl) {
-                            Array.from(managedSelectEl.options).forEach(opt => {
-                                opt.selected = managedLocations.includes(opt.value);
-                            });
-                        }
-                        
-                        // Show/hide managed locations wrapper based on canApproveNews
+                        document.getElementById('editApprovalScope').value = (permissions.approvalScope === 'locations') ? 'geography' : (permissions.approvalScope || 'all');
+                        loadManagedCoverage('edit', permissions);
                         const managedLocWrapper = document.getElementById('editManagedLocationsWrapper');
-                        if (managedLocWrapper) {
-                            managedLocWrapper.style.display = permissions.canApproveNews === true ? 'block' : 'none';
-                        }
-                        
-                        // Show/hide location select based on approval scope
-                        const managedLocSelectWrapper = document.getElementById('editManagedLocationsSelectWrapper');
-                        if (managedLocSelectWrapper) {
-                            managedLocSelectWrapper.style.display = permissions.approvalScope === 'locations' ? 'block' : 'none';
-                        }
-                        
-                        
-                        // Show/hide the dashboard access option and reporter details view based on role
-                        if (editor.role === 'subeditor') {
-                            document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'block';
-                            document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'block';
-                            document.getElementById('editCanApproveNewsWrapper').style.display = 'block';
-                            document.getElementById('editCanViewAllNewsWrapper').style.display = 'block';
-                            document.getElementById('editSubEditorPermissionsWrapper').style.display = 'block';
-                            document.getElementById('editSidebarAccessWrapper').style.display = 'block';
-                            if (document.getElementById('editCanApproveNews').checked) {
-                                document.getElementById('editManagedLocationsWrapper').style.display = 'block';
-                            }
-                        } else {
-                            document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'none';
-                            document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'none';
-                            document.getElementById('editCanApproveNewsWrapper').style.display = 'none';
-                            document.getElementById('editCanViewAllNewsWrapper').style.display = 'none';
-                            document.getElementById('editSubEditorPermissionsWrapper').style.display = 'none';
-                            document.getElementById('editSidebarAccessWrapper').style.display = 'none';
-                            document.getElementById('editManagedLocationsWrapper').style.display = 'none';
-                        }
+                        if (managedLocWrapper) managedLocWrapper.style.display = permissions.canApproveNews === true ? 'block' : 'none';
 
-                        // Only show admin settings for subeditors/editors if accessed by superadmin
                         const currentAdminRole = '<%= admin.role %>';
-                        if (currentAdminRole === 'superadmin' || currentAdminRole === 'admin') {
-                            document.getElementById('adminSettingsSection').style.display = 'block';
-                        } else {
-                            document.getElementById('adminSettingsSection').style.display = 'none';
-                        }
+                        const adminSection = document.getElementById('adminSettingsSection');
+                        if (adminSection) adminSection.style.display = (currentAdminRole === 'superadmin' || currentAdminRole === 'admin') ? 'block' : 'none';
 
-                        const modal = new bootstrap.Modal(document.getElementById('editEditorModal'));
-                        modal.show();
+                        switchEditorTab('editEditorTabs', 'edit-tab-profile');
+                        new bootstrap.Modal(document.getElementById('editEditorModal')).show();
                     }
 
-                    // Toggle dashboard access options when role changes
-                    document.getElementById('editRole').addEventListener('change', function (e) {
-                        if (this.value === 'subeditor') {
-                            document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'block';
-                            document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'block';
-                            document.getElementById('editCanApproveNewsWrapper').style.display = 'block';
-                            document.getElementById('editCanViewAllNewsWrapper').style.display = 'block';
-                            document.getElementById('editSubEditorPermissionsWrapper').style.display = 'block';
-                            document.getElementById('editSidebarAccessWrapper').style.display = 'block';
-                            if (document.getElementById('editCanApproveNews').checked) {
-                                document.getElementById('editManagedLocationsWrapper').style.display = 'block';
-                            }
-                        } else {
-                            document.getElementById('editCanAccessAdminDashboardWrapper').style.display = 'none';
-                            document.getElementById('editCanViewReporterDetailsWrapper').style.display = 'none';
-                            document.getElementById('editCanApproveNewsWrapper').style.display = 'none';
-                            document.getElementById('editCanViewAllNewsWrapper').style.display = 'none';
-                            document.getElementById('editSubEditorPermissionsWrapper').style.display = 'none';
-                            document.getElementById('editSidebarAccessWrapper').style.display = 'none';
-                            document.getElementById('editManagedLocationsWrapper').style.display = 'none';
-                            document.getElementById('editCanAccessAdminDashboard').checked = false;
-                            document.getElementById('editCanViewReporterDetails').checked = false;
-                            document.getElementById('editCanApproveNews').checked = false;
-                            document.getElementById('editCanViewAllNews').checked = false;
-                            document.getElementById('editCanSendNotifications').checked = false;
-                            document.getElementById('editCanEditNews').checked = false;
-                            document.getElementById('editRequiresSourceLink').checked = false;
-                        }
+                    document.getElementById('editRole').addEventListener('change', function () {
+                        applyEditSubEditorVisibility(this.value);
                     });
 
-                    // Handle canApproveNews toggle
-                    document.getElementById('editCanApproveNews').addEventListener('change', function (e) {
+                    document.getElementById('editCanApproveNews').addEventListener('change', function () {
                         document.getElementById('editManagedLocationsWrapper').style.display = this.checked ? 'block' : 'none';
                     });
 
-                    // Handle approvalScope toggle
-                    document.getElementById('editApprovalScope').addEventListener('change', function (e) {
-                        document.getElementById('editManagedLocationsSelectWrapper').style.display = this.value === 'locations' ? 'block' : 'none';
-                    });
-
-                    // Handle Edit Form Submit
                     document.getElementById('editEditorForm').addEventListener('submit', function (e) {
                         e.preventDefault();
                         const id = document.getElementById('editEditorId').value;
-                        const selectEl = document.getElementById('editAssignedLocations');
-                        const assignedLocations = Array.from(selectEl.selectedOptions).map(opt => opt.value).filter(val => val !== "");
+                        const coverage = collectCoveragePayload('edit');
+                        const allowedScopes = Array.from(document.getElementById('editAllowedScopes').selectedOptions).map(o => o.value).filter(v => v);
 
                         const sidebarData = {};
-                        document.querySelectorAll('.sidebar-menu-cb').forEach(cb => {
+                        document.querySelectorAll('#editEditorModal .sidebar-menu-cb').forEach(cb => {
                             sidebarData[cb.getAttribute('data-menu')] = cb.checked;
                         });
-
-                        const managedLocSelectEl = document.getElementById('editManagedLocations');
-                        const managedLocations = managedLocSelectEl ? Array.from(managedLocSelectEl.selectedOptions).map(opt => opt.value).filter(val => val !== "") : [];
 
                         const data = {
                             name: document.getElementById('editName').value,
                             role: document.getElementById('editRole').value,
                             displayRole: document.getElementById('editDisplayRole').value,
-                            assignedLocations: assignedLocations,
+                            ...coverage,
+                            assignedState: coverage.assignedStates[0] || null,
+                            allowedScopes,
                             workingLanguage: document.getElementById('editWorkingLanguage').value,
                             constituency: document.getElementById('editConstituency').value,
                             mobileNumber: document.getElementById('editMobile').value,
@@ -705,7 +1329,6 @@
                             canEditNews: document.getElementById('editCanEditNews').checked,
                             requiresSourceLink: document.getElementById('editRequiresSourceLink').checked,
                             approvalScope: document.getElementById('editApprovalScope').value,
-                            managedLocations: managedLocations,
                             sidebar: sidebarData
                         };
 
@@ -716,15 +1339,56 @@
                         })
                             .then(res => res.json())
                             .then(result => {
-                                if (result.error) {
-                                    showFeedback(result.error, 'error');
-                                } else {
+                                if (result.error) showFeedback(result.error, 'error');
+                                else {
                                     showFeedback(result.message, 'success');
                                     bootstrap.Modal.getInstance(document.getElementById('editEditorModal')).hide();
                                     setTimeout(() => location.reload(), 1000);
                                 }
                             })
-                            .catch(err => showFeedback('Update failed', 'error'));
+                            .catch(() => showFeedback('Update failed', 'error'));
+                    });
+
+                    document.getElementById('addEditorForm').addEventListener('submit', function (e) {
+                        e.preventDefault();
+                        const coverage = collectCoveragePayload('add');
+                        const allowedScopes = Array.from(document.getElementById('addAllowedScopes').selectedOptions).map(o => o.value).filter(v => v);
+                        const approvalScopeEl = document.getElementById('addApprovalScope');
+
+                        const data = {
+                            username: document.getElementById('addUsername').value.trim(),
+                            email: document.getElementById('addEmail').value.trim(),
+                            password: document.getElementById('addPassword').value,
+                            name: document.getElementById('addName').value.trim(),
+                            role: document.getElementById('addRole').value,
+                            displayRole: document.getElementById('addDisplayRole').value.trim(),
+                            mobileNumber: document.getElementById('addMobile').value.trim(),
+                            constituency: document.getElementById('addConstituency').value.trim(),
+                            workingLanguage: document.getElementById('addWorkingLanguage').value,
+                            ...coverage,
+                            assignedState: coverage.assignedStates[0] || null,
+                            allowedScopes,
+                            canAccessAdminDashboard: document.getElementById('addCanAccessAdminDashboard').checked,
+                            canApproveNews: document.getElementById('addCanApproveNews').checked,
+                            canViewAllNews: document.getElementById('addCanViewAllNews').checked,
+                            approvalScope: approvalScopeEl ? approvalScopeEl.value : 'all'
+                        };
+
+                        fetch('/register-editor', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        })
+                            .then(res => res.json())
+                            .then(result => {
+                                if (result.error) showFeedback(result.error, 'error');
+                                else {
+                                    showFeedback(result.message || 'Editor added', 'success');
+                                    bootstrap.Modal.getInstance(document.getElementById('addEditorModal')).hide();
+                                    setTimeout(() => location.reload(), 1000);
+                                }
+                            })
+                            .catch(() => showFeedback('Registration failed', 'error'));
                     });
 
                     // Initialize Cropper Variables

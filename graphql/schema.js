@@ -64,6 +64,7 @@ const typeDefs = gql`
     thumbnail_url: String # Backward compatibility
     category: String!
     location: String
+    scope: String
     language: String
     publishedAt: String!
     published_at: String # Backward compatibility
@@ -115,10 +116,22 @@ const typeDefs = gql`
     id: ID!
     _id: ID # Backward compatibility
     name: String!
+    localName: String
     description: String
+    code: String
+    locationType: String
+    parentName: String
+    coordinates: Coordinates
+    languages: [String]
     icon: String
     newsCount: Int
     isActive: Boolean
+    districts: [Location]
+  }
+
+  type Coordinates {
+    lat: Float
+    lng: Float
   }
 
   type NewsLanguage {
@@ -204,6 +217,9 @@ const typeDefs = gql`
     # Location queries
     locations: [Location!]!
     locationById(id: ID!): Location
+    locationHierarchy: [Location!]!
+    statesOnly: [Location!]!
+    districtsForState(stateName: String!): [Location!]!
 
     # Language queries
     getActiveLanguages(forUserApp: Boolean): [NewsLanguage!]!

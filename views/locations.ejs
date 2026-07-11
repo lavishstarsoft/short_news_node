@@ -4,125 +4,188 @@
 <%- include('partials/header', { title: 'Locations' }) %>
 
     <style>
-        .location-card {
-            transition: all 0.3s ease;
-            border: none;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .location-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        .location-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: white;
-            margin: 0 auto 15px;
-            background-color: #28a745;
-        }
-
-        .location-actions {
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .location-card:hover .location-actions {
-            opacity: 1;
-        }
-
-        .stats-card {
+        /* ── Stats Cards ── */
+        .stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+        .stat-card {
+            flex: 1; min-width: 150px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
+            color: #fff; border-radius: 14px; padding: 18px 22px;
         }
+        .stat-card h2 { margin: 0; font-size: 28px; }
+        .stat-card small { opacity: .8; }
 
-        .add-location-btn {
+        /* ── Toolbar ── */
+        .toolbar {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+        }
+        .toolbar h4 { margin: 0; }
+        .toolbar .btn-group-sm .btn { border-radius: 20px; padding: 6px 16px; font-size: 13px; }
+        .filter-active { background: #667eea !important; color: #fff !important; border-color: #667eea !important; }
+
+        .add-btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 50px;
-            padding: 12px 30px;
-            color: white;
-            font-weight: 500;
-            transition: all 0.3s ease;
+            border: none; border-radius: 50px; padding: 10px 24px;
+            color: #fff; font-weight: 600; transition: .3s;
+        }
+        .add-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(102,126,234,.45); color:#fff; }
+
+        /* ── Simple help banner ── */
+        .location-help {
+            background: linear-gradient(135deg, #f5f7ff, #eef8ff);
+            border: 1px solid #dfe7ff; border-radius: 16px;
+            padding: 20px; margin-bottom: 22px;
+        }
+        .location-help h4 { color: #27366b; margin-bottom: 6px; font-weight: 700; }
+        .location-help > p { color: #65708f; margin-bottom: 18px; }
+        .help-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .help-step {
+            display: flex; align-items: center; gap: 12px; background: #fff;
+            border-radius: 12px; padding: 13px; border: 1px solid #e8ecf7;
+        }
+        .help-number {
+            width: 38px; height: 38px; border-radius: 50%; color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; flex-shrink: 0;
+        }
+        .help-step strong { display: block; color: #26304f; font-size: 14px; }
+        .help-step small { color: #7a849f; line-height: 1.35; display: block; }
+
+        .quick-actions {
+            display: grid; grid-template-columns: repeat(3, minmax(160px, 1fr));
+            gap: 10px; margin-bottom: 22px;
+        }
+        .quick-add {
+            border: 0; border-radius: 12px; color: #fff; padding: 13px 16px;
+            text-align: left; font-weight: 700; transition: .2s;
+        }
+        .quick-add:hover { transform: translateY(-2px); box-shadow: 0 5px 14px rgba(0,0,0,.15); }
+        .quick-add small { display: block; font-weight: 400; opacity: .9; margin-top: 2px; }
+        .quick-state { background: linear-gradient(135deg,#28a745,#218838); }
+        .quick-district { background: linear-gradient(135deg,#17a2b8,#117a8b); }
+        .quick-constituency { background: linear-gradient(135deg,#f0ad00,#d69000); }
+
+        /* ── Hierarchy Tree ── */
+        .tree-container { margin-top: 8px; }
+
+        /* State row */
+        .state-row {
+            background: #fff; border-radius: 12px; margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.06); overflow: hidden;
+            border-left: 5px solid #28a745;
+        }
+        .state-header {
+            display: flex; align-items: center; padding: 14px 18px; cursor: pointer;
+            user-select: none; transition: background .2s;
+        }
+        .state-header:hover { background: #f8f9fa; }
+        .state-icon {
+            width: 42px; height: 42px; border-radius: 50%;
+            background: #28a745; color: #fff; display: flex; align-items: center;
+            justify-content: center; font-size: 18px; margin-right: 14px; flex-shrink: 0;
+        }
+        .state-info { flex: 1; }
+        .state-info h5 { margin: 0; font-size: 16px; font-weight: 600; }
+        .state-info .sub-text { font-size: 13px; color: #888; }
+        .state-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .state-meta .badge { font-size: 11px; padding: 4px 10px; border-radius: 12px; }
+        .chevron { transition: transform .3s; font-size: 14px; color: #999; margin-left: 8px; }
+        .chevron.open { transform: rotate(90deg); }
+        .state-actions { display: flex; gap: 6px; margin-left: 10px; }
+        .state-actions .btn { padding: 4px 10px; font-size: 12px; border-radius: 8px; }
+        .action-label { margin-left: 4px; }
+
+        /* District list */
+        .district-list {
+            display: none; padding: 0 18px 14px 70px;
+            border-top: 1px solid #f0f0f0;
+        }
+        .district-list.show { display: block; }
+
+        .district-row {
+            display: flex; align-items: center; padding: 10px 14px;
+            border-radius: 8px; margin: 4px 0; transition: background .15s;
+            border-left: 3px solid #17a2b8;
+        }
+        .district-row:hover { background: #f1f5ff; }
+        .district-icon {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: #17a2b8; color: #fff; display: flex; align-items: center;
+            justify-content: center; font-size: 13px; margin-right: 12px; flex-shrink: 0;
+        }
+        .district-info { flex: 1; }
+        .district-info strong { font-size: 14px; }
+        .district-info .sub-text { font-size: 12px; color: #999; }
+        .district-meta { display: flex; align-items: center; gap: 8px; }
+        .district-meta .badge { font-size: 10px; padding: 3px 8px; border-radius: 10px; }
+        .district-actions { display: flex; gap: 4px; margin-left: 8px; opacity: 0; transition: opacity .2s; }
+        .district-row:hover .district-actions { opacity: 1; }
+        .district-actions .btn { padding: 2px 8px; font-size: 11px; border-radius: 6px; }
+
+        /* Constituency row */
+        .constituency-list { padding-left: 44px; }
+        .constituency-row {
+            display: flex; align-items: center; padding: 6px 12px;
+            border-radius: 6px; margin: 2px 0; border-left: 2px solid #ffc107;
+        }
+        .constituency-row:hover { background: #fffdf0; }
+        .constituency-icon {
+            width: 24px; height: 24px; border-radius: 50%;
+            background: #ffc107; color: #fff; display: flex; align-items: center;
+            justify-content: center; font-size: 10px; margin-right: 10px;
+        }
+        .constituency-info { flex: 1; font-size: 13px; }
+        .constituency-actions { opacity: 0; transition: opacity .2s; }
+        .constituency-row:hover .constituency-actions { opacity: 1; }
+
+        /* Standalone / unassigned */
+        .standalone-section { margin-top: 30px; }
+        .standalone-section h5 { color: #999; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+        /* Count badges */
+        .count-pill {
+            background: #e8ecf4; color: #555; font-size: 11px; padding: 3px 10px;
+            border-radius: 20px; font-weight: 600;
         }
 
-        .add-location-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-            color: white;
+        /* Search */
+        .search-box {
+            border-radius: 25px; border: 2px solid #e9ecef; padding: 10px 18px;
+            width: 260px; transition: border .3s;
+        }
+        .search-box:focus { border-color: #667eea; box-shadow: none; outline: none; }
+
+        /* Modal */
+        .modal-content { border-radius: 15px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+        .form-control, .form-select {
+            border-radius: 10px; border: 2px solid #e9ecef; padding: 10px 14px; transition: .3s;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea; box-shadow: 0 0 0 .2rem rgba(102,126,234,.25);
+        }
+        .form-help {
+            background: #f7f9ff; border: 1px solid #e2e8ff; border-radius: 10px;
+            padding: 10px 12px; color: #5d6680; font-size: 13px; margin-bottom: 16px;
         }
 
-        .status-badge {
-            font-size: 0.8rem;
-            padding: 4px 12px;
-            border-radius: 20px;
-        }
+        /* Expand all / collapse all */
+        .expand-btns .btn { font-size: 12px; padding: 4px 12px; border-radius: 16px; }
 
-        .modal-content {
-            border-radius: 15px;
-            border: none;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
+        /* Empty state */
+        .empty-state { text-align: center; padding: 60px 20px; color: #aaa; }
+        .empty-state i { font-size: 48px; margin-bottom: 16px; }
 
-        .form-control,
-        .form-select {
-            border-radius: 10px;
-            border: 2px solid #e9ecef;
-            padding: 12px 15px;
-            transition: all 0.3s ease;
-        }
-
-        .form-control:focus,
-        .form-select:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 10px;
-            padding: 10px 25px;
-            font-weight: 500;
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
-            border: none;
-            border-radius: 10px;
-            padding: 10px 25px;
-            font-weight: 500;
-        }
-
-        .btn-warning {
-            background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%);
-            border: none;
-            border-radius: 10px;
-            padding: 10px 25px;
-            font-weight: 500;
-        }
-
-        .loading {
-            display: none;
-        }
-
-        .loading.show {
-            display: block;
-        }
-
-        /* Mobile header icons */
-        .mobile-header-icons {
-            display: flex;
-            gap: 10px;
+        /* Mobile */
+        @media (max-width: 768px) {
+            .help-steps, .quick-actions { grid-template-columns: 1fr; }
+            .district-list { padding-left: 30px; }
+            .search-box { width: 100%; }
+            .state-actions { display: flex; margin-top: 8px; }
+            .state-header { flex-wrap: wrap; }
+            .state-info { min-width: calc(100% - 60px); }
+            .state-meta { margin-left: 56px; margin-top: 8px; }
+            .district-actions { opacity: 1; }
+            .action-label { display: none; }
         }
     </style>
     </head>
@@ -132,112 +195,166 @@
 
             <div class="container-fluid">
                 <div class="row">
-                    <!-- Sidebar -->
                     <%- include('partials/sidebar', { activePage: 'locations' }) %>
 
-                        <!-- Main Content -->
                         <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
                             <div class="content-area">
-                                <!-- Stats Cards -->
-                                <div class="row mb-4">
-                                    <div class="col-md-4">
-                                        <div class="stats-card">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <h5 class="mb-1">Total Locations</h5>
-                                                    <h2 id="totalLocations">0</h2>
-                                                </div>
-                                                <i class="fas fa-map-marker-alt fa-2x opacity-75"></i>
-                                            </div>
+
+                                <!-- Plain-language guide -->
+                                <div class="location-help">
+                                    <h4><i class="fas fa-map-marked-alt me-2"></i>How to set up locations?</h4>
+                                    <p>Add locations in this order. Do not add a district without a state, or a constituency without a district.</p>
+                                    <div class="help-steps">
+                                        <div class="help-step">
+                                            <div class="help-number" style="background:#28a745">1</div>
+                                            <div><strong>First, add a State</strong><small>e.g. Telangana (code: TS)</small></div>
                                         </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="stats-card">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <h5 class="mb-1">Active</h5>
-                                                    <h2 id="activeLocations">0</h2>
-                                                </div>
-                                                <i class="fas fa-check-circle fa-2x opacity-75"></i>
-                                            </div>
+                                        <div class="help-step">
+                                            <div class="help-number" style="background:#17a2b8">2</div>
+                                            <div><strong>Then add a District under that State</strong><small>e.g. Telangana → Hyderabad</small></div>
                                         </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="stats-card">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <h5 class="mb-1">Total News</h5>
-                                                    <h2 id="totalNewsInLocations">0</h2>
-                                                </div>
-                                                <i class="fas fa-newspaper fa-2x opacity-75"></i>
-                                            </div>
+                                        <div class="help-step">
+                                            <div class="help-number" style="background:#f0ad00">3</div>
+                                            <div><strong>Then add a Constituency under that District</strong><small>e.g. Hyderabad → Malakpet</small></div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Header with Add Button -->
-                                <div class="d-flex justify-content-between align-items-center mb-4">
-                                    <h3 class="mb-0">Locations Management</h3>
-                                    <button type="button" class="btn add-location-btn ripple"
-                                        onclick="openAddLocationModal()">
-                                        <i class="fas fa-plus me-2"></i>Add Location
+                                <!-- Stats -->
+                                <div class="stats-row">
+                                    <div class="stat-card">
+                                        <small>States</small>
+                                        <h2 id="stateCount">0</h2>
+                                    </div>
+                                    <div class="stat-card" style="background:linear-gradient(135deg,#17a2b8,#138496)">
+                                        <small>Districts</small>
+                                        <h2 id="districtCount">0</h2>
+                                    </div>
+                                    <div class="stat-card" style="background:linear-gradient(135deg,#ffc107,#e0a800)">
+                                        <small>Constituencies</small>
+                                        <h2 id="constituencyCount">0</h2>
+                                    </div>
+                                    <div class="stat-card" style="background:linear-gradient(135deg,#28a745,#218838)">
+                                        <small>Total News</small>
+                                        <h2 id="totalNewsCount">0</h2>
+                                    </div>
+                                </div>
+
+                                <!-- Direct add buttons -->
+                                <div class="quick-actions">
+                                    <button class="quick-add quick-state" onclick="openAddLocationModal('state')">
+                                        <i class="fas fa-flag me-2"></i>Add State
+                                        <small>Add a new State</small>
+                                    </button>
+                                    <button class="quick-add quick-district" onclick="openAddLocationModal('district')">
+                                        <i class="fas fa-city me-2"></i>Add District
+                                        <small>Add District under a State</small>
+                                    </button>
+                                    <button class="quick-add quick-constituency" onclick="openAddLocationModal('constituency')">
+                                        <i class="fas fa-vote-yea me-2"></i>Add Constituency
+                                        <small>Add Constituency under a District</small>
                                     </button>
                                 </div>
 
-                                <!-- Locations Grid -->
-                                <div class="row" id="locationsGrid">
-                                    <div class="col-12 text-center">
-                                        <div class="loading">
-                                            <div class="spinner-border text-primary" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <p class="mt-2">Loading locations...</p>
+                                <!-- Toolbar -->
+                                <div class="toolbar">
+                                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                                        <h4><i class="fas fa-sitemap me-2"></i>Location Hierarchy</h4>
+                                        <div class="expand-btns">
+                                            <button class="btn btn-outline-secondary btn-sm" onclick="expandAll()"><i class="fas fa-expand-alt me-1"></i>Expand All</button>
+                                            <button class="btn btn-outline-secondary btn-sm" onclick="collapseAll()"><i class="fas fa-compress-alt me-1"></i>Collapse All</button>
                                         </div>
                                     </div>
+                                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                                        <input class="search-box" type="text" id="searchInput" placeholder="Search state / district..." oninput="filterLocations()">
+                                        <button class="btn add-btn" onclick="openAddLocationModal()">
+                                            <i class="fas fa-plus me-1"></i>Add Location
+                                        </button>
+                                    </div>
                                 </div>
+
+                                <!-- Hierarchy Tree -->
+                                <div class="tree-container" id="treeContainer">
+                                    <div class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status"></div>
+                                        <p class="mt-2 text-muted">Loading locations...</p>
+                                    </div>
+                                </div>
+
+                                <!-- Scope / special locations (National, International) -->
+                                <div class="standalone-section" id="standaloneSection" style="display:none">
+                                    <h5><i class="fas fa-globe me-2"></i>Special Locations (National / International)</h5>
+                                    <p style="color:#888;font-size:13px;margin-bottom:12px">These are not states or districts — used for news scope in the legacy app. Do not rename them.</p>
+                                    <div id="standaloneList"></div>
+                                </div>
+
                             </div>
                         </div>
                 </div>
             </div>
 
             <!-- Add/Edit Location Modal -->
-            <div class="modal fade" id="locationModal" tabindex="-1" aria-labelledby="locationModalLabel"
-                aria-hidden="true">
+            <div class="modal fade" id="locationModal" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog">
                     <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="locationModalLabel">Add New Location</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <div class="modal-header" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:15px 15px 0 0">
+                            <h5 class="modal-title" id="locationModalLabel"><i class="fas fa-map-marker-alt me-2"></i>Add New Location</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            <div class="form-help" id="modalHelpText">
+                                First, choose what type of location you want to add.
+                            </div>
                             <form id="locationForm">
                                 <input type="hidden" id="locationId" name="id">
                                 <div class="mb-3">
-                                    <label for="locationName" class="form-label">Location Name *</label>
-                                    <input type="text" class="form-control" id="locationName" name="name" required>
+                                    <label class="form-label fw-semibold">What are you adding? *</label>
+                                    <select class="form-select" id="locationType" name="locationType" onchange="onLocationTypeChange()">
+                                        <option value="state">State</option>
+                                        <option value="district">District</option>
+                                        <option value="constituency">Constituency</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" id="parentStateWrapper" style="display:none;">
+                                    <label class="form-label fw-semibold">Under which State? *</label>
+                                    <select class="form-select" id="parentStateName" name="parentName">
+                                        <option value="">Select State</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" id="parentDistrictWrapper" style="display:none;">
+                                    <label class="form-label fw-semibold">Under which District? *</label>
+                                    <select class="form-select" id="parentDistrictName">
+                                        <option value="">Select District</option>
+                                    </select>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="locationCode" class="form-label">Location Code *</label>
-                                    <input type="text" class="form-control" id="locationCode" name="code" required>
-                                    <div class="form-text">Short code for the location (e.g., AP for Andhra Pradesh)
-                                    </div>
+                                    <label class="form-label fw-semibold">Name (English) *</label>
+                                    <input type="text" class="form-control" id="locationName" name="name" required placeholder="e.g., Hyderabad">
                                 </div>
                                 <div class="mb-3">
-                                    <label for="locationStatus" class="form-label">Status</label>
+                                    <label class="form-label fw-semibold">Local Name (optional)</label>
+                                    <input type="text" class="form-control" id="locationLocalName" name="localName" placeholder="e.g., Hyderabad in local language">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Short Code *</label>
+                                    <input type="text" class="form-control" id="locationCode" name="code" required placeholder="e.g., HYD" maxlength="10">
+                                    <div class="form-text">2-10 character short code</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Show in app?</label>
                                     <select class="form-select" id="locationStatus" name="isActive">
-                                        <option value="true">Active</option>
-                                        <option value="false">Inactive</option>
+                                        <option value="true">Yes — Active</option>
+                                        <option value="false">No — Inactive</option>
                                     </select>
                                 </div>
                             </form>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" onclick="saveLocation()">
-                                <span class="loading-text">Save Location</span>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius:10px">Cancel</button>
+                            <button type="button" class="btn" onclick="saveLocation()" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:10px;padding:8px 24px">
+                                <span class="loading-text">Save</span>
                                 <span class="loading d-none">
-                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                    Saving...
+                                    <span class="spinner-border spinner-border-sm me-1"></span>Saving...
                                 </span>
                             </button>
                         </div>
@@ -245,365 +362,408 @@
                 </div>
             </div>
 
-            <!-- Delete Confirmation Modal -->
-            <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel"
-                aria-hidden="true">
-                <div class="modal-dialog">
+            <!-- Delete Modal -->
+            <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-sm">
                     <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
+                        <div class="modal-header"><h5 class="modal-title">Confirm Delete</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                         <div class="modal-body">
-                            <p>Are you sure you want to delete this location?</p>
-                            <p class="text-danger"><strong>This action cannot be undone.</strong></p>
+                            <p>Are you sure? <strong class="text-danger">This cannot be undone.</strong></p>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-danger" onclick="confirmDelete()">
-                                <span class="loading-text">Delete</span>
-                                <span class="loading d-none">
-                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                    Deleting...
-                                </span>
-                            </button>
+                            <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                            <button class="btn btn-danger btn-sm" onclick="confirmDelete()">Delete</button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <script>
-                let locations = [];
+                let allLocations = [];
                 let currentLocationId = null;
                 let deleteLocationId = null;
 
-                // Initialize page
-                document.addEventListener('DOMContentLoaded', function () {
-                    console.log('DOM Content Loaded - Initializing locations page');
+                document.addEventListener('DOMContentLoaded', () => {
                     loadLocations();
                     setupMobileMenu();
                 });
 
-                // Load locations
                 async function loadLocations() {
                     try {
-                        console.log('Loading locations...');
-                        const response = await fetch('/locations/api/locations');
-                        if (!response.ok) {
-                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                        }
-                        const data = await response.json();
-                        locations = data;
-                        console.log('Locations loaded:', locations);
-                        renderLocations();
-                        loadStats();
-                    } catch (error) {
-                        console.error('Error loading locations:', error);
-                        document.getElementById('locationsGrid').innerHTML = `
-                            <div class="col-12 text-center py-5">
-                                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
-                                <h4 class="text-danger">Error Loading Locations</h4>
-                                <p class="text-danger">${error.message}</p>
-                                <button class="btn btn-primary" onclick="loadLocations()">
-                                    <i class="fas fa-sync me-2"></i>Retry
-                                </button>
-                            </div>
-                        `;
+                        const resp = await fetch('/locations/api/locations');
+                        allLocations = await resp.json();
+                        renderHierarchy();
+                        updateStats();
+                    } catch (e) {
+                        document.getElementById('treeContainer').innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-exclamation-triangle text-danger"></i>
+                                <h5>Failed to load locations</h5>
+                                <button class="btn btn-primary btn-sm mt-2" onclick="loadLocations()"><i class="fas fa-sync me-1"></i>Retry</button>
+                            </div>`;
                     }
                 }
 
-                // Load statistics
-                function loadStats() {
-                    console.log('loadStats called with locations:', locations);
+                function updateStats() {
+                    const states = allLocations.filter(l => l.locationType === 'state');
+                    const districts = allLocations.filter(l => l.locationType === 'district');
+                    const constituencies = allLocations.filter(l => l.locationType === 'constituency');
+                    const totalNews = allLocations.reduce((s, l) => s + (l.newsCount || 0), 0);
 
-                    // Ensure locations is an array
-                    if (!Array.isArray(locations)) {
-                        console.log('Locations is not an array, setting to empty array');
-                        locations = [];
-                    }
-
-                    // Calculate stats directly from locations data
-                    const totalLocations = locations.length;
-                    const activeLocations = locations.filter(loc => loc && loc.isActive).length;
-                    const totalNewsInLocations = locations.reduce((sum, loc) => sum + (loc && loc.newsCount ? loc.newsCount : 0), 0);
-
-                    console.log('Calculated stats:', { totalLocations, activeLocations, totalNewsInLocations });
-
-                    // Update the DOM elements
-                    const totalLocationsEl = document.getElementById('totalLocations');
-                    const activeLocationsEl = document.getElementById('activeLocations');
-                    const totalNewsInLocationsEl = document.getElementById('totalNewsInLocations');
-
-                    console.log('DOM elements found:', {
-                        totalLocationsEl: !!totalLocationsEl,
-                        activeLocationsEl: !!activeLocationsEl,
-                        totalNewsInLocationsEl: !!totalNewsInLocationsEl
-                    });
-
-                    if (totalLocationsEl) {
-                        totalLocationsEl.textContent = totalLocations;
-                        console.log('Updated totalLocations element:', totalLocationsEl.textContent);
-                    } else {
-                        console.error('totalLocations element not found!');
-                    }
-
-                    if (activeLocationsEl) {
-                        activeLocationsEl.textContent = activeLocations;
-                        console.log('Updated activeLocations element:', activeLocationsEl.textContent);
-                    } else {
-                        console.error('activeLocations element not found!');
-                    }
-
-                    if (totalNewsInLocationsEl) {
-                        totalNewsInLocationsEl.textContent = totalNewsInLocations;
-                        console.log('Updated totalNewsInLocations element:', totalNewsInLocationsEl.textContent);
-                    } else {
-                        console.error('totalNewsInLocations element not found!');
-                    }
-
-                    console.log('Stats update completed');
+                    document.getElementById('stateCount').textContent = states.length;
+                    document.getElementById('districtCount').textContent = districts.length;
+                    document.getElementById('constituencyCount').textContent = constituencies.length;
+                    document.getElementById('totalNewsCount').textContent = totalNews;
                 }
 
-                // Render locations
-                function renderLocations() {
-                    const grid = document.getElementById('locationsGrid');
-                    if (locations.length === 0) {
-                        grid.innerHTML = `
-                            <div class="col-12 text-center py-5">
-                                <i class="fas fa-map-marker-alt fa-3x text-muted mb-3"></i>
-                                <h4 class="text-muted">No locations found</h4>
-                                <p class="text-muted">Create your first location to get started</p>
-                                <button class="btn btn-primary" onclick="openAddLocationModal()">
-                                    <i class="fas fa-plus me-2"></i>Add Location
-                                </button>
-                            </div>
-                        `;
+                function renderHierarchy() {
+                    const container = document.getElementById('treeContainer');
+                    const searchTerm = (document.getElementById('searchInput').value || '').toLowerCase();
+
+                    const states = allLocations.filter(l => l.locationType === 'state')
+                        .sort((a, b) => a.name.localeCompare(b.name));
+
+                    const districts = allLocations.filter(l => l.locationType === 'district');
+                    const constituencies = allLocations.filter(l => l.locationType === 'constituency');
+                    const scopeLocations = allLocations.filter(l =>
+                        l.locationType === 'scope' || ['National', 'International'].includes(l.name)
+                    );
+                    const unmapped = allLocations.filter(l =>
+                        !l.locationType && !['National', 'International'].includes(l.name)
+                    );
+
+                    if (states.length === 0 && scopeLocations.length === 0 && unmapped.length === 0) {
+                        container.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-map-marked-alt"></i>
+                                <h5>No locations yet</h5>
+                                <p>Click "Add Location" to create your first state</p>
+                            </div>`;
                         return;
                     }
 
-                    grid.innerHTML = locations.map(location => `
-                        <div class="col-md-6 col-lg-4 mb-4">
-                            <div class="card location-card h-100">
-                                <div class="card-body text-center">
-                                    <div class="location-icon">
-                                        <i class="fas fa-map-marker-alt"></i>
-                                    </div>
-                                    <h5 class="card-title">${location.name}</h5>
-                                    <p class="card-text">
-                                        <span class="badge ${location.isActive ? 'bg-success' : 'bg-secondary'} status-badge">
-                                            ${location.isActive ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </p>
-                                    <p class="card-text">
-                                        <small class="text-muted">${location.newsCount || 0} News Articles</small>
-                                    </p>
-                                    <div class="location-actions">
-                                        <button class="btn btn-sm btn-primary me-2" onclick="editLocation('${location._id}')">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-warning me-2" onclick="toggleLocationStatus('${location._id}')">
-                                            <i class="fas fa-${location.isActive ? 'pause' : 'play'}"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteLocation('${location._id}')">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
+                    let html = '';
+
+                    states.forEach((state, idx) => {
+                        const stateDistricts = districts.filter(d => d.parentName === state.name)
+                            .sort((a, b) => a.name.localeCompare(b.name));
+                        const childCount = stateDistricts.length;
+
+                        // Search filter
+                        const stateMatch = state.name.toLowerCase().includes(searchTerm) ||
+                            (state.localName || '').toLowerCase().includes(searchTerm);
+                        const childMatches = stateDistricts.filter(d =>
+                            d.name.toLowerCase().includes(searchTerm) ||
+                            (d.localName || '').toLowerCase().includes(searchTerm)
+                        );
+
+                        if (searchTerm && !stateMatch && childMatches.length === 0) return;
+
+                        const showDistricts = searchTerm ? childMatches : stateDistricts;
+
+                        html += `
+                        <div class="state-row" data-state="${state.name}">
+                            <div class="state-header" onclick="toggleState(this)">
+                                <div class="state-icon"><i class="fas fa-flag"></i></div>
+                                <div class="state-info">
+                                    <h5>${state.name} ${state.localName ? '<span style="color:#888;font-weight:400;font-size:14px">(' + state.localName + ')</span>' : ''}</h5>
+                                    <span class="sub-text">
+                                        <span class="count-pill">${childCount} districts</span>
+                                        <span style="margin-left:8px">${state.newsCount || 0} articles</span>
+                                        ${state.code ? '<span style="margin-left:8px;color:#aaa">Code: ' + state.code + '</span>' : ''}
+                                    </span>
                                 </div>
+                                <div class="state-meta">
+                                    <span class="badge ${state.isActive !== false ? 'bg-success' : 'bg-secondary'}">
+                                        ${state.isActive !== false ? 'Active' : 'Inactive'}
+                                    </span>
+                                </div>
+                                <div class="state-actions" onclick="event.stopPropagation()">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="editLocation('${state._id}')" title="Edit"><i class="fas fa-edit"></i><span class="action-label">Edit</span></button>
+                                    <button class="btn btn-outline-warning btn-sm" onclick="toggleLocationStatus('${state._id}')" title="Pause or activate"><i class="fas fa-${state.isActive !== false ? 'pause' : 'play'}"></i><span class="action-label">${state.isActive !== false ? 'Pause' : 'Activate'}</span></button>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="deleteLocation('${state._id}')" title="Delete"><i class="fas fa-trash"></i><span class="action-label">Delete</span></button>
+                                </div>
+                                <i class="fas fa-chevron-right chevron ${searchTerm ? 'open' : ''}"></i>
                             </div>
-                        </div>
-                    `).join('');
+
+                            <div class="district-list ${searchTerm ? 'show' : ''}" id="districts-${idx}">
+                                ${showDistricts.length === 0 ? '<div style="padding:12px;color:#999;font-size:13px"><i class="fas fa-info-circle me-1"></i>No districts added yet for this state. Click "Add District" above.</div>' : ''}
+                                ${showDistricts.map(d => {
+                                    const dConstituencies = constituencies.filter(c => c.parentName === d.name)
+                                        .sort((a, b) => a.name.localeCompare(b.name));
+                                    return `
+                                    <div class="district-row">
+                                        <div class="district-icon"><i class="fas fa-city"></i></div>
+                                        <div class="district-info">
+                                            <strong>${d.name}</strong>
+                                            ${d.localName ? '<span style="color:#999;font-size:12px"> (' + d.localName + ')</span>' : ''}
+                                            <div class="sub-text">
+                                                ${d.code ? 'Code: ' + d.code + ' · ' : ''}${d.newsCount || 0} articles
+                                                ${dConstituencies.length > 0 ? ' · ' + dConstituencies.length + ' constituencies' : ''}
+                                            </div>
+                                            ${dConstituencies.length > 0 ? `
+                                                <div class="constituency-list" style="margin-top:6px">
+                                                    ${dConstituencies.map(c => `
+                                                        <div class="constituency-row">
+                                                            <div class="constituency-icon"><i class="fas fa-vote-yea"></i></div>
+                                                            <div class="constituency-info">
+                                                                ${c.name} ${c.localName ? '<span style="color:#bbb">(' + c.localName + ')</span>' : ''}
+                                                                <span style="color:#aaa;font-size:11px;margin-left:6px">${c.newsCount || 0} articles</span>
+                                                            </div>
+                                                            <div class="constituency-actions">
+                                                                <button class="btn btn-outline-primary btn-sm" style="padding:1px 6px;font-size:10px" onclick="editLocation('${c._id}')"><i class="fas fa-edit"></i></button>
+                                                                <button class="btn btn-outline-danger btn-sm" style="padding:1px 6px;font-size:10px" onclick="deleteLocation('${c._id}')"><i class="fas fa-trash"></i></button>
+                                                            </div>
+                                                        </div>
+                                                    `).join('')}
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                        <div class="district-meta">
+                                            <span class="badge ${d.isActive !== false ? 'bg-info' : 'bg-secondary'}" style="font-size:10px">
+                                                ${d.isActive !== false ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </div>
+                                        <div class="district-actions" onclick="event.stopPropagation()">
+                                            <button class="btn btn-outline-primary btn-sm" onclick="editLocation('${d._id}')" title="Edit"><i class="fas fa-edit"></i><span class="action-label">Edit</span></button>
+                                            <button class="btn btn-outline-warning btn-sm" onclick="toggleLocationStatus('${d._id}')" title="Pause or activate"><i class="fas fa-${d.isActive !== false ? 'pause' : 'play'}"></i></button>
+                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteLocation('${d._id}')" title="Delete"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>`;
+                    });
+
+                    container.innerHTML = html || '<div class="empty-state"><i class="fas fa-search"></i><h5>No matches found</h5></div>';
+
+                    // Scope + unmapped (should be empty after migration)
+                    const specialList = [...scopeLocations, ...unmapped];
+                    if (specialList.length > 0 && !searchTerm) {
+                        document.getElementById('standaloneSection').style.display = '';
+                        document.getElementById('standaloneList').innerHTML = specialList.map(l => {
+                            const isScope = l.locationType === 'scope' || ['National', 'International'].includes(l.name);
+                            return `
+                            <div class="district-row" style="border-left-color:${isScope ? '#6f42c1' : '#dc3545'}">
+                                <div class="district-icon" style="background:${isScope ? '#6f42c1' : '#dc3545'}"><i class="fas fa-${isScope ? 'globe' : 'exclamation-triangle'}"></i></div>
+                                <div class="district-info">
+                                    <strong>${l.name}</strong>
+                                    <div class="sub-text">${l.newsCount || 0} articles · ${isScope ? 'Scope (not a state)' : 'Not yet moved under a state — run migrate script'}</div>
+                                </div>
+                                <div class="district-actions" style="opacity:1">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="editLocation('${l._id}')"><i class="fas fa-edit"></i></button>
+                                </div>
+                            </div>`;
+                        }).join('');
+                    } else {
+                        document.getElementById('standaloneSection').style.display = 'none';
+                    }
                 }
 
-                // Open add location modal
-                function openAddLocationModal() {
+                // Toggle state expand/collapse
+                function toggleState(header) {
+                    const districtList = header.nextElementSibling;
+                    const chevron = header.querySelector('.chevron');
+                    districtList.classList.toggle('show');
+                    chevron.classList.toggle('open');
+                }
+
+                function expandAll() {
+                    document.querySelectorAll('.district-list').forEach(el => el.classList.add('show'));
+                    document.querySelectorAll('.chevron').forEach(el => el.classList.add('open'));
+                }
+                function collapseAll() {
+                    document.querySelectorAll('.district-list').forEach(el => el.classList.remove('show'));
+                    document.querySelectorAll('.chevron').forEach(el => el.classList.remove('open'));
+                }
+
+                function filterLocations() {
+                    renderHierarchy();
+                }
+
+                // ── Modal Logic ──
+
+                function loadParentStates() {
+                    const states = allLocations.filter(l => l.locationType === 'state');
+                    const sel = document.getElementById('parentStateName');
+                    sel.innerHTML = '<option value="">Select State</option>';
+                    states.sort((a,b) => a.name.localeCompare(b.name)).forEach(s => {
+                        sel.innerHTML += `<option value="${s.name}">${s.name}${s.localName ? ' (' + s.localName + ')' : ''}</option>`;
+                    });
+                }
+
+                function loadParentDistricts() {
+                    const stateName = document.getElementById('parentStateName').value;
+                    const dists = allLocations.filter(l => l.locationType === 'district' && l.parentName === stateName);
+                    const sel = document.getElementById('parentDistrictName');
+                    sel.innerHTML = '<option value="">Select District</option>';
+                    dists.sort((a,b) => a.name.localeCompare(b.name)).forEach(d => {
+                        sel.innerHTML += `<option value="${d.name}">${d.name}${d.localName ? ' (' + d.localName + ')' : ''}</option>`;
+                    });
+                }
+
+                function onLocationTypeChange() {
+                    const type = document.getElementById('locationType').value;
+                    document.getElementById('parentStateWrapper').style.display = (type === 'district' || type === 'constituency') ? '' : 'none';
+                    document.getElementById('parentDistrictWrapper').style.display = type === 'constituency' ? '' : 'none';
+                    if (type === 'district' || type === 'constituency') loadParentStates();
+                    const help = {
+                        state: '<strong>State:</strong> Enter the English name, optional local name, and short code. e.g. Telangana / TS',
+                        district: '<strong>District:</strong> First select which state this district belongs to, then enter the district name.',
+                        constituency: '<strong>Constituency:</strong> First select state, then district, then enter the constituency name.'
+                    };
+                    document.getElementById('modalHelpText').innerHTML = help[type];
+                }
+
+                document.getElementById('parentStateName').addEventListener('change', function() {
+                    if (document.getElementById('locationType').value === 'constituency') {
+                        loadParentDistricts();
+                    }
+                });
+
+                function openAddLocationModal(type = 'state') {
                     currentLocationId = null;
-                    document.getElementById('locationModalLabel').textContent = 'Add New Location';
                     document.getElementById('locationForm').reset();
                     document.getElementById('locationStatus').value = 'true';
+                    document.getElementById('locationType').value = type;
+                    const titles = {
+                        state: 'Add New State',
+                        district: 'Add New District',
+                        constituency: 'Add New Constituency'
+                    };
+                    document.getElementById('locationModalLabel').innerHTML = '<i class="fas fa-plus me-2"></i>' + titles[type];
+                    onLocationTypeChange();
                     new bootstrap.Modal(document.getElementById('locationModal')).show();
                 }
 
-                // Edit location
                 function editLocation(id) {
-                    // Fetch the location data from the API
                     fetch(`/locations/api/locations/${id}`)
-                        .then(response => response.json())
-                        .then(location => {
+                        .then(r => r.json())
+                        .then(loc => {
                             currentLocationId = id;
-                            document.getElementById('locationModalLabel').textContent = 'Edit Location';
-                            document.getElementById('locationId').value = location._id;
-                            document.getElementById('locationName').value = location.name;
-                            document.getElementById('locationCode').value = location.code;
-                            document.getElementById('locationStatus').value = location.isActive.toString();
+                            document.getElementById('locationModalLabel').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Location';
+                            document.getElementById('locationId').value = loc._id;
+                            document.getElementById('locationName').value = loc.name;
+                            document.getElementById('locationLocalName').value = loc.localName || loc.teluguName || '';
+                            document.getElementById('locationCode').value = loc.code;
+                            document.getElementById('locationStatus').value = (loc.isActive !== false).toString();
+                            document.getElementById('locationType').value = loc.locationType || 'state';
+                            onLocationTypeChange();
+                            if ((loc.locationType === 'district' || loc.locationType === 'constituency') && loc.parentName) {
+                                setTimeout(() => {
+                                    document.getElementById('parentStateName').value = loc.parentName;
+                                    if (loc.locationType === 'constituency') {
+                                        loadParentDistricts();
+                                        setTimeout(() => {
+                                            // For constituency, parentName stores the district name
+                                            // We need to figure out the district from the data
+                                        }, 50);
+                                    }
+                                }, 50);
+                            }
                             new bootstrap.Modal(document.getElementById('locationModal')).show();
                         })
-                        .catch(error => {
-                            console.error('Error fetching location:', error);
-                            showAlert('Error fetching location data', 'danger');
-                        });
+                        .catch(() => showAlert('Error fetching location', 'danger'));
                 }
 
-                // Save location
                 async function saveLocation() {
                     const form = document.getElementById('locationForm');
                     const formData = new FormData(form);
                     const data = Object.fromEntries(formData.entries());
-
-                    // Convert isActive to boolean
                     data.isActive = data.isActive === 'true';
+                    data.locationType = document.getElementById('locationType').value || 'state';
+                    data.localName = document.getElementById('locationLocalName').value || '';
+                    data.teluguName = data.localName;
 
-                    const saveBtn = document.querySelector('#locationModal .btn-primary');
-                    const loadingText = saveBtn.querySelector('.loading-text');
-                    const loading = saveBtn.querySelector('.loading');
+                    if (data.locationType === 'district') {
+                        data.parentName = document.getElementById('parentStateName').value || '';
+                    } else if (data.locationType === 'constituency') {
+                        data.parentName = document.getElementById('parentDistrictName').value || document.getElementById('parentStateName').value || '';
+                    }
+
+                    if (!data.name || !data.code) {
+                        showAlert('English name and Short Code are required.', 'warning');
+                        return;
+                    }
+                    if (data.locationType === 'district' && !document.getElementById('parentStateName').value) {
+                        showAlert('Please select which state this district belongs to.', 'warning');
+                        return;
+                    }
+                    if (data.locationType === 'constituency' &&
+                        (!document.getElementById('parentStateName').value || !document.getElementById('parentDistrictName').value)) {
+                        showAlert('Please select both state and district for this constituency.', 'warning');
+                        return;
+                    }
+
+                    const saveBtn = document.querySelector('#locationModal .modal-footer .btn:last-child');
+                    const lt = saveBtn.querySelector('.loading-text');
+                    const ld = saveBtn.querySelector('.loading');
+                    lt.classList.add('d-none'); ld.classList.remove('d-none');
 
                     try {
-                        loadingText.classList.add('d-none');
-                        loading.classList.remove('d-none');
-
                         const url = currentLocationId ? `/locations/api/locations/${currentLocationId}` : '/locations/api/locations';
-                        const method = currentLocationId ? 'PUT' : 'POST';
-
-                        const response = await fetch(url, {
-                            method: method,
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
+                        const resp = await fetch(url, {
+                            method: currentLocationId ? 'PUT' : 'POST',
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(data)
                         });
-
-                        const result = await response.json();
-
-                        if (response.ok) {
-                            showAlert(currentLocationId ? 'Location updated successfully!' : 'Location created successfully!', 'success');
+                        const result = await resp.json();
+                        if (resp.ok) {
+                            showAlert(currentLocationId ? 'Location updated successfully.' : 'Location added successfully.', 'success');
                             bootstrap.Modal.getInstance(document.getElementById('locationModal')).hide();
                             loadLocations();
                         } else {
-                            showAlert(result.error || 'Error saving location', 'danger');
+                            showAlert(result.error || 'Save failed', 'danger');
                         }
-                    } catch (error) {
-                        console.error('Error saving location:', error);
-                        showAlert('Error saving location', 'danger');
+                    } catch (e) {
+                        showAlert('Error saving', 'danger');
                     } finally {
-                        loadingText.classList.remove('d-none');
-                        loading.classList.add('d-none');
+                        lt.classList.remove('d-none'); ld.classList.add('d-none');
                     }
                 }
 
-                // Toggle location status
                 async function toggleLocationStatus(id) {
                     try {
-                        const response = await fetch(`/locations/api/locations/${id}/toggle`, {
-                            method: 'PATCH'
-                        });
-                        const result = await response.json();
-
-                        if (response.ok) {
-                            showAlert(result.message, 'success');
-                            loadLocations();
-                        } else {
-                            showAlert(result.error || 'Error toggling location status', 'danger');
-                        }
-                    } catch (error) {
-                        console.error('Error toggling location status:', error);
-                        showAlert('Error toggling location status', 'danger');
-                    }
+                        const resp = await fetch(`/locations/api/locations/${id}/toggle`, { method: 'PATCH' });
+                        const result = await resp.json();
+                        if (resp.ok) { showAlert(result.message, 'success'); loadLocations(); }
+                        else showAlert(result.error, 'danger');
+                    } catch (e) { showAlert('Toggle failed', 'danger'); }
                 }
 
-                // Delete location
                 function deleteLocation(id) {
                     deleteLocationId = id;
                     new bootstrap.Modal(document.getElementById('deleteModal')).show();
                 }
 
-                // Confirm delete
                 async function confirmDelete() {
                     if (!deleteLocationId) return;
-
-                    const deleteBtn = document.querySelector('#deleteModal .btn-danger');
-                    const loadingText = deleteBtn.querySelector('.loading-text');
-                    const loading = deleteBtn.querySelector('.loading');
-
                     try {
-                        loadingText.classList.add('d-none');
-                        loading.classList.remove('d-none');
-
-                        const response = await fetch(`/locations/api/locations/${deleteLocationId}`, {
-                            method: 'DELETE'
-                        });
-                        const result = await response.json();
-
-                        if (response.ok) {
-                            showAlert('Location deleted successfully!', 'success');
-                            bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
-                            loadLocations();
-                        } else {
-                            showAlert(result.error || 'Error deleting location', 'danger');
-                        }
-                    } catch (error) {
-                        console.error('Error deleting location:', error);
-                        showAlert('Error deleting location', 'danger');
-                    } finally {
-                        loadingText.classList.remove('d-none');
-                        loading.classList.add('d-none');
-                        deleteLocationId = null;
-                    }
+                        const resp = await fetch(`/locations/api/locations/${deleteLocationId}`, { method: 'DELETE' });
+                        if (resp.ok) { showAlert('Deleted!', 'success'); bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide(); loadLocations(); }
+                        else showAlert('Delete failed', 'danger');
+                    } catch (e) { showAlert('Delete error', 'danger'); }
+                    deleteLocationId = null;
                 }
 
-                // Show alert
-                function showAlert(message, type) {
-                    const alertDiv = document.createElement('div');
-                    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-                    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-                    alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-                    document.body.appendChild(alertDiv);
-
-                    setTimeout(() => {
-                        if (alertDiv.parentNode) {
-                            alertDiv.parentNode.removeChild(alertDiv);
-                        }
-                    }, 5000);
+                function showAlert(msg, type) {
+                    const div = document.createElement('div');
+                    div.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+                    div.style.cssText = 'top:20px;right:20px;z-index:9999;min-width:280px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.15)';
+                    div.innerHTML = `${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+                    document.body.appendChild(div);
+                    setTimeout(() => div.remove(), 4000);
                 }
 
-                // Mobile menu setup
                 function setupMobileMenu() {
-                    const menuToggle = document.getElementById('menuToggle');
-                    const sidebar = document.getElementById('sidebar');
-                    const mainContent = document.getElementById('mainContent');
-
-                    if (menuToggle && sidebar) {
-                        menuToggle.addEventListener('click', function (e) {
-                            e.stopPropagation();
-                            sidebar.classList.toggle('active');
-                            mainContent.classList.toggle('sidebar-active');
-                        });
-                    }
-
-                    document.addEventListener('click', function (event) {
-                        if (window.innerWidth < 768 &&
-                            sidebar && sidebar.classList.contains('active') &&
-                            !sidebar.contains(event.target) &&
-                            event.target !== menuToggle &&
-                            !menuToggle.contains(event.target)) {
-                            sidebar.classList.remove('active');
-                            if (mainContent) {
-                                mainContent.classList.remove('sidebar-active');
-                            }
+                    const tog = document.getElementById('menuToggle');
+                    const sb = document.getElementById('sidebar');
+                    const mc = document.getElementById('mainContent');
+                    if (tog && sb) tog.addEventListener('click', e => { e.stopPropagation(); sb.classList.toggle('active'); mc.classList.toggle('sidebar-active'); });
+                    document.addEventListener('click', e => {
+                        if (window.innerWidth < 768 && sb && sb.classList.contains('active') && !sb.contains(e.target) && e.target !== tog && !tog.contains(e.target)) {
+                            sb.classList.remove('active'); mc.classList.remove('sidebar-active');
                         }
-                    });
-
-                    const sidebarLinks = document.querySelectorAll('.sidebar a');
-                    sidebarLinks.forEach(link => {
-                        link.addEventListener('click', function () {
-                            if (window.innerWidth < 768 && sidebar) {
-                                sidebar.classList.remove('active');
-                                if (mainContent) {
-                                    mainContent.classList.remove('sidebar-active');
-                                }
-                            }
-                        });
                     });
                 }
             </script>

@@ -92,7 +92,28 @@
                                                             </select>
                                                         </div>
                                                         <div class="an-field">
-                                                            <label for="location" class="an-label">Location <span class="an-label-hint">optional</span></label>
+                                                            <label for="newsScope" class="an-label">Scope</label>
+                                                            <select class="an-select" id="newsScope">
+                                                                <option value="state">State (రాష్ట్ర)</option>
+                                                                <option value="district">District (స్థానిక)</option>
+                                                                <option value="national">National (జాతీయ)</option>
+                                                                <option value="international">International (అంతర్జాతీయ)</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="an-field" id="locationStateWrapper">
+                                                            <label for="locationState" class="an-label">State</label>
+                                                            <select class="an-select" id="locationState">
+                                                                <option value="">Select State</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="an-field" id="locationDistrictWrapper">
+                                                            <label for="locationDistrict" class="an-label">District</label>
+                                                            <select class="an-select" id="locationDistrict">
+                                                                <option value="">Select District</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="an-field" style="display:none;">
+                                                            <label for="location" class="an-label">Location <span class="an-label-hint">auto</span></label>
                                                             <select class="an-select" id="location">
                                                                 <option value="">Select Location (Optional)</option>
                                                             </select>
@@ -344,7 +365,19 @@
                             newsData.imageUrls = mediaUrl && mediaType === 'image' ? [mediaUrl] : [];
                         }
 
-                        if (location) {
+                        const newsScope = document.getElementById('newsScope').value || 'state';
+                        newsData.scope = newsScope;
+
+                        if (newsScope === 'district') {
+                            const districtVal = document.getElementById('locationDistrict').value;
+                            if (districtVal) newsData.location = districtVal;
+                        } else if (newsScope === 'state') {
+                            const stateVal = document.getElementById('locationState').value;
+                            if (stateVal) newsData.location = stateVal;
+                        }
+                        // national/international: no location needed
+
+                        if (location && !newsData.location) {
                             newsData.location = location;
                         }
 
@@ -528,6 +561,7 @@
                         // Load categories and locations
                         loadCategories();
                         loadLocations();
+                        loadLocationHierarchy();
 
                         // Set up event listeners for save buttons
                         const saveBtnIds = ['saveNewsButton', 'saveNewsButtonMobile', 'saveNewsButtonDesktop', 'saveNewsBtn'];
@@ -863,7 +897,7 @@
                         } catch (e) { console.error(e); }
                     }
 
-                    // Load locations
+                    // Load locations (old flat dropdown — kept for backward compat)
                     async function loadLocations() {
                         try {
                             const response = await fetch('/locations/api/locations');
@@ -880,6 +914,99 @@
                             if (current) select.value = current;
                         } catch (e) { console.error(e); }
                     }
+
+                    // Scope-based cascading dropdowns
+                    let _allHierarchy = [];
+
+                    async function loadLocationHierarchy() {
+                        try {
+                            const resp = await fetch('/api/public/location-hierarchy');
+                            _allHierarchy = await resp.json();
+
+                            const stateSelect = document.getElementById('locationState');
+                            stateSelect.innerHTML = '<option value="">Select State</option>';
+                            _allHierarchy.forEach(s => {
+                                const opt = document.createElement('option');
+                                opt.value = s.name;
+                                opt.textContent = s.localName ? `${s.name} (${s.localName})` : s.name;
+                                stateSelect.appendChild(opt);
+                            });
+
+                            // Pre-fill if editing existing news
+                            const currentScope = '<%= typeof news !== "undefined" && news.scope ? news.scope : "state" %>';
+                            const currentLocation = '<%= typeof news !== "undefined" && news.location ? news.location : "" %>';
+                            document.getElementById('newsScope').value = currentScope;
+
+                            if (currentScope === 'state' && currentLocation) {
+                                stateSelect.value = currentLocation;
+                            } else if (currentScope === 'district' && currentLocation) {
+                                const parentState = _allHierarchy.find(s =>
+                                    s.districts && s.districts.some(d => d.name === currentLocation)
+                                );
+                                if (parentState) {
+                                    stateSelect.value = parentState.name;
+                                    onStateChange();
+                                    setTimeout(() => {
+                                        document.getElementById('locationDistrict').value = currentLocation;
+                                    }, 100);
+                                }
+                            }
+
+                            updateScopeVisibility();
+                        } catch (e) { console.error('Error loading hierarchy:', e); }
+                    }
+
+                    function onStateChange() {
+                        const stateName = document.getElementById('locationState').value;
+                        const districtSelect = document.getElementById('locationDistrict');
+                        districtSelect.innerHTML = '<option value="">Select District</option>';
+
+                        const stateData = _allHierarchy.find(s => s.name === stateName);
+                        if (stateData && stateData.districts) {
+                            stateData.districts.forEach(d => {
+                                const opt = document.createElement('option');
+                                opt.value = d.name;
+                                opt.textContent = d.localName ? `${d.name} (${d.localName})` : d.name;
+                                districtSelect.appendChild(opt);
+                            });
+                        }
+                    }
+
+                    function updateScopeVisibility() {
+                        const scope = document.getElementById('newsScope').value;
+                        const stateW = document.getElementById('locationStateWrapper');
+                        const distW = document.getElementById('locationDistrictWrapper');
+
+                        if (scope === 'district') {
+                            stateW.style.display = '';
+                            distW.style.display = '';
+                        } else if (scope === 'state') {
+                            stateW.style.display = '';
+                            distW.style.display = 'none';
+                        } else {
+                            stateW.style.display = 'none';
+                            distW.style.display = 'none';
+                        }
+                    }
+
+                    document.getElementById('newsScope').addEventListener('change', updateScopeVisibility);
+                    document.getElementById('locationState').addEventListener('change', onStateChange);
+
+                    // Filter allowed scopes based on editor role
+                    (function filterAllowedScopes() {
+                        const role = '<%= typeof admin !== "undefined" ? admin.role : "editor" %>';
+                        const scopeSelect = document.getElementById('newsScope');
+                        if (role === 'editor') {
+                            // Reporters can only post district-level
+                            Array.from(scopeSelect.options).forEach(opt => {
+                                if (opt.value !== 'district' && opt.value !== 'state') {
+                                    opt.style.display = 'none';
+                                }
+                            });
+                            scopeSelect.value = 'state';
+                        }
+                        updateScopeVisibility();
+                    })();
 
                     // Mobile menu setup
                     function setupMobileMenu() {

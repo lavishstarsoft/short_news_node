@@ -887,6 +887,228 @@ router.get('/api/public/locations', cacheMiddleware(1800), async (req, res) => {
   }
 });
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Location Hierarchy API — returns states with their districts
+// Cached for 1 hour — hierarchy rarely changes
+// ──────────────────────────────────────────────────────────────────────────────
+router.get('/api/public/location-hierarchy', cacheMiddleware(3600), async (req, res) => {
+  try {
+    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
+    if (!isConnectedToMongoDB) {
+      return res.json([]);
+    }
+
+    const hierarchy = await Location.getHierarchy();
+    res.json(hierarchy);
+  } catch (error) {
+    console.error('Error fetching location hierarchy:', error);
+    res.status(500).json({ error: 'Error fetching location hierarchy' });
+  }
+});
+
+// Districts for a specific state
+router.get('/api/public/locations/districts/:stateName', cacheMiddleware(3600), async (req, res) => {
+  try {
+    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
+    if (!isConnectedToMongoDB) {
+      return res.json([]);
+    }
+
+    const stateName = decodeURIComponent(req.params.stateName);
+    const districts = await Location.getDistrictsForState(stateName);
+    res.json(districts);
+  } catch (error) {
+    console.error('Error fetching districts:', error);
+    res.status(500).json({ error: 'Error fetching districts' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Smart News Feed API — Interleaved location-based feed (News Gravity)
+// ──────────────────────────────────────────────────────────────────────────────
+router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res) => {
+  try {
+    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
+    if (!isConnectedToMongoDB) {
+      return res.json([]);
+    }
+
+    const { state, district, language, page, limit: limitParam, category } = req.query;
+    const lang = language || 'te';
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limit = Math.min(50, Math.max(5, parseInt(limitParam) || 20));
+
+    const baseQuery = { isActive: { $ne: false } };
+    Object.assign(baseQuery, buildNewsLanguageFilter(lang));
+    if (category && category !== 'All') {
+      const resolvedCategory = await resolveCategoryFilter(category);
+      if (resolvedCategory) baseQuery.category = resolvedCategory;
+    }
+
+    // Fetch news from all 4 scope rings in parallel
+    const [districtNews, stateNews, nationalNews, internationalNews] = await Promise.all([
+      district
+        ? News.find({ ...baseQuery, scope: 'district', location: district })
+            .sort({ publishedAt: -1 }).limit(limit).lean()
+        : Promise.resolve([]),
+      state
+        ? News.find({ ...baseQuery, scope: 'state', location: state })
+            .sort({ publishedAt: -1 }).limit(limit).lean()
+        : Promise.resolve([]),
+      News.find({ ...baseQuery, scope: 'national' })
+        .sort({ publishedAt: -1 }).limit(Math.ceil(limit * 0.6)).lean(),
+      News.find({ ...baseQuery, scope: 'international' })
+        .sort({ publishedAt: -1 }).limit(Math.ceil(limit * 0.3)).lean(),
+    ]);
+
+    // Dynamic ratio based on availability
+    const dCount = districtNews.length;
+    const sCount = stateNews.length;
+    const nCount = nationalNews.length;
+    const iCount = internationalNews.length;
+
+    // Interleave: build a mixed feed respecting gravity weights
+    const feed = [];
+    let di = 0, si = 0, ni = 0, ii = 0;
+    const seenIds = new Set();
+
+    const addUnique = (article) => {
+      const id = article._id.toString();
+      if (seenIds.has(id)) return false;
+      seenIds.add(id);
+      feed.push(article);
+      return true;
+    };
+
+    // Pattern: D D S D N D S N S I  (repeating)
+    // If a ring is empty, skip to next
+    const pattern = ['district', 'district', 'state', 'district', 'national',
+                     'district', 'state', 'national', 'state', 'international'];
+
+    let patternIdx = 0;
+    let emptyRounds = 0;
+
+    while (feed.length < limit && emptyRounds < pattern.length) {
+      const ring = pattern[patternIdx % pattern.length];
+      let added = false;
+
+      switch (ring) {
+        case 'district':
+          if (di < dCount) { added = addUnique(districtNews[di++]); }
+          break;
+        case 'state':
+          if (si < sCount) { added = addUnique(stateNews[si++]); }
+          break;
+        case 'national':
+          if (ni < nCount) { added = addUnique(nationalNews[ni++]); }
+          break;
+        case 'international':
+          if (ii < iCount) { added = addUnique(internationalNews[ii++]); }
+          break;
+      }
+
+      if (!added) {
+        emptyRounds++;
+      } else {
+        emptyRounds = 0;
+      }
+      patternIdx++;
+    }
+
+    // Fill remaining slots from any ring that still has news
+    const remaining = [
+      ...districtNews.slice(di),
+      ...stateNews.slice(si),
+      ...nationalNews.slice(ni),
+      ...internationalNews.slice(ii),
+    ].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
+    for (const article of remaining) {
+      if (feed.length >= limit) break;
+      addUnique(article);
+    }
+
+    // Paginate
+    const start = (pageNum - 1) * limit;
+    const paged = feed.slice(start, start + limit);
+
+    // Transform for Flutter (same format as existing endpoint)
+    const transformed = paged.map(news => ({
+      id: news._id,
+      title: news.title,
+      content: news.content,
+      imageUrl: news.mediaUrl || news.imageUrl,
+      imageUrls: news.imageUrls || [],
+      videoUrl: news.videoUrl,
+      mediaUrl: news.mediaUrl || news.imageUrl,
+      mediaType: news.mediaType || 'image',
+      thumbnailUrl: news.thumbnailUrl || news.mediaUrl || news.imageUrl,
+      category: news.category,
+      location: news.location,
+      scope: news.scope || 'state',
+      language: news.language || 'te',
+      publishedAt: news.publishedAt,
+      likes: news.likes || 0,
+      dislikes: news.dislikes || 0,
+      views: news.views || 0,
+      comments: news.comments || 0,
+      author: news.author,
+      authorId: news.authorId,
+      authorProfileImage: news.authorProfileImage,
+      authorConstituency: news.authorConstituency,
+      readFullLink: news.readFullLink,
+      ePaperLink: news.ePaperLink,
+      shortId: news.shortId,
+    }));
+
+    res.json({
+      news: transformed,
+      meta: {
+        page: pageNum,
+        limit,
+        total: feed.length,
+        rings: { district: dCount, state: sCount, national: nCount, international: iCount },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching smart feed:', error);
+    res.status(500).json({ error: 'Error fetching smart feed' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Save user location profile (called from Flutter after location permission)
+// ──────────────────────────────────────────────────────────────────────────────
+router.post('/api/public/user/location', verifyMobileUser, async (req, res) => {
+  try {
+    const { primaryState, primaryDistrict, lat, lng, source, additionalLocations } = req.body;
+    const userId = req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const update = {
+      'locationProfile.primaryState': primaryState || null,
+      'locationProfile.primaryDistrict': primaryDistrict || null,
+      'locationProfile.coordinates.lat': lat || null,
+      'locationProfile.coordinates.lng': lng || null,
+      'locationProfile.source': source || 'manual',
+      'locationProfile.updatedAt': new Date(),
+    };
+
+    if (additionalLocations) {
+      update['locationProfile.additionalLocations'] = additionalLocations;
+    }
+
+    await User.findByIdAndUpdate(userId, { $set: update });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving user location:', error);
+    res.status(500).json({ error: 'Error saving user location' });
+  }
+});
+
 // Public API endpoint for fetching active ads (no authentication required)
 // Cached for 5 minutes (300 seconds)
 router.get('/api/public/ads', cacheMiddleware(300), async (req, res) => {

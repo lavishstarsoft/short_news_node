@@ -305,6 +305,33 @@ const resolvers = {
             }
         },
 
+        locationHierarchy: async () => {
+            try {
+                return await Location.getHierarchy();
+            } catch (error) {
+                console.error('Error fetching location hierarchy:', error);
+                throw new Error('Failed to fetch location hierarchy');
+            }
+        },
+
+        statesOnly: async () => {
+            try {
+                return await Location.getActiveStates();
+            } catch (error) {
+                console.error('Error fetching states:', error);
+                throw new Error('Failed to fetch states');
+            }
+        },
+
+        districtsForState: async (_, { stateName }) => {
+            try {
+                return await Location.getDistrictsForState(stateName);
+            } catch (error) {
+                console.error('Error fetching districts:', error);
+                throw new Error('Failed to fetch districts');
+            }
+        },
+
         getActiveLanguages: async (_, { forUserApp }) => {
             try {
                 await languageRegistry.refreshCache();

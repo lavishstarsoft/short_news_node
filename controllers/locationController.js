@@ -101,7 +101,7 @@ exports.getLocationById = async (req, res) => {
 // Create new location
 exports.createLocation = async (req, res) => {
   try {
-    const { name, code, isActive } = req.body;
+    const { name, code, isActive, locationType, parentName, localName, teluguName } = req.body;
     
     // Validate required fields
     if (!name || !code) {
@@ -127,9 +127,22 @@ exports.createLocation = async (req, res) => {
         });
       }
 
+      // Resolve parent ObjectId
+      let parentId = null;
+      if ((locationType === 'district' || locationType === 'constituency') && parentName) {
+        const parentType = locationType === 'district' ? 'state' : 'district';
+        const parentLoc = await Location.findOne({ name: parentName, locationType: parentType });
+        if (parentLoc) parentId = parentLoc._id;
+      }
+
       const location = new Location({
         name: name.trim(),
         code: code.trim(),
+        locationType: locationType || 'state',
+        parent: parentId,
+        parentName: (locationType === 'district' || locationType === 'constituency') ? (parentName || null) : null,
+        localName: (localName || teluguName || '').trim() || null,
+        teluguName: (teluguName || localName || '').trim() || null,
         isActive: isActive !== false
       });
 
@@ -174,7 +187,7 @@ exports.createLocation = async (req, res) => {
 // Update location
 exports.updateLocation = async (req, res) => {
   try {
-    const { name, code, isActive } = req.body;
+    const { name, code, isActive, locationType, parentName, localName, teluguName } = req.body;
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
     
     if (isConnectedToMongoDB) {
@@ -204,6 +217,18 @@ exports.updateLocation = async (req, res) => {
       if (name) location.name = name.trim();
       if (code) location.code = code.trim();
       if (typeof isActive === 'boolean') location.isActive = isActive;
+      if (locationType) location.locationType = locationType;
+      if (localName !== undefined) location.localName = (localName || '').trim() || null;
+      if (teluguName !== undefined) location.teluguName = (teluguName || localName || '').trim() || null;
+      if ((locationType === 'district' || locationType === 'constituency') && parentName) {
+        location.parentName = parentName;
+        const parentType = locationType === 'district' ? 'state' : 'district';
+        const parentLoc = await Location.findOne({ name: parentName, locationType: parentType });
+        if (parentLoc) location.parent = parentLoc._id;
+      } else if (locationType === 'state') {
+        location.parentName = null;
+        location.parent = null;
+      }
 
       await location.save();
       res.json(location);
