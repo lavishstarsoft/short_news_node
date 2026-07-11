@@ -251,10 +251,54 @@
                     const rows = form.querySelectorAll('.sign-row');
 
                     // Pre-fill default names first
+                    const generateResult = (lang, signName, index) => {
+                        const variations = [
+                            { type: 'Financial', color: 'rgb(0, 138, 0)' },
+                            { type: 'Health', color: 'rgb(230, 0, 0)' },
+                            { type: 'Career', color: 'rgb(0, 102, 204)' },
+                            { type: 'Family', color: 'rgb(102, 51, 255)' },
+                            { type: 'Education', color: 'rgb(204, 102, 0)' },
+                            { type: 'Travel', color: 'rgb(0, 153, 153)' },
+                            { type: 'Business', color: 'rgb(153, 0, 153)' },
+                            { type: 'Love', color: 'rgb(204, 0, 102)' },
+                            { type: 'Spiritual', color: 'rgb(102, 102, 102)' },
+                            { type: 'Social', color: 'rgb(153, 153, 0)' },
+                            { type: 'Property', color: 'rgb(0, 51, 102)' },
+                            { type: 'Luck', color: 'rgb(255, 153, 51)' }
+                        ];
+                        
+                        const v = variations[index % 12];
+                        
+                        if (lang === 'te' && index === 0) {
+                            return `<p>ఈ రోజు <strong>${signName}</strong> రాశి వారికి ${v.type} పరంగా చాలా అనుకూలంగా ఉంటుంది. మీ జీవితంలో కొత్త అధ్యాయం ప్రారంభం కావచ్చు. వ్యాపారపరంగా, వృత్తిపరంగా అనేక లాభాలు పొందే అవకాశం ఉంది. కుటుంబంలో ఆనందం, ప్రశాంతత వెల్లివిరుస్తుంది. ఆరోగ్యం సహకరిస్తుంది. మీరు తలపెట్టిన పనులలో విజయం సాధిస్తారు. బంధుమిత్రుల మద్దతు లభిస్తుంది. <span style="color: ${v.color};">మంచి ఫలితాలు రావచ్చు.</span> మీ ఆత్మవిశ్వాసం పెరుగుతుంది. ముఖ్యమైన నిర్ణయాలు తీసుకోవడానికి ఇది అనువైన సమయం. మరిన్ని వివరాలకు <a href="https://example.com/telugu-${v.type.toLowerCase()}" target="_blank">ఇక్కడ క్లిక్ చేయండి</a>.</p>`;
+                        } else if (lang === 'te') {
+                            return `<p>ఈ రోజు <strong>${signName}</strong> రాశి వారికి ${v.type} పరంగా చాలా అనుకూలంగా ఉంటుంది. <span style="color: ${v.color};">మంచి ఫలితాలు రావచ్చు.</span> మరిన్ని వివరాలకు <a href="https://example.com/telugu-${v.type.toLowerCase()}" target="_blank">ఇక్కడ క్లిక్ చేయండి</a>.</p>`;
+                        } else if (lang === 'hi') {
+                            return `<p>आज <strong>${signName}</strong> राशि के लोगों के लिए ${v.type} के मामले में दिन बहुत शुभ है। <span style="color: ${v.color};">सकारात्मक परिणाम मिल सकते हैं।</span> अधिक जानकारी के लिए <a href="https://example.com/hindi-${v.type.toLowerCase()}" target="_blank">यहाँ क्लिक करें</a>।</p>`;
+                        } else if (lang === 'mr' || lang === 'mt') {
+                            return `<p>आजचा दिवस <strong>${signName}</strong> राशीच्या लोकांसाठी ${v.type} च्या बाबतीत खूप शुभ आहे. <span style="color: ${v.color};">चांगले परिणाम मिळू शकतात.</span> अधिक माहितीसाठी <a href="https://example.com/marathi-${v.type.toLowerCase()}" target="_blank">येथे क्लिक करा</a>.</p>`;
+                        } else if (lang === 'ta') {
+                            return `<p>இன்று <strong>${signName}</strong> ராசிக்காரர்களுக்கு ${v.type} ரீதியாக மிகவும் உகந்த நாள். <span style="color: ${v.color};">நல்ல பலன்கள் கிடைக்கும்.</span> மேலும் அறிய <a href="https://example.com/tamil-${v.type.toLowerCase()}" target="_blank">இங்கே கிளிக் செய்யவும்</a>.</p>`;
+                        } else {
+                            // English default
+                            return `<p>Today is a very favorable day for <strong>${signName}</strong> in terms of ${v.type}. <span style="color: ${v.color};">You may experience positive outcomes.</span> For more details, <a href="https://example.com/english-${v.type.toLowerCase()}" target="_blank">click here</a>.</p>`;
+                        }
+                    };
+
                     if (defaultSigns[lang]) {
                         rows.forEach((row, index) => {
                             if (index < 12) {
-                                row.querySelector('.sign-name').value = defaultSigns[lang][index];
+                                const signName = defaultSigns[lang][index];
+                                row.querySelector('.sign-name').value = signName;
+                                
+                                const dummyResult = generateResult(lang, signName, index);
+                                const resultInput = row.querySelector('.sign-result');
+                                resultInput.value = dummyResult;
+                                
+                                const editorEl = row.querySelector('.quill-editor');
+                                if (editorEl && quillInstances.has(editorEl)) {
+                                    quillInstances.get(editorEl).clipboard.dangerouslyPasteHTML(dummyResult);
+                                }
                             }
                         });
                     }
