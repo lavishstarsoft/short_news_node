@@ -88,10 +88,31 @@
         .editor-role-card.selected { border-color: #4f46e5; background: #eef2ff; }
         .editor-role-card strong { display: block; color: #1e293b; margin-bottom: 4px; }
         .editor-role-card small { color: #64748b; line-height: 1.4; }
+        .editor-chip-wrap {
+            border: 1px solid #e2e8f0; border-radius: 12px; background: #fafafa; overflow: hidden;
+        }
+        .editor-chip-toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
+            font-size: 12px; color: #64748b;
+        }
+        .editor-chip-toolbar .chip-count {
+            font-weight: 700; color: #4f46e5;
+        }
+        .editor-chip-toolbar .chip-actions {
+            display: flex; gap: 8px;
+        }
+        .editor-chip-toolbar .chip-action-btn {
+            background: none; border: 1px solid #cbd5e1; border-radius: 6px;
+            padding: 3px 10px; font-size: 11px; color: #475569; cursor: pointer;
+            transition: .15s;
+        }
+        .editor-chip-toolbar .chip-action-btn:hover {
+            background: #4f46e5; color: #fff; border-color: #4f46e5;
+        }
         .editor-chip-grid {
             display: flex; flex-wrap: wrap; gap: 8px;
             max-height: 200px; overflow-y: auto; padding: 12px;
-            border: 1px solid #e2e8f0; border-radius: 12px; background: #fafafa;
         }
         .editor-chip {
             display: inline-flex; align-items: center; gap: 6px;
@@ -127,8 +148,60 @@
         }
         .editor-field-hint { font-size: 12px; color: #94a3b8; margin-top: 4px; }
         .editor-profile-wrap { text-align: center; margin-bottom: 20px; }
+
+        /* ── Info tooltip "?" icon ── */
+        .info-tip {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #e2e8f0; color: #475569; font-size: 11px; font-weight: 700;
+            cursor: help; margin-left: 6px; position: relative; vertical-align: middle;
+            transition: background .2s;
+        }
+        .info-tip:hover { background: #4f46e5; color: #fff; }
+        .info-tip .info-tip-text {
+            display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+            transform: translateX(-50%); width: 260px; padding: 10px 14px;
+            background: #1e293b; color: #f1f5f9; font-size: 12px; font-weight: 400;
+            line-height: 1.5; border-radius: 8px; box-shadow: 0 4px 12px rgb(0 0 0/.2);
+            z-index: 100; text-align: left; white-space: normal;
+        }
+        .info-tip .info-tip-text::after {
+            content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+            border: 6px solid transparent; border-top-color: #1e293b;
+        }
+        .info-tip:hover .info-tip-text { display: block; }
+
+        /* ── Step info banner ── */
+        .editor-step-banner {
+            background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+            border: 1px solid #86efac; border-radius: 12px;
+            padding: 14px 16px; margin-bottom: 18px; font-size: 13px; color: #166534;
+            display: flex; align-items: flex-start; gap: 10px;
+        }
+        .editor-step-banner.blue {
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            border-color: #93c5fd; color: #1e40af;
+        }
+        .editor-step-banner.amber {
+            background: linear-gradient(135deg, #fffbeb, #fef3c7);
+            border-color: #fcd34d; color: #92400e;
+        }
+        .editor-step-banner.purple {
+            background: linear-gradient(135deg, #faf5ff, #f3e8ff);
+            border-color: #c4b5fd; color: #6b21a8;
+        }
+        .editor-step-banner .step-icon {
+            font-size: 18px; flex-shrink: 0; margin-top: 1px;
+        }
+        .editor-step-banner strong { font-weight: 700; }
+
+        /* ── Reporter-only / SubEditor-only markers ── */
+        .reporter-only-section, .subeditor-only-section { transition: .3s; }
+        .role-hidden { display: none !important; }
+
         @media (max-width: 768px) {
             .editor-role-cards, .editor-scope-row { grid-template-columns: 1fr; }
+            .info-tip .info-tip-text { width: 200px; }
         }
     </style>
 
@@ -332,6 +405,11 @@
                             <div class="editor-tab-body">
                             <!-- Tab 1: Profile -->
                             <div class="editor-tab-panel active" id="edit-tab-profile">
+                                <div class="editor-step-banner blue">
+                                    <span class="step-icon">👤</span>
+                                    <div><strong>Step 1: Basic Details</strong><br>Choose the member type and fill in their basic info. This info is used across the dashboard and the mobile app.</div>
+                                </div>
+
                                 <div class="editor-profile-wrap">
                                     <div class="position-relative d-inline-block">
                                         <img id="editProfilePreview" src="" class="rounded-circle img-thumbnail shadow" style="width:96px;height:96px;object-fit:cover;background:#f1f5f9">
@@ -343,15 +421,17 @@
                                     <div class="editor-field-hint mt-2">Click the camera icon to change photo</div>
                                 </div>
 
-                                <p class="editor-section-title"><i class="fas fa-id-badge text-primary"></i> What type of member?</p>
+                                <p class="editor-section-title"><i class="fas fa-id-badge text-primary"></i> What type of member?
+                                    <span class="info-tip">?<span class="info-tip-text"><b>Reporter</b> = Writes news articles and submits them for approval.<br><br><b>Sub-Editor</b> = Reviews, approves or rejects news. Can log in to the dashboard.</span></span>
+                                </p>
                                 <div class="editor-role-cards" id="editRoleCards">
                                     <div class="editor-role-card selected" data-role="editor">
                                         <strong><i class="fas fa-pen-nib me-1"></i> Reporter</strong>
-                                        <small>Writes and submits news. Requires admin approval.</small>
+                                        <small>Writes news from the field. Submits for approval.</small>
                                     </div>
                                     <div class="editor-role-card" data-role="subeditor">
                                         <strong><i class="fas fa-user-check me-1"></i> Sub-Editor</strong>
-                                        <small>Can approve/reject news. Has dashboard access.</small>
+                                        <small>Reviews &amp; approves/rejects news. Has dashboard access.</small>
                                     </div>
                                 </div>
 
@@ -364,9 +444,10 @@
                                     </div>
                                     <div class="col-md-6">
                                         <div class="editor-field">
-                                            <label for="editDisplayRole">Display Role (shown in app)</label>
+                                            <label for="editDisplayRole">Display Role
+                                                <span class="info-tip">?<span class="info-tip-text">This title appears next to their articles in the app. Example: "Senior Reporter", "Khammam Correspondent"</span></span>
+                                            </label>
                                             <input type="text" id="editDisplayRole" placeholder="e.g. Senior Reporter">
-                                            <div class="editor-field-hint">This title appears next to their articles</div>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
@@ -378,55 +459,90 @@
                                 </div>
                             </div>
 
-                            <!-- Tab 2: Location -->
+                            <!-- Tab 2: Location / Coverage Area -->
                             <div class="editor-tab-panel" id="edit-tab-location">
-                                <div class="editor-help">
-                                    <strong>Reporter coverage — which regions can they work in?</strong><br>
-                                    ① Select one or more <strong>States</strong> → ② Select <strong>Districts</strong> → ③ Optionally select <strong>Constituencies</strong> → ④ Set <strong>Allowed Scopes</strong>.
+                                <!-- Reporter info banner -->
+                                <div class="editor-step-banner reporter-only-section" id="editLocationBannerReporter">
+                                    <span class="step-icon">📍</span>
+                                    <div><strong>Step 2: Where does this reporter work?</strong><br>Select the areas this reporter covers. They can only submit news from these regions. Follow the steps below in order.</div>
+                                </div>
+                                <!-- Sub-editor info banner -->
+                                <div class="editor-step-banner purple subeditor-only-section" id="editLocationBannerSubeditor">
+                                    <span class="step-icon">📍</span>
+                                    <div><strong>Step 2: Sub-Editor's base location</strong><br>This is just for record-keeping. The actual areas they can manage are set in the <strong>Permissions</strong> tab.</div>
                                 </div>
 
                                 <div class="editor-field">
-                                    <label>States (multiple)</label>
-                                    <div class="editor-chip-grid" id="editStateChips">
-                                        <span class="text-muted small">Loading states...</span>
+                                    <label><strong>① Select State(s)</strong>
+                                        <span class="info-tip">?<span class="info-tip-text">Click to select one or more states. This filters the districts below. Example: Select "Telangana" to see Telangana districts.</span></span>
+                                    </label>
+                                    <div class="editor-chip-wrap">
+                                        <div class="editor-chip-grid" id="editStateChips">
+                                            <span class="text-muted small">Loading states...</span>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div class="editor-field">
-                                    <label>Districts (multiple)</label>
-                                    <div class="editor-chip-grid" id="editDistrictChips">
-                                        <span class="text-muted small">Select at least one state...</span>
+                                    <label><strong>② Select District(s)</strong>
+                                        <span class="info-tip">?<span class="info-tip-text">Districts appear based on states selected above. Click to select the districts this member covers. Example: "Khammam", "Nalgonda".</span></span>
+                                    </label>
+                                    <div class="editor-chip-wrap">
+                                        <div class="editor-chip-grid" id="editDistrictChips">
+                                            <span class="text-muted small">Select at least one state first...</span>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div class="editor-field">
-                                    <label>Constituencies (multiple, optional)</label>
-                                    <div class="editor-chip-grid" id="editConstituencyChips">
-                                        <span class="text-muted small">Select districts to see constituencies...</span>
+                                    <label><strong>③ Select Constituency (optional)</strong>
+                                        <span class="info-tip">?<span class="info-tip-text">Optional — if the reporter covers specific constituencies only. Skip this if they cover the entire district.</span></span>
+                                    </label>
+                                    <div class="editor-chip-wrap">
+                                        <div class="editor-chip-grid" id="editConstituencyChips">
+                                            <span class="text-muted small">Select districts to see constituencies...</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div class="editor-field">
-                                    <label>Allowed Scopes — which news levels can they post?</label>
+                                <div class="editor-field reporter-only-section" id="editAllowedScopesSection">
+                                    <label><strong>④ What type of news can they write?</strong>
+                                        <span class="info-tip">?<span class="info-tip-text"><b>Local</b> = District-level news (e.g. "Khammam road accident")<br><b>State</b> = State-level news (e.g. "Telangana budget 2026")<br><b>National</b> = Country-level (e.g. "PM Modi speech")<br><b>International</b> = World news<br><br>Select one or more. If none selected, reporter can write all types.</span></span>
+                                    </label>
                                     <div class="editor-scope-row" id="editScopeCards">
-                                        <div class="editor-scope-card" data-scope="district"><strong>Local</strong><div class="te">District</div></div>
-                                        <div class="editor-scope-card" data-scope="state"><strong>State</strong><div class="te">State-wide</div></div>
-                                        <div class="editor-scope-card" data-scope="national"><strong>National</strong><div class="te">National</div></div>
-                                        <div class="editor-scope-card" data-scope="international"><strong>International</strong><div class="te">International</div></div>
+                                        <div class="editor-scope-card" data-scope="district">
+                                            <strong>🏘 Local</strong>
+                                            <div class="te">District-level news</div>
+                                        </div>
+                                        <div class="editor-scope-card" data-scope="state">
+                                            <strong>🏛 State</strong>
+                                            <div class="te">State-wide news</div>
+                                        </div>
+                                        <div class="editor-scope-card" data-scope="national">
+                                            <strong>🇮🇳 National</strong>
+                                            <div class="te">Country-level news</div>
+                                        </div>
+                                        <div class="editor-scope-card" data-scope="international">
+                                            <strong>🌍 International</strong>
+                                            <div class="te">World news</div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="editor-field">
-                                            <label for="editConstituency">Primary Constituency (shown in app)</label>
+                                            <label for="editConstituency">Primary Constituency
+                                                <span class="info-tip">?<span class="info-tip-text">This is shown next to their name in the app. Example: "Malakpet Correspondent". Pick from selected constituencies or type manually.</span></span>
+                                            </label>
                                             <input type="text" id="editConstituency" placeholder="e.g. Malakpet">
-                                            <div class="editor-field-hint">Pick from selected constituencies or type manually</div>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="editor-field">
-                                            <label for="editWorkingLanguage">News Language</label>
+                                            <label for="editWorkingLanguage">News Language
+                                                <span class="info-tip">?<span class="info-tip-text">The language this member writes news in. This determines which language section their news appears under.</span></span>
+                                            </label>
                                             <select id="editWorkingLanguage">
                                                 <%- include('partials/language-select-options', { selectedValue: 'te' }) %>
                                             </select>
@@ -437,129 +553,171 @@
 
                             <!-- Tab 3: App Display -->
                             <div class="editor-tab-panel" id="edit-tab-display">
-                                <div class="editor-help">Choose what member info to show next to their articles in the mobile app.</div>
+                                <div class="editor-step-banner amber">
+                                    <span class="step-icon">📱</span>
+                                    <div><strong>App Display Settings</strong><br>Control what information appears next to this member's articles in the mobile app. Toggle ON/OFF as needed.</div>
+                                </div>
                                 <div class="editor-perm-card">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="editShowProfileImage" checked>
                                         <label class="form-check-label" for="editShowProfileImage"><strong>Show Profile Photo</strong></label>
                                     </div>
+                                    <div class="hint">Their photo will appear next to articles in the app</div>
                                 </div>
                                 <div class="editor-perm-card">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="editShowName" checked>
                                         <label class="form-check-label" for="editShowName"><strong>Show Name</strong></label>
                                     </div>
+                                    <div class="hint">Their full name will be visible on articles</div>
                                 </div>
                                 <div class="editor-perm-card">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="editShowConstituency" checked>
                                         <label class="form-check-label" for="editShowConstituency"><strong>Show Constituency</strong></label>
                                     </div>
+                                    <div class="hint">Constituency name (e.g. "Malakpet") shown below their name</div>
                                 </div>
                             </div>
 
-                            <!-- Tab 4: Permissions (sub-editor) -->
+                            <!-- Tab 4: Permissions (sub-editor only) -->
                             <div class="editor-tab-panel" id="edit-tab-perms">
                                 <section id="adminSettingsSection">
-                                    <div class="editor-help">Sub-Editor only — select dashboard permissions below.</div>
-
-                                    <div id="editCanAccessAdminDashboardWrapper" style="display:none">
-                                        <div class="editor-perm-card">
-                                            <input type="checkbox" id="editCanAccessAdminDashboard" class="form-check-input me-2">
-                                            <label for="editCanAccessAdminDashboard">Admin Dashboard login access</label>
-                                            <div class="hint">This sub-editor can log in to the dashboard</div>
-                                        </div>
-                                    </div>
-                                    <div id="editCanViewReporterDetailsWrapper" style="display:none">
-                                        <div class="editor-perm-card">
-                                            <input type="checkbox" id="editCanViewReporterDetails" class="form-check-input me-2">
-                                            <label for="editCanViewReporterDetails">Can view reporter details</label>
-                                            <div class="hint">Email, phone, constituency visible</div>
-                                        </div>
-                                    </div>
-                                    <div id="editCanApproveNewsWrapper" style="display:none">
-                                        <div class="editor-perm-card">
-                                            <input type="checkbox" id="editCanApproveNews" class="form-check-input me-2">
-                                            <label for="editCanApproveNews">Can approve/reject news</label>
-                                        </div>
-                                    </div>
-                                    <div id="editCanViewAllNewsWrapper" style="display:none">
-                                        <div class="editor-perm-card">
-                                            <input type="checkbox" id="editCanViewAllNews" class="form-check-input me-2">
-                                            <label for="editCanViewAllNews">Can view all articles</label>
-                                            <div class="hint">If off, only sees assigned reporters' news</div>
-                                        </div>
+                                    <!-- Reporter message -->
+                                    <div class="editor-step-banner reporter-only-section" id="editPermsReporterNote">
+                                        <span class="step-icon">✅</span>
+                                        <div><strong>No permissions needed for Reporters</strong><br>Reporters simply write and submit news. Permissions are only for Sub-Editors. You can skip this tab.</div>
                                     </div>
 
-                                    <div id="editManagedLocationsWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #e2e8f0">
-                                        <div class="editor-field">
-                                            <label for="editApprovalScope">Who can this sub-editor manage / approve?</label>
-                                            <select id="editApprovalScope">
-                                                <option value="all">All Reporters</option>
-                                                <option value="geography">By Geography (States / Districts / Constituencies)</option>
-                                                <option value="reporters">Specific Reporters (pick by name)</option>
-                                            </select>
+                                    <!-- Sub-editor permissions -->
+                                    <div class="subeditor-only-section" id="editSubEditorPermsBlock">
+                                        <div class="editor-step-banner purple">
+                                            <span class="step-icon">🔐</span>
+                                            <div><strong>Sub-Editor Permissions</strong><br>Control what this sub-editor can do in the dashboard. Turn ON only the permissions they need.</div>
                                         </div>
 
-                                        <div id="editManagedGeographyWrapper" style="display:none">
-                                            <div class="editor-field">
-                                                <label>Managed States</label>
-                                                <div class="editor-chip-grid" id="editManagedStateChips"><span class="text-muted small">Loading...</span></div>
+                                        <p class="editor-section-title"><i class="fas fa-key text-primary"></i> Dashboard Access</p>
+
+                                        <div id="editCanAccessAdminDashboardWrapper">
+                                            <div class="editor-perm-card">
+                                                <input type="checkbox" id="editCanAccessAdminDashboard" class="form-check-input me-2">
+                                                <label for="editCanAccessAdminDashboard"><strong>Can login to Dashboard</strong></label>
+                                                <div class="hint">Allow this sub-editor to log in to the admin dashboard website</div>
+                                            </div>
+                                        </div>
+                                        <div id="editCanViewReporterDetailsWrapper">
+                                            <div class="editor-perm-card">
+                                                <input type="checkbox" id="editCanViewReporterDetails" class="form-check-input me-2">
+                                                <label for="editCanViewReporterDetails"><strong>Can see reporter personal info</strong></label>
+                                                <div class="hint">Shows email, phone number, and constituency of reporters</div>
+                                            </div>
+                                        </div>
+
+                                        <p class="editor-section-title mt-3"><i class="fas fa-newspaper text-success"></i> News Management</p>
+
+                                        <div id="editCanApproveNewsWrapper">
+                                            <div class="editor-perm-card">
+                                                <input type="checkbox" id="editCanApproveNews" class="form-check-input me-2">
+                                                <label for="editCanApproveNews"><strong>Can approve / reject news</strong></label>
+                                                <div class="hint">This sub-editor can approve or reject news articles submitted by reporters</div>
+                                            </div>
+                                        </div>
+                                        <div id="editCanViewAllNewsWrapper">
+                                            <div class="editor-perm-card">
+                                                <input type="checkbox" id="editCanViewAllNews" class="form-check-input me-2">
+                                                <label for="editCanViewAllNews"><strong>Can view ALL articles</strong></label>
+                                                <div class="hint">If OFF, this sub-editor only sees news from reporters assigned to them (not all news)</div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Approval Scope — nested under "Can approve news" -->
+                                        <div id="editManagedLocationsWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #4f46e5">
+                                            <div class="editor-step-banner amber" style="margin-top:12px">
+                                                <span class="step-icon">🎯</span>
+                                                <div><strong>Whose news can they approve?</strong><br>Choose which reporters' news this sub-editor can approve/reject.</div>
                                             </div>
                                             <div class="editor-field">
-                                                <label>Managed Districts</label>
-                                                <div class="editor-chip-grid" id="editManagedDistrictChips"><span class="text-muted small">Select states first...</span></div>
+                                                <label for="editApprovalScope"><strong>Approval Mode</strong>
+                                                    <span class="info-tip">?<span class="info-tip-text"><b>All Reporters</b> = Can approve news from any reporter<br><br><b>By Geography</b> = Only reporters from selected states/districts<br><br><b>Specific Reporters</b> = Hand-pick individual reporters</span></span>
+                                                </label>
+                                                <select id="editApprovalScope">
+                                                    <option value="all">All Reporters (can approve anyone's news)</option>
+                                                    <option value="geography">By Geography (only reporters from selected areas)</option>
+                                                    <option value="reporters">Specific Reporters (pick by name)</option>
+                                                </select>
                                             </div>
-                                            <div class="editor-field">
-                                                <label>Managed Constituencies</label>
-                                                <div class="editor-chip-grid" id="editManagedConstituencyChips"><span class="text-muted small">Select districts first...</span></div>
+
+                                            <div id="editManagedGeographyWrapper" style="display:none">
+                                                <div class="editor-step-banner" style="font-size:12px;padding:10px 14px">
+                                                    <span class="step-icon">📌</span>
+                                                    <div>Select the areas this sub-editor manages. They will only see news from reporters assigned to these areas.</div>
+                                                </div>
+                                                <div class="editor-field">
+                                                    <label>Managed States</label>
+                                                    <div class="editor-chip-wrap"><div class="editor-chip-grid" id="editManagedStateChips"><span class="text-muted small">Loading...</span></div></div>
+                                                </div>
+                                                <div class="editor-field">
+                                                    <label>Managed Districts</label>
+                                                    <div class="editor-chip-wrap"><div class="editor-chip-grid" id="editManagedDistrictChips"><span class="text-muted small">Select states first...</span></div></div>
+                                                </div>
+                                                <div class="editor-field">
+                                                    <label>Managed Constituencies</label>
+                                                    <div class="editor-chip-wrap"><div class="editor-chip-grid" id="editManagedConstituencyChips"><span class="text-muted small">Select districts first...</span></div></div>
+                                                </div>
+                                            </div>
+
+                                            <div id="editManagedReportersWrapper" style="display:none">
+                                                <div class="editor-field">
+                                                    <label for="editReporterSearch">Search Reporters</label>
+                                                    <input type="text" id="editReporterSearch" placeholder="Search by name, district..." class="form-control">
+                                                </div>
+                                                <div class="editor-reporter-list" id="editManagedReporterList" style="max-height:220px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:10px;background:#fafafa"></div>
                                             </div>
                                         </div>
 
-                                        <div id="editManagedReportersWrapper" style="display:none">
-                                            <div class="editor-field">
-                                                <label for="editReporterSearch">Search Reporters</label>
-                                                <input type="text" id="editReporterSearch" placeholder="Search by name, district..." class="form-control">
-                                            </div>
-                                            <div class="editor-reporter-list" id="editManagedReporterList" style="max-height:220px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:10px;background:#fafafa"></div>
-                                        </div>
-                                    </div>
+                                        <p class="editor-section-title mt-3"><i class="fas fa-cog text-warning"></i> Extra Abilities</p>
 
-                                    <div id="editSubEditorPermissionsWrapper" style="display:none">
-                                        <div class="editor-perm-card">
-                                            <input type="checkbox" id="editCanSendNotifications" class="form-check-input me-2">
-                                            <label for="editCanSendNotifications">Can send push notifications</label>
-                                        </div>
-                                        <div class="editor-perm-card">
-                                            <input type="checkbox" id="editCanEditNews" class="form-check-input me-2">
-                                            <label for="editCanEditNews">Can edit any news article</label>
-                                        </div>
-                                        <div class="editor-perm-card">
-                                            <input type="checkbox" id="editRequiresSourceLink" class="form-check-input me-2">
-                                            <label for="editRequiresSourceLink">Source link required</label>
-                                        </div>
-                                    </div>
-
-                                    <div id="editSidebarAccessWrapper" style="display:none;margin-top:16px">
-                                        <p class="editor-section-title"><i class="fas fa-bars"></i> Sidebar Menu Access</p>
-                                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                                            <% const sidebarMenus = [
-                                                { id: 'dashboard', label: 'Dashboard' }, { id: 'newsList', label: 'News List' },
-                                                { id: 'addNews', label: 'Add News' }, { id: 'pendingNews', label: 'Pending News' },
-                                                { id: 'rejectedNews', label: 'Rejected News' }, { id: 'plagiarismReport', label: 'Plagiarism' },
-                                                { id: 'viralVideos', label: 'Viral Videos' }, { id: 'polls', label: 'Polls' },
-                                                { id: 'longVideos', label: 'Long Videos' }, { id: 'categories', label: 'Categories' },
-                                                { id: 'programCategories', label: 'Program Categories' }, { id: 'locations', label: 'Locations' },
-                                                { id: 'reports', label: 'Reports' }
-                                            ]; %>
-                                            <% sidebarMenus.forEach(menu => { %>
-                                            <div class="form-check">
-                                                <input type="checkbox" id="editSidebar_<%= menu.id %>" class="form-check-input sidebar-menu-cb" data-menu="<%= menu.id %>" checked>
-                                                <label for="editSidebar_<%= menu.id %>" class="form-check-label"><%= menu.label %></label>
+                                        <div id="editSubEditorPermissionsWrapper">
+                                            <div class="editor-perm-card">
+                                                <input type="checkbox" id="editCanSendNotifications" class="form-check-input me-2">
+                                                <label for="editCanSendNotifications"><strong>Can send push notifications</strong></label>
+                                                <div class="hint">Send push notifications to app users about breaking news</div>
                                             </div>
-                                            <% }) %>
+                                            <div class="editor-perm-card">
+                                                <input type="checkbox" id="editCanEditNews" class="form-check-input me-2">
+                                                <label for="editCanEditNews"><strong>Can edit any news article</strong></label>
+                                                <div class="hint">Edit any published or pending article (not just their own)</div>
+                                            </div>
+                                            <div class="editor-perm-card">
+                                                <input type="checkbox" id="editRequiresSourceLink" class="form-check-input me-2">
+                                                <label for="editRequiresSourceLink"><strong>Must add source link</strong></label>
+                                                <div class="hint">Force this sub-editor to include a source URL when posting news</div>
+                                            </div>
                                         </div>
-                                    </div>
+
+                                        <div id="editSidebarAccessWrapper" style="margin-top:16px">
+                                            <p class="editor-section-title"><i class="fas fa-bars text-info"></i> Dashboard Menu Access
+                                                <span class="info-tip">?<span class="info-tip-text">Control which pages this sub-editor can see in the dashboard sidebar. Unchecked pages will be hidden from them.</span></span>
+                                            </p>
+                                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                                                <% const sidebarMenus = [
+                                                    { id: 'dashboard', label: 'Dashboard' }, { id: 'newsList', label: 'News List' },
+                                                    { id: 'addNews', label: 'Add News' }, { id: 'pendingNews', label: 'Pending News' },
+                                                    { id: 'rejectedNews', label: 'Rejected News' }, { id: 'plagiarismReport', label: 'Plagiarism' },
+                                                    { id: 'viralVideos', label: 'Viral Videos' }, { id: 'polls', label: 'Polls' },
+                                                    { id: 'longVideos', label: 'Long Videos' }, { id: 'categories', label: 'Categories' },
+                                                    { id: 'programCategories', label: 'Program Categories' }, { id: 'locations', label: 'Locations' },
+                                                    { id: 'reports', label: 'Reports' }
+                                                ]; %>
+                                                <% sidebarMenus.forEach(menu => { %>
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="editSidebar_<%= menu.id %>" class="form-check-input sidebar-menu-cb" data-menu="<%= menu.id %>" checked>
+                                                    <label for="editSidebar_<%= menu.id %>" class="form-check-label"><%= menu.label %></label>
+                                                </div>
+                                                <% }) %>
+                                            </div>
+                                        </div>
+                                    </div><!-- end subeditor block -->
                                 </section>
                             </div>
 
@@ -608,78 +766,141 @@
                             </select>
 
                             <div class="editor-tab-body">
+                            <!-- Add Tab 1: Login -->
                             <div class="editor-tab-panel active" id="add-tab-account">
-                                <div class="editor-help"><strong>Login details</strong> — username, email, and password are required.</div>
+                                <div class="editor-step-banner blue">
+                                    <span class="step-icon">🔑</span>
+                                    <div><strong>Step 1: Login Credentials</strong><br>These are required to create the account. The member will use these to log in.</div>
+                                </div>
                                 <div class="row">
-                                    <div class="col-md-6"><div class="editor-field"><label for="addUsername">Username *</label><input type="text" id="addUsername" required placeholder="ravi_reporter"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addUsername">Username *
+                                        <span class="info-tip">?<span class="info-tip-text">A unique login name. Example: ravi_reporter, kumar_subeditor</span></span>
+                                    </label><input type="text" id="addUsername" required placeholder="e.g. ravi_reporter"></div></div>
                                     <div class="col-md-6"><div class="editor-field"><label for="addEmail">Email *</label><input type="email" id="addEmail" required placeholder="name@news.com"></div></div>
                                     <div class="col-md-6"><div class="editor-field"><label for="addPassword">Password *</label><input type="password" id="addPassword" required minlength="6" placeholder="Minimum 6 characters"></div></div>
                                 </div>
                             </div>
 
+                            <!-- Add Tab 2: Profile -->
                             <div class="editor-tab-panel" id="add-tab-profile">
-                                <p class="editor-section-title">What type of member?</p>
+                                <div class="editor-step-banner blue">
+                                    <span class="step-icon">👤</span>
+                                    <div><strong>Step 2: Member Details</strong><br>Choose the member type and fill in their info.</div>
+                                </div>
+
+                                <p class="editor-section-title"><i class="fas fa-id-badge text-primary"></i> What type of member?
+                                    <span class="info-tip">?<span class="info-tip-text"><b>Reporter</b> = Writes news articles from the field and submits for approval.<br><br><b>Sub-Editor</b> = Reviews and approves/rejects news. Can access the dashboard.</span></span>
+                                </p>
                                 <div class="editor-role-cards" id="addRoleCards">
                                     <div class="editor-role-card selected" data-role="editor">
                                         <strong><i class="fas fa-pen-nib me-1"></i> Reporter</strong>
-                                        <small>Submits news articles</small>
+                                        <small>Writes news from the field. Submits for approval.</small>
                                     </div>
                                     <div class="editor-role-card" data-role="subeditor">
                                         <strong><i class="fas fa-user-check me-1"></i> Sub-Editor</strong>
-                                        <small>Approve/reject + dashboard</small>
+                                        <small>Reviews &amp; approves/rejects news. Has dashboard access.</small>
                                     </div>
                                 </div>
                                 <div class="row">
-                                    <div class="col-md-6"><div class="editor-field"><label for="addName">Full Name</label><input type="text" id="addName" placeholder="Display name"></div></div>
-                                    <div class="col-md-6"><div class="editor-field"><label for="addDisplayRole">Display Role</label><input type="text" id="addDisplayRole" placeholder="Senior Reporter"></div></div>
-                                    <div class="col-md-6"><div class="editor-field"><label for="addMobile">Mobile</label><input type="text" id="addMobile" placeholder="+91..."></div></div>
-                                    <div class="col-md-6"><div class="editor-field"><label for="addWorkingLanguage">News Language *</label>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addName">Full Name</label><input type="text" id="addName" placeholder="e.g. Ravi Kumar"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addDisplayRole">Display Role
+                                        <span class="info-tip">?<span class="info-tip-text">Title shown next to articles in the app. Example: "Senior Reporter", "Khammam Correspondent"</span></span>
+                                    </label><input type="text" id="addDisplayRole" placeholder="e.g. Senior Reporter"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addMobile">Mobile</label><input type="text" id="addMobile" placeholder="+91 98765 43210"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addWorkingLanguage">News Language *
+                                        <span class="info-tip">?<span class="info-tip-text">The language this member writes news in. Their news will appear in this language section of the app.</span></span>
+                                    </label>
                                         <select id="addWorkingLanguage" required><%- include('partials/language-select-options', { selectedValue: 'te' }) %></select>
                                     </div></div>
                                 </div>
                             </div>
 
+                            <!-- Add Tab 3: Location -->
                             <div class="editor-tab-panel" id="add-tab-location">
-                                <div class="editor-help">Select States → Districts → Constituencies (optional) → Allowed Scopes.</div>
-                                <div class="editor-field"><label>States (multiple)</label><div class="editor-chip-grid" id="addStateChips"><span class="text-muted small">Loading...</span></div></div>
-                                <div class="editor-field"><label>Districts (multiple)</label><div class="editor-chip-grid" id="addDistrictChips"><span class="text-muted small">Select states first...</span></div></div>
-                                <div class="editor-field"><label>Constituencies (optional)</label><div class="editor-chip-grid" id="addConstituencyChips"><span class="text-muted small">Select districts first...</span></div></div>
-                                <div class="editor-field"><label>Allowed Scopes</label>
+                                <div class="editor-step-banner reporter-only-section" id="addLocationBannerReporter">
+                                    <span class="step-icon">📍</span>
+                                    <div><strong>Step 3: Where does this reporter work?</strong><br>Select the areas they cover. Follow the steps below in order.</div>
+                                </div>
+                                <div class="editor-step-banner purple subeditor-only-section" id="addLocationBannerSubeditor">
+                                    <span class="step-icon">📍</span>
+                                    <div><strong>Step 3: Sub-Editor's base location</strong><br>This is for record-keeping. The areas they manage are set in the <strong>Permissions</strong> tab.</div>
+                                </div>
+
+                                <div class="editor-field"><label><strong>① Select State(s)</strong>
+                                    <span class="info-tip">?<span class="info-tip-text">Click to select one or more states. This filters the districts below.</span></span>
+                                </label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addStateChips"><span class="text-muted small">Loading...</span></div></div></div>
+                                <div class="editor-field"><label><strong>② Select District(s)</strong>
+                                    <span class="info-tip">?<span class="info-tip-text">Districts appear based on states selected above. Click to select.</span></span>
+                                </label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addDistrictChips"><span class="text-muted small">Select states first...</span></div></div></div>
+                                <div class="editor-field"><label><strong>③ Select Constituency (optional)</strong></label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addConstituencyChips"><span class="text-muted small">Select districts first...</span></div></div></div>
+
+                                <div class="editor-field reporter-only-section" id="addAllowedScopesSection">
+                                    <label><strong>④ What type of news can they write?</strong>
+                                        <span class="info-tip">?<span class="info-tip-text"><b>Local</b> = District-level news<br><b>State</b> = State-wide news<br><b>National</b> = Country-level<br><b>International</b> = World news<br><br>Select one or more.</span></span>
+                                    </label>
                                     <div class="editor-scope-row" id="addScopeCards">
-                                        <div class="editor-scope-card" data-scope="district"><strong>Local</strong><div class="te">District</div></div>
-                                        <div class="editor-scope-card" data-scope="state"><strong>State</strong><div class="te">State-wide</div></div>
-                                        <div class="editor-scope-card" data-scope="national"><strong>National</strong><div class="te">National</div></div>
-                                        <div class="editor-scope-card" data-scope="international"><strong>International</strong><div class="te">International</div></div>
+                                        <div class="editor-scope-card" data-scope="district"><strong>🏘 Local</strong><div class="te">District-level news</div></div>
+                                        <div class="editor-scope-card" data-scope="state"><strong>🏛 State</strong><div class="te">State-wide news</div></div>
+                                        <div class="editor-scope-card" data-scope="national"><strong>🇮🇳 National</strong><div class="te">Country-level news</div></div>
+                                        <div class="editor-scope-card" data-scope="international"><strong>🌍 International</strong><div class="te">World news</div></div>
                                     </div>
                                 </div>
-                                <div class="editor-field"><label for="addConstituency">Primary Constituency</label><input type="text" id="addConstituency" placeholder="e.g. Malakpet"></div>
+                                <div class="editor-field"><label for="addConstituency">Primary Constituency
+                                    <span class="info-tip">?<span class="info-tip-text">Shown next to their name in the app. Example: "Malakpet Correspondent"</span></span>
+                                </label><input type="text" id="addConstituency" placeholder="e.g. Malakpet"></div>
                             </div>
 
+                            <!-- Add Tab 4: Permissions -->
                             <div class="editor-tab-panel" id="add-tab-perms">
-                                <div class="editor-help">Sub-Editor permissions — not needed for Reporters.</div>
+                                <!-- Reporter message -->
+                                <div id="addReporterNote" class="editor-step-banner">
+                                    <span class="step-icon">✅</span>
+                                    <div><strong>No permissions needed for Reporters</strong><br>Reporters simply write and submit news. You can click "Add Member" to finish.</div>
+                                </div>
+
+                                <!-- Sub-editor permissions -->
                                 <div id="addSubEditorPerms" style="display:none">
-                                    <div class="editor-perm-card"><input type="checkbox" id="addCanAccessAdminDashboard" class="form-check-input me-2"><label for="addCanAccessAdminDashboard">Dashboard access</label></div>
-                                    <div class="editor-perm-card"><input type="checkbox" id="addCanApproveNews" class="form-check-input me-2"><label for="addCanApproveNews">Approve/Reject news</label></div>
-                                    <div class="editor-perm-card"><input type="checkbox" id="addCanViewAllNews" class="form-check-input me-2"><label for="addCanViewAllNews">View all articles</label></div>
-                                    <div class="editor-field" id="addApprovalScopeWrapper" style="display:none">
-                                        <label for="addApprovalScope">Who can they manage?</label>
+                                    <div class="editor-step-banner purple">
+                                        <span class="step-icon">🔐</span>
+                                        <div><strong>Sub-Editor Permissions</strong><br>Control what this sub-editor can do in the dashboard.</div>
+                                    </div>
+
+                                    <div class="editor-perm-card">
+                                        <input type="checkbox" id="addCanAccessAdminDashboard" class="form-check-input me-2">
+                                        <label for="addCanAccessAdminDashboard"><strong>Can login to Dashboard</strong></label>
+                                        <div class="hint">Allow this sub-editor to log in to the admin dashboard</div>
+                                    </div>
+                                    <div class="editor-perm-card">
+                                        <input type="checkbox" id="addCanApproveNews" class="form-check-input me-2">
+                                        <label for="addCanApproveNews"><strong>Can approve / reject news</strong></label>
+                                        <div class="hint">This sub-editor can approve or reject reporters' news articles</div>
+                                    </div>
+                                    <div class="editor-perm-card">
+                                        <input type="checkbox" id="addCanViewAllNews" class="form-check-input me-2">
+                                        <label for="addCanViewAllNews"><strong>Can view ALL articles</strong></label>
+                                        <div class="hint">If OFF, only sees news from assigned reporters</div>
+                                    </div>
+
+                                    <div class="editor-field" id="addApprovalScopeWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #4f46e5;margin-top:12px">
+                                        <label for="addApprovalScope"><strong>Whose news can they approve?</strong>
+                                            <span class="info-tip">?<span class="info-tip-text"><b>All Reporters</b> = approve anyone's news<br><b>By Geography</b> = only reporters from selected areas<br><b>Specific Reporters</b> = hand-pick reporters</span></span>
+                                        </label>
                                         <select id="addApprovalScope" class="form-select">
-                                            <option value="all">All Reporters</option>
-                                            <option value="geography">By Geography</option>
-                                            <option value="reporters">Specific Reporters</option>
+                                            <option value="all">All Reporters (can approve anyone's news)</option>
+                                            <option value="geography">By Geography (only reporters from selected areas)</option>
+                                            <option value="reporters">Specific Reporters (pick by name)</option>
                                         </select>
                                     </div>
-                                    <div id="addManagedGeographyWrapper" style="display:none">
-                                        <div class="editor-field"><label>Managed States</label><div class="editor-chip-grid" id="addManagedStateChips"></div></div>
-                                        <div class="editor-field"><label>Managed Districts</label><div class="editor-chip-grid" id="addManagedDistrictChips"></div></div>
-                                        <div class="editor-field"><label>Managed Constituencies</label><div class="editor-chip-grid" id="addManagedConstituencyChips"></div></div>
+                                    <div id="addManagedGeographyWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #4f46e5">
+                                        <div class="editor-field"><label>Managed States</label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addManagedStateChips"></div></div></div>
+                                        <div class="editor-field"><label>Managed Districts</label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addManagedDistrictChips"></div></div></div>
+                                        <div class="editor-field"><label>Managed Constituencies</label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addManagedConstituencyChips"></div></div></div>
                                     </div>
-                                    <div id="addManagedReportersWrapper" style="display:none">
+                                    <div id="addManagedReportersWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #4f46e5">
                                         <div class="editor-field"><input type="text" id="addReporterSearch" placeholder="Search reporters..." class="form-control"></div>
                                         <div id="addManagedReporterList" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:10px"></div>
                                     </div>
                                 </div>
-                                <div id="addReporterNote" class="editor-help">Reporter role selected — no permissions needed. Click Save to finish.</div>
                             </div>
 
                             </div><!-- /.editor-tab-body -->
@@ -899,13 +1120,23 @@
                         if (!grid || !sel) return;
                         const selected = new Set(selectedNames || []);
                         sel.innerHTML = '';
+
+                        const wrap = grid.closest('.editor-chip-wrap');
+                        if (wrap) {
+                            const oldToolbar = wrap.querySelector('.editor-chip-toolbar');
+                            if (oldToolbar) oldToolbar.remove();
+                        }
                         grid.innerHTML = '';
+
                         if (!items || !items.length) {
                             grid.innerHTML = `<span class="text-muted small">${emptyMsg}</span>`;
                             return;
                         }
+
+                        const itemNames = [];
                         items.forEach(item => {
                             const name = typeof item === 'string' ? item : item.name;
+                            itemNames.push(name);
                             const label = typeof item === 'string' ? item : (item.localName ? `${item.name} (${item.localName})` : item.name);
                             const opt = document.createElement('option');
                             opt.value = name;
@@ -915,6 +1146,7 @@
 
                             const chip = document.createElement('label');
                             chip.className = 'editor-chip' + (selected.has(name) ? ' selected' : '');
+                            chip.dataset.name = name;
                             chip.innerHTML = `<input type="checkbox" value="${name}" ${selected.has(name) ? 'checked' : ''}>${label}`;
                             chip.addEventListener('click', (e) => {
                                 e.preventDefault();
@@ -923,10 +1155,51 @@
                                 cb.checked = chip.classList.contains('selected');
                                 const o = Array.from(sel.options).find(x => x.value === name);
                                 if (o) o.selected = cb.checked;
+                                updateChipCount(grid, sel);
                                 if (onChange) onChange();
                             });
                             grid.appendChild(chip);
                         });
+
+                        if (wrap && items.length > 1) {
+                            const toolbar = document.createElement('div');
+                            toolbar.className = 'editor-chip-toolbar';
+                            const selCount = Array.from(sel.selectedOptions).length;
+                            toolbar.innerHTML = `
+                                <span><span class="chip-count">${selCount}</span> of ${items.length} selected</span>
+                                <span class="chip-actions">
+                                    <button type="button" class="chip-action-btn chip-select-all">Select All</button>
+                                    <button type="button" class="chip-action-btn chip-deselect-all">Clear All</button>
+                                </span>`;
+                            toolbar.querySelector('.chip-select-all').addEventListener('click', () => {
+                                grid.querySelectorAll('.editor-chip').forEach(c => {
+                                    c.classList.add('selected');
+                                    c.querySelector('input').checked = true;
+                                });
+                                Array.from(sel.options).forEach(o => { o.selected = true; });
+                                updateChipCount(grid, sel);
+                                if (onChange) onChange();
+                            });
+                            toolbar.querySelector('.chip-deselect-all').addEventListener('click', () => {
+                                grid.querySelectorAll('.editor-chip').forEach(c => {
+                                    c.classList.remove('selected');
+                                    c.querySelector('input').checked = false;
+                                });
+                                Array.from(sel.options).forEach(o => { o.selected = false; });
+                                updateChipCount(grid, sel);
+                                if (onChange) onChange();
+                            });
+                            wrap.insertBefore(toolbar, grid);
+                        }
+                    }
+
+                    function updateChipCount(grid, sel) {
+                        const wrap = grid.closest('.editor-chip-wrap');
+                        if (!wrap) return;
+                        const toolbar = wrap.querySelector('.editor-chip-toolbar');
+                        if (!toolbar) return;
+                        const countEl = toolbar.querySelector('.chip-count');
+                        if (countEl) countEl.textContent = Array.from(sel.selectedOptions).length;
                     }
 
                     function getDistrictsForStates(stateNames) {
@@ -1155,15 +1428,32 @@
                         <% } %>
                     }
 
+                    function applyRoleSections(modalRoot, isSub) {
+                        if (!modalRoot) return;
+                        modalRoot.querySelectorAll('.reporter-only-section').forEach(el => {
+                            el.classList.toggle('role-hidden', isSub);
+                        });
+                        modalRoot.querySelectorAll('.subeditor-only-section').forEach(el => {
+                            el.classList.toggle('role-hidden', !isSub);
+                        });
+                    }
+
                     function applyEditSubEditorVisibility(role) {
                         const isSub = role === 'subeditor';
+                        const modal = document.getElementById('editEditorModal');
+
+                        applyRoleSections(modal, isSub);
+
                         const permsTab = document.getElementById('editTabPermsBtn');
-                        if (permsTab) permsTab.style.display = isSub ? '' : 'none';
-                        ['editCanAccessAdminDashboardWrapper', 'editCanViewReporterDetailsWrapper', 'editCanApproveNewsWrapper',
-                         'editCanViewAllNewsWrapper', 'editSubEditorPermissionsWrapper', 'editSidebarAccessWrapper'].forEach(id => {
-                            const el = document.getElementById(id);
-                            if (el) el.style.display = isSub ? 'block' : 'none';
-                        });
+                        if (permsTab) {
+                            permsTab.textContent = isSub ? '🔐 4. Permissions' : '✅ 4. Permissions';
+                        }
+
+                        const permsNote = document.getElementById('editPermsReporterNote');
+                        const subBlock = document.getElementById('editSubEditorPermsBlock');
+                        if (permsNote) permsNote.classList.toggle('role-hidden', isSub);
+                        if (subBlock) subBlock.classList.toggle('role-hidden', !isSub);
+
                         const managedLocWrapper = document.getElementById('editManagedLocationsWrapper');
                         if (managedLocWrapper) {
                             managedLocWrapper.style.display = (isSub && document.getElementById('editCanApproveNews').checked) ? 'block' : 'none';
@@ -1179,8 +1469,15 @@
 
                     function applyAddSubEditorVisibility(role) {
                         const isSub = role === 'subeditor';
+                        const modal = document.getElementById('addEditorModal');
+
+                        applyRoleSections(modal, isSub);
+
                         const permsTab = document.getElementById('addTabPermsBtn');
-                        if (permsTab) permsTab.style.display = isSub ? '' : 'none';
+                        if (permsTab) {
+                            permsTab.textContent = isSub ? '🔐 4. Permissions' : '✅ 4. Permissions';
+                        }
+
                         const subPerms = document.getElementById('addSubEditorPerms');
                         const repNote = document.getElementById('addReporterNote');
                         if (subPerms) subPerms.style.display = isSub ? 'block' : 'none';
