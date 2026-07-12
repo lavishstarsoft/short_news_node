@@ -295,7 +295,14 @@
                                         <div class="news-filters-search-row">
                                             <div class="news-search-field">
                                                 <i class="fas fa-search"></i>
-                                                <input type="search" id="searchFilter" class="news-search-input" placeholder="Search by title, content, or author..." value="<%= currentSearch %>" autocomplete="off" name="news_search_nofill" data-lpignore="true" data-form-type="other">
+                                                <input type="search" id="searchFilter" class="news-search-input" placeholder="Search by title, content, or author..." value="" autocomplete="new-password" name="news_search_nofill" data-lpignore="true" data-form-type="other">
+                                                <script>
+                                                (function(){
+                                                    var sv = '<%= typeof searchQuery !== "undefined" && searchQuery ? searchQuery.replace(/\'/g, "\\\\'") : "" %>';
+                                                    var el = document.getElementById('searchFilter');
+                                                    if (el) el.value = sv;
+                                                })();
+                                                </script>
                                                 <% if (currentSearch) { %>
                                                 <button type="button" class="news-search-clear" id="clearSearchBtn" title="Clear search"><i class="fas fa-times"></i></button>
                                                                             <% } %>
