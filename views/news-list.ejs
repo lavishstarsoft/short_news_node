@@ -408,72 +408,63 @@
                                     </select>
 
                                     <div class="team-panel">
-                                        <% if (newsList.length === 0) { %>
+                                        <% if (typeof isRestrictedSubEditor !== 'undefined' && isRestrictedSubEditor) { %>
+                                            <ul class="nav nav-tabs mb-4" id="subEditorNewsListTabs" role="tablist">
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link <%= typeof currentTab !== 'undefined' && currentTab === 'my-list' ? 'active' : '' %> fw-bold" id="my-list-tab" onclick="document.getElementById('tabFilterInput').value='my-list'; document.getElementById('filterForm').submit();" type="button" role="tab" style="color: #475569;"><i class="fas fa-user-edit"></i> My Articles<% if (typeof subEditorTabCounts !== 'undefined' && subEditorTabCounts) { %> <span class="badge bg-light text-dark ms-1"><%= subEditorTabCounts.myList %></span><% } %></button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link <%= typeof currentTab !== 'undefined' && currentTab === 'team-list' ? 'active' : '' %> fw-bold" id="team-list-tab" onclick="document.getElementById('tabFilterInput').value='team-list'; document.getElementById('filterForm').submit();" type="button" role="tab" style="color: #475569;"><i class="fas fa-users"></i> Assigned Reporters<% if (typeof subEditorTabCounts !== 'undefined' && subEditorTabCounts) { %> <span class="badge bg-light text-dark ms-1"><%= subEditorTabCounts.teamList %></span><% } %></button>
+                                                </li>
+                                            </ul>
+                                            <% if (newsList.length === 0) { %>
+                                            <div class="team-empty">
+                                                <div class="team-empty-icon"><i class="fas fa-newspaper"></i></div>
+                                                <h4 style="color:#374151;font-weight:600;margin-bottom:8px;">No articles in this view</h4>
+                                                <p style="margin-bottom:20px;">
+                                                    <% if (typeof currentTab !== 'undefined' && currentTab === 'team-list') { %>
+                                                    No news from assigned reporters yet. Try the <strong>My Articles</strong> tab or adjust filters.
+                                                    <% } else { %>
+                                                    You have not posted any articles yet. Check <strong>Assigned Reporters</strong> tab for team news.
+                                                    <% } %>
+                                                </p>
+                                                <% if (typeof currentTab !== 'undefined' && currentTab === 'my-list') { %>
+                                                <button type="button" class="team-btn-primary" onclick="document.getElementById('tabFilterInput').value='team-list'; document.getElementById('filterForm').submit();"><i class="fas fa-users"></i> View team articles</button>
+                                                <% } else { %>
+                                                <button type="button" class="team-btn-primary" onclick="document.getElementById('tabFilterInput').value='my-list'; document.getElementById('filterForm').submit();"><i class="fas fa-user-edit"></i> View my articles</button>
+                                                <% } %>
+                                            </div>
+                                            <% } else { %>
+                                            <div class="team-table-wrap">
+                                                <table class="team-table news-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Article</th>
+                                                            <th>Category</th>
+                                                            <th>Location</th>
+                                                            <th>Language</th>
+                                                            <th>Status</th>
+                                                            <th>Engagement</th>
+                                                            <% if (showAuthorCol) { %><th>Author</th><% } %>
+                                                            <th>Published</th>
+                                                            <th></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <% newsList.forEach(function(news) { %>
+                                                            <%- include('partials/news-directory-row', { news: news, newsLanguageLabels: langLabels, admin: admin }) %>
+                                                        <% }); %>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <% } %>
+                                        <% } else if (newsList.length === 0) { %>
                                         <div class="team-empty">
                                             <div class="team-empty-icon"><i class="fas fa-newspaper"></i></div>
                                             <h4 style="color:#374151;font-weight:600;margin-bottom:8px;">No articles found</h4>
                                             <p style="margin-bottom:20px;">Try adjusting filters or publish a new story.</p>
                                             <a href="/add-news" class="team-btn-primary"><i class="fas fa-plus"></i> Add article</a>
                                         </div>
-                                        <% } else if (typeof isRestrictedSubEditor !== 'undefined' && isRestrictedSubEditor) { %>
-                                            <ul class="nav nav-tabs mb-4" id="subEditorNewsListTabs" role="tablist">
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link <%= typeof currentTab !== 'undefined' && currentTab === 'my-list' ? 'active' : '' %> fw-bold" id="my-list-tab" onclick="document.getElementById('tabFilterInput').value='my-list'; document.getElementById('filterForm').submit();" type="button" role="tab" style="color: #475569;"><i class="fas fa-user-edit"></i> My Articles</button>
-                                                </li>
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link <%= typeof currentTab !== 'undefined' && currentTab === 'team-list' ? 'active' : '' %> fw-bold" id="team-list-tab" onclick="document.getElementById('tabFilterInput').value='team-list'; document.getElementById('filterForm').submit();" type="button" role="tab" style="color: #475569;"><i class="fas fa-users"></i> Assigned Reporters (For Approval)</button>
-                                                </li>
-                                            </ul>
-                                            <div class="tab-content" id="subEditorNewsListTabContent">
-                                                <div class="tab-pane fade <%= typeof currentTab !== 'undefined' && currentTab === 'my-list' ? 'show active' : '' %>" id="my-list" role="tabpanel">
-                                                    <div class="team-table-wrap">
-                                                        <table class="team-table news-table">
-                                                            <thead>
-                                                                <tr>
-                                                                    <th>Article</th>
-                                                                    <th>Category</th>
-                                                                    <th>Location</th>
-                                                                    <th>Language</th>
-                                                                    <th>Status</th>
-                                                                    <th>Engagement</th>
-                                                                    <% if (showAuthorCol) { %><th>Author</th><% } %>
-                                                                    <th>Published</th>
-                                                                    <th></th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                <% newsList.filter(n => n.authorId && admin && (admin.id || admin._id) && n.authorId.toString() === (admin.id || admin._id).toString()).forEach(function(news) { %>
-                                                                    <%- include('partials/news-directory-row', { news: news, newsLanguageLabels: langLabels, admin: admin }) %>
-                                                                <% }); %>
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                </div>
-                                                <div class="tab-pane fade <%= typeof currentTab !== 'undefined' && currentTab === 'team-list' ? 'show active' : '' %>" id="team-list" role="tabpanel">
-                                                    <div class="team-table-wrap">
-                                                        <table class="team-table news-table">
-                                                            <thead>
-                                                                <tr>
-                                                                    <th>Article</th>
-                                                                    <th>Category</th>
-                                                                    <th>Location</th>
-                                                                    <th>Language</th>
-                                                                    <th>Status</th>
-                                                                    <th>Engagement</th>
-                                                                    <% if (showAuthorCol) { %><th>Author</th><% } %>
-                                                                    <th>Published</th>
-                                                                    <th></th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                <% newsList.filter(n => n.authorId && admin && (admin.id || admin._id) && n.authorId.toString() !== (admin.id || admin._id).toString()).forEach(function(news) { %>
-                                                                    <%- include('partials/news-directory-row', { news: news, newsLanguageLabels: langLabels, admin: admin }) %>
-                                                                <% }); %>
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                </div>
-                                            </div>
                                         <% } else { %>
                                         <div class="team-table-wrap">
                                             <table class="team-table news-table">

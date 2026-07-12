@@ -20,7 +20,7 @@ const exec = util.promisify(require('child_process').exec);
 const axios = require('axios');
 const sharp = require('sharp');
 const { uploadToR2 } = require('../middleware/upload');
-const { buildSubEditorAuthorFilter, getManagedReporterIds } = require('../utils/editorCoverageHelper');
+const { buildSubEditorAuthorFilter, getManagedReporterIds, buildSubEditorTabQuery, resolveSubEditorNewsTab, getAdminId } = require('../utils/editorCoverageHelper');
 
 // Import the Notification and User models
 const Notification = require('../models/Notification');
@@ -331,42 +331,47 @@ async function renderNewsListPage(req, res) {
       }
 
       let isRestrictedSubEditor = false;
+      let currentTab = req.query.tab || 'my-list';
+      let subEditorTabCounts = null;
 
       // Check user role and permissions
       if (req.admin.role === 'editor') {
         // Editors only see their own news
-        query.authorId = req.admin.id;
+        query.authorId = getAdminId(req.admin);
       } else if (req.admin.role === 'subeditor' && (!req.admin.permissions || !req.admin.permissions.canViewAllNews)) {
         isRestrictedSubEditor = true;
-        const adminDoc = await Admin.findById(req.admin.id).lean();
-        const subEditorQuery = await buildSubEditorAuthorFilter(Admin, adminDoc);
+        const adminDoc = await Admin.findById(getAdminId(req.admin)).lean();
+        const adminId = getAdminId(adminDoc || req.admin);
+        const reporterIds = await getManagedReporterIds(Admin, adminDoc);
 
-        if (subEditorQuery) {
-          if (req.query.tab === 'team-list') {
-            const reporterIds = (subEditorQuery.$or || [])
-              .flatMap(clause => clause.authorId?.$in || (clause.authorId && clause.authorId !== req.admin.id ? [clause.authorId] : []))
-              .filter(id => id && id !== req.admin.id);
-            subEditorQuery.$or = reporterIds.length ? [{ authorId: { $in: reporterIds } }] : [{ authorId: null }];
-          } else if (req.query.tab === 'my-list') {
-            subEditorQuery.$or = [{ authorId: req.admin.id }];
-          }
-        }
+        currentTab = await resolveSubEditorNewsTab(Admin, News, adminDoc, req.query.tab);
 
         if (selectedAuthorId) {
-          const allowedIds = await getManagedReporterIds(Admin, adminDoc);
-          const allowed = allowedIds === null || allowedIds.includes(selectedAuthorId) || selectedAuthorId === req.admin.id;
-          if (allowed) {
-            query.authorId = selectedAuthorId;
-          } else {
-            query.authorId = '000000000000000000000000';
-          }
-        } else if (subEditorQuery) {
-          if (Object.keys(query).length === 0) {
-            Object.assign(query, subEditorQuery);
-          } else {
-            query = { $and: [query, subEditorQuery] };
-          }
+          const allowed = reporterIds === null ||
+            reporterIds.includes(selectedAuthorId) ||
+            selectedAuthorId === adminId;
+          const authorClause = allowed
+            ? { authorId: selectedAuthorId }
+            : { authorId: '__not_allowed__' };
+          query = Object.keys(query).length === 0
+            ? authorClause
+            : { $and: [query, authorClause] };
+        } else {
+          const tabQuery = buildSubEditorTabQuery(currentTab, adminId, reporterIds);
+          query = Object.keys(query).length === 0
+            ? tabQuery
+            : { $and: [query, tabQuery] };
         }
+
+        const [myListCount, teamListCount] = await Promise.all([
+          News.countDocuments({ authorId: adminId }),
+          reporterIds === null
+            ? News.countDocuments({ authorId: { $ne: adminId } })
+            : (reporterIds.length
+              ? News.countDocuments({ authorId: { $in: reporterIds.filter(id => id !== adminId) } })
+              : Promise.resolve(0))
+        ]);
+        subEditorTabCounts = { myList: myListCount, teamList: teamListCount };
       } else if (selectedAuthorId) {
         query.authorId = selectedAuthorId;
       }
@@ -441,7 +446,8 @@ async function renderNewsListPage(req, res) {
           hasPrevPage: page > 1
         },
         isRestrictedSubEditor,
-        currentTab: req.query.tab || 'my-list'
+        currentTab,
+        subEditorTabCounts
       });
     } else {
       console.log('Using in-memory storage'); // Debug log

@@ -63,7 +63,7 @@
       </button>
       <ul class="dropdown-menu dropdown-menu-end team-dropdown-menu">
         <li>
-          <a class="dropdown-item" href="/admin/editors/<%= editor._id %>/news-list" target="_blank">
+          <a class="dropdown-item" href="/admin/editors/<%= editor._id %>/news-list<%= editor.role === 'subeditor' ? '?tab=team-list' : '' %>" target="_blank">
             <i class="fas fa-eye me-2"></i>View News List
           </a>
         </li>
