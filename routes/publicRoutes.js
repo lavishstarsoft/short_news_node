@@ -933,10 +933,31 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
       return res.json([]);
     }
 
-    const { state, district, language, page, limit: limitParam, category } = req.query;
+    const { state: reqState, district: reqDistrict, language, page, limit: limitParam, category, manualLocation } = req.query;
     const lang = language || 'te';
     const pageNum = Math.max(1, parseInt(page) || 1);
     const limit = Math.min(50, Math.max(5, parseInt(limitParam) || 20));
+
+    let state = reqState;
+    let district = reqDistrict;
+
+    // Resolve manualLocation to proper state/district for waterfall
+    if (manualLocation && manualLocation !== 'All') {
+      const loc = await Location.findOne({ name: manualLocation });
+      if (loc) {
+        if (loc.locationType === 'district') {
+          district = loc.name;
+          state = loc.parentName; // e.g., 'Telangana'
+        } else if (loc.locationType === 'state') {
+          state = loc.name;
+          district = null;
+        } else {
+          // Fallback if not state or district
+          district = null;
+          state = null;
+        }
+      }
+    }
 
     const baseQuery = { isActive: { $ne: false } };
     Object.assign(baseQuery, buildNewsLanguageFilter(lang));
