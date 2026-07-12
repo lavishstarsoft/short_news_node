@@ -45,6 +45,10 @@ const appSettingsSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  showDistrictSelection: {
+    type: Boolean,
+    default: false
+  },
   contactUs: {
     type: String,
     default: ''
