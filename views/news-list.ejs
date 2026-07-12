@@ -745,6 +745,13 @@
                     };
 
                     document.addEventListener('DOMContentLoaded', function () {
+                        // Prevent browser auto-restoring search field on refresh
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const searchField = document.getElementById('searchFilter');
+                        if (searchField && !urlParams.has('search')) {
+                            searchField.value = '';
+                        }
+
                         // Handle filter form submission
                         const searchFilter = document.getElementById('searchFilter');
                         const locationFilter = document.getElementById('locationFilter');
