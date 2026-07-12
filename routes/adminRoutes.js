@@ -1,6 +1,7 @@
 const express = require('express');
 const adminController = require('../controllers/adminController');
 const zodiacController = require('../controllers/zodiacController');
+const commandCenterController = require('../controllers/commandCenterController');
 
 const router = express.Router();
 
@@ -40,6 +41,10 @@ router.get('/users/:id', adminController.requireAuth, adminController.getUserByI
 
 // Reports routes
 router.get('/reports', adminController.requireAuth, adminController.renderReportsPage);
+
+// Super Admin Command Center
+router.get('/command-center', adminController.requireAdmin, commandCenterController.renderCommandCenter);
+router.get('/api/command-center', adminController.requireAdmin, commandCenterController.getCommandCenterData);
 
 // Notification routes
 router.get('/notifications', adminController.requireAuth, adminController.renderNotificationsPage);

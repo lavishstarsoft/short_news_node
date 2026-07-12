@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Command Center' }) %>
+<body>
+<style>
+:root { --cc-bg: #0f172a; --cc-card: #1e293b; --cc-border: #334155; --cc-text: #f1f5f9; --cc-muted: #94a3b8; --cc-accent: #3b82f6; --cc-green: #22c55e; --cc-red: #ef4444; --cc-amber: #f59e0b; --cc-purple: #a855f7; --cc-cyan: #06b6d4; }
+body { background: var(--cc-bg); color: var(--cc-text); }
+.cc-wrap { padding: 20px; max-width: 1440px; margin: 0 auto; }
+.cc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.cc-title { font-size: 26px; font-weight: 800; background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.cc-subtitle { color: var(--cc-muted); font-size: 13px; }
+.cc-filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.cc-fbtn { background: var(--cc-card); border: 1px solid var(--cc-border); color: var(--cc-muted); padding: 7px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: .2s; }
+.cc-fbtn:hover, .cc-fbtn.active { background: var(--cc-accent); color: #fff; border-color: var(--cc-accent); }
+.cc-fbtn input[type="date"] { background: transparent; border: none; color: inherit; font-size: 12px; width: 120px; }
+.cc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.cc-stat { background: var(--cc-card); border: 1px solid var(--cc-border); border-radius: 12px; padding: 16px 20px; position: relative; overflow: hidden; }
+.cc-stat::after { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+.cc-stat.blue::after { background: var(--cc-accent); }
+.cc-stat.green::after { background: var(--cc-green); }
+.cc-stat.red::after { background: var(--cc-red); }
+.cc-stat.amber::after { background: var(--cc-amber); }
+.cc-stat.purple::after { background: var(--cc-purple); }
+.cc-stat.cyan::after { background: var(--cc-cyan); }
+.cc-stat-value { font-size: 28px; font-weight: 800; }
+.cc-stat.blue .cc-stat-value { color: var(--cc-accent); }
+.cc-stat.green .cc-stat-value { color: var(--cc-green); }
+.cc-stat.red .cc-stat-value { color: var(--cc-red); }
+.cc-stat.amber .cc-stat-value { color: var(--cc-amber); }
+.cc-stat.purple .cc-stat-value { color: var(--cc-purple); }
+.cc-stat.cyan .cc-stat-value { color: var(--cc-cyan); }
+.cc-stat-label { color: var(--cc-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+.cc-section { background: var(--cc-card); border: 1px solid var(--cc-border); border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
+.cc-section-head { padding: 14px 20px; border-bottom: 1px solid var(--cc-border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.cc-section-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.cc-section-body { padding: 16px 20px; }
+.cc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cc-table th { color: var(--cc-muted); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--cc-border); white-space: nowrap; }
+.cc-table td { padding: 8px 10px; border-bottom: 1px solid rgba(51,65,85,.4); vertical-align: middle; }
+.cc-table tr:hover td { background: rgba(59,130,246,.04); }
+.cc-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+.cc-badge.reporter { background: rgba(59,130,246,.15); color: #60a5fa; }
+.cc-badge.subeditor { background: rgba(168,85,247,.15); color: #c084fc; }
+.cc-badge.active { background: rgba(34,197,94,.15); color: #4ade80; }
+.cc-badge.inactive { background: rgba(239,68,68,.15); color: #f87171; }
+.cc-bar { height: 6px; border-radius: 3px; background: var(--cc-border); overflow: hidden; min-width: 60px; }
+.cc-bar-fill { height: 100%; border-radius: 3px; transition: width .5s; }
+.cc-state-group { margin-bottom: 8px; border: 1px solid var(--cc-border); border-radius: 10px; overflow: hidden; }
+.cc-state-header { padding: 12px 16px; background: rgba(59,130,246,.05); cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 14px; transition: background .2s; }
+.cc-state-header:hover { background: rgba(59,130,246,.12); }
+.cc-state-body { display: none; padding: 0; }
+.cc-state-body.open { display: block; }
+.cc-member-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid rgba(51,65,85,.3); }
+.cc-member-row:last-child { border-bottom: none; }
+.cc-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--cc-border); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; color: var(--cc-accent); flex-shrink: 0; }
+.cc-lang-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 3px; }
+.cc-lang-dot.te { background: #f59e0b; }
+.cc-lang-dot.en { background: #3b82f6; }
+.cc-lang-dot.hi { background: #22c55e; }
+.cc-lang-dot.ta { background: #ef4444; }
+.cc-alert { padding: 10px 14px; border-radius: 8px; font-size: 12px; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cc-alert.warn { background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.25); color: #fbbf24; }
+.cc-alert.danger { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25); color: #f87171; }
+.cc-alert.info { background: rgba(6,182,212,.08); border: 1px solid rgba(6,182,212,.25); color: #22d3ee; }
+.cc-loading { text-align: center; padding: 60px; color: var(--cc-muted); }
+.cc-trend-bar { display: flex; gap: 2px; align-items: flex-end; height: 80px; }
+.cc-trend-col { flex: 1; background: var(--cc-accent); border-radius: 2px 2px 0 0; min-width: 3px; opacity: .6; transition: opacity .2s, background .2s; cursor: pointer; position: relative; }
+.cc-trend-col:hover { opacity: 1; background: #60a5fa; }
+.cc-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.cc-three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+@media (max-width: 900px) { .cc-three-col { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .cc-two-col, .cc-three-col { grid-template-columns: 1fr; } .cc-grid { grid-template-columns: 1fr 1fr; } }
+.cc-search { background: rgba(15,23,42,.5); border: 1px solid var(--cc-border); color: var(--cc-text); padding: 6px 12px; border-radius: 8px; font-size: 12px; width: 200px; }
+.cc-search::placeholder { color: var(--cc-muted); }
+.cc-gap-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12px; color: var(--cc-muted); border-bottom: 1px solid rgba(51,65,85,.3); }
+.cc-gap-item:last-child { border-bottom: none; }
+.cc-gap-icon { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; }
+.cc-gap-icon.warn { background: rgba(245,158,11,.15); color: var(--cc-amber); }
+.cc-gap-icon.danger { background: rgba(239,68,68,.15); color: var(--cc-red); }
+.cc-cat-chip { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(59,130,246,.1); color: var(--cc-accent); margin: 2px; }
+.cc-district-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; font-size: 12px; border-bottom: 1px solid rgba(51,65,85,.2); }
+.cc-district-row:last-child { border-bottom: none; }
+.cc-rank { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.cc-rank.gold { background: rgba(245,158,11,.2); color: var(--cc-amber); }
+.cc-rank.silver { background: rgba(148,163,184,.2); color: var(--cc-muted); }
+.cc-rank.bronze { background: rgba(180,83,9,.2); color: #d97706; }
+</style>
+
+<%- include('partials/top-nav', { pageTitle: 'Command Center', backButton: true, backUrl: '/' }) %>
+<div class="container-fluid">
+<div class="row">
+<%- include('partials/sidebar', { activePage: 'command-center' }) %>
+<div class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+<div class="cc-wrap">
+    <div class="cc-header">
+        <div>
+            <div class="cc-title"><i class="fas fa-satellite-dish" style="margin-right:8px;font-size:22px"></i> Command Center</div>
+            <div class="cc-subtitle">Complete overview of news, team, coverage, and performance</div>
+        </div>
+        <div class="cc-filters">
+            <button class="cc-fbtn" data-period="today">Today</button>
+            <button class="cc-fbtn" data-period="week">7 Days</button>
+            <button class="cc-fbtn active" data-period="month">This Month</button>
+            <span style="color:var(--cc-border)">|</span>
+            <input type="date" id="ccStartDate" class="cc-fbtn" style="padding:5px 8px">
+            <span style="color:var(--cc-muted);font-size:11px">to</span>
+            <input type="date" id="ccEndDate" class="cc-fbtn" style="padding:5px 8px">
+            <button class="cc-fbtn" id="ccCustomBtn" style="background:var(--cc-purple);color:#fff;border-color:var(--cc-purple)">Apply</button>
+        </div>
+    </div>
+    <div id="ccContent">
+        <div class="cc-loading"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Loading analytics...</div>
+    </div>
+</div>
+</div>
+</div>
+</div>
+
+<%- include('partials/footer') %>
+<script>
+const LL = { te:'Telugu', en:'English', hi:'Hindi', ta:'Tamil', kn:'Kannada', ml:'Malayalam', ur:'Urdu' };
+let _D = null, _period = 'month';
+
+document.addEventListener('DOMContentLoaded', () => {
+    fetchCC('month');
+    document.querySelectorAll('.cc-fbtn[data-period]').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('.cc-fbtn[data-period]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        _period = b.dataset.period;
+        fetchCC(b.dataset.period);
+    }));
+    document.getElementById('ccCustomBtn').addEventListener('click', () => {
+        const s = document.getElementById('ccStartDate').value, e = document.getElementById('ccEndDate').value;
+        if (s && e) { document.querySelectorAll('.cc-fbtn[data-period]').forEach(x => x.classList.remove('active')); _period = 'custom'; fetchCC('custom', s, e); }
+    });
+});
+
+async function fetchCC(period, s, e) {
+    const el = document.getElementById('ccContent');
+    el.innerHTML = '<div class="cc-loading"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Loading analytics...</div>';
+    let url = '/admin/api/command-center?period=' + period;
+    if (period === 'custom' && s && e) url += '&startDate=' + s + '&endDate=' + e;
+    try { const r = await fetch(url); _D = await r.json(); render(_D); }
+    catch (err) { el.innerHTML = '<div class="cc-loading" style="color:#f87171"><i class="fas fa-exclamation-circle"></i> Failed to load data</div>'; }
+}
+
+function render(D) {
+    const el = document.getElementById('ccContent');
+    const S = D.summary, TC = D.teamCount;
+    const approvalRate = S.total ? Math.round((S.approved / S.total) * 100) : 0;
+
+    el.innerHTML = `
+    <div class="cc-grid">
+        <div class="cc-stat blue"><div class="cc-stat-value">${num(S.total)}</div><div class="cc-stat-label">Total News</div></div>
+        <div class="cc-stat green"><div class="cc-stat-value">${num(S.approved)}</div><div class="cc-stat-label">Approved</div></div>
+        <div class="cc-stat amber"><div class="cc-stat-value">${num(S.pending)}</div><div class="cc-stat-label">Pending Review</div></div>
+        <div class="cc-stat red"><div class="cc-stat-value">${num(S.rejected)}</div><div class="cc-stat-label">Rejected</div></div>
+        <div class="cc-stat cyan"><div class="cc-stat-value">${approvalRate}%</div><div class="cc-stat-label">Approval Rate</div></div>
+        <div class="cc-stat purple"><div class="cc-stat-value">${num(S.totalViews || 0)}</div><div class="cc-stat-label">Total Views</div></div>
+        <div class="cc-stat blue"><div class="cc-stat-value">${TC.totalReporters}</div><div class="cc-stat-label">Reporters</div></div>
+        <div class="cc-stat purple"><div class="cc-stat-value">${TC.totalSubEditors}</div><div class="cc-stat-label">Sub-Editors</div></div>
+    </div>
+    <div id="ccAlerts"></div>
+    <div class="cc-section">
+        <div class="cc-section-head"><div class="cc-section-title"><i class="fas fa-chart-area" style="color:var(--cc-accent)"></i> Daily News Trend</div>
+            <div style="font-size:11px;color:var(--cc-muted)" id="ccTrendLabel"></div>
+        </div>
+        <div class="cc-section-body"><div class="cc-trend-bar" id="ccTrend"></div></div>
+    </div>
+    <div class="cc-three-col">
+        <div class="cc-section"><div class="cc-section-head"><div class="cc-section-title"><i class="fas fa-language" style="color:var(--cc-amber)"></i> By Language</div></div><div class="cc-section-body" id="ccLang"></div></div>
+        <div class="cc-section"><div class="cc-section-head"><div class="cc-section-title"><i class="fas fa-globe-asia" style="color:var(--cc-green)"></i> By Scope</div></div><div class="cc-section-body" id="ccScope"></div></div>
+        <div class="cc-section"><div class="cc-section-head"><div class="cc-section-title"><i class="fas fa-th-large" style="color:var(--cc-cyan)"></i> By Category</div></div><div class="cc-section-body" id="ccCat"></div></div>
+    </div>
+    <div class="cc-section">
+        <div class="cc-section-head">
+            <div class="cc-section-title"><i class="fas fa-map-marked-alt" style="color:var(--cc-purple)"></i> State-wise News &amp; Team</div>
+            <input type="text" class="cc-search" id="ccStateSearch" placeholder="Search state..." autocomplete="off">
+        </div>
+        <div class="cc-section-body" style="padding:8px" id="ccStates"></div>
+    </div>
+    <div class="cc-section">
+        <div class="cc-section-head">
+            <div class="cc-section-title"><i class="fas fa-trophy" style="color:var(--cc-amber)"></i> Reporter Leaderboard</div>
+            <input type="text" class="cc-search" id="ccReporterSearch" placeholder="Search reporter..." autocomplete="off">
+        </div>
+        <div class="cc-section-body" style="overflow-x:auto;padding:0">
+            <table class="cc-table"><thead><tr>
+                <th>#</th><th>Reporter</th><th>State</th><th>District</th><th>Language</th>
+                <th>News</th><th>Approved</th><th>Rejected</th><th>Pending</th>
+                <th>Views</th><th>Last Posted</th><th>Status</th>
+            </tr></thead><tbody id="ccReporterTb"></tbody></table>
+        </div>
+    </div>
+    <div class="cc-section">
+        <div class="cc-section-head"><div class="cc-section-title"><i class="fas fa-user-shield" style="color:var(--cc-purple)"></i> Sub-Editor Overview</div></div>
+        <div class="cc-section-body" style="overflow-x:auto;padding:0">
+            <table class="cc-table"><thead><tr>
+                <th>Sub-Editor</th><th>Assigned States</th><th>Districts</th><th>Language</th>
+                <th>Allowed Scopes</th><th>News</th><th>Approved</th><th>Rejected</th><th>Status</th>
+            </tr></thead><tbody id="ccSubEdTb"></tbody></table>
+        </div>
+    </div>
+    <div class="cc-two-col">
+        <div class="cc-section"><div class="cc-section-head"><div class="cc-section-title"><i class="fas fa-exclamation-triangle" style="color:var(--cc-amber)"></i> Coverage Gaps</div></div><div class="cc-section-body" id="ccGaps" style="max-height:400px;overflow-y:auto"></div></div>
+        <div class="cc-section"><div class="cc-section-head"><div class="cc-section-title"><i class="fas fa-user-slash" style="color:var(--cc-red)"></i> Inactive Reporters</div></div><div class="cc-section-body" id="ccInactive" style="max-height:400px;overflow-y:auto"></div></div>
+    </div>`;
+
+    renderAlerts(D);
+    renderTrend(D.dailyTrend);
+    renderBreakdown('ccLang', D.newsByLanguage, S.total, v => LL[v] || v, v => 'cc-lang-dot ' + v);
+    renderBreakdown('ccScope', D.newsByScope, S.total, v => ({district:'Local (District)',state:'State',national:'National',international:'International'}[v] || v));
+    renderBreakdown('ccCat', (D.newsByCategory||[]).slice(0,10), S.total, v => v);
+    renderStates(D);
+    renderReporters(D.reporterPerformance);
+    renderSubEditors(D.subEditors);
+    renderGaps(D.coverageGaps);
+    renderInactive(D.inactiveReporters);
+    bindSearch();
+}
+
+function num(n) { return (n || 0).toLocaleString(); }
+
+function renderAlerts(D) {
+    const el = document.getElementById('ccAlerts'); let h = '';
+    const TC = D.teamCount;
+    if (TC.inactiveCount > 0) h += `<div class="cc-alert warn"><i class="fas fa-exclamation-triangle"></i> <strong>${TC.inactiveCount} reporters</strong> posted 0 news in this period</div>`;
+    if (TC.unassignedCount > 0) h += `<div class="cc-alert danger"><i class="fas fa-map-marker-alt"></i> <strong>${TC.unassignedCount} team members</strong> have no state assigned</div>`;
+    if ((D.coverageGaps||[]).filter(g => g.type === 'no_team').length > 0) {
+        const ct = D.coverageGaps.filter(g => g.type === 'no_team').length;
+        h += `<div class="cc-alert info"><i class="fas fa-map"></i> <strong>${ct} states</strong> have zero team members — check Coverage Gaps below</div>`;
+    }
+    el.innerHTML = h;
+}
+
+function renderTrend(trend) {
+    const el = document.getElementById('ccTrend');
+    const lbl = document.getElementById('ccTrendLabel');
+    if (!trend.length) { el.innerHTML = '<span style="color:var(--cc-muted)">No data for this period</span>'; return; }
+    const max = Math.max(...trend.map(t => t.count), 1);
+    const avg = Math.round(trend.reduce((a,t) => a + t.count, 0) / trend.length);
+    lbl.textContent = 'Avg: ' + avg + '/day • ' + trend.length + ' days';
+    el.innerHTML = trend.map(t => {
+        const h = Math.max((t.count / max) * 100, 3);
+        const d = new Date(t._id);
+        const label = d.getDate() + '/' + (d.getMonth()+1) + ': ' + t.count + ' news';
+        return '<div class="cc-trend-col" style="height:' + h + '%" title="' + label + '"></div>';
+    }).join('');
+}
+
+function renderBreakdown(containerId, items, total, labelFn, dotFn) {
+    const el = document.getElementById(containerId);
+    if (!items || !items.length) { el.innerHTML = '<span style="color:var(--cc-muted)">No data</span>'; return; }
+    const key = items[0].language !== undefined ? 'language' : (items[0].scope !== undefined ? 'scope' : 'category');
+    el.innerHTML = items.map(item => {
+        const val = item[key];
+        const pct = total ? Math.round((item.count / total) * 100) : 0;
+        const label = labelFn ? labelFn(val) : val;
+        const dotClass = dotFn ? dotFn(val) : '';
+        return '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:12px"><span>' +
+            (dotClass ? '<span class="' + dotClass + '"></span>' : '') + label +
+            '</span><span style="color:var(--cc-muted)">' + num(item.count) + ' (' + pct + '%)</span></div>' +
+            '<div class="cc-bar"><div class="cc-bar-fill" style="width:' + pct + '%;background:var(--cc-accent)"></div></div></div>';
+    }).join('');
+}
+
+function renderStates(D) {
+    const el = document.getElementById('ccStates');
+    const allStates = new Set([...Object.keys(D.stateTeamMap), ...Object.keys(D.stateNewsMap)]);
+    const sorted = [...allStates].sort();
+    if (!sorted.length) { el.innerHTML = '<span style="color:var(--cc-muted)">No state data available</span>'; return; }
+
+    el.innerHTML = sorted.map(state => {
+        const team = D.stateTeamMap[state] || { reporters: [], subEditors: [] };
+        const nc = D.stateNewsMap[state] || 0;
+        const rc = team.reporters.length, sec = team.subEditors.length;
+        const hasGap = rc === 0 && sec === 0;
+        const borderColor = hasGap ? 'var(--cc-red)' : 'var(--cc-border)';
+
+        let membersHtml = '';
+        if (team.reporters.length) {
+            membersHtml += '<div style="padding:8px 16px;font-size:11px;color:var(--cc-accent);font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid rgba(51,65,85,.3)"><i class="fas fa-pen-fancy" style="margin-right:6px"></i>Reporters (' + rc + ')</div>';
+            membersHtml += team.reporters.map(r => mRow(r, 'reporter', D)).join('');
+        }
+        if (team.subEditors.length) {
+            membersHtml += '<div style="padding:8px 16px;font-size:11px;color:var(--cc-purple);font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid rgba(51,65,85,.3)"><i class="fas fa-user-shield" style="margin-right:6px"></i>Sub-Editors (' + sec + ')</div>';
+            membersHtml += team.subEditors.map(s => mRow(s, 'subeditor', D)).join('');
+        }
+        if (!membersHtml) membersHtml = '<div style="color:var(--cc-red);padding:12px 16px;font-size:12px"><i class="fas fa-exclamation-circle" style="margin-right:6px"></i>No team members assigned to this state</div>';
+
+        return '<div class="cc-state-group" data-state="' + state.toLowerCase() + '" style="border-color:' + borderColor + '">' +
+            '<div class="cc-state-header" onclick="this.nextElementSibling.classList.toggle(\'open\')">' +
+            '<span><i class="fas fa-map-marker-alt" style="color:' + (hasGap ? 'var(--cc-red)' : 'var(--cc-accent)') + ';margin-right:8px"></i>' + state +
+            '<span style="color:var(--cc-muted);font-weight:400;font-size:12px;margin-left:10px">' + nc + ' news &middot; ' + rc + ' reporters &middot; ' + sec + ' sub-editors</span></span>' +
+            '<i class="fas fa-chevron-down" style="color:var(--cc-muted);font-size:12px"></i></div>' +
+            '<div class="cc-state-body">' + membersHtml + '</div></div>';
+    }).join('');
+}
+
+function mRow(m, role, D) {
+    const name = m.name || m.username;
+    const init = (name || '?')[0].toUpperCase();
+    const lang = LL[m.workingLanguage] || m.workingLanguage || '—';
+    const dists = (m.assignedDistricts || []).join(', ') || '—';
+    const badge = role === 'reporter' ? '<span class="cc-badge reporter">Reporter</span>' : '<span class="cc-badge subeditor">Sub-Editor</span>';
+    const status = m.isActive !== false ? '<span class="cc-badge active">Active</span>' : '<span class="cc-badge inactive">Inactive</span>';
+    const authorStats = (D.reporterPerformance || []).find(r => r._id === m._id) || {};
+    const newsCount = authorStats.newsCount || 0;
+    return '<div class="cc-member-row">' +
+        '<div class="cc-avatar">' + init + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+        '<div style="font-weight:600;font-size:13px">' + name + ' ' + badge + ' ' + status + '</div>' +
+        '<div style="color:var(--cc-muted);font-size:11px">Districts: ' + dists + ' &middot; Language: <span class="cc-lang-dot ' + (m.workingLanguage||'') + '"></span>' + lang + ' &middot; News: <strong>' + newsCount + '</strong></div>' +
+        '</div></div>';
+}
+
+function renderReporters(reporters) {
+    const tb = document.getElementById('ccReporterTb');
+    if (!reporters.length) { tb.innerHTML = '<tr><td colspan="12" style="color:var(--cc-muted);text-align:center;padding:20px">No reporters found</td></tr>'; return; }
+    const maxN = Math.max(...reporters.map(r => r.newsCount), 1);
+    tb.innerHTML = reporters.map((r, i) => {
+        const name = r.name || r.username;
+        const states = (r.assignedStates || []).join(', ') || '—';
+        const dists = (r.assignedDistricts || []).slice(0,3).join(', ') || '—';
+        const lang = LL[r.workingLanguage] || r.workingLanguage || '—';
+        const status = r.isActive !== false ? '<span class="cc-badge active">Active</span>' : '<span class="cc-badge inactive">Inactive</span>';
+        const bw = Math.round((r.newsCount / maxN) * 100);
+        const rankClass = i === 0 ? 'gold' : (i === 1 ? 'silver' : (i === 2 ? 'bronze' : ''));
+        const rankHtml = rankClass ? '<div class="cc-rank ' + rankClass + '">' + (i+1) + '</div>' : '<span style="color:var(--cc-muted)">' + (i+1) + '</span>';
+        const lastP = r.lastPosted ? timeAgo(new Date(r.lastPosted)) : '—';
+        return '<tr data-search="' + (name + ' ' + states + ' ' + dists).toLowerCase() + '">' +
+            '<td>' + rankHtml + '</td>' +
+            '<td><strong>' + name + '</strong><br><span style="color:var(--cc-muted);font-size:10px">' + (r.email||'') + '</span></td>' +
+            '<td>' + states + '</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + dists + '">' + dists + '</td>' +
+            '<td><span class="cc-lang-dot ' + (r.workingLanguage||'') + '"></span>' + lang + '</td>' +
+            '<td><div style="display:flex;align-items:center;gap:6px"><strong>' + r.newsCount + '</strong><div class="cc-bar" style="min-width:50px"><div class="cc-bar-fill" style="width:' + bw + '%;background:var(--cc-accent)"></div></div></div></td>' +
+            '<td style="color:var(--cc-green)">' + r.approved + '</td>' +
+            '<td style="color:var(--cc-red)">' + r.rejected + '</td>' +
+            '<td style="color:var(--cc-amber)">' + r.pending + '</td>' +
+            '<td>' + num(r.views) + '</td>' +
+            '<td style="font-size:11px;color:var(--cc-muted)">' + lastP + '</td>' +
+            '<td>' + status + '</td></tr>';
+    }).join('');
+}
+
+function renderSubEditors(subs) {
+    const tb = document.getElementById('ccSubEdTb');
+    if (!subs.length) { tb.innerHTML = '<tr><td colspan="9" style="color:var(--cc-muted);text-align:center;padding:20px">No sub-editors</td></tr>'; return; }
+    tb.innerHTML = subs.map(s => {
+        const name = s.name || s.username;
+        const states = (s.assignedStates || []).join(', ') || '—';
+        const dists = (s.assignedDistricts || []).join(', ') || '—';
+        const lang = LL[s.workingLanguage] || s.workingLanguage || '—';
+        const scopes = (s.allowedScopes || []).join(', ') || 'default';
+        const status = s.isActive !== false ? '<span class="cc-badge active">Active</span>' : '<span class="cc-badge inactive">Inactive</span>';
+        return '<tr><td><strong>' + name + '</strong><br><span style="color:var(--cc-muted);font-size:10px">' + (s.email||'') + '</span></td>' +
+            '<td>' + states + '</td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis" title="' + dists + '">' + dists + '</td>' +
+            '<td><span class="cc-lang-dot ' + (s.workingLanguage||'') + '"></span>' + lang + '</td>' +
+            '<td>' + scopes + '</td>' +
+            '<td>' + (s.newsCount||0) + '</td>' +
+            '<td style="color:var(--cc-green)">' + (s.approved||0) + '</td>' +
+            '<td style="color:var(--cc-red)">' + (s.rejected||0) + '</td>' +
+            '<td>' + status + '</td></tr>';
+    }).join('');
+}
+
+function renderGaps(gaps) {
+    const el = document.getElementById('ccGaps');
+    if (!gaps || !gaps.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--cc-green)"><i class="fas fa-check-circle fa-2x"></i><br><br>All areas covered!</div>'; return; }
+    const stateGaps = gaps.filter(g => g.type === 'no_team' || g.type === 'no_reporters');
+    const distGaps = gaps.filter(g => g.type === 'no_district_reporter');
+    let html = '';
+    if (stateGaps.length) {
+        html += '<div style="font-size:11px;color:var(--cc-amber);font-weight:600;margin-bottom:8px;text-transform:uppercase">State-level gaps (' + stateGaps.length + ')</div>';
+        html += stateGaps.map(g => '<div class="cc-gap-item"><div class="cc-gap-icon ' + (g.type === 'no_team' ? 'danger' : 'warn') + '"><i class="fas fa-' + (g.type === 'no_team' ? 'times' : 'exclamation') + '"></i></div>' + g.message + '</div>').join('');
+    }
+    if (distGaps.length) {
+        html += '<div style="font-size:11px;color:var(--cc-amber);font-weight:600;margin:12px 0 8px;text-transform:uppercase">District-level gaps (' + distGaps.length + ')</div>';
+        html += distGaps.slice(0, 20).map(g => '<div class="cc-gap-item"><div class="cc-gap-icon warn"><i class="fas fa-exclamation"></i></div>' + g.message + '</div>').join('');
+        if (distGaps.length > 20) html += '<div style="color:var(--cc-muted);font-size:11px;padding:8px 0">...and ' + (distGaps.length - 20) + ' more</div>';
+    }
+    el.innerHTML = html;
+}
+
+function renderInactive(reporters) {
+    const el = document.getElementById('ccInactive');
+    if (!reporters || !reporters.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--cc-green)"><i class="fas fa-check-circle fa-2x"></i><br><br>All reporters are active!</div>'; return; }
+    el.innerHTML = reporters.map(r => {
+        const name = r.name || 'Unknown';
+        const states = (r.assignedStates || []).join(', ') || 'Not assigned';
+        const lastLogin = r.lastLogin ? timeAgo(new Date(r.lastLogin)) : 'Never';
+        return '<div class="cc-gap-item"><div class="cc-gap-icon danger"><i class="fas fa-user-slash"></i></div><div style="flex:1"><strong>' + name + '</strong><div style="font-size:11px;color:var(--cc-muted)">State: ' + states + ' &middot; Last login: ' + lastLogin + '</div></div></div>';
+    }).join('');
+}
+
+function timeAgo(d) {
+    const now = new Date(), diff = now - d;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+    if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+    if (diff < 604800000) return Math.floor(diff/86400000) + 'd ago';
+    return d.toLocaleDateString();
+}
+
+function bindSearch() {
+    const ss = document.getElementById('ccStateSearch');
+    if (ss) ss.addEventListener('input', () => {
+        const q = ss.value.toLowerCase();
+        document.querySelectorAll('.cc-state-group').forEach(g => { g.style.display = !q || g.dataset.state.includes(q) ? '' : 'none'; });
+    });
+    const rs = document.getElementById('ccReporterSearch');
+    if (rs) rs.addEventListener('input', () => {
+        const q = rs.value.toLowerCase();
+        document.querySelectorAll('#ccReporterTb tr').forEach(r => { r.style.display = !q || (r.dataset.search||'').includes(q) ? '' : 'none'; });
+    });
+}
+</script>
+</body>
+</html>
