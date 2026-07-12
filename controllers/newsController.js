@@ -628,12 +628,17 @@ async function getNewsById(req, res) {
 // Render add news page
 async function renderAddNewsPage(req, res) {
   try {
-    const adminDoc = await Admin.findById(req.admin.id).select('workingLanguage').lean();
+    const adminDoc = await Admin.findById(req.admin.id)
+      .select('workingLanguage assignedStates assignedDistricts allowedScopes role')
+      .lean();
     const languageViewData = await getLanguageViewData();
     const { getDisplayConfigMap } = require('../services/languageRegistry');
     await refreshLanguageCache();
     res.render('add-news', {
       admin: req.admin,
+      editorAssignedStates: adminDoc?.assignedStates || [],
+      editorAssignedDistricts: adminDoc?.assignedDistricts || [],
+      editorAllowedScopes: adminDoc?.allowedScopes || [],
       defaultLanguage: adminDoc?.workingLanguage || languageViewData.defaultLanguage,
       displayConfigByLanguage: getDisplayConfigMap(),
       ...languageViewData
@@ -665,13 +670,18 @@ async function renderEditNewsPage(req, res) {
       return res.status(403).json({ error: 'Access denied. Rejected news can only be edited by authorized admins.' });
     }
 
-    const adminDoc = await Admin.findById(req.admin.id).select('workingLanguage').lean();
+    const adminDoc = await Admin.findById(req.admin.id)
+      .select('workingLanguage assignedStates assignedDistricts allowedScopes role')
+      .lean();
     const languageViewData = await getLanguageViewData();
     const { getDisplayConfigMap } = require('../services/languageRegistry');
     await refreshLanguageCache();
     res.render('add-news', {
       news,
       admin: req.admin,
+      editorAssignedStates: adminDoc?.assignedStates || [],
+      editorAssignedDistricts: adminDoc?.assignedDistricts || [],
+      editorAllowedScopes: adminDoc?.allowedScopes || [],
       defaultLanguage: news.language || adminDoc?.workingLanguage || languageViewData.defaultLanguage,
       displayConfigByLanguage: getDisplayConfigMap(),
       source: req.query.source || '',

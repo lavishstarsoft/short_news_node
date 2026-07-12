@@ -917,6 +917,10 @@
 
                     // Scope-based cascading dropdowns
                     let _allHierarchy = [];
+                    const _editorAssignedStates = <%- JSON.stringify(typeof editorAssignedStates !== 'undefined' ? editorAssignedStates : []) %>;
+                    const _editorAssignedDistricts = <%- JSON.stringify(typeof editorAssignedDistricts !== 'undefined' ? editorAssignedDistricts : []) %>;
+                    const _editorRole = '<%= typeof admin !== "undefined" ? admin.role : "editor" %>';
+                    const _isAdminOrSuper = (_editorRole === 'admin' || _editorRole === 'superadmin');
 
                     async function loadLocationHierarchy() {
                         try {
@@ -925,14 +929,23 @@
 
                             const stateSelect = document.getElementById('locationState');
                             stateSelect.innerHTML = '<option value="">Select State</option>';
+
+                            const hasStateFilter = !_isAdminOrSuper && _editorAssignedStates.length > 0;
+                            const hasDistrictFilter = !_isAdminOrSuper && _editorAssignedDistricts.length > 0;
+
                             _allHierarchy.forEach(s => {
+                                if (hasStateFilter && !_editorAssignedStates.includes(s.name)) return;
                                 const opt = document.createElement('option');
                                 opt.value = s.name;
                                 opt.textContent = s.localName ? `${s.name} (${s.localName})` : s.name;
                                 stateSelect.appendChild(opt);
                             });
 
-                            // Pre-fill if editing existing news
+                            if (stateSelect.options.length === 2) {
+                                stateSelect.selectedIndex = 1;
+                                onStateChange();
+                            }
+
                             const currentScope = '<%= typeof news !== "undefined" && news.scope ? news.scope : "state" %>';
                             const currentLocation = '<%= typeof news !== "undefined" && news.location ? news.location : "" %>';
                             document.getElementById('newsScope').value = currentScope;
@@ -961,14 +974,21 @@
                         const districtSelect = document.getElementById('locationDistrict');
                         districtSelect.innerHTML = '<option value="">Select District</option>';
 
+                        const hasDistrictFilter = !_isAdminOrSuper && _editorAssignedDistricts.length > 0;
+
                         const stateData = _allHierarchy.find(s => s.name === stateName);
                         if (stateData && stateData.districts) {
                             stateData.districts.forEach(d => {
+                                if (hasDistrictFilter && !_editorAssignedDistricts.includes(d.name)) return;
                                 const opt = document.createElement('option');
                                 opt.value = d.name;
                                 opt.textContent = d.localName ? `${d.name} (${d.localName})` : d.name;
                                 districtSelect.appendChild(opt);
                             });
+                        }
+
+                        if (districtSelect.options.length === 2) {
+                            districtSelect.selectedIndex = 1;
                         }
                     }
 
@@ -992,12 +1012,25 @@
                     document.getElementById('newsScope').addEventListener('change', updateScopeVisibility);
                     document.getElementById('locationState').addEventListener('change', onStateChange);
 
-                    // Filter allowed scopes based on editor role
+                    // Filter allowed scopes based on editor's allowedScopes from database
                     (function filterAllowedScopes() {
-                        const role = '<%= typeof admin !== "undefined" ? admin.role : "editor" %>';
+                        const allowedScopes = <%- JSON.stringify(typeof editorAllowedScopes !== 'undefined' ? editorAllowedScopes : []) %>;
                         const scopeSelect = document.getElementById('newsScope');
-                        if (role === 'editor') {
-                            // Reporters can only post district-level
+
+                        if (_isAdminOrSuper) {
+                            updateScopeVisibility();
+                            return;
+                        }
+
+                        if (allowedScopes.length > 0) {
+                            Array.from(scopeSelect.options).forEach(opt => {
+                                if (!allowedScopes.includes(opt.value)) {
+                                    opt.style.display = 'none';
+                                }
+                            });
+                            const firstAllowed = allowedScopes.find(s => Array.from(scopeSelect.options).some(o => o.value === s));
+                            if (firstAllowed) scopeSelect.value = firstAllowed;
+                        } else {
                             Array.from(scopeSelect.options).forEach(opt => {
                                 if (opt.value !== 'district' && opt.value !== 'state') {
                                     opt.style.display = 'none';
