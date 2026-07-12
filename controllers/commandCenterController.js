@@ -32,7 +32,7 @@ async function getCommandCenterData(req, res) {
       locationDocs
     ] = await Promise.all([
       Admin.find({ role: { $in: ['editor', 'subeditor'] } })
-        .select('username name email role assignedStates assignedDistricts assignedConstituencies allowedScopes workingLanguage isActive lastLogin constituency displayRole createdAt')
+        .select('username name email role assignedStates assignedDistricts assignedConstituencies allowedScopes workingLanguage isActive lastLogin constituency displayRole createdAt permissions.approvalScope permissions.managedStates permissions.managedDistricts permissions.managedConstituencies permissions.managedReporterIds permissions.managedLocations')
         .lean(),
       News.aggregate([
         { $match: { ...dateFilter } },
@@ -58,8 +58,10 @@ async function getCommandCenterData(req, res) {
             locations: { $addToSet: '$location' },
             scopes: { $addToSet: '$scope' },
             categories: { $addToSet: '$category' },
+            published: { $sum: { $cond: ['$isActive', 1, 0] } },
             approved: { $sum: { $cond: ['$approvalStatus.isApproved', 1, 0] } },
             rejected: { $sum: { $cond: ['$rejectionStatus.isRejected', 1, 0] } },
+            pending: { $sum: { $cond: [{ $and: [{ $eq: ['$isActive', false] }, { $not: '$rejectionStatus.isRejected' }] }, 1, 0] } },
             views: { $sum: '$views' },
             likes: { $sum: '$likes' },
             lastPosted: { $max: '$publishedAt' }
@@ -73,8 +75,10 @@ async function getCommandCenterData(req, res) {
           $group: {
             _id: null,
             total: { $sum: 1 },
+            published: { $sum: { $cond: ['$isActive', 1, 0] } },
             approved: { $sum: { $cond: ['$approvalStatus.isApproved', 1, 0] } },
             rejected: { $sum: { $cond: ['$rejectionStatus.isRejected', 1, 0] } },
+            pending: { $sum: { $cond: [{ $and: [{ $eq: ['$isActive', false] }, { $not: '$rejectionStatus.isRejected' }] }, 1, 0] } },
             totalViews: { $sum: '$views' },
             totalLikes: { $sum: '$likes' }
           }
@@ -115,19 +119,14 @@ async function getCommandCenterData(req, res) {
 
     const stateTeamMap = {};
     editors.forEach(editor => {
-      const states = editor.assignedStates || [];
-      if (!states.length && editor.assignedState) states.push(editor.assignedState);
-      states.forEach(state => {
+      getEditorCoverageStates(editor).forEach(state => {
         if (!stateTeamMap[state]) stateTeamMap[state] = { reporters: [], subEditors: [] };
         if (editor.role === 'editor') stateTeamMap[state].reporters.push(editor);
         else stateTeamMap[state].subEditors.push(editor);
       });
     });
 
-    const unassignedEditors = editors.filter(e => {
-      const states = e.assignedStates || [];
-      return states.length === 0;
-    });
+    const unassignedEditors = editors.filter(e => getEditorCoverageStates(e).length === 0);
 
     const authorMap = {};
     newsByAuthor.forEach(a => { authorMap[a._id] = a; });
@@ -152,9 +151,10 @@ async function getCommandCenterData(req, res) {
       return {
         ...r,
         newsCount: stats.count || 0,
+        published: stats.published || 0,
         approved: stats.approved || 0,
         rejected: stats.rejected || 0,
-        pending: (stats.count || 0) - (stats.approved || 0) - (stats.rejected || 0),
+        pending: stats.pending || 0,
         views: stats.views || 0,
         likes: stats.likes || 0,
         newsLanguages: stats.languages || [],
@@ -169,8 +169,7 @@ async function getCommandCenterData(req, res) {
       return !stats || stats.count === 0;
     });
 
-    const stats = totalStats[0] || { total: 0, approved: 0, rejected: 0, totalViews: 0, totalLikes: 0 };
-    stats.pending = stats.total - stats.approved - stats.rejected;
+    const stats = totalStats[0] || { total: 0, published: 0, approved: 0, rejected: 0, pending: 0, totalViews: 0, totalLikes: 0 };
 
     const coverageGaps = [];
     Object.keys(locationHierarchy).forEach(state => {
@@ -199,15 +198,7 @@ async function getCommandCenterData(req, res) {
       stateTeamMap,
       locationHierarchy,
       reporterPerformance,
-      subEditors: subEditors.map(se => {
-        const seStats = authorMap[se._id.toString()] || {};
-        return {
-          ...se,
-          newsCount: seStats.count || 0,
-          approved: seStats.approved || 0,
-          rejected: seStats.rejected || 0
-        };
-      }),
+      subEditors: subEditors.map(se => normalizeSubEditorForView(se, authorMap[se._id.toString()] || {})),
       unassignedEditors,
       inactiveReporters: inactiveReporters.map(r => ({
         _id: r._id, name: r.name || r.username, email: r.email,
@@ -228,6 +219,56 @@ async function getCommandCenterData(req, res) {
     console.error('Command center data error:', error);
     res.status(500).json({ error: 'Failed to load analytics' });
   }
+}
+
+function getEditorCoverageStates(editor) {
+  const states = [...(editor.assignedStates || [])];
+  if (!states.length && editor.assignedState) states.push(editor.assignedState);
+  if (editor.role === 'subeditor') {
+    (editor.permissions?.managedStates || []).forEach(s => {
+      if (s && !states.includes(s)) states.push(s);
+    });
+  }
+  return states;
+}
+
+function normalizeSubEditorForView(se, stats = {}) {
+  const approvalScope = se.permissions?.approvalScope || 'all';
+  const managedStates = se.permissions?.managedStates || [];
+  const managedDistricts = se.permissions?.managedDistricts || [];
+  const managedReporterIds = se.permissions?.managedReporterIds || [];
+  const postStates = se.assignedStates || [];
+  const postDistricts = se.assignedDistricts || [];
+  const allowedScopes = se.allowedScopes || [];
+
+  let approvalLabel = 'All Reporters';
+  let approvalDetail = 'Can review and approve news from every reporter in the system';
+  if (approvalScope === 'geography' || approvalScope === 'locations') {
+    approvalLabel = 'By Geography';
+    approvalDetail = 'Can approve news only from reporters in assigned states/districts';
+  } else if (approvalScope === 'reporters') {
+    approvalLabel = 'Specific Reporters';
+    approvalDetail = `Can approve news from ${managedReporterIds.length} selected reporter(s)`;
+  }
+
+  return {
+    ...se,
+    newsCount: stats.count || 0,
+    approved: stats.approved || 0,
+    rejected: stats.rejected || 0,
+    approvalScope,
+    approvalLabel,
+    approvalDetail,
+    managedStates,
+    managedDistricts,
+    managedReporterCount: managedReporterIds.length,
+    postStates,
+    postDistricts,
+    allowedScopes,
+    allowedScopesLabel: allowedScopes.length
+      ? allowedScopes.join(', ')
+      : 'Default (Local + State only)'
+  };
 }
 
 function buildDateFilter(period, startDate, endDate) {

@@ -1230,26 +1230,35 @@
                         const districts = getSelectedFromHidden(prefix + 'AssignedDistricts');
                         renderChipGrid(prefix + 'StateChips', prefix + 'AssignedStates',
                             (_editorHierarchy || []).map(s => s), states, 'No states found', () => refreshReporterLocation(prefix));
+                        
+                        const distEmptyMsg = states.length ? 'No districts found' : 'Select at least one state';
                         renderChipGrid(prefix + 'DistrictChips', prefix + 'AssignedDistricts',
-                            getDistrictsForStates(getSelectedFromHidden(prefix + 'AssignedStates')),
-                            districts, 'Select at least one state', () => refreshReporterLocation(prefix));
+                            getDistrictsForStates(states),
+                            districts, distEmptyMsg, () => refreshReporterLocation(prefix));
+                        
                         const validDistricts = getSelectedFromHidden(prefix + 'AssignedDistricts');
+                        const constEmptyMsg = validDistricts.length ? 'No constituencies found (optional)' : 'Select districts first (optional)';
                         renderChipGrid(prefix + 'ConstituencyChips', prefix + 'AssignedConstituencies',
                             getConstituenciesForDistricts(validDistricts),
                             getSelectedFromHidden(prefix + 'AssignedConstituencies'),
-                            'No constituencies for selected districts (optional)');
+                            constEmptyMsg);
                     }
 
                     function refreshManagedGeography(prefix) {
                         const states = getSelectedFromHidden(prefix + 'ManagedStates');
                         renderChipGrid(prefix + 'ManagedStateChips', prefix + 'ManagedStates',
                             (_editorHierarchy || []).map(s => s), states, 'No states', () => refreshManagedGeography(prefix));
+                            
+                        const distEmptyMsg = states.length ? 'No districts found' : 'Select managed states';
                         renderChipGrid(prefix + 'ManagedDistrictChips', prefix + 'ManagedDistricts',
-                            getDistrictsForStates(getSelectedFromHidden(prefix + 'ManagedStates')),
-                            getSelectedFromHidden(prefix + 'ManagedDistricts'), 'Select managed states', () => refreshManagedGeography(prefix));
+                            getDistrictsForStates(states),
+                            getSelectedFromHidden(prefix + 'ManagedDistricts'), distEmptyMsg, () => refreshManagedGeography(prefix));
+                            
+                        const validDistricts = getSelectedFromHidden(prefix + 'ManagedDistricts');
+                        const constEmptyMsg = validDistricts.length ? 'No constituencies found (optional)' : 'Select managed districts (optional)';
                         renderChipGrid(prefix + 'ManagedConstituencyChips', prefix + 'ManagedConstituencies',
-                            getConstituenciesForDistricts(getSelectedFromHidden(prefix + 'ManagedDistricts')),
-                            getSelectedFromHidden(prefix + 'ManagedConstituencies'), 'Select managed districts (optional)');
+                            getConstituenciesForDistricts(validDistricts),
+                            getSelectedFromHidden(prefix + 'ManagedConstituencies'), constEmptyMsg);
                     }
 
                     function getReporterList() {
@@ -1351,13 +1360,15 @@
                     function loadReporterCoverage(prefix, editor) {
                         const states = editor?.assignedStates?.length ? editor.assignedStates : (editor?.assignedState ? [editor.assignedState] : []);
                         renderChipGrid(prefix + 'StateChips', prefix + 'AssignedStates', (_editorHierarchy || []).map(s => s), states, 'No states', () => refreshReporterLocation(prefix));
-                        refreshReporterLocation(prefix);
-                        if (editor?.assignedDistricts?.length) {
-                            renderChipGrid(prefix + 'DistrictChips', prefix + 'AssignedDistricts', getDistrictsForStates(states), editor.assignedDistricts, 'Select states', () => refreshReporterLocation(prefix));
-                        }
-                        if (editor?.assignedConstituencies?.length) {
-                            renderChipGrid(prefix + 'ConstituencyChips', prefix + 'AssignedConstituencies', getConstituenciesForDistricts(editor.assignedDistricts || []), editor.assignedConstituencies, 'Optional');
-                        }
+                        
+                        const districts = editor?.assignedDistricts || [];
+                        const consts = editor?.assignedConstituencies || [];
+                        
+                        const distEmptyMsg = states.length ? 'No districts found' : 'Select states';
+                        renderChipGrid(prefix + 'DistrictChips', prefix + 'AssignedDistricts', getDistrictsForStates(states), districts, distEmptyMsg, () => refreshReporterLocation(prefix));
+                        
+                        const constEmptyMsg = districts.length ? 'No constituencies found (optional)' : 'Optional';
+                        renderChipGrid(prefix + 'ConstituencyChips', prefix + 'AssignedConstituencies', getConstituenciesForDistricts(districts), consts, constEmptyMsg);
                     }
 
                     function loadManagedCoverage(prefix, permissions) {
@@ -1366,13 +1377,24 @@
                         if (scope === 'locations') scope = 'geography';
                         const scopeEl = document.getElementById(prefix + 'ApprovalScope');
                         if (scopeEl) scopeEl.value = scope;
-                        refreshManagedGeography(prefix);
+                        
+                        const geo = document.getElementById(prefix + 'ManagedGeographyWrapper');
+                        const reps = document.getElementById(prefix + 'ManagedReportersWrapper');
+                        if (geo) geo.style.display = scope === 'geography' ? 'block' : 'none';
+                        if (reps) reps.style.display = scope === 'reporters' ? 'block' : 'none';
+
                         const mStates = perms.managedStates || [];
                         const mDistricts = perms.managedDistricts || [];
                         const mConst = perms.managedConstituencies || [];
-                        if (mStates.length) renderChipGrid(prefix + 'ManagedStateChips', prefix + 'ManagedStates', (_editorHierarchy || []).map(s => s), mStates, 'No states', () => refreshManagedGeography(prefix));
-                        if (mDistricts.length) renderChipGrid(prefix + 'ManagedDistrictChips', prefix + 'ManagedDistricts', getDistrictsForStates(mStates.length ? mStates : getSelectedFromHidden(prefix + 'ManagedStates')), mDistricts, 'Select states', () => refreshManagedGeography(prefix));
-                        if (mConst.length) renderChipGrid(prefix + 'ManagedConstituencyChips', prefix + 'ManagedConstituencies', getConstituenciesForDistricts(mDistricts), mConst, 'Optional');
+                        
+                        renderChipGrid(prefix + 'ManagedStateChips', prefix + 'ManagedStates', (_editorHierarchy || []).map(s => s), mStates, 'No states', () => refreshManagedGeography(prefix));
+                        
+                        const distEmptyMsg = mStates.length ? 'No districts found' : 'Select states';
+                        renderChipGrid(prefix + 'ManagedDistrictChips', prefix + 'ManagedDistricts', getDistrictsForStates(mStates), mDistricts, distEmptyMsg, () => refreshManagedGeography(prefix));
+                        
+                        const constEmptyMsg = mDistricts.length ? 'No constituencies found (optional)' : 'Optional';
+                        renderChipGrid(prefix + 'ManagedConstituencyChips', prefix + 'ManagedConstituencies', getConstituenciesForDistricts(mDistricts), mConst, constEmptyMsg);
+                        
                         renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', perms.managedReporterIds || []);
                         syncApprovalScopeUI(prefix);
                     }

@@ -60,6 +60,45 @@
         // Listen for new pending news submissions
         socket.on('new_news', function (news) {
             console.log('New pending news received:', news);
+
+            // Client-side filtering based on permissions
+            if (window.CURRENT_ADMIN && window.CURRENT_ADMIN.role === 'subeditor') {
+                const admin = window.CURRENT_ADMIN;
+                const permissions = admin.permissions || {};
+                
+                // 1. Check language match (if language filtering is enabled)
+                if (admin.workingLanguage && admin.workingLanguage !== 'all' && news.language && news.language !== admin.workingLanguage) {
+                    console.log('Ignoring news notification due to language mismatch');
+                    return;
+                }
+                
+                // 2. Check approval scope
+                if (permissions.approvalScope === 'geography') {
+                    const states = permissions.managedStates || [];
+                    const districts = permissions.managedDistricts || [];
+                    const constituencies = permissions.managedConstituencies || [];
+                    const legacyLocations = permissions.managedLocations || [];
+                    
+                    let hasAccess = false;
+                    if (news.state && states.includes(news.state)) hasAccess = true;
+                    if (news.district && districts.includes(news.district)) hasAccess = true;
+                    if (news.constituency && constituencies.includes(news.constituency)) hasAccess = true;
+                    if (news.location && legacyLocations.includes(news.location)) hasAccess = true;
+                    
+                    // If subeditor has assigned geographies but news doesn't match any of them
+                    if (!hasAccess && (states.length > 0 || districts.length > 0 || constituencies.length > 0 || legacyLocations.length > 0)) {
+                        console.log('Ignoring news notification due to geography mismatch');
+                        return;
+                    }
+                } else if (permissions.approvalScope === 'reporters') {
+                    const reporterIds = permissions.managedReporterIds || [];
+                    if (reporterIds.length > 0 && news.authorId && !reporterIds.includes(news.authorId)) {
+                        console.log('Ignoring news notification due to reporter mismatch');
+                        return;
+                    }
+                }
+            }
+
             playNotificationSound();
             
             const title = `🗞️ New Pending News!`;

@@ -3,18 +3,34 @@
 <%- include('partials/header', { title: 'Command Center' }) %>
 <body>
 <style>
-:root { --cc-bg: #0f172a; --cc-card: #1e293b; --cc-border: #334155; --cc-text: #f1f5f9; --cc-muted: #94a3b8; --cc-accent: #3b82f6; --cc-green: #22c55e; --cc-red: #ef4444; --cc-amber: #f59e0b; --cc-purple: #a855f7; --cc-cyan: #06b6d4; }
-body { background: var(--cc-bg); color: var(--cc-text); }
-.cc-wrap { padding: 20px; max-width: 1440px; margin: 0 auto; }
-.cc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-.cc-title { font-size: 26px; font-weight: 800; background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.cc-subtitle { color: var(--cc-muted); font-size: 13px; }
+:root {
+  --cc-bg: #f8f9fa;
+  --cc-card: #ffffff;
+  --cc-border: #e2e8f0;
+  --cc-text: #1e293b;
+  --cc-muted: #64748b;
+  --cc-accent: #2563eb;
+  --cc-green: #16a34a;
+  --cc-red: #dc2626;
+  --cc-amber: #d97706;
+  --cc-purple: #7c3aed;
+  --cc-cyan: #0891b2;
+  --cc-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --cc-shadow-hover: 0 4px 12px rgba(0,0,0,.1);
+}
+.cc-wrap { padding: 20px 0 40px; max-width: 1440px; margin: 0 auto; }
+.cc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; padding: 24px 28px; border-radius: 16px; background: #fff; border: 1px solid var(--cc-border); box-shadow: var(--cc-shadow); }
+.cc-title { font-size: 26px; font-weight: 800; color: #1e293b; letter-spacing: -0.02em; }
+.cc-title i { color: var(--cc-accent); }
+.cc-subtitle { color: var(--cc-muted); font-size: 13px; margin-top: 4px; }
 .cc-filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.cc-fbtn { background: var(--cc-card); border: 1px solid var(--cc-border); color: var(--cc-muted); padding: 7px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: .2s; }
-.cc-fbtn:hover, .cc-fbtn.active { background: var(--cc-accent); color: #fff; border-color: var(--cc-accent); }
+.cc-fbtn { background: #fff; border: 1px solid var(--cc-border); color: var(--cc-muted); padding: 7px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: .2s; font-weight: 500; }
+.cc-fbtn:hover { border-color: var(--cc-accent); color: var(--cc-accent); background: #eff6ff; }
+.cc-fbtn.active { background: var(--cc-accent); color: #fff; border-color: var(--cc-accent); }
 .cc-fbtn input[type="date"] { background: transparent; border: none; color: inherit; font-size: 12px; width: 120px; }
 .cc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
-.cc-stat { background: var(--cc-card); border: 1px solid var(--cc-border); border-radius: 12px; padding: 16px 20px; position: relative; overflow: hidden; }
+.cc-stat { background: var(--cc-card); border: 1px solid var(--cc-border); border-radius: 12px; padding: 16px 20px; position: relative; overflow: hidden; box-shadow: var(--cc-shadow); transition: box-shadow .2s; }
+.cc-stat:hover { box-shadow: var(--cc-shadow-hover); }
 .cc-stat::after { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
 .cc-stat.blue::after { background: var(--cc-accent); }
 .cc-stat.green::after { background: var(--cc-green); }
@@ -29,68 +45,90 @@ body { background: var(--cc-bg); color: var(--cc-text); }
 .cc-stat.amber .cc-stat-value { color: var(--cc-amber); }
 .cc-stat.purple .cc-stat-value { color: var(--cc-purple); }
 .cc-stat.cyan .cc-stat-value { color: var(--cc-cyan); }
-.cc-stat-label { color: var(--cc-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
-.cc-section { background: var(--cc-card); border: 1px solid var(--cc-border); border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
-.cc-section-head { padding: 14px 20px; border-bottom: 1px solid var(--cc-border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-.cc-section-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.cc-stat-label { color: var(--cc-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; font-weight: 600; }
+.cc-section { background: var(--cc-card); border: 1px solid var(--cc-border); border-radius: 12px; margin-bottom: 20px; overflow: hidden; box-shadow: var(--cc-shadow); }
+.cc-section-head { padding: 14px 20px; border-bottom: 1px solid var(--cc-border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; background: #fafbfc; }
+.cc-section-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: var(--cc-text); }
 .cc-section-body { padding: 16px 20px; }
 .cc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.cc-table th { color: var(--cc-muted); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--cc-border); white-space: nowrap; }
-.cc-table td { padding: 8px 10px; border-bottom: 1px solid rgba(51,65,85,.4); vertical-align: middle; }
-.cc-table tr:hover td { background: rgba(59,130,246,.04); }
+.cc-table th { color: var(--cc-muted); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--cc-border); white-space: nowrap; background: #f8fafc; }
+.cc-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color: var(--cc-text); }
+.cc-table tr:hover td { background: #f8fafc; }
 .cc-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; white-space: nowrap; }
-.cc-badge.reporter { background: rgba(59,130,246,.15); color: #60a5fa; }
-.cc-badge.subeditor { background: rgba(168,85,247,.15); color: #c084fc; }
-.cc-badge.active { background: rgba(34,197,94,.15); color: #4ade80; }
-.cc-badge.inactive { background: rgba(239,68,68,.15); color: #f87171; }
-.cc-bar { height: 6px; border-radius: 3px; background: var(--cc-border); overflow: hidden; min-width: 60px; }
+.cc-badge.reporter { background: #eff6ff; color: #2563eb; }
+.cc-badge.subeditor { background: #f5f3ff; color: #7c3aed; }
+.cc-badge.active { background: #ecfdf5; color: #047857; }
+.cc-badge.inactive { background: #fef2f2; color: #b91c1c; }
+.cc-bar { height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden; min-width: 60px; }
 .cc-bar-fill { height: 100%; border-radius: 3px; transition: width .5s; }
-.cc-state-group { margin-bottom: 8px; border: 1px solid var(--cc-border); border-radius: 10px; overflow: hidden; }
-.cc-state-header { padding: 12px 16px; background: rgba(59,130,246,.05); cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 14px; transition: background .2s; }
-.cc-state-header:hover { background: rgba(59,130,246,.12); }
-.cc-state-body { display: none; padding: 0; }
+.cc-state-group { margin-bottom: 8px; border: 1px solid var(--cc-border); border-radius: 10px; overflow: hidden; background: #fff; }
+.cc-state-header { padding: 12px 16px; background: #f8fafc; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 14px; transition: background .2s; color: var(--cc-text); }
+.cc-state-header:hover { background: #eff6ff; }
+.cc-state-body { display: none; padding: 0; background: #fff; }
 .cc-state-body.open { display: block; }
-.cc-member-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid rgba(51,65,85,.3); }
+.cc-member-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #f1f5f9; }
 .cc-member-row:last-child { border-bottom: none; }
-.cc-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--cc-border); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; color: var(--cc-accent); flex-shrink: 0; }
+.cc-avatar { width: 30px; height: 30px; border-radius: 50%; background: #eff6ff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; color: var(--cc-accent); flex-shrink: 0; }
 .cc-lang-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 3px; }
 .cc-lang-dot.te { background: #f59e0b; }
 .cc-lang-dot.en { background: #3b82f6; }
 .cc-lang-dot.hi { background: #22c55e; }
 .cc-lang-dot.ta { background: #ef4444; }
 .cc-alert { padding: 10px 14px; border-radius: 8px; font-size: 12px; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.cc-alert.warn { background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.25); color: #fbbf24; }
-.cc-alert.danger { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25); color: #f87171; }
-.cc-alert.info { background: rgba(6,182,212,.08); border: 1px solid rgba(6,182,212,.25); color: #22d3ee; }
+.cc-alert.warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+.cc-alert.danger { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.cc-alert.info { background: #ecfeff; border: 1px solid #a5f3fc; color: #0e7490; }
 .cc-loading { text-align: center; padding: 60px; color: var(--cc-muted); }
 .cc-trend-bar { display: flex; gap: 2px; align-items: flex-end; height: 80px; }
-.cc-trend-col { flex: 1; background: var(--cc-accent); border-radius: 2px 2px 0 0; min-width: 3px; opacity: .6; transition: opacity .2s, background .2s; cursor: pointer; position: relative; }
-.cc-trend-col:hover { opacity: 1; background: #60a5fa; }
+.cc-trend-col { flex: 1; background: var(--cc-accent); border-radius: 2px 2px 0 0; min-width: 3px; opacity: .75; transition: opacity .2s, background .2s; cursor: pointer; }
+.cc-trend-col:hover { opacity: 1; background: #1d4ed8; }
 .cc-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .cc-three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
 @media (max-width: 900px) { .cc-three-col { grid-template-columns: 1fr; } }
 @media (max-width: 768px) { .cc-two-col, .cc-three-col { grid-template-columns: 1fr; } .cc-grid { grid-template-columns: 1fr 1fr; } }
-.cc-search { background: rgba(15,23,42,.5); border: 1px solid var(--cc-border); color: var(--cc-text); padding: 6px 12px; border-radius: 8px; font-size: 12px; width: 200px; }
-.cc-search::placeholder { color: var(--cc-muted); }
-.cc-gap-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12px; color: var(--cc-muted); border-bottom: 1px solid rgba(51,65,85,.3); }
+.cc-search { background: #fff; border: 1px solid var(--cc-border); color: var(--cc-text); padding: 6px 12px; border-radius: 8px; font-size: 12px; width: 200px; }
+.cc-search::placeholder { color: #94a3b8; }
+.cc-search:focus { outline: none; border-color: var(--cc-accent); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.cc-gap-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12px; color: var(--cc-muted); border-bottom: 1px solid #f1f5f9; }
 .cc-gap-item:last-child { border-bottom: none; }
 .cc-gap-icon { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; }
-.cc-gap-icon.warn { background: rgba(245,158,11,.15); color: var(--cc-amber); }
-.cc-gap-icon.danger { background: rgba(239,68,68,.15); color: var(--cc-red); }
-.cc-cat-chip { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(59,130,246,.1); color: var(--cc-accent); margin: 2px; }
-.cc-district-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; font-size: 12px; border-bottom: 1px solid rgba(51,65,85,.2); }
+.cc-gap-icon.warn { background: #fffbeb; color: var(--cc-amber); }
+.cc-gap-icon.danger { background: #fef2f2; color: var(--cc-red); }
+.cc-cat-chip { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; background: #eff6ff; color: var(--cc-accent); margin: 2px; }
+.cc-district-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
 .cc-district-row:last-child { border-bottom: none; }
 .cc-rank { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
-.cc-rank.gold { background: rgba(245,158,11,.2); color: var(--cc-amber); }
-.cc-rank.silver { background: rgba(148,163,184,.2); color: var(--cc-muted); }
-.cc-rank.bronze { background: rgba(180,83,9,.2); color: #d97706; }
+.cc-rank.gold { background: #fef3c7; color: #b45309; }
+.cc-rank.silver { background: #f1f5f9; color: #64748b; }
+.cc-rank.bronze { background: #ffedd5; color: #c2410c; }
+.cc-card { background: #fff; border: 1px solid var(--cc-border); border-radius: 12px; padding: 16px; transition: box-shadow .2s, border-color .2s; box-shadow: var(--cc-shadow); }
+.cc-card:hover { box-shadow: var(--cc-shadow-hover); border-color: #cbd5e1; }
+.cc-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.cc-card-avatar { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #ede9fe, #dbeafe); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #7c3aed; flex-shrink: 0; }
+.cc-card-name { font-weight: 700; font-size: 14px; color: var(--cc-text); }
+.cc-card-email { font-size: 11px; color: var(--cc-muted); }
+.cc-card-stats { display: flex; gap: 12px; margin: 12px 0; padding: 10px 0; border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
+.cc-card-stat { text-align: center; flex: 1; }
+.cc-card-stat-val { font-size: 18px; font-weight: 800; }
+.cc-card-stat-lbl { font-size: 10px; color: var(--cc-muted); text-transform: uppercase; letter-spacing: .3px; font-weight: 600; }
+.cc-tag-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.cc-tag-label { font-size: 10px; color: var(--cc-muted); text-transform: uppercase; letter-spacing: .4px; font-weight: 600; margin-bottom: 4px; }
+.cc-tag { display: inline-block; padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 500; }
+.cc-tag.state { background: #eff6ff; color: #2563eb; }
+.cc-tag.district { background: #f5f3ff; color: #7c3aed; }
+.cc-tag.scope { background: #ecfdf5; color: #047857; }
+.cc-tag.more { background: #f1f5f9; color: var(--cc-muted); cursor: pointer; }
+.cc-tag.more:hover { background: #e2e8f0; color: var(--cc-text); }
+.cc-tag-expand { display: none; }
+.cc-tag-expand.open { display: flex; }
 </style>
 
 <%- include('partials/top-nav', { pageTitle: 'Command Center', backButton: true, backUrl: '/' }) %>
 <div class="container-fluid">
 <div class="row">
 <%- include('partials/sidebar', { activePage: 'command-center' }) %>
-<div class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+<div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+<div class="content-area mt-4">
 <div class="cc-wrap">
     <div class="cc-header">
         <div>
@@ -111,6 +149,7 @@ body { background: var(--cc-bg); color: var(--cc-text); }
     <div id="ccContent">
         <div class="cc-loading"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Loading analytics...</div>
     </div>
+</div>
 </div>
 </div>
 </div>
@@ -141,21 +180,19 @@ async function fetchCC(period, s, e) {
     let url = '/admin/api/command-center?period=' + period;
     if (period === 'custom' && s && e) url += '&startDate=' + s + '&endDate=' + e;
     try { const r = await fetch(url); _D = await r.json(); render(_D); }
-    catch (err) { el.innerHTML = '<div class="cc-loading" style="color:#f87171"><i class="fas fa-exclamation-circle"></i> Failed to load data</div>'; }
+    catch (err) { el.innerHTML = '<div class="cc-loading" style="color:#dc2626"><i class="fas fa-exclamation-circle"></i> Failed to load data</div>'; }
 }
 
 function render(D) {
     const el = document.getElementById('ccContent');
     const S = D.summary, TC = D.teamCount;
-    const approvalRate = S.total ? Math.round((S.approved / S.total) * 100) : 0;
-
     el.innerHTML = `
     <div class="cc-grid">
         <div class="cc-stat blue"><div class="cc-stat-value">${num(S.total)}</div><div class="cc-stat-label">Total News</div></div>
-        <div class="cc-stat green"><div class="cc-stat-value">${num(S.approved)}</div><div class="cc-stat-label">Approved</div></div>
+        <div class="cc-stat green"><div class="cc-stat-value">${num(S.published)}</div><div class="cc-stat-label">Published (Live)</div></div>
         <div class="cc-stat amber"><div class="cc-stat-value">${num(S.pending)}</div><div class="cc-stat-label">Pending Review</div></div>
         <div class="cc-stat red"><div class="cc-stat-value">${num(S.rejected)}</div><div class="cc-stat-label">Rejected</div></div>
-        <div class="cc-stat cyan"><div class="cc-stat-value">${approvalRate}%</div><div class="cc-stat-label">Approval Rate</div></div>
+        <div class="cc-stat cyan"><div class="cc-stat-value">${num(S.approved)}</div><div class="cc-stat-label">Formally Approved</div></div>
         <div class="cc-stat purple"><div class="cc-stat-value">${num(S.totalViews || 0)}</div><div class="cc-stat-label">Total Views</div></div>
         <div class="cc-stat blue"><div class="cc-stat-value">${TC.totalReporters}</div><div class="cc-stat-label">Reporters</div></div>
         <div class="cc-stat purple"><div class="cc-stat-value">${TC.totalSubEditors}</div><div class="cc-stat-label">Sub-Editors</div></div>
@@ -194,12 +231,7 @@ function render(D) {
     </div>
     <div class="cc-section">
         <div class="cc-section-head"><div class="cc-section-title"><i class="fas fa-user-shield" style="color:var(--cc-purple)"></i> Sub-Editor Overview</div></div>
-        <div class="cc-section-body" style="overflow-x:auto;padding:0">
-            <table class="cc-table"><thead><tr>
-                <th>Sub-Editor</th><th>Assigned States</th><th>Districts</th><th>Language</th>
-                <th>Allowed Scopes</th><th>News</th><th>Approved</th><th>Rejected</th><th>Status</th>
-            </tr></thead><tbody id="ccSubEdTb"></tbody></table>
-        </div>
+        <div class="cc-section-body" id="ccSubEdCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px"></div>
     </div>
     <div class="cc-two-col">
         <div class="cc-section"><div class="cc-section-head"><div class="cc-section-title"><i class="fas fa-exclamation-triangle" style="color:var(--cc-amber)"></i> Coverage Gaps</div></div><div class="cc-section-body" id="ccGaps" style="max-height:400px;overflow-y:auto"></div></div>
@@ -279,11 +311,11 @@ function renderStates(D) {
 
         let membersHtml = '';
         if (team.reporters.length) {
-            membersHtml += '<div style="padding:8px 16px;font-size:11px;color:var(--cc-accent);font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid rgba(51,65,85,.3)"><i class="fas fa-pen-fancy" style="margin-right:6px"></i>Reporters (' + rc + ')</div>';
+            membersHtml += '<div style="padding:8px 16px;font-size:11px;color:var(--cc-accent);font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #f1f5f9"><i class="fas fa-pen-fancy" style="margin-right:6px"></i>Reporters (' + rc + ')</div>';
             membersHtml += team.reporters.map(r => mRow(r, 'reporter', D)).join('');
         }
         if (team.subEditors.length) {
-            membersHtml += '<div style="padding:8px 16px;font-size:11px;color:var(--cc-purple);font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid rgba(51,65,85,.3)"><i class="fas fa-user-shield" style="margin-right:6px"></i>Sub-Editors (' + sec + ')</div>';
+            membersHtml += '<div style="padding:8px 16px;font-size:11px;color:var(--cc-purple);font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #f1f5f9"><i class="fas fa-user-shield" style="margin-right:6px"></i>Sub-Editors (' + sec + ')</div>';
             membersHtml += team.subEditors.map(s => mRow(s, 'subeditor', D)).join('');
         }
         if (!membersHtml) membersHtml = '<div style="color:var(--cc-red);padding:12px 16px;font-size:12px"><i class="fas fa-exclamation-circle" style="margin-right:6px"></i>No team members assigned to this state</div>';
@@ -321,17 +353,20 @@ function renderReporters(reporters) {
     tb.innerHTML = reporters.map((r, i) => {
         const name = r.name || r.username;
         const states = (r.assignedStates || []).join(', ') || '—';
-        const dists = (r.assignedDistricts || []).slice(0,3).join(', ') || '—';
+        const allDists = r.assignedDistricts || [];
+        const distShow = allDists.slice(0, 2).join(', ');
+        const distExtra = allDists.length > 2 ? ' <span style="color:var(--cc-accent);font-size:10px;cursor:help" title="' + allDists.join(', ') + '">+' + (allDists.length - 2) + '</span>' : '';
+        const distDisplay = allDists.length ? distShow + distExtra : '—';
         const lang = LL[r.workingLanguage] || r.workingLanguage || '—';
         const status = r.isActive !== false ? '<span class="cc-badge active">Active</span>' : '<span class="cc-badge inactive">Inactive</span>';
         const bw = Math.round((r.newsCount / maxN) * 100);
         const rankClass = i === 0 ? 'gold' : (i === 1 ? 'silver' : (i === 2 ? 'bronze' : ''));
         const rankHtml = rankClass ? '<div class="cc-rank ' + rankClass + '">' + (i+1) + '</div>' : '<span style="color:var(--cc-muted)">' + (i+1) + '</span>';
         const lastP = r.lastPosted ? timeAgo(new Date(r.lastPosted)) : '—';
-        return '<tr data-search="' + (name + ' ' + states + ' ' + dists).toLowerCase() + '">' +
+        return '<tr data-search="' + (name + ' ' + states + ' ' + allDists.join(' ')).toLowerCase() + '">' +
             '<td>' + rankHtml + '</td>' +
             '<td><strong>' + name + '</strong><br><span style="color:var(--cc-muted);font-size:10px">' + (r.email||'') + '</span></td>' +
-            '<td>' + states + '</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + dists + '">' + dists + '</td>' +
+            '<td>' + states + '</td><td style="max-width:160px">' + distDisplay + '</td>' +
             '<td><span class="cc-lang-dot ' + (r.workingLanguage||'') + '"></span>' + lang + '</td>' +
             '<td><div style="display:flex;align-items:center;gap:6px"><strong>' + r.newsCount + '</strong><div class="cc-bar" style="min-width:50px"><div class="cc-bar-fill" style="width:' + bw + '%;background:var(--cc-accent)"></div></div></div></td>' +
             '<td style="color:var(--cc-green)">' + r.approved + '</td>' +
@@ -344,23 +379,79 @@ function renderReporters(reporters) {
 }
 
 function renderSubEditors(subs) {
-    const tb = document.getElementById('ccSubEdTb');
-    if (!subs.length) { tb.innerHTML = '<tr><td colspan="9" style="color:var(--cc-muted);text-align:center;padding:20px">No sub-editors</td></tr>'; return; }
-    tb.innerHTML = subs.map(s => {
+    const el = document.getElementById('ccSubEdCards');
+    if (!subs.length) { el.innerHTML = '<div style="color:var(--cc-muted);text-align:center;padding:20px;grid-column:1/-1">No sub-editors</div>'; return; }
+
+    el.innerHTML = subs.map((s, idx) => {
         const name = s.name || s.username;
-        const states = (s.assignedStates || []).join(', ') || '—';
-        const dists = (s.assignedDistricts || []).join(', ') || '—';
+        const init = (name || '?')[0].toUpperCase();
         const lang = LL[s.workingLanguage] || s.workingLanguage || '—';
-        const scopes = (s.allowedScopes || []).join(', ') || 'default';
-        const status = s.isActive !== false ? '<span class="cc-badge active">Active</span>' : '<span class="cc-badge inactive">Inactive</span>';
-        return '<tr><td><strong>' + name + '</strong><br><span style="color:var(--cc-muted);font-size:10px">' + (s.email||'') + '</span></td>' +
-            '<td>' + states + '</td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis" title="' + dists + '">' + dists + '</td>' +
-            '<td><span class="cc-lang-dot ' + (s.workingLanguage||'') + '"></span>' + lang + '</td>' +
-            '<td>' + scopes + '</td>' +
-            '<td>' + (s.newsCount||0) + '</td>' +
-            '<td style="color:var(--cc-green)">' + (s.approved||0) + '</td>' +
-            '<td style="color:var(--cc-red)">' + (s.rejected||0) + '</td>' +
-            '<td>' + status + '</td></tr>';
+        const status = s.isActive !== false;
+        const uid = 'se_' + idx;
+
+        const approvalScope = s.approvalScope || 'all';
+        const approvalLabel = s.approvalLabel || 'All Reporters';
+        const approvalDetail = s.approvalDetail || '';
+        const managedStates = s.managedStates || [];
+        const managedDistricts = s.managedDistricts || [];
+        const postStates = s.postStates || [];
+        const postDistricts = s.postDistricts || [];
+        const allowedScopesLabel = s.allowedScopesLabel || 'Default (Local + State only)';
+
+        const maxShow = 4;
+        const geoStates = approvalScope === 'geography' || approvalScope === 'locations' ? managedStates : postStates;
+        const geoDistricts = approvalScope === 'geography' || approvalScope === 'locations' ? managedDistricts : postDistricts;
+
+        function tagBlock(label, items, cls, emptyText) {
+            if (!items.length) return '<div style="margin-top:8px"><div class="cc-tag-label">' + label + '</div><span style="color:var(--cc-muted);font-size:11px">' + emptyText + '</span></div>';
+            const visible = items.slice(0, maxShow);
+            const hidden = items.slice(maxShow);
+            let tags = visible.map(x => '<span class="cc-tag ' + cls + '">' + x + '</span>').join('');
+            if (hidden.length) tags += '<span class="cc-tag more" onclick="document.getElementById(\'' + uid + '_' + cls + '\').classList.toggle(\'open\');this.textContent=this.textContent.indexOf(\'+\')>=0?\' Show less\':\'+ ' + hidden.length + ' more\'">+ ' + hidden.length + ' more</span>';
+            const hiddenHtml = hidden.length ? '<div class="cc-tag-row cc-tag-expand" id="' + uid + '_' + cls + '">' + hidden.map(x => '<span class="cc-tag ' + cls + '">' + x + '</span>').join('') + '</div>' : '';
+            return '<div style="margin-top:8px"><div class="cc-tag-label">' + label + ' (' + items.length + ')</div><div class="cc-tag-row">' + tags + '</div>' + hiddenHtml + '</div>';
+        }
+
+        let approvalBadge = '<span class="cc-tag scope">' + approvalLabel + '</span>';
+        if (approvalScope === 'reporters' && s.managedReporterCount) {
+            approvalBadge += '<span class="cc-tag district">' + s.managedReporterCount + ' reporters</span>';
+        }
+
+        return '<div class="cc-card">' +
+            '<div class="cc-card-head">' +
+                '<div class="cc-card-avatar">' + init + '</div>' +
+                '<div style="flex:1;min-width:0"><div class="cc-card-name">' + name + ' ' + (status ? '<span class="cc-badge active">Active</span>' : '<span class="cc-badge inactive">Inactive</span>') + '</div>' +
+                '<div class="cc-card-email">' + (s.email||'') + ' &middot; <span class="cc-lang-dot ' + (s.workingLanguage||'') + '"></span>' + lang + '</div></div>' +
+            '</div>' +
+            '<div class="cc-card-stats">' +
+                '<div class="cc-card-stat"><div class="cc-card-stat-val" style="color:var(--cc-accent)">' + (s.newsCount||0) + '</div><div class="cc-card-stat-lbl">News Posted</div></div>' +
+                '<div class="cc-card-stat"><div class="cc-card-stat-val" style="color:var(--cc-green)">' + (s.approved||0) + '</div><div class="cc-card-stat-lbl">Approved</div></div>' +
+                '<div class="cc-card-stat"><div class="cc-card-stat-val" style="color:var(--cc-red)">' + (s.rejected||0) + '</div><div class="cc-card-stat-lbl">Rejected</div></div>' +
+            '</div>' +
+            '<div style="margin-top:4px;padding:10px;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:8px">' +
+                '<div class="cc-tag-label" style="color:#047857"><i class="fas fa-check-double" style="margin-right:4px"></i>Approval Power</div>' +
+                '<div class="cc-tag-row" style="margin-top:4px">' + approvalBadge + '</div>' +
+                '<div style="font-size:11px;color:var(--cc-muted);margin-top:6px;line-height:1.4">' + approvalDetail + '</div>' +
+            '</div>' +
+            (approvalScope === 'geography' || approvalScope === 'locations'
+                ? tagBlock('Approval Geography — States', geoStates, 'state', 'No states selected')
+                + tagBlock('Approval Geography — Districts', geoDistricts, 'district', 'No districts selected')
+                : '') +
+            (approvalScope === 'all'
+                ? '<div style="margin-top:8px;font-size:11px;color:var(--cc-muted)"><i class="fas fa-globe-asia" style="margin-right:4px;color:var(--cc-accent)"></i>Covers all states and districts — no geography limit for approvals</div>'
+                : '') +
+            (postStates.length || postDistricts.length
+                ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9">' +
+                    '<div class="cc-tag-label">News Posting Area (Add News page)</div>' +
+                    tagBlock('States for posting', postStates, 'state', 'All states (no limit)') +
+                    tagBlock('Districts for posting', postDistricts, 'district', 'All districts (no limit)') +
+                  '</div>'
+                : '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9">' +
+                    '<div class="cc-tag-label">News Posting Area (Add News page)</div>' +
+                    '<div style="font-size:11px;color:var(--cc-muted);margin-top:4px">No specific state/district limit — can post from any location</div>' +
+                  '</div>') +
+            '<div style="margin-top:8px"><div class="cc-tag-label">News Levels They Can Post</div><div class="cc-tag-row"><span class="cc-tag scope">' + allowedScopesLabel + '</span></div></div>' +
+        '</div>';
     }).join('');
 }
 
