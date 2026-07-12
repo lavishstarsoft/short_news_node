@@ -978,35 +978,31 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
     
     // Tier 1: District news (last 72 hours)
     if (district) {
-      segments.push({ ...baseQuery, scope: 'district', location: district, publishedAt: { $gte: cutoff72h } });
+      segments.push({ ...baseQuery, location: district, publishedAt: { $gte: cutoff72h } });
     }
     // Tier 2: State news
     if (state) {
-      segments.push({ ...baseQuery, scope: 'state', location: state });
+      segments.push({ ...baseQuery, location: state });
     }
     // Tier 3: Neighboring State news
     if (neighborState) {
-      segments.push({ ...baseQuery, scope: 'state', location: neighborState });
+      segments.push({ ...baseQuery, location: neighborState });
     }
     // Tier 4: National news
-    segments.push({ ...baseQuery, scope: 'national' });
+    segments.push({ ...baseQuery, $or: [{ scope: 'national' }, { location: 'National' }] });
     // Tier 5: International news
-    segments.push({ ...baseQuery, scope: 'international' });
+    segments.push({ ...baseQuery, $or: [{ scope: 'international' }, { location: 'International' }] });
 
     // 3. Get counts for all segments
     const counts = await Promise.all(segments.map(q => News.countDocuments(q)));
 
     // 4. Handle Empty District logic
+    let showEmptyMessage = false;
     if (pageNum === 1 && district) {
        // Since district was provided, it's the first segment
        const districtCount = counts[0];
        if (districtCount === 0) {
-         return res.json({
-           news: [],
-           showEmptyDistrictMessage: true,
-           fallbackState: state,
-           meta: { page: pageNum, limit, total: 0 }
-         });
+         showEmptyMessage = true;
        }
     }
 
@@ -1067,8 +1063,8 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
 
     res.json({
       news: transformed,
-      showEmptyDistrictMessage: false,
-      fallbackState: null,
+      showEmptyDistrictMessage: showEmptyMessage,
+      fallbackState: showEmptyMessage ? state : null,
       meta: {
         page: pageNum,
         limit,
