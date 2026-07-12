@@ -945,92 +945,75 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
       if (resolvedCategory) baseQuery.category = resolvedCategory;
     }
 
-    // Fetch news from all 4 scope rings in parallel
-    const [districtNews, stateNews, nationalNews, internationalNews] = await Promise.all([
-      district
-        ? News.find({ ...baseQuery, scope: 'district', location: district })
-            .sort({ publishedAt: -1 }).limit(limit).lean()
-        : Promise.resolve([]),
-      state
-        ? News.find({ ...baseQuery, scope: 'state', location: state })
-            .sort({ publishedAt: -1 }).limit(limit).lean()
-        : Promise.resolve([]),
-      News.find({ ...baseQuery, scope: 'national' })
-        .sort({ publishedAt: -1 }).limit(Math.ceil(limit * 0.6)).lean(),
-      News.find({ ...baseQuery, scope: 'international' })
-        .sort({ publishedAt: -1 }).limit(Math.ceil(limit * 0.3)).lean(),
-    ]);
+    // 1. Define Neighboring State for waterfall
+    let neighborState = null;
+    if (state === 'Andhra Pradesh') neighborState = 'Telangana';
+    else if (state === 'Telangana') neighborState = 'Andhra Pradesh';
 
-    // Dynamic ratio based on availability
-    const dCount = districtNews.length;
-    const sCount = stateNews.length;
-    const nCount = nationalNews.length;
-    const iCount = internationalNews.length;
+    const cutoff72h = new Date(Date.now() - 72 * 60 * 60 * 1000);
 
-    // Interleave: build a mixed feed respecting gravity weights
+    // 2. Define Segments for Waterfall
+    const segments = [];
+    
+    // Tier 1: District news (last 72 hours)
+    if (district) {
+      segments.push({ ...baseQuery, scope: 'district', location: district, publishedAt: { $gte: cutoff72h } });
+    }
+    // Tier 2: State news
+    if (state) {
+      segments.push({ ...baseQuery, scope: 'state', location: state });
+    }
+    // Tier 3: Neighboring State news
+    if (neighborState) {
+      segments.push({ ...baseQuery, scope: 'state', location: neighborState });
+    }
+    // Tier 4: National news
+    segments.push({ ...baseQuery, scope: 'national' });
+    // Tier 5: International news
+    segments.push({ ...baseQuery, scope: 'international' });
+
+    // 3. Get counts for all segments
+    const counts = await Promise.all(segments.map(q => News.countDocuments(q)));
+
+    // 4. Handle Empty District logic
+    if (pageNum === 1 && district) {
+       // Since district was provided, it's the first segment
+       const districtCount = counts[0];
+       if (districtCount === 0) {
+         return res.json({
+           news: [],
+           showEmptyDistrictMessage: true,
+           fallbackState: state,
+           meta: { page: pageNum, limit, total: 0 }
+         });
+       }
+    }
+
+    // 5. Waterfall Fetch across segments
+    const offset = (pageNum - 1) * limit;
+    let currentOffset = offset;
+    let needed = limit;
     const feed = [];
-    let di = 0, si = 0, ni = 0, ii = 0;
-    const seenIds = new Set();
 
-    const addUnique = (article) => {
-      const id = article._id.toString();
-      if (seenIds.has(id)) return false;
-      seenIds.add(id);
-      feed.push(article);
-      return true;
-    };
+    for (let i = 0; i < segments.length && needed > 0; i++) {
+      if (currentOffset < counts[i]) {
+        const fetchCount = Math.min(counts[i] - currentOffset, needed);
+        const items = await News.find(segments[i])
+          .sort({ publishedAt: -1 })
+          .skip(currentOffset)
+          .limit(fetchCount)
+          .lean();
 
-    // Pattern: D D S D N D S N S I  (repeating)
-    // If a ring is empty, skip to next
-    const pattern = ['district', 'district', 'state', 'district', 'national',
-                     'district', 'state', 'national', 'state', 'international'];
-
-    let patternIdx = 0;
-    let emptyRounds = 0;
-
-    while (feed.length < limit && emptyRounds < pattern.length) {
-      const ring = pattern[patternIdx % pattern.length];
-      let added = false;
-
-      switch (ring) {
-        case 'district':
-          if (di < dCount) { added = addUnique(districtNews[di++]); }
-          break;
-        case 'state':
-          if (si < sCount) { added = addUnique(stateNews[si++]); }
-          break;
-        case 'national':
-          if (ni < nCount) { added = addUnique(nationalNews[ni++]); }
-          break;
-        case 'international':
-          if (ii < iCount) { added = addUnique(internationalNews[ii++]); }
-          break;
-      }
-
-      if (!added) {
-        emptyRounds++;
+        feed.push(...items);
+        needed -= items.length;
+        currentOffset = 0; // For subsequent segments, start skip from 0
       } else {
-        emptyRounds = 0;
+        // Skip this segment entirely
+        currentOffset -= counts[i];
       }
-      patternIdx++;
     }
 
-    // Fill remaining slots from any ring that still has news
-    const remaining = [
-      ...districtNews.slice(di),
-      ...stateNews.slice(si),
-      ...nationalNews.slice(ni),
-      ...internationalNews.slice(ii),
-    ].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
-
-    for (const article of remaining) {
-      if (feed.length >= limit) break;
-      addUnique(article);
-    }
-
-    // Paginate
-    const start = (pageNum - 1) * limit;
-    const paged = feed.slice(start, start + limit);
+    const paged = feed;
 
     // Transform for Flutter (same format as existing endpoint)
     const transformed = paged.map(news => ({
@@ -1063,11 +1046,12 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
 
     res.json({
       news: transformed,
+      showEmptyDistrictMessage: false,
+      fallbackState: null,
       meta: {
         page: pageNum,
         limit,
-        total: feed.length,
-        rings: { district: dCount, state: sCount, national: nCount, international: iCount },
+        total: counts.reduce((a, b) => a + b, 0),
       },
     });
   } catch (error) {
