@@ -101,7 +101,7 @@ router.put('/api/polls/:id', adminController.requireAuth, adminController.update
 router.put('/api/reporter-applications/:id', adminController.requireAuth, adminController.updateReporterApplication);
 
 // Zodiac Calendar route
-router.get('/zodiac', adminController.requireAuth, zodiacController.renderZodiacPage);
-router.post('/api/zodiac', adminController.requireAuth, zodiacController.saveZodiac);
+router.get('/zodiac', adminController.requireAuth, adminController.requireSidebarMenu('zodiac'), zodiacController.renderZodiacPage);
+router.post('/api/zodiac', adminController.requireAuth, adminController.requireSidebarMenu('zodiac'), zodiacController.saveZodiac);
 
 module.exports = router;

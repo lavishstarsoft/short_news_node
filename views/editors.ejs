@@ -716,12 +716,12 @@
                                                     { id: 'viralVideos', label: 'Viral Videos' }, { id: 'polls', label: 'Polls' },
                                                     { id: 'longVideos', label: 'Long Videos' }, { id: 'categories', label: 'Categories' },
                                                     { id: 'programCategories', label: 'Program Categories' }, { id: 'locations', label: 'Locations' },
-                                                    { id: 'reports', label: 'Reports' }
+                                                    { id: 'reports', label: 'Reports' }, { id: 'zodiac', label: 'Zodiac Calendar' }
                                                 ]; %>
                                                 <% sidebarMenus.forEach(menu => { %>
                                                 <div class="form-check">
-                                                    <input type="checkbox" id="editSidebar_<%= menu.id %>" class="form-check-input sidebar-menu-cb" data-menu="<%= menu.id %>" checked>
-                                                    <label for="editSidebar_<%= menu.id %>" class="form-check-label"><%= menu.label %></label>
+                                                    <input type="checkbox" id="editSidebar_<%= menu.id %>" class="form-check-input sidebar-menu-cb" data-menu="<%= menu.id %>" data-opt-in="<%= menu.id === 'zodiac' ? 'true' : 'false' %>"<%= menu.id === 'zodiac' ? '' : ' checked' %>>
+                                                    <label for="editSidebar_<%= menu.id %>" class="form-check-label"><%= menu.label %><% if (menu.id === 'zodiac') { %> <span class="text-muted small">(off by default)</span><% } %></label>
                                                 </div>
                                                 <% }) %>
                                             </div>
@@ -1697,7 +1697,8 @@
                         const sidebarPerms = permissions.sidebar || {};
                         document.querySelectorAll('#editEditorModal .sidebar-menu-cb').forEach(cb => {
                             const menu = cb.getAttribute('data-menu');
-                            cb.checked = sidebarPerms[menu] !== false;
+                            const optIn = cb.getAttribute('data-opt-in') === 'true';
+                            cb.checked = optIn ? sidebarPerms[menu] === true : sidebarPerms[menu] !== false;
                         });
 
                         document.getElementById('editApprovalScope').value = (permissions.approvalScope === 'locations') ? 'geography' : (permissions.approvalScope || 'reporters');

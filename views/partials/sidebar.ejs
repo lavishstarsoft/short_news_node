@@ -22,7 +22,12 @@
                 var canView = function(menu) {
                     if (typeof admin === 'undefined' || !admin) return false;
                     if (admin.role !== 'subeditor') return true;
-                    if (!admin.permissions || !admin.permissions.sidebar) return true;
+                    if (!admin.permissions || !admin.permissions.sidebar) {
+                        return menu === 'zodiac' ? false : true;
+                    }
+                    if (menu === 'zodiac') {
+                        return admin.permissions.sidebar.zodiac === true;
+                    }
                     return admin.permissions.sidebar[menu] !== false;
                 };
                 const dashboardLink = (typeof isImpersonating !== 'undefined' && isImpersonating && admin) ? `/admin/editors/${admin.id}/dashboard` : '/news';

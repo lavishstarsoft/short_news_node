@@ -35,7 +35,20 @@
       <%= isSubEditor ? 'Sub-Editor' : 'Reporter' %>
     </span>
   </td>
-  <td><%= (editor.assignedLocations && editor.assignedLocations.length > 0) ? editor.assignedLocations.join(', ') : (editor.location || 'Pan India') %></td>
+  <td class="location-cell">
+    <div class="location-chips">
+      <% 
+        let locs = (editor.assignedLocations && editor.assignedLocations.length > 0) ? editor.assignedLocations : (editor.location ? [editor.location] : ['Pan India']);
+        let maxDisplay = 2;
+        for (let i = 0; i < Math.min(locs.length, maxDisplay); i++) { 
+      %>
+          <span class="team-badge team-badge-location"><%= locs[i] %></span>
+      <% } %>
+      <% if (locs.length > maxDisplay) { %>
+          <span class="team-badge team-badge-location-more" title="<%= locs.slice(maxDisplay).join(', ') %>">+<%= locs.length - maxDisplay %></span>
+      <% } %>
+    </div>
+  </td>
   <td>
     <% if (hasLanguageSet) { %>
       <span class="team-badge team-badge-lang"><%= editorLangLabels[editor.workingLanguage] || editor.workingLanguage %></span>

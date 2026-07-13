@@ -18,7 +18,7 @@ const {
   buildNewsLanguageFilter,
   getLanguageViewData
 } = require('../utils/newsLanguages');
-const { getDefaultLanguageCode } = require('../services/languageRegistry');
+const { canAccessSidebarMenu } = require('../utils/sidebarPermissionHelper');
 const { normalizeNewsContent } = require('../utils/contentNormalize');
 const {
   NEWS_TITLE_MAX,
@@ -1810,7 +1810,7 @@ async function updateEditor(req, res) {
       if (!editor.permissions) editor.permissions = {};
       if (!editor.permissions.sidebar) editor.permissions.sidebar = {};
       
-      const sidebarFields = ['dashboard', 'newsList', 'addNews', 'pendingNews', 'rejectedNews', 'plagiarismReport', 'viralVideos', 'polls', 'longVideos', 'categories', 'programCategories', 'locations', 'reports'];
+      const sidebarFields = ['dashboard', 'newsList', 'addNews', 'pendingNews', 'rejectedNews', 'plagiarismReport', 'viralVideos', 'polls', 'longVideos', 'categories', 'programCategories', 'locations', 'reports', 'zodiac'];
       
       sidebarFields.forEach(field => {
         if (sidebar[field] !== undefined) {
@@ -2094,7 +2094,8 @@ async function registerEditor(req, res) {
             categories: sidebar.categories === 'true' || sidebar.categories === true,
             programCategories: sidebar.programCategories === 'true' || sidebar.programCategories === true,
             locations: sidebar.locations === 'true' || sidebar.locations === true,
-            reports: sidebar.reports === 'true' || sidebar.reports === true
+            reports: sidebar.reports === 'true' || sidebar.reports === true,
+            zodiac: sidebar.zodiac === 'true' || sidebar.zodiac === true
         } : undefined
       },
       createdBy: admin._id
@@ -2858,6 +2859,27 @@ const requireSuperAdmin = (req, res, next) => {
   } catch (error) {
     res.redirect('/login');
   }
+};
+
+/** Block sub-editors unless Super Admin granted sidebar access to this menu. */
+const requireSidebarMenu = (menu) => (req, res, next) => {
+  if (!req.admin) {
+    const isApiRequest = req.path.startsWith('/api/') ||
+      (req.headers.accept && req.headers.accept.includes('application/json'));
+    if (isApiRequest) return res.status(401).json({ error: 'Unauthorized' });
+    return res.redirect('/login');
+  }
+
+  if (canAccessSidebarMenu(req.admin, menu)) {
+    return next();
+  }
+
+  const isApiRequest = req.path.startsWith('/api/') ||
+    (req.headers.accept && req.headers.accept.includes('application/json'));
+  if (isApiRequest) {
+    return res.status(403).json({ error: 'Access denied. You do not have permission for this feature.' });
+  }
+  return res.status(403).send('Access denied. You do not have permission to access this page.');
 };
 
 // Check if user is admin or superadmin
@@ -4373,6 +4395,7 @@ module.exports = {
   login,
   logout,
   requireAuth,
+  requireSidebarMenu,
   requireAdmin,
   requireSuperAdmin,
   requireEditor,

@@ -138,7 +138,8 @@ const adminSchema = new mongoose.Schema({
       categories: { type: Boolean, default: true },
       programCategories: { type: Boolean, default: true },
       locations: { type: Boolean, default: true },
-      reports: { type: Boolean, default: true }
+      reports: { type: Boolean, default: true },
+      zodiac: { type: Boolean, default: false }
     }
   },
   loginHistory: [{

@@ -315,6 +315,31 @@
   color: #b91c1c;
 }
 
+.location-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 180px;
+}
+
+.team-badge-location {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  font-weight: 500;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+}
+
+.team-badge-location-more {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px dashed #cbd5e1;
+  cursor: help;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+}
+
 .team-metric {
   text-align: center;
   min-width: 52px;
