@@ -26,8 +26,12 @@ const stripEmails = (list) => (list || []).map(({ userEmail, ...rest }) => rest)
 // into memory on every (cache-miss) request. The feed is sorted newest-first,
 // so users still get the most recent items; tune via PUBLIC_FEED_MAX.
 const FEED_MAX = Number(process.env.PUBLIC_FEED_MAX) || 300;
-const { buildNewsLanguageFilter } = require('../utils/newsLanguages');
+const { buildNewsLanguageFilter, normalizeNewsLanguage } = require('../utils/newsLanguages');
 const { resolveCategoryFilter, resolveLocationFilter } = require('../utils/newsFilters');
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 const { resolveAuthorDisplayFields, buildAuthorMap } = require('../utils/newsAuthorDisplayHelper');
 const languageRegistry = require('../services/languageRegistry');
 const fs = require('fs');
@@ -941,21 +945,30 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
 
     let state = reqState;
     let district = reqDistrict;
+    let resolvedLocationDoc = null;
+    const manualPick = manualLocation && manualLocation !== 'All';
 
     // Resolve manualLocation to proper state/district for waterfall
-    if (manualLocation && manualLocation !== 'All') {
-      const loc = await Location.findOne({ name: manualLocation });
-      if (loc) {
-        if (loc.locationType === 'district') {
-          district = loc.name;
-          state = loc.parentName; // e.g., 'Telangana'
-        } else if (loc.locationType === 'state') {
-          state = loc.name;
+    if (manualPick) {
+      resolvedLocationDoc = await Location.findOne({
+        name: { $regex: new RegExp(`^${escapeRegExp(manualLocation.trim())}$`, 'i') },
+      });
+      if (resolvedLocationDoc) {
+        if (resolvedLocationDoc.locationType === 'district') {
+          district = resolvedLocationDoc.name;
+          state = resolvedLocationDoc.parentName;
+        } else if (resolvedLocationDoc.locationType === 'state') {
+          state = resolvedLocationDoc.name;
           district = null;
         } else {
-          // Fallback if not state or district
           district = null;
-          state = null;
+          state = resolvedLocationDoc.name;
+        }
+      } else {
+        const resolvedName = await resolveLocationFilter(manualLocation);
+        if (resolvedName) {
+          state = resolvedName;
+          district = null;
         }
       }
     }
@@ -967,47 +980,51 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
       if (resolvedCategory) baseQuery.category = resolvedCategory;
     }
 
-    // 1. Define Neighboring State for waterfall
+    const useStrictLocationFeed = manualPick && Boolean(state || district);
+
+    // 1. Define Neighboring State for waterfall (GPS-based feed only)
     let neighborState = null;
-    if (state === 'Andhra Pradesh') neighborState = 'Telangana';
-    else if (state === 'Telangana') neighborState = 'Andhra Pradesh';
+    if (!useStrictLocationFeed) {
+      if (state === 'Andhra Pradesh') neighborState = 'Telangana';
+      else if (state === 'Telangana') neighborState = 'Andhra Pradesh';
+    }
 
     const cutoff72h = new Date(Date.now() - 72 * 60 * 60 * 1000);
 
     // 2. Define Segments for Waterfall
     const segments = [];
-    
-    // Tier 1: District news (last 72 hours)
-    if (district) {
-      segments.push({ ...baseQuery, location: district, publishedAt: { $gte: cutoff72h } });
+
+    if (useStrictLocationFeed) {
+      // Favourite/manual location pick: show only that district/state news
+      if (district) {
+        segments.push({ ...baseQuery, location: district, publishedAt: { $gte: cutoff72h } });
+      }
+      if (state) {
+        segments.push({ ...baseQuery, location: state });
+      }
+    } else {
+      // Tier 1: District news (last 72 hours)
+      if (district) {
+        segments.push({ ...baseQuery, location: district, publishedAt: { $gte: cutoff72h } });
+      }
+      // Tier 2: State news
+      if (state) {
+        segments.push({ ...baseQuery, location: state });
+      }
+      // Tier 3: Neighboring State news
+      if (neighborState) {
+        segments.push({ ...baseQuery, location: neighborState });
+      }
+      // Tier 4: National news
+      segments.push({ $and: [{ ...baseQuery }, { $or: [{ scope: 'national' }, { location: 'National' }] }] });
+      // Tier 5: International news
+      segments.push({ $and: [{ ...baseQuery }, { $or: [{ scope: 'international' }, { location: 'International' }] }] });
     }
-    // Tier 2: State news
-    if (state) {
-      segments.push({ ...baseQuery, location: state });
-    }
-    // Tier 3: Neighboring State news
-    if (neighborState) {
-      segments.push({ ...baseQuery, location: neighborState });
-    }
-    // Tier 4: National news
-    segments.push({ ...baseQuery, $or: [{ scope: 'national' }, { location: 'National' }] });
-    // Tier 5: International news
-    segments.push({ ...baseQuery, $or: [{ scope: 'international' }, { location: 'International' }] });
 
     // 3. Get counts for all segments
     const counts = await Promise.all(segments.map(q => News.countDocuments(q)));
 
-    // 4. Handle Empty District logic
-    let showEmptyMessage = false;
-    if (pageNum === 1 && district) {
-       // Since district was provided, it's the first segment
-       const districtCount = counts[0];
-       if (districtCount === 0) {
-         showEmptyMessage = true;
-       }
-    }
-
-    // 5. Waterfall Fetch across segments
+    // 4. Waterfall fetch across segments
     const offset = (pageNum - 1) * limit;
     let currentOffset = offset;
     let needed = limit;
@@ -1024,9 +1041,8 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
 
         feed.push(...items);
         needed -= items.length;
-        currentOffset = 0; // For subsequent segments, start skip from 0
+        currentOffset = 0;
       } else {
-        // Skip this segment entirely
         currentOffset -= counts[i];
       }
     }
@@ -1035,7 +1051,6 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
 
     const authorMap = await buildAuthorMap(Admin, paged.map((n) => n.authorId));
 
-    // Transform for Flutter (same format as existing endpoint)
     const transformed = paged.map(news => {
       const authorFields = resolveAuthorDisplayFields(news, news.authorId ? authorMap[news.authorId.toString()] : null);
       return {
@@ -1070,10 +1085,33 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
     };
     });
 
+    // 5. Empty district toast + language/location mismatch
+    let showEmptyMessage = false;
+    if (pageNum === 1 && district && counts[0] === 0 && paged.length > 0) {
+      showEmptyMessage = true;
+    }
+
+    let noNewsForLanguage = false;
+    let suggestedLanguages = [];
+    if (pageNum === 1 && useStrictLocationFeed && paged.length === 0) {
+      noNewsForLanguage = true;
+      const userLang = normalizeNewsLanguage(lang);
+      const locationLangs = Array.isArray(resolvedLocationDoc?.languages)
+        ? resolvedLocationDoc.languages
+            .map((code) => String(code).trim().toLowerCase())
+            .filter(Boolean)
+        : ['hi', 'en'];
+      suggestedLanguages = [...new Set(locationLangs.filter((code) => code !== userLang))];
+    }
+
     res.json({
       news: transformed,
       showEmptyDistrictMessage: showEmptyMessage,
       fallbackState: showEmptyMessage ? state : null,
+      noNewsForLanguage,
+      suggestedLanguages,
+      requestedLanguage: normalizeNewsLanguage(lang),
+      selectedLocation: manualPick ? (district || state || manualLocation) : null,
       meta: {
         page: pageNum,
         limit,

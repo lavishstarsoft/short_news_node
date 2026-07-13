@@ -62,7 +62,9 @@ async function resolveLocationFilter(location) {
     if (byId?.name) return byId.name;
   }
 
-  const byName = await Location.findOne({ name: input }).select('name').lean();
+  const byName = await Location.findOne({
+    name: { $regex: new RegExp(`^${input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+  }).select('name').lean();
   if (byName?.name) return byName.name;
 
   return input;
