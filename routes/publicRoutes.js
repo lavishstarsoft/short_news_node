@@ -28,6 +28,7 @@ const stripEmails = (list) => (list || []).map(({ userEmail, ...rest }) => rest)
 const FEED_MAX = Number(process.env.PUBLIC_FEED_MAX) || 300;
 const { buildNewsLanguageFilter } = require('../utils/newsLanguages');
 const { resolveCategoryFilter, resolveLocationFilter } = require('../utils/newsFilters');
+const { resolveAuthorDisplayFields, buildAuthorMap } = require('../utils/newsAuthorDisplayHelper');
 const languageRegistry = require('../services/languageRegistry');
 const fs = require('fs');
 
@@ -1032,8 +1033,12 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
 
     const paged = feed;
 
+    const authorMap = await buildAuthorMap(Admin, paged.map((n) => n.authorId));
+
     // Transform for Flutter (same format as existing endpoint)
-    const transformed = paged.map(news => ({
+    const transformed = paged.map(news => {
+      const authorFields = resolveAuthorDisplayFields(news, news.authorId ? authorMap[news.authorId.toString()] : null);
+      return {
       id: news._id,
       title: news.title,
       content: news.content,
@@ -1052,14 +1057,18 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
       dislikes: news.dislikes || 0,
       views: news.views || 0,
       comments: news.comments || 0,
-      author: news.author,
+      author: authorFields.author,
+      authorName: authorFields.authorName,
       authorId: news.authorId,
-      authorProfileImage: news.authorProfileImage,
-      authorConstituency: news.authorConstituency,
+      authorRole: authorFields.authorRole,
+      authorProfileImage: authorFields.authorProfileImage,
+      authorConstituency: authorFields.authorConstituency,
+      authorDisplaySettings: authorFields.authorDisplaySettings,
       readFullLink: news.readFullLink,
       ePaperLink: news.ePaperLink,
       shortId: news.shortId,
-    }));
+    };
+    });
 
     res.json({
       news: transformed,

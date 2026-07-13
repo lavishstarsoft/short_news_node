@@ -18,6 +18,7 @@ const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = r
 const { clearCache: clearRestCache } = require('../middleware/cache');
 const { buildNewsLanguageFilter, normalizeNewsLanguage } = require('../utils/newsLanguages');
 const { resolveCategoryFilter, resolveLocationFilter } = require('../utils/newsFilters');
+const { normalizeDisplaySettings } = require('../utils/newsAuthorDisplayHelper');
 const languageRegistry = require('../services/languageRegistry');
 const jwt = require('jsonwebtoken');
 const { getJwtSecret } = require('../config/secrets');
@@ -37,6 +38,21 @@ function decodeAuthToken(req) {
     } catch {
         return null;
     }
+}
+
+async function getAuthorDisplaySettingsForResolver(parent, context) {
+    if (parent.authorDisplaySettings) {
+        return normalizeDisplaySettings(parent.authorDisplaySettings);
+    }
+    try {
+        if (parent.authorId && context?.loaders) {
+            const editor = await context.loaders.adminById.load(parent.authorId);
+            return normalizeDisplaySettings(editor?.displaySettings);
+        }
+    } catch (error) {
+        console.error('Error fetching author display settings:', error);
+    }
+    return normalizeDisplaySettings(null);
 }
 
 function getAuthenticatedEditorId(req) {
@@ -733,6 +749,8 @@ const resolvers = {
         // Fetch reporter name from Admin model (batched via DataLoader)
         authorName: async (parent, _args, context) => {
             try {
+                const settings = await getAuthorDisplaySettingsForResolver(parent, context);
+                if (!settings.showName) return null;
                 if (parent.authorId && context?.loaders) {
                     const editor = await context.loaders.adminById.load(parent.authorId);
                     if (editor && editor.name) {
@@ -762,8 +780,10 @@ const resolvers = {
         },
         // Fetch reporter profile image from Admin model (Use denormalized if available)
         authorProfileImage: async (parent, _args, context) => {
-            if (parent.authorProfileImage) return parent.authorProfileImage;
             try {
+                const settings = await getAuthorDisplaySettingsForResolver(parent, context);
+                if (!settings.showProfileImage) return null;
+                if (parent.authorProfileImage) return parent.authorProfileImage;
                 if (parent.authorId && context?.loaders) {
                     const editor = await context.loaders.adminById.load(parent.authorId);
                     if (editor && editor.profileImage) {
@@ -778,8 +798,10 @@ const resolvers = {
         },
         // Fetch reporter constituency from Admin model (Use denormalized if available)
         authorConstituency: async (parent, _args, context) => {
-            if (parent.authorConstituency) return parent.authorConstituency;
             try {
+                const settings = await getAuthorDisplaySettingsForResolver(parent, context);
+                if (!settings.showConstituency) return null;
+                if (parent.authorConstituency) return parent.authorConstituency;
                 if (parent.authorId && context?.loaders) {
                     const editor = await context.loaders.adminById.load(parent.authorId);
                     if (editor && editor.constituency) {
@@ -793,20 +815,7 @@ const resolvers = {
             }
         },
         authorDisplaySettings: async (parent, _args, context) => {
-            const defaultSettings = { showProfileImage: true, showName: true, showConstituency: true };
-            if (parent.authorDisplaySettings) return parent.authorDisplaySettings;
-            try {
-                if (parent.authorId && context?.loaders) {
-                    const editor = await context.loaders.adminById.load(parent.authorId);
-                    if (editor && editor.displaySettings) {
-                        return editor.displaySettings;
-                    }
-                }
-                return defaultSettings;
-            } catch (error) {
-                console.error('Error fetching author display settings:', error);
-                return defaultSettings;
-            }
+            return getAuthorDisplaySettingsForResolver(parent, context);
         },
         // Backward compatibility resolvers
         _id: (parent) => parent.id || parent._id.toString(),
