@@ -79,6 +79,12 @@ const adminSchema = new mongoose.Schema({
     type: String,
     enum: ['district', 'state', 'national', 'international']
   }],
+  /** Sub-editor / reporter: which languages they may use on Add News. Empty = workingLanguage only. ['all'] = every active language. */
+  allowedLanguages: [{
+    type: String,
+    trim: true,
+    lowercase: true
+  }],
   mobileNumber: {
     type: String,
     default: null

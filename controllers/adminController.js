@@ -1720,7 +1720,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canSendNotifications, sidebar, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds } = req.body;
+    const { name, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canSendNotifications, sidebar, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -1738,6 +1738,18 @@ async function updateEditor(req, res) {
     if (constituency !== undefined) editor.constituency = constituency || null;
     if (allowedScopes !== undefined) {
       editor.allowedScopes = Array.isArray(allowedScopes) ? allowedScopes : [];
+    }
+    if (allowedLanguages !== undefined) {
+      if (editor.role === 'subeditor') {
+        editor.allowedLanguages = Array.isArray(allowedLanguages)
+          ? allowedLanguages.map(l => normalizeNewsLanguage(l)).filter(Boolean)
+          : [];
+        if (editor.allowedLanguages.length && !editor.allowedLanguages.includes('all')) {
+          editor.workingLanguage = editor.allowedLanguages[0];
+        }
+      } else {
+        editor.allowedLanguages = [];
+      }
     }
     if (mobileNumber !== undefined) editor.mobileNumber = mobileNumber || null;
     if (profileImage !== undefined) editor.profileImage = profileImage || null;
@@ -2018,7 +2030,7 @@ async function registerEditor(req, res) {
       return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
 
-    const { username, email, password, name, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canEditNews, requiresSourceLink, canSendNotifications, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds, sidebar } = req.body;
+    const { username, email, password, name, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canEditNews, requiresSourceLink, canSendNotifications, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds, sidebar } = req.body;
 
     // Validate required fields
     if (!username || !email || !password) {
@@ -2050,6 +2062,9 @@ async function registerEditor(req, res) {
       assignedConstituencies: [],
       assignedLocations: [],
       allowedScopes: Array.isArray(allowedScopes) ? allowedScopes : (allowedScopes ? [allowedScopes] : []),
+      allowedLanguages: Array.isArray(allowedLanguages)
+        ? allowedLanguages.map(l => normalizeNewsLanguage(l)).filter(Boolean)
+        : [],
       mobileNumber: mobileNumber || null,
       workingLanguage: normalizeNewsLanguage(workingLanguage),
       permissions: {
@@ -2093,6 +2108,10 @@ async function registerEditor(req, res) {
       approvalScope, managedLocations, managedStates, managedDistricts,
       managedConstituencies, managedReporterIds
     });
+
+    if (selectedRole === 'subeditor' && newEditor.allowedLanguages?.length && !newEditor.allowedLanguages.includes('all')) {
+      newEditor.workingLanguage = newEditor.allowedLanguages[0];
+    }
 
     await newEditor.save();
 

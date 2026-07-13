@@ -397,6 +397,7 @@
                                 <option value="national">national</option>
                                 <option value="international">international</option>
                             </select>
+                            <select id="editAllowedLanguages" multiple class="d-none"></select>
                             <select id="editRole" class="d-none">
                                 <option value="editor">editor</option>
                                 <option value="subeditor">subeditor</option>
@@ -538,10 +539,10 @@
                                             <input type="text" id="editConstituency" placeholder="e.g. Malakpet">
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-6 reporter-only-section">
                                         <div class="editor-field">
                                             <label for="editWorkingLanguage">News Language
-                                                <span class="info-tip">?<span class="info-tip-text">The language this member writes news in. This determines which language section their news appears under.</span></span>
+                                                <span class="info-tip">?<span class="info-tip-text">The language this reporter writes news in. Their articles appear under this language in the app.</span></span>
                                             </label>
                                             <select id="editWorkingLanguage">
                                                 <%- include('partials/language-select-options', { selectedValue: 'te' }) %>
@@ -628,6 +629,14 @@
                                                 <label for="editCanViewAllNews"><strong>Can view ALL articles</strong></label>
                                                 <div class="hint">If OFF, this sub-editor only sees news from reporters assigned to them (not all news)</div>
                                             </div>
+                                        </div>
+
+                                        <div class="editor-field" id="editAllowedLanguagesSection">
+                                            <label><strong>Languages for Add News</strong>
+                                                <span class="info-tip">?<span class="info-tip-text">Controls which languages appear in Add News for this sub-editor.<br><br><b>All Languages</b> = any active language<br><b>One or more</b> = only those in the dropdown<br><br>Reporters use <b>News Language</b> in the Location tab instead.</span></span>
+                                            </label>
+                                            <div class="editor-scope-row" id="editLangCards"></div>
+                                            <div class="hint">Sub-editors: set upload languages here. If none selected, Telugu is used as default.</div>
                                         </div>
 
                                         <!-- Approval Scope — shown only when "Can approve / reject news" is checked -->
@@ -807,10 +816,10 @@
                                         <span class="info-tip">?<span class="info-tip-text">Title shown next to articles in the app. Example: "Senior Reporter", "Khammam Correspondent"</span></span>
                                     </label><input type="text" id="addDisplayRole" placeholder="e.g. Senior Reporter"></div></div>
                                     <div class="col-md-6"><div class="editor-field"><label for="addMobile">Mobile</label><input type="text" id="addMobile" placeholder="+91 98765 43210"></div></div>
-                                    <div class="col-md-6"><div class="editor-field"><label for="addWorkingLanguage">News Language *
-                                        <span class="info-tip">?<span class="info-tip-text">The language this member writes news in. Their news will appear in this language section of the app.</span></span>
+                                    <div class="col-md-6 reporter-only-section"><div class="editor-field"><label for="addWorkingLanguage">News Language *
+                                        <span class="info-tip">?<span class="info-tip-text">The language this reporter writes news in. Their news will appear in this language section of the app.</span></span>
                                     </label>
-                                        <select id="addWorkingLanguage" required><%- include('partials/language-select-options', { selectedValue: 'te' }) %></select>
+                                        <select id="addWorkingLanguage"><%- include('partials/language-select-options', { selectedValue: 'te' }) %></select>
                                     </div></div>
                                 </div>
                             </div>
@@ -879,6 +888,14 @@
                                         <input type="checkbox" id="addCanViewAllNews" class="form-check-input me-2">
                                         <label for="addCanViewAllNews"><strong>Can view ALL articles</strong></label>
                                         <div class="hint">If OFF, only sees news from assigned reporters</div>
+                                    </div>
+
+                                    <div class="editor-field" id="addAllowedLanguagesSection">
+                                        <label><strong>Languages for Add News</strong>
+                                            <span class="info-tip">?<span class="info-tip-text">Choose which languages this sub-editor can use when uploading news.<br><br><b>All Languages</b> = any active language<br><b>One or more</b> = only those in Add News dropdown</span></span>
+                                        </label>
+                                        <div class="editor-scope-row" id="addLangCards"></div>
+                                        <select id="addAllowedLanguages" multiple class="d-none"></select>
                                     </div>
 
                                     <div class="editor-field" id="addApprovalScopeWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #4f46e5;margin-top:12px">
@@ -952,6 +969,7 @@
                 <script>
                     let editors = [];
                     let selectedInsightsEditorId = null;
+                    const _activeLanguages = <%- JSON.stringify(typeof languageOptions !== 'undefined' ? languageOptions : []) %>;
 
                     document.addEventListener('DOMContentLoaded', function () {
                         const dataScript = document.getElementById('editorsData');
@@ -970,6 +988,8 @@
                         initRoleCards('addRoleCards', 'addRole', applyAddSubEditorVisibility);
                         initScopeCards('editScopeCards', 'editAllowedScopes');
                         initScopeCards('addScopeCards', 'addAllowedScopes');
+                        buildLanguagePermissionUI('edit');
+                        buildLanguagePermissionUI('add');
                         initApprovalScopeHandlers('edit');
                         initApprovalScopeHandlers('add');
                     });
@@ -1106,6 +1126,77 @@
                         row.querySelectorAll('.editor-scope-card').forEach(card => {
                             card.classList.toggle('selected', selected.has(card.dataset.scope));
                         });
+                    }
+
+                    function buildLanguagePermissionUI(prefix) {
+                        const sel = document.getElementById(prefix + 'AllowedLanguages');
+                        const row = document.getElementById(prefix + 'LangCards');
+                        if (!sel || !row) return;
+
+                        sel.innerHTML = '<option value="all">all</option>' +
+                            _activeLanguages.map(l => `<option value="${l.code}">${l.name || l.code}</option>`).join('');
+
+                        row.innerHTML =
+                            '<div class="editor-scope-card" data-lang="all"><strong>All Languages</strong><div class="te">Post in any active language</div></div>' +
+                            _activeLanguages.map(l =>
+                                `<div class="editor-scope-card" data-lang="${l.code}"><strong>${l.name || l.code}</strong></div>`
+                            ).join('');
+
+                        initLangCards(prefix + 'LangCards', prefix + 'AllowedLanguages');
+                    }
+
+                    function initLangCards(cardsId, hiddenSelectId) {
+                        const row = document.getElementById(cardsId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!row || !sel || row.dataset.langBound) return;
+                        row.dataset.langBound = '1';
+
+                        row.querySelectorAll('.editor-scope-card').forEach(card => {
+                            card.addEventListener('click', () => {
+                                const lang = card.dataset.lang;
+                                if (lang === 'all') {
+                                    Array.from(sel.options).forEach(opt => { opt.selected = opt.value === 'all'; });
+                                } else {
+                                    const allOpt = Array.from(sel.options).find(o => o.value === 'all');
+                                    if (allOpt) allOpt.selected = false;
+                                    const opt = Array.from(sel.options).find(o => o.value === lang);
+                                    if (opt) opt.selected = !opt.selected;
+                                }
+                                syncLangCardsFromSelect(cardsId, hiddenSelectId);
+                            });
+                        });
+                    }
+
+                    function syncLangCardsFromSelect(cardsId, hiddenSelectId) {
+                        const row = document.getElementById(cardsId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!row || !sel) return;
+                        const selected = new Set(Array.from(sel.selectedOptions).map(o => o.value));
+                        row.querySelectorAll('.editor-scope-card').forEach(card => {
+                            card.classList.toggle('selected', selected.has(card.dataset.lang));
+                        });
+                    }
+
+                    function loadAllowedLanguages(prefix, editor) {
+                        const sel = document.getElementById(prefix + 'AllowedLanguages');
+                        if (!sel) return;
+                        Array.from(sel.options).forEach(opt => { opt.selected = false; });
+
+                        const allowed = editor?.allowedLanguages || [];
+                        if (allowed.includes('all')) {
+                            const allOpt = sel.querySelector('option[value="all"]');
+                            if (allOpt) allOpt.selected = true;
+                        } else if (allowed.length) {
+                            allowed.forEach(code => {
+                                const opt = sel.querySelector(`option[value="${code}"]`);
+                                if (opt) opt.selected = true;
+                            });
+                        } else if (editor?.workingLanguage) {
+                            const opt = sel.querySelector(`option[value="${editor.workingLanguage}"]`);
+                            if (opt) opt.selected = true;
+                        }
+
+                        syncLangCardsFromSelect(prefix + 'LangCards', prefix + 'AllowedLanguages');
                     }
 
                     function getSelectedFromHidden(selectId) {
@@ -1611,6 +1702,7 @@
 
                         document.getElementById('editApprovalScope').value = (permissions.approvalScope === 'locations') ? 'geography' : (permissions.approvalScope || 'reporters');
                         loadManagedCoverage('edit', permissions);
+                        loadAllowedLanguages('edit', editor);
                         syncApprovalScopeSectionVisibility('edit');
 
                         const currentAdminRole = '<%= admin.role %>';
@@ -1634,6 +1726,7 @@
                         const id = document.getElementById('editEditorId').value;
                         const coverage = collectCoveragePayload('edit');
                         const allowedScopes = Array.from(document.getElementById('editAllowedScopes').selectedOptions).map(o => o.value).filter(v => v);
+                        const allowedLanguages = getSelectedFromHidden('editAllowedLanguages');
 
                         const sidebarData = {};
                         document.querySelectorAll('#editEditorModal .sidebar-menu-cb').forEach(cb => {
@@ -1647,7 +1740,10 @@
                             ...coverage,
                             assignedState: coverage.assignedStates[0] || null,
                             allowedScopes,
-                            workingLanguage: document.getElementById('editWorkingLanguage').value,
+                            allowedLanguages,
+                            workingLanguage: document.getElementById('editRole').value === 'subeditor'
+                                ? (getSelectedFromHidden('editAllowedLanguages').filter(c => c !== 'all')[0] || document.getElementById('editWorkingLanguage').value)
+                                : document.getElementById('editWorkingLanguage').value,
                             constituency: document.getElementById('editConstituency').value,
                             mobileNumber: document.getElementById('editMobile').value,
                             profileImage: document.getElementById('editProfileImageUrl').value,
@@ -1688,6 +1784,7 @@
                         e.preventDefault();
                         const coverage = collectCoveragePayload('add');
                         const allowedScopes = Array.from(document.getElementById('addAllowedScopes').selectedOptions).map(o => o.value).filter(v => v);
+                        const allowedLanguages = getSelectedFromHidden('addAllowedLanguages');
                         const approvalScopeEl = document.getElementById('addApprovalScope');
 
                         const data = {
@@ -1699,10 +1796,13 @@
                             displayRole: document.getElementById('addDisplayRole').value.trim(),
                             mobileNumber: document.getElementById('addMobile').value.trim(),
                             constituency: document.getElementById('addConstituency').value.trim(),
-                            workingLanguage: document.getElementById('addWorkingLanguage').value,
+                            workingLanguage: document.getElementById('addRole').value === 'subeditor'
+                                ? (allowedLanguages.filter(c => c !== 'all')[0] || 'te')
+                                : document.getElementById('addWorkingLanguage').value,
                             ...coverage,
                             assignedState: coverage.assignedStates[0] || null,
                             allowedScopes,
+                            allowedLanguages,
                             canAccessAdminDashboard: document.getElementById('addCanAccessAdminDashboard').checked,
                             canApproveNews: document.getElementById('addCanApproveNews').checked,
                             canViewAllNews: document.getElementById('addCanViewAllNews').checked,

@@ -1012,6 +1012,31 @@
                     document.getElementById('newsScope').addEventListener('change', updateScopeVisibility);
                     document.getElementById('locationState').addEventListener('change', onStateChange);
 
+                    // Filter allowed languages for sub-editors / reporters
+                    (function filterAllowedLanguages() {
+                        const allowedLanguages = <%- JSON.stringify(typeof editorAllowedLanguages !== 'undefined' ? editorAllowedLanguages : []) %>;
+                        const langSelect = document.getElementById('language');
+                        if (!langSelect || !allowedLanguages.length) return;
+
+                        Array.from(langSelect.options).forEach(opt => {
+                            if (!allowedLanguages.includes(opt.value)) {
+                                opt.remove();
+                            }
+                        });
+
+                        if (langSelect.options.length === 1) {
+                            langSelect.selectedIndex = 0;
+                        } else if (langSelect.options.length > 0) {
+                            const defaultLang = '<%= typeof defaultLanguage !== "undefined" ? defaultLanguage : "te" %>';
+                            const match = Array.from(langSelect.options).find(o => o.value === defaultLang);
+                            if (match) langSelect.value = defaultLang;
+                        }
+
+                        if (typeof applyDisplayLimitsForLanguage === 'function') {
+                            applyDisplayLimitsForLanguage(langSelect.value);
+                        }
+                    })();
+
                     // Filter allowed scopes based on editor's allowedScopes from database
                     (function filterAllowedScopes() {
                         const allowedScopes = <%- JSON.stringify(typeof editorAllowedScopes !== 'undefined' ? editorAllowedScopes : []) %>;

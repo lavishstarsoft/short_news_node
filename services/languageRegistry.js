@@ -128,6 +128,42 @@ function normalizeNewsLanguage(code) {
   return code.trim().toLowerCase();
 }
 
+/**
+ * Languages this member may use on Add News.
+ * Admin/superadmin → all active codes.
+ * allowedLanguages ['all'] → all active.
+ * allowedLanguages ['te','en'] → those only.
+ * allowedLanguages empty → [workingLanguage] fallback.
+ */
+function getEditorAllowedLanguages(adminDoc, activeLanguages = null) {
+  const langs = activeLanguages || getActiveLanguages();
+  const allCodes = langs.map(l => normalizeNewsLanguage(l.code)).filter(Boolean);
+  const role = adminDoc?.role;
+
+  if (role === 'admin' || role === 'superadmin') {
+    return allCodes;
+  }
+
+  const raw = Array.isArray(adminDoc?.allowedLanguages) ? adminDoc.allowedLanguages : [];
+  const allowed = [...new Set(raw.map(c => normalizeNewsLanguage(c)).filter(Boolean))];
+
+  if (allowed.includes('all')) {
+    return allCodes;
+  }
+
+  if (allowed.length) {
+    return allowed.filter(c => allCodes.includes(c));
+  }
+
+  const primary = normalizeNewsLanguage(adminDoc?.workingLanguage);
+  return primary ? [primary] : [getDefaultLanguageCode()];
+}
+
+function isLanguageAllowedForEditor(adminDoc, languageCode, activeLanguages = null) {
+  const normalized = normalizeNewsLanguage(languageCode);
+  return getEditorAllowedLanguages(adminDoc, activeLanguages).includes(normalized);
+}
+
 function buildNewsLanguageFilter(language) {
   const normalized = normalizeNewsLanguage(language);
   if (!normalized) return {};
@@ -259,6 +295,8 @@ module.exports = {
   getDisplayConfigForCode,
   getDisplayConfigMap,
   normalizeNewsLanguage,
+  getEditorAllowedLanguages,
+  isLanguageAllowedForEditor,
   buildNewsLanguageFilter,
   refreshCache,
   seedDefaultLanguages,

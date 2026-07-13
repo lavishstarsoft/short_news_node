@@ -11,6 +11,9 @@ const {
 const {
   getDisplayConfigForCode,
   refreshCache: refreshLanguageCache,
+  getActiveLanguages,
+  getEditorAllowedLanguages,
+  isLanguageAllowedForEditor,
 } = require('../services/languageRegistry');
 const { normalizeNewsContent } = require('../utils/contentNormalize');
 const path = require('path');
@@ -646,9 +649,12 @@ async function getNewsById(req, res) {
 async function renderAddNewsPage(req, res) {
   try {
     const adminDoc = await Admin.findById(req.admin.id)
-      .select('workingLanguage assignedStates assignedDistricts allowedScopes role')
+      .select('workingLanguage assignedStates assignedDistricts allowedScopes allowedLanguages role')
       .lean();
     const languageViewData = await getLanguageViewData();
+    const activeLanguages = getActiveLanguages();
+    const editorAllowedLanguages = getEditorAllowedLanguages(adminDoc, activeLanguages);
+    const unrestrictedLanguages = adminDoc?.role === 'admin' || adminDoc?.role === 'superadmin';
     const { getDisplayConfigMap } = require('../services/languageRegistry');
     await refreshLanguageCache();
     res.render('add-news', {
@@ -656,7 +662,8 @@ async function renderAddNewsPage(req, res) {
       editorAssignedStates: adminDoc?.assignedStates || [],
       editorAssignedDistricts: adminDoc?.assignedDistricts || [],
       editorAllowedScopes: adminDoc?.allowedScopes || [],
-      defaultLanguage: adminDoc?.workingLanguage || languageViewData.defaultLanguage,
+      editorAllowedLanguages: unrestrictedLanguages ? [] : editorAllowedLanguages,
+      defaultLanguage: editorAllowedLanguages[0] || adminDoc?.workingLanguage || languageViewData.defaultLanguage,
       displayConfigByLanguage: getDisplayConfigMap(),
       ...languageViewData
     });
@@ -688,9 +695,12 @@ async function renderEditNewsPage(req, res) {
     }
 
     const adminDoc = await Admin.findById(req.admin.id)
-      .select('workingLanguage assignedStates assignedDistricts allowedScopes role')
+      .select('workingLanguage assignedStates assignedDistricts allowedScopes allowedLanguages role')
       .lean();
     const languageViewData = await getLanguageViewData();
+    const activeLanguages = getActiveLanguages();
+    const editorAllowedLanguages = getEditorAllowedLanguages(adminDoc, activeLanguages);
+    const unrestrictedLanguages = adminDoc?.role === 'admin' || adminDoc?.role === 'superadmin';
     const { getDisplayConfigMap } = require('../services/languageRegistry');
     await refreshLanguageCache();
     res.render('add-news', {
@@ -699,7 +709,8 @@ async function renderEditNewsPage(req, res) {
       editorAssignedStates: adminDoc?.assignedStates || [],
       editorAssignedDistricts: adminDoc?.assignedDistricts || [],
       editorAllowedScopes: adminDoc?.allowedScopes || [],
-      defaultLanguage: news.language || adminDoc?.workingLanguage || languageViewData.defaultLanguage,
+      editorAllowedLanguages: unrestrictedLanguages ? [] : editorAllowedLanguages,
+      defaultLanguage: news.language || editorAllowedLanguages[0] || adminDoc?.workingLanguage || languageViewData.defaultLanguage,
       displayConfigByLanguage: getDisplayConfigMap(),
       source: req.query.source || '',
       ...languageViewData
@@ -712,8 +723,15 @@ async function renderEditNewsPage(req, res) {
 // Create new news (include author information)
 async function createNews(req, res) {
   try {
-    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage');
+    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage allowedLanguages role');
     const articleLanguage = normalizeNewsLanguage(req.body.language || authorDetails?.workingLanguage);
+
+    if (authorDetails && authorDetails.role !== 'admin' && authorDetails.role !== 'superadmin') {
+      if (!isLanguageAllowedForEditor(authorDetails, articleLanguage)) {
+        return res.status(403).json({ error: 'You are not allowed to post news in this language.' });
+      }
+    }
+
     const limits = await getDisplayLimitsForLanguage(articleLanguage);
 
     if (req.admin.permissions?.requiresSourceLink) {
@@ -903,7 +921,15 @@ async function updateNews(req, res) {
     }
 
     // Validation (ignoring color tags for limit)
+    const authorForLang = await Admin.findById(req.admin.id).select('workingLanguage allowedLanguages role');
     const articleLanguage = normalizeNewsLanguage(req.body.language || existingNews.language);
+
+    if (authorForLang && authorForLang.role !== 'admin' && authorForLang.role !== 'superadmin') {
+      if (!isLanguageAllowedForEditor(authorForLang, articleLanguage)) {
+        return res.status(403).json({ error: 'You are not allowed to post news in this language.' });
+      }
+    }
+
     const limits = await getDisplayLimitsForLanguage(articleLanguage);
     if (req.body.title && stripTags(req.body.title).length > limits.titleMax) {
       return res.status(400).json({ error: `Title cannot exceed ${limits.titleMax} characters` });
