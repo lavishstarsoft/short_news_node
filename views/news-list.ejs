@@ -413,9 +413,11 @@
                                                 <li class="nav-item" role="presentation">
                                                     <button class="nav-link <%= typeof currentTab !== 'undefined' && currentTab === 'my-list' ? 'active' : '' %> fw-bold" id="my-list-tab" onclick="document.getElementById('tabFilterInput').value='my-list'; document.getElementById('filterForm').submit();" type="button" role="tab" style="color: #475569;"><i class="fas fa-user-edit"></i> My Articles<% if (typeof subEditorTabCounts !== 'undefined' && subEditorTabCounts) { %> <span class="badge bg-light text-dark ms-1"><%= subEditorTabCounts.myList %></span><% } %></button>
                                                 </li>
+                                                <% if (typeof hasTeamScope !== 'undefined' && hasTeamScope) { %>
                                                 <li class="nav-item" role="presentation">
-                                                    <button class="nav-link <%= typeof currentTab !== 'undefined' && currentTab === 'team-list' ? 'active' : '' %> fw-bold" id="team-list-tab" onclick="document.getElementById('tabFilterInput').value='team-list'; document.getElementById('filterForm').submit();" type="button" role="tab" style="color: #475569;"><i class="fas fa-users"></i> Assigned Reporters<% if (typeof subEditorTabCounts !== 'undefined' && subEditorTabCounts) { %> <span class="badge bg-light text-dark ms-1"><%= subEditorTabCounts.teamList %></span><% } %></button>
+                                                    <button class="nav-link <%= typeof currentTab !== 'undefined' && currentTab === 'team-list' ? 'active' : '' %> fw-bold" id="team-list-tab" onclick="document.getElementById('tabFilterInput').value='team-list'; document.getElementById('filterForm').submit();" type="button" role="tab" style="color: #475569;"><i class="fas fa-users"></i> Team Reporters<% if (typeof subEditorTabCounts !== 'undefined' && subEditorTabCounts) { %> <span class="badge bg-light text-dark ms-1"><%= subEditorTabCounts.teamList %></span><% } %></button>
                                                 </li>
+                                                <% } %>
                                             </ul>
                                             <% if (newsList.length === 0) { %>
                                             <div class="team-empty">
@@ -423,14 +425,16 @@
                                                 <h4 style="color:#374151;font-weight:600;margin-bottom:8px;">No articles in this view</h4>
                                                 <p style="margin-bottom:20px;">
                                                     <% if (typeof currentTab !== 'undefined' && currentTab === 'team-list') { %>
-                                                    No news from assigned reporters yet. Try the <strong>My Articles</strong> tab or adjust filters.
+                                                    No news from team reporters yet. Try the <strong>My Articles</strong> tab or adjust filters.
+                                                    <% } else if (typeof hasTeamScope !== 'undefined' && hasTeamScope) { %>
+                                                    You have not posted any articles yet. Check <strong>Team Reporters</strong> tab for team news.
                                                     <% } else { %>
-                                                    You have not posted any articles yet. Check <strong>Assigned Reporters</strong> tab for team news.
+                                                    You have not posted any articles yet.
                                                     <% } %>
                                                 </p>
-                                                <% if (typeof currentTab !== 'undefined' && currentTab === 'my-list') { %>
+                                                <% if (typeof currentTab !== 'undefined' && currentTab === 'my-list' && typeof hasTeamScope !== 'undefined' && hasTeamScope) { %>
                                                 <button type="button" class="team-btn-primary" onclick="document.getElementById('tabFilterInput').value='team-list'; document.getElementById('filterForm').submit();"><i class="fas fa-users"></i> View team articles</button>
-                                                <% } else { %>
+                                                <% } else if (typeof currentTab !== 'undefined' && currentTab === 'team-list') { %>
                                                 <button type="button" class="team-btn-primary" onclick="document.getElementById('tabFilterInput').value='my-list'; document.getElementById('filterForm').submit();"><i class="fas fa-user-edit"></i> View my articles</button>
                                                 <% } %>
                                             </div>

@@ -236,16 +236,20 @@
                                                 const dashAdminId = (admin && (admin.id || admin._id)) ? (admin.id || admin._id).toString() : '';
                                                 const dashMyArticles = (typeof newsList !== 'undefined' ? newsList : []).filter(n => n.authorId && dashAdminId && n.authorId.toString() === dashAdminId);
                                                 const dashTeamArticles = (typeof newsList !== 'undefined' ? newsList : []).filter(n => n.authorId && dashAdminId && n.authorId.toString() !== dashAdminId);
-                                                const dashDefaultTeam = dashMyArticles.length === 0 && dashTeamArticles.length > 0;
+                                                const dashShowTeam = typeof hasTeamScope !== 'undefined' && hasTeamScope;
+                                                const dashDefaultTeam = dashShowTeam && dashMyArticles.length === 0 && dashTeamArticles.length > 0;
                                             %>
+                                            <% if (dashShowTeam) { %>
                                             <ul class="nav nav-tabs mb-4" id="subEditorDashboardTabs" role="tablist">
                                                 <li class="nav-item" role="presentation">
                                                     <button class="nav-link <%= dashDefaultTeam ? '' : 'active' %> fw-bold" id="my-dash-tab" data-bs-toggle="tab" data-bs-target="#my-dash" type="button" role="tab" style="color: #475569;"><i class="fas fa-user-edit"></i> My Articles</button>
                                                 </li>
                                                 <li class="nav-item" role="presentation">
-                                                    <button class="nav-link <%= dashDefaultTeam ? 'active' : '' %> fw-bold" id="team-dash-tab" data-bs-toggle="tab" data-bs-target="#team-dash" type="button" role="tab" style="color: #475569;"><i class="fas fa-users"></i> Assigned Reporters (For Approval)</button>
+                                                    <button class="nav-link <%= dashDefaultTeam ? 'active' : '' %> fw-bold" id="team-dash-tab" data-bs-toggle="tab" data-bs-target="#team-dash" type="button" role="tab" style="color: #475569;"><i class="fas fa-users"></i> Team Reporters</button>
                                                 </li>
                                             </ul>
+                                            <% } %>
+                                        <% if (dashShowTeam) { %>
                                         <div class="tab-content" id="subEditorDashboardTabContent">
                                             <div class="tab-pane fade <%= dashDefaultTeam ? 'show active' : '' %>" id="team-dash" role="tabpanel">
                                                 <div class="dash-news-panel">
@@ -357,6 +361,41 @@
                                     </div>
                                 </div>
                             </div>
+                        <% } else { %>
+                            <div class="dash-news-panel">
+                                <div class="dash-articles-grid">
+                                    <% dashMyArticles.forEach(function(news) { %>
+                                        <article class="dash-article news-card" onclick="openNewsDetail('<%= news._id %>')">
+                                            <div class="dash-article-media">
+                                                <% if (news.mediaUrl) { %>
+                                                    <% if (news.mediaType === 'video') { %>
+                                                        <video src="<%= news.mediaUrl %>" onclick="event.stopPropagation()" controls></video>
+                                                    <% } else { %>
+                                                        <img src="<%= news.mediaUrl || news.imageUrl %>" alt="<%= news.title %>">
+                                                    <% } %>
+                                                <% } else { %>
+                                                    <div class="dash-article-media--empty"><i class="fas fa-image"></i></div>
+                                                <% } %>
+                                                <% if (news.location && news.locationCode) { %>
+                                                    <span class="dash-article-chip"><i class="fas fa-map-marker-alt"></i> <%= news.locationCode %></span>
+                                                <% } %>
+                                                <span class="dash-article-status <%= news.isActive === false ? 'dash-article-status--off' : 'dash-article-status--on' %>">
+                                                    <%= news.isActive === false ? 'Inactive' : 'Active' %>
+                                                </span>
+                                            </div>
+                                            <div class="dash-article-body">
+                                                <h3 class="dash-article-title rich-text"><%- renderRichText(news.title) %></h3>
+                                                <p class="dash-article-excerpt rich-text"><%- renderRichTextExcerpt(news.content, 90) %></p>
+                                                <div class="dash-article-meta">
+                                                    <span><%= news.category %></span>
+                                                    <span><%= new Date(news.publishedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) %></span>
+                                                </div>
+                                            </div>
+                                        </article>
+                                    <% }); %>
+                                </div>
+                            </div>
+                        <% } %>
                         <% } else { %>
                             <div class="dash-news-panel">
                                 <div class="dash-articles-grid">

@@ -630,7 +630,7 @@
                                             </div>
                                         </div>
 
-                                        <!-- Approval Scope — nested under "Can approve news" -->
+                                        <!-- Approval Scope — shown only when "Can approve / reject news" is checked -->
                                         <div id="editManagedLocationsWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #4f46e5">
                                             <div class="editor-step-banner amber" style="margin-top:12px">
                                                 <span class="step-icon">🎯</span>
@@ -888,7 +888,7 @@
                                         <select id="addApprovalScope" class="form-select">
                                             <option value="all">All Reporters (can approve anyone's news)</option>
                                             <option value="geography">By Geography (only reporters from selected areas)</option>
-                                            <option value="reporters">Specific Reporters (pick by name)</option>
+                                            <option value="reporters" selected>Specific Reporters (pick by name)</option>
                                         </select>
                                     </div>
                                     <div id="addManagedGeographyWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #4f46e5">
@@ -1320,6 +1320,30 @@
                         if (scope === 'reporters') renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', getSelectedFromHidden(prefix + 'ManagedReporterIds'));
                     }
 
+                    function syncApprovalScopeSectionVisibility(prefix) {
+                        const isEdit = prefix === 'edit';
+                        const approveCb = document.getElementById(isEdit ? 'editCanApproveNews' : 'addCanApproveNews');
+                        const checked = !!(approveCb && approveCb.checked);
+
+                        if (isEdit) {
+                            const wrap = document.getElementById('editManagedLocationsWrapper');
+                            if (wrap) wrap.style.display = checked ? 'block' : 'none';
+                        } else {
+                            const scopeWrap = document.getElementById('addApprovalScopeWrapper');
+                            const geo = document.getElementById('addManagedGeographyWrapper');
+                            const reps = document.getElementById('addManagedReportersWrapper');
+                            if (!checked) {
+                                if (scopeWrap) scopeWrap.style.display = 'none';
+                                if (geo) geo.style.display = 'none';
+                                if (reps) reps.style.display = 'none';
+                            } else {
+                                if (scopeWrap) scopeWrap.style.display = 'block';
+                            }
+                        }
+
+                        if (checked) syncApprovalScopeUI(prefix);
+                    }
+
                     function initApprovalScopeHandlers(prefix) {
                         const scopeEl = document.getElementById(prefix + 'ApprovalScope');
                         if (scopeEl && !scopeEl.dataset.bound) {
@@ -1332,24 +1356,9 @@
                             searchEl.addEventListener('input', () => renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', getSelectedFromHidden(prefix + 'ManagedReporterIds')));
                         }
                         const approveCb = document.getElementById(prefix === 'edit' ? 'editCanApproveNews' : 'addCanApproveNews');
-                        const wrap = document.getElementById(prefix === 'edit' ? 'editManagedLocationsWrapper' : 'addApprovalScopeWrapper');
                         if (approveCb && !approveCb.dataset.coverageBound) {
                             approveCb.dataset.coverageBound = '1';
-                            approveCb.addEventListener('change', () => {
-                                if (prefix === 'edit') {
-                                    if (wrap) wrap.style.display = approveCb.checked ? 'block' : 'none';
-                                } else {
-                                    ['addApprovalScopeWrapper', 'addManagedGeographyWrapper', 'addManagedReportersWrapper'].forEach(id => {
-                                        const el = document.getElementById(id);
-                                        if (el) el.style.display = 'none';
-                                    });
-                                    if (approveCb.checked) {
-                                        const scopeWrap = document.getElementById('addApprovalScopeWrapper');
-                                        if (scopeWrap) scopeWrap.style.display = 'block';
-                                        syncApprovalScopeUI('add');
-                                    }
-                                }
-                            });
+                            approveCb.addEventListener('change', () => syncApprovalScopeSectionVisibility(prefix));
                         }
                     }
 
@@ -1373,7 +1382,7 @@
 
                     function loadManagedCoverage(prefix, permissions) {
                         const perms = permissions || {};
-                        let scope = perms.approvalScope || 'all';
+                        let scope = perms.approvalScope || 'reporters';
                         if (scope === 'locations') scope = 'geography';
                         const scopeEl = document.getElementById(prefix + 'ApprovalScope');
                         if (scopeEl) scopeEl.value = scope;
@@ -1477,8 +1486,9 @@
                         if (subBlock) subBlock.classList.toggle('role-hidden', !isSub);
 
                         const managedLocWrapper = document.getElementById('editManagedLocationsWrapper');
+                        const approveChecked = document.getElementById('editCanApproveNews')?.checked;
                         if (managedLocWrapper) {
-                            managedLocWrapper.style.display = (isSub && document.getElementById('editCanApproveNews').checked) ? 'block' : 'none';
+                            managedLocWrapper.style.display = (isSub && approveChecked) ? 'block' : 'none';
                         }
                         if (!isSub) {
                             ['editCanAccessAdminDashboard', 'editCanViewReporterDetails', 'editCanApproveNews', 'editCanViewAllNews',
@@ -1505,8 +1515,15 @@
                         if (subPerms) subPerms.style.display = isSub ? 'block' : 'none';
                         if (repNote) repNote.style.display = isSub ? 'none' : 'block';
                         const approveWrap = document.getElementById('addApprovalScopeWrapper');
-                        if (approveWrap && isSub) {
-                            approveWrap.style.display = document.getElementById('addCanApproveNews')?.checked ? 'block' : 'none';
+                        const approveChecked = document.getElementById('addCanApproveNews')?.checked;
+                        if (isSub && approveChecked) {
+                            syncApprovalScopeSectionVisibility('add');
+                        } else {
+                            if (approveWrap) approveWrap.style.display = 'none';
+                            ['addManagedGeographyWrapper', 'addManagedReportersWrapper'].forEach(id => {
+                                const el = document.getElementById(id);
+                                if (el) el.style.display = 'none';
+                            });
                         }
                     }
 
@@ -1592,10 +1609,9 @@
                             cb.checked = sidebarPerms[menu] !== false;
                         });
 
-                        document.getElementById('editApprovalScope').value = (permissions.approvalScope === 'locations') ? 'geography' : (permissions.approvalScope || 'all');
+                        document.getElementById('editApprovalScope').value = (permissions.approvalScope === 'locations') ? 'geography' : (permissions.approvalScope || 'reporters');
                         loadManagedCoverage('edit', permissions);
-                        const managedLocWrapper = document.getElementById('editManagedLocationsWrapper');
-                        if (managedLocWrapper) managedLocWrapper.style.display = permissions.canApproveNews === true ? 'block' : 'none';
+                        syncApprovalScopeSectionVisibility('edit');
 
                         const currentAdminRole = '<%= admin.role %>';
                         const adminSection = document.getElementById('adminSettingsSection');
@@ -1610,7 +1626,7 @@
                     });
 
                     document.getElementById('editCanApproveNews').addEventListener('change', function () {
-                        document.getElementById('editManagedLocationsWrapper').style.display = this.checked ? 'block' : 'none';
+                        syncApprovalScopeSectionVisibility('edit');
                     });
 
                     document.getElementById('editEditorForm').addEventListener('submit', function (e) {

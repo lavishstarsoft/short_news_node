@@ -20,7 +20,7 @@ const exec = util.promisify(require('child_process').exec);
 const axios = require('axios');
 const sharp = require('sharp');
 const { uploadToR2 } = require('../middleware/upload');
-const { buildSubEditorAuthorFilter, getManagedReporterIds, buildSubEditorTabQuery, resolveSubEditorNewsTab, getAdminId } = require('../utils/editorCoverageHelper');
+const { buildSubEditorAuthorFilter, getManagedReporterIds, buildSubEditorTabQuery, resolveSubEditorNewsTab, getAdminId, subEditorHasTeamScope } = require('../utils/editorCoverageHelper');
 
 // Import the Notification and User models
 const Notification = require('../models/Notification');
@@ -113,6 +113,7 @@ async function renderDashboard(req, res) {
 
       let newsQuery = {};
       let isRestrictedSubEditor = false;
+      let hasTeamScope = false;
 
       // Check user role and permissions
       if (req.admin.role === 'editor') {
@@ -121,6 +122,7 @@ async function renderDashboard(req, res) {
       } else if (req.admin.role === 'subeditor' && (!req.admin.permissions || !req.admin.permissions.canViewAllNews)) {
         isRestrictedSubEditor = true;
         const adminDoc = await Admin.findById(req.admin.id).lean();
+        hasTeamScope = subEditorHasTeamScope(adminDoc);
         const subEditorQuery = await buildSubEditorAuthorFilter(Admin, adminDoc);
         if (subEditorQuery) {
           newsQuery = subEditorQuery;
@@ -203,7 +205,8 @@ async function renderDashboard(req, res) {
         pendingNewsCount,
         totalViews,
         admin: req.admin,
-        isRestrictedSubEditor
+        isRestrictedSubEditor,
+        hasTeamScope
       });
     } else {
       // Use in-memory storage
@@ -333,18 +336,25 @@ async function renderNewsListPage(req, res) {
       let isRestrictedSubEditor = false;
       let currentTab = req.query.tab || 'my-list';
       let subEditorTabCounts = null;
+      let hasTeamScope = false;
+      const isImpersonating = !!(req.isImpersonating || res.locals?.isImpersonating);
+      const scopeOptions = isImpersonating ? { ignoreCanViewAllNews: true } : {};
 
       // Check user role and permissions
       if (req.admin.role === 'editor') {
         // Editors only see their own news
         query.authorId = getAdminId(req.admin);
-      } else if (req.admin.role === 'subeditor' && (!req.admin.permissions || !req.admin.permissions.canViewAllNews)) {
+      } else if (req.admin.role === 'subeditor' && (isImpersonating || !req.admin.permissions?.canViewAllNews)) {
         isRestrictedSubEditor = true;
         const adminDoc = await Admin.findById(getAdminId(req.admin)).lean();
         const adminId = getAdminId(adminDoc || req.admin);
-        const reporterIds = await getManagedReporterIds(Admin, adminDoc);
+        hasTeamScope = subEditorHasTeamScope(adminDoc);
+        const reporterIds = await getManagedReporterIds(Admin, adminDoc, scopeOptions);
 
-        currentTab = await resolveSubEditorNewsTab(Admin, News, adminDoc, req.query.tab);
+        currentTab = await resolveSubEditorNewsTab(Admin, News, adminDoc, req.query.tab, scopeOptions);
+        if (!hasTeamScope && currentTab === 'team-list') {
+          currentTab = 'my-list';
+        }
 
         if (selectedAuthorId) {
           const allowed = reporterIds === null ||
@@ -357,7 +367,7 @@ async function renderNewsListPage(req, res) {
             ? authorClause
             : { $and: [query, authorClause] };
         } else {
-          const tabQuery = buildSubEditorTabQuery(currentTab, adminId, reporterIds);
+          const tabQuery = buildSubEditorTabQuery(currentTab, adminId, reporterIds, scopeOptions);
           query = Object.keys(query).length === 0
             ? tabQuery
             : { $and: [query, tabQuery] };
@@ -447,7 +457,8 @@ async function renderNewsListPage(req, res) {
         },
         isRestrictedSubEditor,
         currentTab,
-        subEditorTabCounts
+        subEditorTabCounts,
+        hasTeamScope
       });
     } else {
       console.log('Using in-memory storage'); // Debug log

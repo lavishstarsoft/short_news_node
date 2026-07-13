@@ -858,12 +858,17 @@ async function renderImpersonatedNewsList(req, res) {
 
     // Override req.admin so newsController thinks we are the subeditor
     req.admin = targetAdmin;
+    req.isImpersonating = true;
     
     // Set locals so the view knows we are impersonating
     res.locals.isImpersonating = true;
 
+    const scopeOptions = { ignoreCanViewAllNews: true };
+
     // Calculate metrics for the sub-editor (including assigned reporters)
-    const authorFilter = await buildSubEditorAuthorFilter(Admin, targetAdmin);
+    const authorFilter = targetAdmin.role === 'subeditor'
+      ? await buildSubEditorAuthorFilter(Admin, targetAdmin, scopeOptions)
+      : null;
     const queryCond = authorFilter || { authorId: targetEditorId };
 
     const todayStart = new Date();
@@ -907,7 +912,12 @@ async function getImpersonatedNewsCount(req, res) {
       return res.status(404).json({ error: 'Editor not found' });
     }
 
-    const authorFilter = await buildSubEditorAuthorFilter(Admin, targetAdmin);
+    const scopeOptions = targetAdmin.role === 'subeditor'
+      ? { ignoreCanViewAllNews: true }
+      : {};
+    const authorFilter = targetAdmin.role === 'subeditor'
+      ? await buildSubEditorAuthorFilter(Admin, targetAdmin, scopeOptions)
+      : null;
     const fromDate = new Date(`${from}T00:00:00.000+05:30`);
     const toDate = new Date(`${to}T23:59:59.999+05:30`);
 
@@ -954,7 +964,12 @@ async function getMultiEditorReportData(req, res) {
       const targetAdmin = await Admin.findById(adminId).lean();
       if (!targetAdmin) continue;
 
-      const authorFilter = await buildSubEditorAuthorFilter(Admin, targetAdmin);
+      const scopeOptions = targetAdmin.role === 'subeditor'
+        ? { ignoreCanViewAllNews: true }
+        : {};
+      const authorFilter = targetAdmin.role === 'subeditor'
+        ? await buildSubEditorAuthorFilter(Admin, targetAdmin, scopeOptions)
+        : null;
       const fromDate = new Date(`${from}T00:00:00.000+05:30`);
       const toDate = new Date(`${to}T23:59:59.999+05:30`);
 
@@ -2045,7 +2060,7 @@ async function registerEditor(req, res) {
         canEditNews: canEditNews === 'true' || canEditNews === true,
         requiresSourceLink: requiresSourceLink === 'true' || requiresSourceLink === true,
         canSendNotifications: canSendNotifications === 'true' || canSendNotifications === true,
-        approvalScope: approvalScope || 'all',
+        approvalScope: approvalScope || 'reporters',
         managedStates: [],
         managedDistricts: [],
         managedConstituencies: [],

@@ -100,24 +100,24 @@ function getAdminId(doc) {
   return (doc._id || doc.id || '').toString();
 }
 
-function getSubEditorApprovalCoverage(subEditorDoc) {
+/** Approval geography from permissions only — never falls back to news-posting areas. */
+function getSubEditorManagedCoverage(subEditorDoc) {
   const perms = subEditorDoc?.permissions || {};
-  const managedStates = uniqueStrings(perms.managedStates || []);
-  const managedDistricts = uniqueStrings(perms.managedDistricts || []);
-  const managedConstituencies = uniqueStrings(perms.managedConstituencies || []);
-  const managedLocations = uniqueStrings(perms.managedLocations || []);
+  return {
+    states: uniqueStrings(perms.managedStates || []),
+    districts: uniqueStrings(perms.managedDistricts || []),
+    constituencies: uniqueStrings(perms.managedConstituencies || []),
+    locations: uniqueStrings(perms.managedLocations || [])
+  };
+}
 
-  const hasManaged = managedStates.length || managedDistricts.length ||
-    managedConstituencies.length || managedLocations.length;
+/** Display / legacy helper — may include posting-area fallback for analytics UI. */
+function getSubEditorApprovalCoverage(subEditorDoc) {
+  const managed = getSubEditorManagedCoverage(subEditorDoc);
+  const hasManaged = managed.states.length || managed.districts.length ||
+    managed.constituencies.length || managed.locations.length;
 
-  if (hasManaged) {
-    return {
-      states: managedStates,
-      districts: managedDistricts,
-      constituencies: managedConstituencies,
-      locations: managedLocations
-    };
-  }
+  if (hasManaged) return managed;
 
   return {
     states: uniqueStrings([
@@ -133,18 +133,36 @@ function getSubEditorApprovalCoverage(subEditorDoc) {
   };
 }
 
+/** Whether this sub-editor has an explicit team (reporters to manage), not implicit "all". */
+function subEditorHasTeamScope(subEditorDoc) {
+  if (!subEditorDoc || subEditorDoc.role !== 'subeditor') return false;
+  const perms = subEditorDoc.permissions || {};
+  if (perms.canViewAllNews) return false;
+
+  const scope = normalizeApprovalScope(perms.approvalScope);
+  if (scope === 'all') return perms.canApproveNews === true;
+  if (scope === 'reporters') {
+    return uniqueStrings(perms.managedReporterIds || []).length > 0;
+  }
+
+  const coverage = getSubEditorManagedCoverage(subEditorDoc);
+  return !!(coverage.states.length || coverage.districts.length ||
+    coverage.constituencies.length || coverage.locations.length);
+}
+
 /**
  * Reporter IDs a sub-editor can manage when canViewAllNews is off.
  * Returns null = unrestricted (canViewAllNews on).
  */
-async function getManagedReporterIds(Admin, subEditorDoc) {
+async function getManagedReporterIds(Admin, subEditorDoc, options = {}) {
   if (!subEditorDoc || subEditorDoc.role !== 'subeditor') return null;
   const perms = subEditorDoc.permissions || {};
-  if (perms.canViewAllNews) return null;
+  if (perms.canViewAllNews && !options.ignoreCanViewAllNews) return null;
 
   const scope = normalizeApprovalScope(perms.approvalScope);
 
   if (scope === 'all') {
+    if (!perms.canApproveNews) return [];
     const all = await Admin.find({ role: 'editor', isActive: { $ne: false } }).select('_id').lean();
     return all.map(r => r._id.toString());
   }
@@ -153,7 +171,11 @@ async function getManagedReporterIds(Admin, subEditorDoc) {
     return uniqueStrings(perms.managedReporterIds || []);
   }
 
-  const coverage = getSubEditorApprovalCoverage(subEditorDoc);
+  const coverage = getSubEditorManagedCoverage(subEditorDoc);
+  if (!coverage.states.length && !coverage.districts.length &&
+      !coverage.constituencies.length && !coverage.locations.length) {
+    return [];
+  }
 
   const reporters = await Admin.find({ role: 'editor', isActive: { $ne: false } })
     .select('_id assignedStates assignedState assignedDistricts assignedConstituencies assignedLocations location constituency')
@@ -162,9 +184,13 @@ async function getManagedReporterIds(Admin, subEditorDoc) {
   return reporters.filter(r => reporterMatchesCoverage(r, coverage)).map(r => r._id.toString());
 }
 
-function buildSubEditorTabQuery(tab, adminId, reporterIds) {
+function buildSubEditorTabQuery(tab, adminId, reporterIds, options = {}) {
   if (tab === 'my-list') {
     return { authorId: adminId };
+  }
+
+  if (reporterIds === null) {
+    return { authorId: { $ne: adminId } };
   }
 
   const teamIds = uniqueStrings(reporterIds || []).filter(id => id !== adminId);
@@ -174,7 +200,7 @@ function buildSubEditorTabQuery(tab, adminId, reporterIds) {
   return { authorId: { $in: teamIds } };
 }
 
-async function resolveSubEditorNewsTab(Admin, NewsModel, subEditorDoc, requestedTab) {
+async function resolveSubEditorNewsTab(Admin, NewsModel, subEditorDoc, requestedTab, options = {}) {
   if (requestedTab === 'my-list' || requestedTab === 'team-list') {
     return requestedTab;
   }
@@ -183,7 +209,7 @@ async function resolveSubEditorNewsTab(Admin, NewsModel, subEditorDoc, requested
   const ownCount = await NewsModel.countDocuments({ authorId: adminId });
   if (ownCount > 0) return 'my-list';
 
-  const reporterIds = await getManagedReporterIds(Admin, subEditorDoc);
+  const reporterIds = await getManagedReporterIds(Admin, subEditorDoc, options);
   if (reporterIds === null) return 'team-list';
 
   if (!reporterIds.length) return 'my-list';
@@ -192,11 +218,14 @@ async function resolveSubEditorNewsTab(Admin, NewsModel, subEditorDoc, requested
   return teamCount > 0 ? 'team-list' : 'my-list';
 }
 
-async function buildSubEditorAuthorFilter(Admin, subEditorDoc) {
-  const reporterIds = await getManagedReporterIds(Admin, subEditorDoc);
-  if (reporterIds === null) return null;
+async function buildSubEditorAuthorFilter(Admin, subEditorDoc, options = {}) {
+  const reporterIds = await getManagedReporterIds(Admin, subEditorDoc, options);
+  if (reporterIds === null && !options.ignoreCanViewAllNews) return null;
 
   const subId = getAdminId(subEditorDoc);
+  if (reporterIds === null) {
+    return { authorId: { $ne: subId } };
+  }
   if (!reporterIds.length) {
     return { authorId: subId };
   }
@@ -208,30 +237,27 @@ async function buildPendingNewsFilterForSubEditor(Admin, subEditorDoc, baseQuery
   const perms = subEditorDoc.permissions || {};
   if (perms.canViewAllNews) return baseQuery;
 
-  const scope = normalizeApprovalScope(perms.approvalScope);
-
-  if (scope === 'all') return baseQuery;
-
-  if (scope === 'reporters') {
-    const ids = uniqueStrings(perms.managedReporterIds || []);
-    if (!ids.length) return { ...baseQuery, authorId: '__no_managed_reporters__' };
-    return mergeQuery(baseQuery, { authorId: { $in: ids } });
+  const reporterIds = await getManagedReporterIds(Admin, subEditorDoc);
+  if (!reporterIds.length) {
+    return { ...baseQuery, authorId: '__no_managed_reporters__' };
   }
 
-  const reporterIds = await getManagedReporterIds(Admin, subEditorDoc);
-  const coverage = getSubEditorApprovalCoverage(subEditorDoc);
-  const locationNames = uniqueStrings([
-    ...coverage.states,
-    ...coverage.districts,
-    ...coverage.constituencies,
-    ...coverage.locations
-  ]);
+  const scope = normalizeApprovalScope(perms.approvalScope);
+  const orClauses = [{ authorId: { $in: reporterIds } }];
 
-  const orClauses = [];
-  if (locationNames.length) orClauses.push({ location: { $in: locationNames } });
-  if (reporterIds.length) orClauses.push({ authorId: { $in: reporterIds } });
+  if (scope === 'geography') {
+    const coverage = getSubEditorManagedCoverage(subEditorDoc);
+    const locationNames = uniqueStrings([
+      ...coverage.states,
+      ...coverage.districts,
+      ...coverage.constituencies,
+      ...coverage.locations
+    ]);
+    if (locationNames.length) {
+      orClauses.push({ location: { $in: locationNames } });
+    }
+  }
 
-  if (!orClauses.length) return { ...baseQuery, authorId: '__no_coverage__' };
   return mergeQuery(baseQuery, { $or: orClauses });
 }
 
@@ -275,7 +301,7 @@ function applyReporterCoverageFields(editor, body = {}) {
 function applySubEditorCoveragePermissions(editor, body = {}) {
   if (!editor.permissions) editor.permissions = {};
 
-  let scope = body.approvalScope || editor.permissions.approvalScope || 'all';
+  let scope = body.approvalScope || editor.permissions.approvalScope || 'reporters';
   if (scope === 'locations') scope = 'geography';
   editor.permissions.approvalScope = scope;
 
@@ -300,7 +326,9 @@ module.exports = {
   uniqueStrings,
   normalizeApprovalScope,
   getAdminId,
+  getSubEditorManagedCoverage,
   getSubEditorApprovalCoverage,
+  subEditorHasTeamScope,
   getReporterCoverage,
   computeAssignedLocations,
   reporterMatchesCoverage,
