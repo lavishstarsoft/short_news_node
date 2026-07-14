@@ -43,7 +43,7 @@ router.get('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
 // Admin route to update app settings
 router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl } = req.body;
+        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl, referralHelpText, referralRewardAmount, referralRequiredDays } = req.body;
         let settings = await AppSettings.findOne({ key: 'update_flags' });
 
         if (!settings) {
@@ -70,6 +70,9 @@ router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
         if (aboutUs !== undefined) settings.aboutUs = aboutUs;
         if (termsAndConditions !== undefined) settings.termsAndConditions = termsAndConditions;
         if (feedbackUrl !== undefined) settings.feedbackUrl = feedbackUrl;
+        if (referralHelpText !== undefined) settings.referralHelpText = referralHelpText;
+        if (referralRewardAmount !== undefined) settings.referralRewardAmount = Number(referralRewardAmount);
+        if (referralRequiredDays !== undefined) settings.referralRequiredDays = Number(referralRequiredDays);
 
         await settings.save();
         res.json(settings);
@@ -103,7 +106,10 @@ router.get('/api/public/app-settings', async (req, res) => {
                 contactUs: '',
                 privacyPolicy: '',
                 aboutUs: '',
-                termsAndConditions: ''
+                termsAndConditions: '',
+                referralHelpText: 'Invite your friends to earn rewards when they join and use the app for 7 days.',
+                referralRewardAmount: 5,
+                referralRequiredDays: 7
             };
         } else {
             responseSettings = settings.toObject();

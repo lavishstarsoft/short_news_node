@@ -76,10 +76,20 @@ const referralSchema = new mongoose.Schema({
 
   commissionAmount: {
     type: Number,
-    default: 5 // ₹5 per successful referral
+    default: 5 // Default ₹5, but will be set dynamically at claim time
   },
 
-  // --- Usage Tracking (7-day retention check) ---
+  requiredUsageDays: {
+    type: Number,
+    default: 7 // Default 7, but will be set dynamically at claim time
+  },
+
+  fraudScore: {
+    type: Number,
+    default: 0
+  },
+
+  // --- Usage Tracking ---
 
   appOpenCount: {
     type: Number,

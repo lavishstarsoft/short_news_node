@@ -364,6 +364,25 @@
                                         </div>
                                     </div>
                                     
+                                    <div class="row g-4 mt-2">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold text-dark"><i class="fas fa-rupee-sign me-2 text-success"></i>Referral Reward Amount (₹)</label>
+                                            <input type="number" class="form-control" id="referralRewardAmount" name="referralRewardAmount" value="<%= settings.referralRewardAmount || 5 %>" required>
+                                            <small class="text-muted mt-2 d-block">Amount awarded to the referrer per successful referral.</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold text-dark"><i class="fas fa-calendar-check me-2 text-info"></i>Required Usage Days</label>
+                                            <input type="number" class="form-control" id="referralRequiredDays" name="referralRequiredDays" value="<%= settings.referralRequiredDays || 7 %>" required>
+                                            <small class="text-muted mt-2 d-block">How many days the referred user must use the app.</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-4">
+                                        <label class="form-label fw-bold text-dark"><i class="fas fa-gift me-2 text-primary"></i>Referral Help Text (How it works)</label>
+                                        <textarea class="form-control" id="referralHelpText" name="referralHelpText" rows="4" placeholder="Enter instructions for refer and earn..."><%= settings.referralHelpText || '' %></textarea>
+                                        <small class="text-muted mt-2 d-block">This text will be shown in the app when users click "How it works" on the Refer & Earn screen.</small>
+                                    </div>
+                                    
                                     <div class="mt-4">
                                         <h6 class="fw-bold text-dark mb-3"><i class="fas fa-language me-2 text-primary"></i>Language-wise Features</h6>
                                         <div class="table-responsive">

@@ -76,6 +76,18 @@ const appSettingsSchema = new mongoose.Schema({
   feedbackUrl: {
     type: String,
     default: 'https://wa.me/919999999999'
+  },
+  referralHelpText: {
+    type: String,
+    default: 'Invite your friends to earn rewards when they join and use the app for 7 days.'
+  },
+  referralRewardAmount: {
+    type: Number,
+    default: 5
+  },
+  referralRequiredDays: {
+    type: Number,
+    default: 7
   }
 }, { timestamps: true });
 

@@ -2,14 +2,13 @@ const express = require('express');
 const router = express.Router();
 const Referral = require('../models/Referral');
 const User = require('../models/User');
+const AppSettings = require('../models/AppSettings');
 const playIntegrityService = require('../services/playIntegrityService');
 
 // ============================================================
 // 🔐 FRAUD CHECK CONSTANTS
 // ============================================================
 const MAX_IP_CLAIMS_PER_DAY = 3;
-const COMMISSION_AMOUNT = 5; // ₹5
-const RETENTION_DAYS = 7;
 const MIN_APP_OPENS = 3;
 const MIN_USAGE_MINUTES = 5;
 
@@ -35,6 +34,13 @@ router.post('/api/public/referral/claim', async (req, res) => {
         error: 'Missing required fields: referralCode, referredUserId, deviceFingerprint, integrityToken'
       });
     }
+
+    // --- Fetch Dynamic App Settings ---
+    const appSettings = await AppSettings.findOne({ key: 'update_flags' });
+    const rewardAmount = appSettings?.referralRewardAmount || 5;
+    const requiredDays = appSettings?.referralRequiredDays || 7;
+
+    let fraudScore = 0;
 
     // --- Fraud Check 0: Play Integrity ---
     const integrityResult = await playIntegrityService.verifyToken(integrityToken);
@@ -111,6 +117,9 @@ router.post('/api/public/referral/claim', async (req, res) => {
       });
     }
 
+    if (recentIpClaims == 1) fraudScore += 20;
+    if (recentIpClaims == 2) fraudScore += 40;
+
     // --- All fraud checks passed! Create the referral ---
     const referral = new Referral({
       referrerUserId: referrer.googleId,
@@ -121,8 +130,11 @@ router.post('/api/public/referral/claim', async (req, res) => {
       deviceFingerprint: deviceFingerprint,
       installIp: clientIp,
       installReferrerData: installReferrerData || null,
-      status: 'pending',
-      commissionAmount: COMMISSION_AMOUNT,
+      status: fraudScore > 50 ? 'rejected' : 'pending',
+      rejectionReason: fraudScore > 50 ? 'high_fraud_risk' : null,
+      commissionAmount: rewardAmount,
+      requiredUsageDays: requiredDays,
+      fraudScore: fraudScore,
       integrityData: integrityData
     });
 
@@ -188,11 +200,16 @@ router.get('/api/public/referral/my-stats/:userId', async (req, res) => {
       .limit(20)
       .select('referredEmail status commissionAmount createdAt verifiedAt rejectionReason');
 
+    // Get dynamic app settings
+    const appSettings = await AppSettings.findOne({ key: 'update_flags' });
+
     return res.json({
       success: true,
       referralCode: user.referralCode,
       walletBalance: user.walletBalance || 0,
       totalEarned: user.totalEarned || 0,
+      rewardAmount: appSettings?.referralRewardAmount || 5,
+      requiredDays: appSettings?.referralRequiredDays || 7,
       stats: {
         total: pending + verified + rejected,
         pending,
@@ -245,9 +262,10 @@ router.post('/api/public/referral/track-usage', async (req, res) => {
 
     // Check if eligible for early verification
     const daysSinceInstall = (Date.now() - referral.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+    const requiredDays = referral.requiredUsageDays || 7;
 
     if (
-      daysSinceInstall >= RETENTION_DAYS &&
+      daysSinceInstall >= requiredDays &&
       referral.appOpenCount >= MIN_APP_OPENS &&
       referral.totalUsageMinutes >= MIN_USAGE_MINUTES
     ) {
@@ -274,7 +292,7 @@ router.post('/api/public/referral/track-usage', async (req, res) => {
     return res.json({
       success: true,
       status: referral.status,
-      daysRemaining: Math.max(0, Math.ceil(RETENTION_DAYS - daysSinceInstall))
+      daysRemaining: Math.max(0, Math.ceil(requiredDays - daysSinceInstall))
     });
 
   } catch (error) {
