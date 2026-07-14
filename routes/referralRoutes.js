@@ -3,7 +3,9 @@ const router = express.Router();
 const Referral = require('../models/Referral');
 const User = require('../models/User');
 const AppSettings = require('../models/AppSettings');
+const WalletTransaction = require('../models/WalletTransaction');
 const playIntegrityService = require('../services/playIntegrityService');
+const hmacAuth = require('../middleware/hmacAuth');
 
 // ============================================================
 // 🔐 FRAUD CHECK CONSTANTS
@@ -16,7 +18,7 @@ const MIN_USAGE_MINUTES = 5;
 // POST /api/public/referral/claim
 // Called by Flutter app after install + Google Sign-In
 // ============================================================
-router.post('/api/public/referral/claim', async (req, res) => {
+router.post('/api/public/referral/claim', hmacAuth, async (req, res) => {
   try {
     const {
       referralCode,
@@ -114,6 +116,20 @@ router.post('/api/public/referral/claim', async (req, res) => {
       return res.status(429).json({
         success: false,
         error: 'Too many referral claims from this network. Please try again later.'
+      });
+    }
+
+    // --- Fraud Check 6: Velocity Check (Prevent coordinated attacks) ---
+    const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const velocityIpClaims = await Referral.countDocuments({
+      installIp: clientIp,
+      createdAt: { $gte: tenMinsAgo }
+    });
+    if (velocityIpClaims >= 2) {
+      // 2 claims from same IP in 10 mins is highly suspicious
+      return res.status(429).json({
+        success: false,
+        error: 'Too many requests. Please slow down.'
       });
     }
 
@@ -269,24 +285,53 @@ router.post('/api/public/referral/track-usage', async (req, res) => {
       referral.appOpenCount >= MIN_APP_OPENS &&
       referral.totalUsageMinutes >= MIN_USAGE_MINUTES
     ) {
-      // Auto-verify and credit commission
-      referral.status = 'verified';
-      referral.verifiedAt = new Date();
-      await referral.save();
+      // --- Global Daily Limit (Budget) Check ---
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
 
-      // Credit the referrer's wallet
-      await User.findOneAndUpdate(
-        { googleId: referral.referrerUserId },
-        {
-          $inc: {
-            walletBalance: referral.commissionAmount,
-            totalEarned: referral.commissionAmount,
-            totalReferrals: 1
+      const payoutsToday = await WalletTransaction.aggregate([
+        { $match: { createdAt: { $gte: todayStart }, type: 'credit' } },
+        { $group: { _id: null, totalAmount: { $sum: '$amount' } } }
+      ]);
+      const totalDisbursedToday = payoutsToday.length > 0 ? payoutsToday[0].totalAmount : 0;
+
+      const appSettings = await AppSettings.findOne({ key: 'update_flags' });
+      const dailyBudget = appSettings?.maxDailyReferralBudget || 5000;
+
+      if (totalDisbursedToday + referral.commissionAmount > dailyBudget) {
+        // Exceeded budget, hold for manual review
+        referral.status = 'manual_review';
+        await referral.save();
+        console.warn(`⚠️ [Referral] Budget Exceeded! Referral ${referral._id} put in manual_review`);
+      } else {
+        // Auto-verify and credit commission
+        referral.status = 'verified';
+        referral.verifiedAt = new Date();
+        await referral.save();
+
+        // 1. Create Wallet Transaction (Ledger)
+        await WalletTransaction.create({
+          userId: referral.referrerUserId,
+          amount: referral.commissionAmount,
+          type: 'credit',
+          description: `Referral Bonus for inviting ${referral.referredEmail || referral.referredUserId}`,
+          referenceId: referral._id
+        });
+
+        // 2. Credit the referrer's wallet
+        await User.findOneAndUpdate(
+          { googleId: referral.referrerUserId },
+          {
+            $inc: {
+              walletBalance: referral.commissionAmount,
+              totalEarned: referral.commissionAmount,
+              totalReferrals: 1
+            }
           }
-        }
-      );
+        );
 
-      console.log(`💰 [Referral] Commission ₹${referral.commissionAmount} credited to ${referral.referrerUserId}`);
+        console.log(`💰 [Referral] Commission ₹${referral.commissionAmount} credited to ${referral.referrerUserId}`);
+      }
     }
 
     return res.json({

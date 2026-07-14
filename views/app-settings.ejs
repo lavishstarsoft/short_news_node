@@ -377,6 +377,14 @@
                                         </div>
                                     </div>
                                     
+                                    <div class="row g-4 mt-2">
+                                        <div class="col-md-12">
+                                            <label class="form-label fw-bold text-dark"><i class="fas fa-shield-alt me-2 text-danger"></i>Max Daily Referral Budget (₹)</label>
+                                            <input type="number" class="form-control" id="maxDailyReferralBudget" name="maxDailyReferralBudget" value="<%= settings.maxDailyReferralBudget || 5000 %>" required>
+                                            <small class="text-muted mt-2 d-block">Safety Limit: If total payouts today exceed this amount, new payouts will require manual approval.</small>
+                                        </div>
+                                    </div>
+                                    
                                     <div class="mt-4">
                                         <label class="form-label fw-bold text-dark"><i class="fas fa-gift me-2 text-primary"></i>Referral Help Text (How it works)</label>
                                         <textarea class="form-control" id="referralHelpText" name="referralHelpText" rows="4" placeholder="Enter instructions for refer and earn..."><%= settings.referralHelpText || '' %></textarea>

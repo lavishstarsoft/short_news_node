@@ -88,6 +88,10 @@ const appSettingsSchema = new mongoose.Schema({
   referralRequiredDays: {
     type: Number,
     default: 7
+  },
+  maxDailyReferralBudget: {
+    type: Number,
+    default: 5000
   }
 }, { timestamps: true });
 
