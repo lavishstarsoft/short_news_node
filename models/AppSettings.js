@@ -92,6 +92,10 @@ const appSettingsSchema = new mongoose.Schema({
   maxDailyReferralBudget: {
     type: Number,
     default: 5000
+  },
+  referralShareUrl: {
+    type: String,
+    default: 'https://shortnews.com/invite'
   }
 }, { timestamps: true });
 

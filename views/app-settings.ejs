@@ -385,6 +385,14 @@
                                         </div>
                                     </div>
                                     
+                                    <div class="row g-4 mt-2">
+                                        <div class="col-md-12">
+                                            <label class="form-label fw-bold text-dark"><i class="fas fa-link me-2 text-primary"></i>Referral Share Base URL</label>
+                                            <input type="url" class="form-control" id="referralShareUrl" name="referralShareUrl" value="<%= settings.referralShareUrl || 'https://shortnews.com/invite' %>" required>
+                                            <small class="text-muted mt-2 d-block">Base URL used when users share their referral link (e.g. https://your-app.com/invite).</small>
+                                        </div>
+                                    </div>
+                                    
                                     <div class="mt-4">
                                         <label class="form-label fw-bold text-dark"><i class="fas fa-gift me-2 text-primary"></i>Referral Help Text (How it works)</label>
                                         <textarea class="form-control" id="referralHelpText" name="referralHelpText" rows="4" placeholder="Enter instructions for refer and earn..."><%= settings.referralHelpText || '' %></textarea>
@@ -551,6 +559,7 @@
             referralRewardAmount: document.getElementById('referralRewardAmount').value,
             referralRequiredDays: document.getElementById('referralRequiredDays').value,
             maxDailyReferralBudget: document.getElementById('maxDailyReferralBudget').value,
+            referralShareUrl: document.getElementById('referralShareUrl').value,
             referralHelpText: document.getElementById('referralHelpText').value
         };
 

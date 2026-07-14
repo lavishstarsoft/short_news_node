@@ -43,7 +43,7 @@ router.get('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
 // Admin route to update app settings
 router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl, referralHelpText, referralRewardAmount, referralRequiredDays, maxDailyReferralBudget } = req.body;
+        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl, referralHelpText, referralRewardAmount, referralRequiredDays, maxDailyReferralBudget, referralShareUrl } = req.body;
         let settings = await AppSettings.findOne({ key: 'update_flags' });
 
         if (!settings) {
@@ -74,6 +74,7 @@ router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
         if (referralRewardAmount !== undefined) settings.referralRewardAmount = Number(referralRewardAmount);
         if (referralRequiredDays !== undefined) settings.referralRequiredDays = Number(referralRequiredDays);
         if (maxDailyReferralBudget !== undefined) settings.maxDailyReferralBudget = Number(maxDailyReferralBudget);
+        if (referralShareUrl !== undefined) settings.referralShareUrl = referralShareUrl;
 
         await settings.save();
         res.json(settings);
@@ -111,7 +112,8 @@ router.get('/api/public/app-settings', async (req, res) => {
                 referralHelpText: 'Invite your friends to earn rewards when they join and use the app for 7 days.',
                 referralRewardAmount: 5,
                 referralRequiredDays: 7,
-                maxDailyReferralBudget: 5000
+                maxDailyReferralBudget: 5000,
+                referralShareUrl: 'https://shortnews.com/invite'
             };
         } else {
             responseSettings = settings.toObject();

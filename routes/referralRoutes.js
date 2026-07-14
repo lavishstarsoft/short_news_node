@@ -226,6 +226,7 @@ router.get('/api/public/referral/my-stats/:userId', async (req, res) => {
       totalEarned: user.totalEarned || 0,
       rewardAmount: appSettings?.referralRewardAmount || 5,
       requiredDays: appSettings?.referralRequiredDays || 7,
+      shareUrl: appSettings?.referralShareUrl || 'https://shortnews.com/invite',
       stats: {
         total: pending + verified + rejected,
         pending,
