@@ -364,23 +364,41 @@
                                         </div>
                                     </div>
                                     
-                                    <div class="p-3 rounded-3 mt-3" style="background-color: rgba(220, 53, 69, 0.05); border: 1px solid rgba(220, 53, 69, 0.2);">
-                                        <div class="form-check form-switch d-flex align-items-center mb-0">
-                                            <input class="form-check-input me-3" type="checkbox" id="showCalendarFeature" name="showCalendarFeature" <%= settings.showCalendarFeature !== false ? 'checked' : '' %>>
-                                            <div>
-                                                <label class="form-check-label fw-bold text-dark mb-0" for="showCalendarFeature">Enable Calendar Feature</label>
-                                                <div class="text-muted small mt-1">If disabled, the Calendar page will be hidden from the app entirely.</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="p-3 rounded-3 mt-3" style="background-color: rgba(25, 135, 84, 0.05); border: 1px solid rgba(25, 135, 84, 0.2);">
-                                        <div class="form-check form-switch d-flex align-items-center mb-0">
-                                            <input class="form-check-input me-3" type="checkbox" id="showZodiacFeature" name="showZodiacFeature" <%= settings.showZodiacFeature !== false ? 'checked' : '' %>>
-                                            <div>
-                                                <label class="form-check-label fw-bold text-dark mb-0" for="showZodiacFeature">Enable Zodiac/Horoscope Feature</label>
-                                                <div class="text-muted small mt-1">If disabled, the Zodiac (Raasulu) page will be hidden from the app entirely.</div>
-                                            </div>
+                                    <div class="mt-4">
+                                        <h6 class="fw-bold text-dark mb-3"><i class="fas fa-language me-2 text-primary"></i>Language-wise Features</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered align-middle">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Language</th>
+                                                        <th class="text-center">Calendar Feature</th>
+                                                        <th class="text-center">Zodiac/Horoscope Feature</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <% if (locals.languages && languages.length > 0) { %>
+                                                        <% languages.forEach(function(lang) { %>
+                                                            <tr>
+                                                                <td class="fw-bold"><%= lang.nativeName %> (<%= lang.name %>)</td>
+                                                                <td class="text-center">
+                                                                    <div class="form-check form-switch d-flex justify-content-center mb-0">
+                                                                        <input class="form-check-input cal-lang-toggle" type="checkbox" data-lang="<%= lang.code %>" <%= (settings.calendarEnabledLanguages && settings.calendarEnabledLanguages.includes(lang.code)) ? 'checked' : '' %>>
+                                                                    </div>
+                                                                </td>
+                                                                <td class="text-center">
+                                                                    <div class="form-check form-switch d-flex justify-content-center mb-0">
+                                                                        <input class="form-check-input zod-lang-toggle" type="checkbox" data-lang="<%= lang.code %>" <%= (settings.zodiacEnabledLanguages && settings.zodiacEnabledLanguages.includes(lang.code)) ? 'checked' : '' %>>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        <% }); %>
+                                                    <% } else { %>
+                                                        <tr>
+                                                            <td colspan="3" class="text-center text-muted">No active languages found.</td>
+                                                        </tr>
+                                                    <% } %>
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                     
@@ -495,8 +513,9 @@
             isSwipeStreakEnabled: document.getElementById('isSwipeStreakEnabled').checked,
             showLongVideos: document.getElementById('showLongVideos').checked,
             showDistrictSelection: document.getElementById('showDistrictSelection').checked,
-            showCalendarFeature: document.getElementById('showCalendarFeature').checked,
-            showZodiacFeature: document.getElementById('showZodiacFeature').checked,
+            // Collect language arrays
+            calendarEnabledLanguages: Array.from(document.querySelectorAll('.cal-lang-toggle')).filter(cb => cb.checked).map(cb => cb.dataset.lang),
+            zodiacEnabledLanguages: Array.from(document.querySelectorAll('.zod-lang-toggle')).filter(cb => cb.checked).map(cb => cb.dataset.lang),
             contactUs: document.getElementById('contactUs').value,
             privacyPolicy: document.getElementById('privacyPolicy').value,
             aboutUs: document.getElementById('aboutUs').value,

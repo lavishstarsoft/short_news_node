@@ -49,13 +49,13 @@ const appSettingsSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  showCalendarFeature: {
-    type: Boolean,
-    default: true
+  calendarEnabledLanguages: {
+    type: [String],
+    default: ['te']
   },
-  showZodiacFeature: {
-    type: Boolean,
-    default: true
+  zodiacEnabledLanguages: {
+    type: [String],
+    default: ['te']
   },
   contactUs: {
     type: String,

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const AppSettings = require('../models/AppSettings');
+const Language = require('../models/Language');
 const { cacheMiddleware } = require('../middleware/cache');
 const { requireAuth, requireAdmin } = require('../controllers/adminController');
 const { NEWS_TITLE_MAX, NEWS_CONTENT_MAX } = require('../constants/newsLimits');
@@ -12,10 +13,12 @@ router.get('/admin/app-settings', requireAuth, requireAdmin, async (req, res) =>
         if (!settings) {
             settings = await new AppSettings().save();
         }
+        const languages = await Language.find({ isActive: true }).sort({ sortOrder: 1, name: 1 });
         res.render('app-settings', {
             admin: req.admin,
             activePage: 'app-settings',
-            settings
+            settings,
+            languages
         });
     } catch (error) {
         console.error('Error fetching app settings view:', error);
@@ -40,7 +43,7 @@ router.get('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
 // Admin route to update app settings
 router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, showCalendarFeature, showZodiacFeature, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl } = req.body;
+        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl } = req.body;
         let settings = await AppSettings.findOne({ key: 'update_flags' });
 
         if (!settings) {
@@ -58,8 +61,8 @@ router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
         if (isSwipeStreakEnabled !== undefined) settings.isSwipeStreakEnabled = isSwipeStreakEnabled;
         if (showLongVideos !== undefined) settings.showLongVideos = showLongVideos;
         if (showDistrictSelection !== undefined) settings.showDistrictSelection = showDistrictSelection;
-        if (showCalendarFeature !== undefined) settings.showCalendarFeature = showCalendarFeature;
-        if (showZodiacFeature !== undefined) settings.showZodiacFeature = showZodiacFeature;
+        if (calendarEnabledLanguages !== undefined) settings.calendarEnabledLanguages = calendarEnabledLanguages;
+        if (zodiacEnabledLanguages !== undefined) settings.zodiacEnabledLanguages = zodiacEnabledLanguages;
         
         // Update legal pages if provided
         if (contactUs !== undefined) settings.contactUs = contactUs;
@@ -95,8 +98,8 @@ router.get('/api/public/app-settings', async (req, res) => {
                 isSwipeStreakEnabled: true,
                 showLongVideos: true,
                 showDistrictSelection: false,
-                showCalendarFeature: true,
-                showZodiacFeature: true,
+                calendarEnabledLanguages: ['te'],
+                zodiacEnabledLanguages: ['te'],
                 contactUs: '',
                 privacyPolicy: '',
                 aboutUs: '',
@@ -104,6 +107,12 @@ router.get('/api/public/app-settings', async (req, res) => {
             };
         } else {
             responseSettings = settings.toObject();
+            if (responseSettings.calendarEnabledLanguages === undefined) {
+                responseSettings.calendarEnabledLanguages = ['te', 'hi', 'en', 'ta', 'mr'];
+            }
+            if (responseSettings.zodiacEnabledLanguages === undefined) {
+                responseSettings.zodiacEnabledLanguages = ['te', 'hi', 'en', 'ta', 'mr'];
+            }
         }
 
         // Add length limits dynamically from backend constants
