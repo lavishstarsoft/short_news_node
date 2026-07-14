@@ -668,7 +668,7 @@ router.post('/api/public/news/:id/interact', verifyMobileUser, async (req, res) 
 // New endpoint to get user profile data
 router.post('/api/public/user/profile', async (req, res) => {
   try {
-    const { userId, userName, userEmail } = req.body;
+    const { userId, userName, userEmail, deviceFingerprint } = req.body;
 
     // Check if required fields are provided
     if (!userId) {
@@ -707,6 +707,7 @@ router.post('/api/public/user/profile', async (req, res) => {
 
           if (userEmail) user.email = userEmail;
           if (req.body.mobileNumber) user.mobileNumber = req.body.mobileNumber;
+          if (deviceFingerprint) user.deviceFingerprint = deviceFingerprint;
 
           await user.save();
           console.log('Created new user:', user);
@@ -715,6 +716,9 @@ router.post('/api/public/user/profile', async (req, res) => {
           user.displayName = userName || user.displayName;
           if (userEmail) user.email = userEmail;
           if (req.body.mobileNumber) user.mobileNumber = req.body.mobileNumber;
+          if (deviceFingerprint && !user.deviceFingerprint) {
+            user.deviceFingerprint = deviceFingerprint;
+          }
           user.lastLogin = new Date();
           if (req.body.photoUrl) {
             user.photoUrl = req.body.photoUrl;
@@ -787,6 +791,7 @@ router.post('/api/public/user/profile', async (req, res) => {
       displayName: userName || 'User',
       email: userEmail || '',
       photoUrl: req.body.photoUrl || null,
+      referralCode: user?.referralCode || null,
       createdAt: user?.createdAt?.toISOString() || new Date().toISOString(),
       lastLogin: user?.lastLogin?.toISOString() || new Date().toISOString(),
       stats: {

@@ -10,7 +10,7 @@ const userSchema = new mongoose.Schema({
   lastLogin: { type: Date, default: Date.now },
 
   // --- Referral System ---
-  referralCode: { type: String, unique: true, sparse: true, index: true },
+  referralCode: { type: String, sparse: true, index: true }, // Removed unique: true to allow multiple users on same device to share code
   referredBy: { type: String, default: null }, // referral code used during install
   walletBalance: { type: Number, default: 0 },
   totalEarned: { type: Number, default: 0 },
@@ -43,9 +43,26 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Auto-generate unique referral code on first save
-userSchema.pre('save', function (next) {
+// Auto-generate unique referral code on first save or inherit from device
+userSchema.pre('save', async function (next) {
   if (!this.referralCode) {
+    if (this.deviceFingerprint) {
+      try {
+        // Check if any other user on this device already has a referral code
+        const existingUser = await this.constructor.findOne({ 
+          deviceFingerprint: this.deviceFingerprint,
+          referralCode: { $exists: true, $ne: null }
+        }).sort({ createdAt: 1 });
+
+        if (existingUser && existingUser.referralCode) {
+          this.referralCode = existingUser.referralCode;
+          return next();
+        }
+      } catch (err) {
+        console.error('Error finding existing device user for referral:', err);
+      }
+    }
+
     const crypto = require('crypto');
     this.referralCode = crypto.randomBytes(4).toString('hex').toUpperCase(); // 8-char hex: e.g. "A3F8B2C1"
   }
