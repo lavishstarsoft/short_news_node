@@ -129,7 +129,9 @@
                                             <td>
                                                 <div class="d-flex align-items-center">
                                                     <div class="ms-2">
-                                                        <div class="fw-bold text-dark"><%= ref.referrerEmail || 'Unknown' %></div>
+                                                        <a href="/admin/users?search=<%= encodeURIComponent(ref.referrerEmail || ref.referrerUserId) %>" class="fw-bold text-primary text-decoration-none" title="View User Profile">
+                                                            <i class="fas fa-external-link-alt small me-1"></i><%= ref.referrerEmail || 'Unknown' %>
+                                                        </a>
                                                         <small class="text-muted d-block" style="font-family: monospace;"><%= ref.referrerUserId %></small>
                                                     </div>
                                                 </div>
@@ -137,7 +139,9 @@
                                             <td>
                                                 <div class="d-flex align-items-center">
                                                     <div class="ms-2">
-                                                        <div class="fw-bold text-dark"><%= ref.referredEmail || 'Unknown' %></div>
+                                                        <a href="/admin/users?search=<%= encodeURIComponent(ref.referredEmail || ref.referredUserId) %>" class="fw-bold text-primary text-decoration-none" title="View User Profile">
+                                                            <i class="fas fa-external-link-alt small me-1"></i><%= ref.referredEmail || 'Unknown' %>
+                                                        </a>
                                                         <small class="text-muted d-block" style="font-family: monospace;"><%= ref.referredUserId %></small>
                                                     </div>
                                                 </div>
