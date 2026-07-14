@@ -1,0 +1,286 @@
+const express = require('express');
+const router = express.Router();
+const Referral = require('../models/Referral');
+const User = require('../models/User');
+const playIntegrityService = require('../services/playIntegrityService');
+
+// ============================================================
+// 🔐 FRAUD CHECK CONSTANTS
+// ============================================================
+const MAX_IP_CLAIMS_PER_DAY = 3;
+const COMMISSION_AMOUNT = 5; // ₹5
+const RETENTION_DAYS = 7;
+const MIN_APP_OPENS = 3;
+const MIN_USAGE_MINUTES = 5;
+
+// ============================================================
+// POST /api/public/referral/claim
+// Called by Flutter app after install + Google Sign-In
+// ============================================================
+router.post('/api/public/referral/claim', async (req, res) => {
+  try {
+    const {
+      referralCode,
+      referredUserId,
+      referredEmail,
+      deviceFingerprint,
+      installReferrerData,
+      integrityToken
+    } = req.body;
+
+    // --- Basic validation ---
+    if (!referralCode || !referredUserId || !deviceFingerprint || !integrityToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: referralCode, referredUserId, deviceFingerprint, integrityToken'
+      });
+    }
+
+    // --- Fraud Check 0: Play Integrity ---
+    const integrityResult = await playIntegrityService.verifyToken(integrityToken);
+    const integrityData = integrityResult.details || { verdict: integrityResult.reason };
+
+    if (!integrityResult.isValid) {
+      const referrer = await User.findOne({ referralCode: referralCode });
+      if (referrer) {
+        await Referral.create({
+          referrerUserId: referrer.googleId,
+          referrerEmail: referrer.email,
+          referredUserId: referredUserId,
+          referredEmail: referredEmail,
+          referralCode: referralCode,
+          deviceFingerprint: deviceFingerprint,
+          status: 'rejected',
+          rejectionReason: 'play_integrity_failed: ' + integrityResult.reason,
+          integrityData: integrityData
+        });
+      }
+      return res.status(403).json({ success: false, error: 'App Integrity Check Failed' });
+    }
+
+    // --- Fraud Check 1: Does the referral code exist? ---
+    const referrer = await User.findOne({ referralCode: referralCode });
+    if (!referrer) {
+      return res.status(404).json({
+        success: false,
+        error: 'Invalid referral code'
+      });
+    }
+
+    // --- Fraud Check 2: Self-referral block ---
+    if (referrer.googleId === referredUserId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Self-referral is not allowed'
+      });
+    }
+
+    // --- Fraud Check 3: Duplicate user check ---
+    const existingUserReferral = await Referral.findOne({ referredUserId: referredUserId });
+    if (existingUserReferral) {
+      return res.status(409).json({
+        success: false,
+        error: 'This user has already used a referral code'
+      });
+    }
+
+    // --- Fraud Check 4: Same device already claimed ---
+    const existingDeviceReferral = await Referral.findOne({
+      deviceFingerprint: deviceFingerprint,
+      status: { $ne: 'rejected' }
+    });
+    if (existingDeviceReferral) {
+      return res.status(409).json({
+        success: false,
+        error: 'A referral has already been claimed from this device'
+      });
+    }
+
+    // --- Fraud Check 5: IP rate limiting ---
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentIpClaims = await Referral.countDocuments({
+      installIp: clientIp,
+      createdAt: { $gte: twentyFourHoursAgo },
+      status: { $ne: 'rejected' }
+    });
+    if (recentIpClaims >= MAX_IP_CLAIMS_PER_DAY) {
+      return res.status(429).json({
+        success: false,
+        error: 'Too many referral claims from this network. Please try again later.'
+      });
+    }
+
+    // --- All fraud checks passed! Create the referral ---
+    const referral = new Referral({
+      referrerUserId: referrer.googleId,
+      referrerEmail: referrer.email,
+      referredUserId: referredUserId,
+      referredEmail: referredEmail || null,
+      referralCode: referralCode,
+      deviceFingerprint: deviceFingerprint,
+      installIp: clientIp,
+      installReferrerData: installReferrerData || null,
+      status: 'pending',
+      commissionAmount: COMMISSION_AMOUNT,
+      integrityData: integrityData
+    });
+
+    await referral.save();
+
+    // Update the referred user's record
+    await User.findOneAndUpdate(
+      { googleId: referredUserId },
+      { $set: { referredBy: referralCode, deviceFingerprint: deviceFingerprint } }
+    );
+
+    console.log(`✅ [Referral] New claim: ${referredUserId} via ${referralCode} (referrer: ${referrer.googleId})`);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Referral claimed successfully! Commission will be released after 7-day verification.',
+      referralId: referral._id,
+      status: 'pending'
+    });
+
+  } catch (error) {
+    // Handle MongoDB duplicate key error gracefully
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        error: 'This referral has already been processed'
+      });
+    }
+    console.error('❌ [Referral] Claim error:', error);
+    return res.status(500).json({ success: false, error: 'Server error processing referral' });
+  }
+});
+
+// ============================================================
+// GET /api/public/referral/my-stats/:userId
+// Get user's referral stats and wallet info
+// ============================================================
+router.get('/api/public/referral/my-stats/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId is required' });
+    }
+
+    const user = await User.findOne({ googleId: userId }).select(
+      'referralCode walletBalance totalEarned totalReferrals'
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Get referral breakdown
+    const [pending, verified, rejected] = await Promise.all([
+      Referral.countDocuments({ referrerUserId: userId, status: 'pending' }),
+      Referral.countDocuments({ referrerUserId: userId, status: { $in: ['verified', 'paid'] } }),
+      Referral.countDocuments({ referrerUserId: userId, status: 'rejected' })
+    ]);
+
+    // Get recent referrals
+    const recentReferrals = await Referral.find({ referrerUserId: userId })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .select('referredEmail status commissionAmount createdAt verifiedAt rejectionReason');
+
+    return res.json({
+      success: true,
+      referralCode: user.referralCode,
+      walletBalance: user.walletBalance || 0,
+      totalEarned: user.totalEarned || 0,
+      stats: {
+        total: pending + verified + rejected,
+        pending,
+        verified,
+        rejected
+      },
+      recentReferrals: recentReferrals.map(r => ({
+        email: r.referredEmail ? r.referredEmail.replace(/(.{2}).*(@.*)/, '$1***$2') : 'Unknown',
+        status: r.status,
+        amount: r.commissionAmount,
+        date: r.createdAt,
+        verifiedAt: r.verifiedAt,
+        rejectionReason: r.rejectionReason
+      }))
+    });
+
+  } catch (error) {
+    console.error('❌ [Referral] Stats error:', error);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// ============================================================
+// POST /api/public/referral/track-usage
+// Called periodically by Flutter app to report usage
+// ============================================================
+router.post('/api/public/referral/track-usage', async (req, res) => {
+  try {
+    const { userId, appOpenCount, sessionDurationMinutes } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId is required' });
+    }
+
+    // Find the pending referral for this user
+    const referral = await Referral.findOne({
+      referredUserId: userId,
+      status: 'pending'
+    });
+
+    if (!referral) {
+      return res.json({ success: true, message: 'No pending referral found' });
+    }
+
+    // Update usage stats
+    referral.appOpenCount = Math.max(referral.appOpenCount, appOpenCount || 0);
+    referral.totalUsageMinutes = Math.max(referral.totalUsageMinutes, sessionDurationMinutes || 0);
+    referral.lastUsageUpdate = new Date();
+    await referral.save();
+
+    // Check if eligible for early verification
+    const daysSinceInstall = (Date.now() - referral.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (
+      daysSinceInstall >= RETENTION_DAYS &&
+      referral.appOpenCount >= MIN_APP_OPENS &&
+      referral.totalUsageMinutes >= MIN_USAGE_MINUTES
+    ) {
+      // Auto-verify and credit commission
+      referral.status = 'verified';
+      referral.verifiedAt = new Date();
+      await referral.save();
+
+      // Credit the referrer's wallet
+      await User.findOneAndUpdate(
+        { googleId: referral.referrerUserId },
+        {
+          $inc: {
+            walletBalance: referral.commissionAmount,
+            totalEarned: referral.commissionAmount,
+            totalReferrals: 1
+          }
+        }
+      );
+
+      console.log(`💰 [Referral] Commission ₹${referral.commissionAmount} credited to ${referral.referrerUserId}`);
+    }
+
+    return res.json({
+      success: true,
+      status: referral.status,
+      daysRemaining: Math.max(0, Math.ceil(RETENTION_DAYS - daysSinceInstall))
+    });
+
+  } catch (error) {
+    console.error('❌ [Referral] Track usage error:', error);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+module.exports = router;

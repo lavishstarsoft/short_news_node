@@ -42,6 +42,10 @@ router.get('/users/:id', adminController.requireAuth, adminController.getUserByI
 // Reports routes
 router.get('/reports', adminController.requireAuth, adminController.renderReportsPage);
 
+// Referrals management routes
+router.get('/referrals', adminController.requireAdmin, adminController.renderReferralsPage);
+router.put('/referrals/:id/status', adminController.requireAdmin, adminController.updateReferralStatus);
+
 // Super Admin Command Center
 router.get('/command-center', adminController.requireAdmin, commandCenterController.renderCommandCenter);
 router.get('/api/command-center', adminController.requireAdmin, commandCenterController.getCommandCenterData);

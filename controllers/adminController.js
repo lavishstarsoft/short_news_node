@@ -4390,6 +4390,99 @@ async function deleteRejectedNewsById(req, res) {
   }
 }
 
+// ==========================================
+// REFERRALS MANAGEMENT
+// ==========================================
+
+const renderReferralsPage = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) return res.redirect('/login');
+
+    const Referral = require('../models/Referral');
+    
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = 20;
+    const skip = (page - 1) * limit;
+    const searchQuery = (req.query.search || '').trim();
+    const statusFilter = req.query.status || '';
+
+    const query = {};
+    if (searchQuery) {
+      query.$or = [
+        { referrerEmail: new RegExp(searchQuery, 'i') },
+        { referredEmail: new RegExp(searchQuery, 'i') },
+        { referralCode: new RegExp(searchQuery, 'i') }
+      ];
+    }
+    if (statusFilter) {
+      query.status = statusFilter;
+    }
+
+    const [referrals, totalCount] = await Promise.all([
+      Referral.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Referral.countDocuments(query)
+    ]);
+
+    res.render('referrals', {
+      admin,
+      referrals,
+      currentPage: page,
+      totalPages: Math.ceil(totalCount / limit),
+      search: searchQuery,
+      status: statusFilter,
+      currentRoute: '/admin/referrals',
+      activePage: 'referrals'
+    });
+  } catch (error) {
+    console.error('Error in renderReferralsPage:', error);
+    res.status(500).send('Server Error');
+  }
+};
+
+const updateReferralStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!['verified', 'rejected', 'paid'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const Referral = require('../models/Referral');
+    const User = require('../models/User');
+    
+    const referral = await Referral.findById(id);
+    if (!referral) return res.status(404).json({ error: 'Referral not found' });
+    
+    if (status === 'verified' && referral.status !== 'verified') {
+      // Credit wallet
+      referral.verifiedAt = new Date();
+      await User.findOneAndUpdate(
+        { googleId: referral.referrerUserId },
+        {
+          $inc: {
+            walletBalance: referral.commissionAmount,
+            totalEarned: referral.commissionAmount,
+            totalReferrals: 1
+          }
+        }
+      );
+    }
+
+    referral.status = status;
+    if (status === 'rejected') {
+      referral.rejectionReason = 'manual_reject';
+    }
+
+    await referral.save();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating referral status:', error);
+    res.status(500).json({ error: 'Server Error' });
+  }
+};
+
 module.exports = {
   renderLoginPage,
   login,
@@ -4453,5 +4546,7 @@ module.exports = {
   createPollRest,
   deletePollRest,
   updatePollStatusRest,
-  updatePollRest
+  updatePollRest,
+  renderReferralsPage,
+  updateReferralStatus
 };

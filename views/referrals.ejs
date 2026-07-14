@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<%- include('partials/header', { title: 'Refer-and-Earn' }) %>
+    <style>
+        .page-header {
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .page-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1a1f36;
+            margin: 0;
+            letter-spacing: -0.01em;
+        }
+        .page-subtitle {
+            color: #697386;
+            font-size: 0.95rem;
+            margin-top: 4px;
+            margin-bottom: 0;
+        }
+        
+        .referrals-table {
+            border: 1px solid #dee2e6;
+            border-collapse: separate;
+            border-spacing: 0;
+            min-width: 100%;
+        }
+
+        .referrals-table th,
+        .referrals-table td {
+            border: 1px solid #dee2e6;
+            vertical-align: middle;
+            text-align: left !important;
+            white-space: nowrap;
+            padding: 0.75rem 1rem;
+        }
+
+        .referrals-table thead th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .filters-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid rgba(0,0,0,0.05);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Refer-and-Earn Management', backButton: true, backUrl: '/' }) %>
+
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar', { activePage: 'referrals' }) %>
+
+            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="content-area mt-4 mb-5">
+                    
+                    <div class="page-header">
+                        <div>
+                            <h1 class="page-title">Referral Programs</h1>
+                            <p class="page-subtitle">Manage app referrals, review fraud checks, and approve rewards.</p>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="filters-card">
+                        <form class="row gx-3 gy-2 align-items-center" method="GET" action="/admin/referrals">
+                            <div class="col-sm-4">
+                                <label class="form-label text-muted small fw-bold">Search</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                                    <input type="text" class="form-control border-start-0 ps-0" name="search" placeholder="Email or Referral Code..." value="<%= typeof search !== 'undefined' ? search : '' %>">
+                                </div>
+                            </div>
+                            <div class="col-sm-3">
+                                <label class="form-label text-muted small fw-bold">Status</label>
+                                <select class="form-select" name="status">
+                                    <option value="">All Statuses</option>
+                                    <option value="pending" <%= typeof status !== 'undefined' && status === 'pending' ? 'selected' : '' %>>Pending</option>
+                                    <option value="verified" <%= typeof status !== 'undefined' && status === 'verified' ? 'selected' : '' %>>Verified (Credit Given)</option>
+                                    <option value="paid" <%= typeof status !== 'undefined' && status === 'paid' ? 'selected' : '' %>>Paid (Withdrawn)</option>
+                                    <option value="rejected" <%= typeof status !== 'undefined' && status === 'rejected' ? 'selected' : '' %>>Rejected (Fraud)</option>
+                                </select>
+                            </div>
+                            <div class="col-auto d-flex align-items-end mt-4">
+                                <button type="submit" class="btn btn-primary px-4 me-2"><i class="fas fa-filter me-2"></i>Filter</button>
+                                <% if ((typeof search !== 'undefined' && search) || (typeof status !== 'undefined' && status)) { %>
+                                    <a href="/admin/referrals" class="btn btn-outline-secondary">Clear</a>
+                                <% } %>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-responsive rounded shadow-sm border mb-4">
+                        <table class="table referrals-table mb-0 table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Referrer</th>
+                                    <th>Referred User</th>
+                                    <th>Code Used</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (typeof referrals !== 'undefined' && referrals && referrals.length > 0) { %>
+                                    <% referrals.forEach(ref => { %>
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold"><%= new Date(ref.createdAt).toLocaleDateString('en-GB') %></div>
+                                                <small class="text-muted"><%= new Date(ref.createdAt).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'}) %></small>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="ms-2">
+                                                        <div class="fw-bold text-dark"><%= ref.referrerEmail || 'Unknown' %></div>
+                                                        <small class="text-muted d-block" style="font-family: monospace;"><%= ref.referrerUserId %></small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="ms-2">
+                                                        <div class="fw-bold text-dark"><%= ref.referredEmail || 'Unknown' %></div>
+                                                        <small class="text-muted d-block" style="font-family: monospace;"><%= ref.referredUserId %></small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border px-2 py-1"><i class="fas fa-hashtag text-muted me-1"></i><%= ref.referralCode %></span>
+                                            </td>
+                                            <td>
+                                                <% if (ref.status === 'pending') { %>
+                                                    <span class="badge bg-warning text-dark px-2 py-1 rounded-pill"><i class="fas fa-clock me-1"></i> Pending</span>
+                                                <% } else if (ref.status === 'verified') { %>
+                                                    <span class="badge bg-success px-2 py-1 rounded-pill"><i class="fas fa-check-circle me-1"></i> Verified</span>
+                                                <% } else if (ref.status === 'paid') { %>
+                                                    <span class="badge bg-info text-dark px-2 py-1 rounded-pill"><i class="fas fa-money-bill-wave me-1"></i> Paid</span>
+                                                <% } else if (ref.status === 'rejected') { %>
+                                                    <span class="badge bg-danger px-2 py-1 rounded-pill"><i class="fas fa-times-circle me-1"></i> Rejected</span>
+                                                    <div class="small text-danger mt-1" style="max-width: 200px; white-space: normal;"><%= ref.rejectionReason %></div>
+                                                <% } %>
+                                            </td>
+                                            <td>
+                                                <% if (ref.status === 'pending') { %>
+                                                    <button class="btn btn-sm btn-outline-success me-1" onclick="updateReferralStatus('<%= ref._id %>', 'verified')"><i class="fas fa-check"></i> Verify</button>
+                                                    <button class="btn btn-sm btn-outline-danger" onclick="updateReferralStatus('<%= ref._id %>', 'rejected')"><i class="fas fa-times"></i> Reject</button>
+                                                <% } else { %>
+                                                    <span class="text-muted small">No actions</span>
+                                                <% } %>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                <% } else { %>
+                                    <tr>
+                                        <td colspan="6" class="text-center py-5">
+                                            <div class="text-muted">
+                                                <i class="fas fa-folder-open fs-2 mb-3 d-block"></i>
+                                                No referrals found matching the criteria.
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
+                        <nav>
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                                    <a class="page-link" href="/admin/referrals?page=<%= currentPage - 1 %>&search=<%= search %>&status=<%= status %>"><i class="fas fa-chevron-left"></i> Previous</a>
+                                </li>
+                                <li class="page-item active"><span class="page-link"><%= currentPage %> of <%= totalPages %></span></li>
+                                <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
+                                    <a class="page-link" href="/admin/referrals?page=<%= currentPage + 1 %>&search=<%= search %>&status=<%= status %>">Next <i class="fas fa-chevron-right"></i></a>
+                                </li>
+                            </ul>
+                        </nav>
+                    <% } %>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script>
+    async function updateReferralStatus(referralId, newStatus) {
+        if (!confirm(`Are you sure you want to mark this referral as ${newStatus}?`)) return;
+
+        try {
+            const res = await fetch(`/api/admin/referrals/${referralId}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                const data = await res.json();
+                alert(data.error || 'Failed to update status');
+            }
+        } catch (err) {
+            alert('Error updating status');
+        }
+    }
+    </script>
+</body>
+</html>

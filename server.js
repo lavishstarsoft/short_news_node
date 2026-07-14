@@ -222,6 +222,7 @@ const adRoutes = require('./routes/adRoutes'); // Add this line for ads routes
 const intelligentAdRoutes = require('./routes/intelligentAdRoutes'); // Add this line for intelligent ads routes
 const cacheRoutes = require('./routes/cacheRoutes'); // Cache management routes
 const appSettingsRoutes = require('./routes/appSettingsRoutes'); // App Settings route
+const referralRoutes = require('./routes/referralRoutes'); // Referral System routes
 
 // Import admin controller for middleware
 const { requireAuth, requireAdmin, requireEditor } = require('./controllers/adminController');
@@ -854,6 +855,7 @@ app.use('/ads', adRoutes); // Add this line for ads routes
 app.use('/intelligent-ads', intelligentAdRoutes); // Add this line for intelligent ads routes
 app.use('/cache', cacheRoutes); // Cache management routes
 app.use('/', appSettingsRoutes); // Ensure it catches /api/admin/app-settings and /api/public/app-settings
+app.use('/', referralRoutes); // Referral System routes
 
 // Log all registered routes for debugging
 console.log('Registered routes:');
@@ -884,6 +886,10 @@ app._router.stack.forEach((r) => {
     });
   }
 });
+
+// Start the Referral Cron Job
+const { startReferralCron } = require('./services/referralCron');
+startReferralCron();
 
 // Log middleware stack for debugging
 console.log('\nMiddleware stack:');
