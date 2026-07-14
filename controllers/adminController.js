@@ -519,9 +519,13 @@ const renderUsersListPage = async (req, res) => {
 
     const totalPages = Math.max(1, Math.ceil(totalFiltered / limit));
 
+    const userIds = users.map(user => user.googleId || user._id.toString());
+
     // Aggregate likes from news
     const likesAgg = await News.aggregate([
+      { $match: { 'userInteractions.likes.userId': { $in: userIds } } },
       { $unwind: '$userInteractions.likes' },
+      { $match: { 'userInteractions.likes.userId': { $in: userIds } } },
       { $group: {
         _id: '$userInteractions.likes.userId',
         count: { $sum: 1 },
@@ -538,7 +542,9 @@ const renderUsersListPage = async (req, res) => {
 
     // Aggregate dislikes from news
     const dislikesAgg = await News.aggregate([
+      { $match: { 'userInteractions.dislikes.userId': { $in: userIds } } },
       { $unwind: '$userInteractions.dislikes' },
+      { $match: { 'userInteractions.dislikes.userId': { $in: userIds } } },
       { $group: {
         _id: '$userInteractions.dislikes.userId',
         count: { $sum: 1 },
@@ -555,7 +561,9 @@ const renderUsersListPage = async (req, res) => {
 
     // Aggregate comments from news
     const commentsAgg = await News.aggregate([
+      { $match: { 'userInteractions.comments.userId': { $in: userIds } } },
       { $unwind: '$userInteractions.comments' },
+      { $match: { 'userInteractions.comments.userId': { $in: userIds } } },
       { $group: {
         _id: '$userInteractions.comments.userId',
         count: { $sum: 1 },
