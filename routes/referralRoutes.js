@@ -226,7 +226,7 @@ router.get('/api/public/referral/my-stats/:userId', async (req, res) => {
       totalEarned: user.totalEarned || 0,
       rewardAmount: appSettings?.referralRewardAmount || 5,
       requiredDays: appSettings?.referralRequiredDays || 7,
-      shareUrl: appSettings?.referralShareUrl || 'https://shortnews.com/invite',
+      shareUrl: appSettings?.referralShareUrl || 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam',
       stats: {
         total: pending + verified + rejected,
         pending,

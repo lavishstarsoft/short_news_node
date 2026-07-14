@@ -113,7 +113,7 @@ router.get('/api/public/app-settings', async (req, res) => {
                 referralRewardAmount: 5,
                 referralRequiredDays: 7,
                 maxDailyReferralBudget: 5000,
-                referralShareUrl: 'https://shortnews.com/invite'
+                referralShareUrl: 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam'
             };
         } else {
             responseSettings = settings.toObject();

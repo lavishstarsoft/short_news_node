@@ -95,7 +95,7 @@ const appSettingsSchema = new mongoose.Schema({
   },
   referralShareUrl: {
     type: String,
-    default: 'https://shortnews.com/invite'
+    default: 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam'
   }
 }, { timestamps: true });
 
