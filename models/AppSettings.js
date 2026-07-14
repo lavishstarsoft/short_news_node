@@ -96,6 +96,10 @@ const appSettingsSchema = new mongoose.Schema({
   referralShareUrl: {
     type: String,
     default: 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam'
+  },
+  isReferralEnabled: {
+    type: Boolean,
+    default: true
   }
 }, { timestamps: true });
 

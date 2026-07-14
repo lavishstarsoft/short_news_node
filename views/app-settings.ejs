@@ -364,6 +364,16 @@
                                         </div>
                                     </div>
                                     
+                                    <div class="p-3 rounded-3 mt-3" style="background-color: rgba(156, 39, 176, 0.05); border: 1px solid rgba(156, 39, 176, 0.2);">
+                                        <div class="form-check form-switch d-flex align-items-center mb-0">
+                                            <input class="form-check-input me-3" type="checkbox" id="isReferralEnabled" name="isReferralEnabled" <%= (settings.isReferralEnabled === true || settings.isReferralEnabled === undefined) ? 'checked' : '' %>>
+                                            <div>
+                                                <label class="form-check-label fw-bold text-dark mb-0" for="isReferralEnabled">Enable Refer & Earn Program</label>
+                                                <div class="text-muted small mt-1">If disabled, the Refer & Earn option will be hidden or shown as "Coming Soon" in the mobile app.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
                                     <div class="row g-4 mt-2">
                                         <div class="col-md-6">
                                             <label class="form-label fw-bold text-dark"><i class="fas fa-rupee-sign me-2 text-success"></i>Referral Reward Amount (₹)</label>
@@ -560,7 +570,8 @@
             referralRequiredDays: document.getElementById('referralRequiredDays').value,
             maxDailyReferralBudget: document.getElementById('maxDailyReferralBudget').value,
             referralShareUrl: document.getElementById('referralShareUrl').value,
-            referralHelpText: document.getElementById('referralHelpText').value
+            referralHelpText: document.getElementById('referralHelpText').value,
+            isReferralEnabled: document.getElementById('isReferralEnabled').checked
         };
 
         try {
