@@ -364,6 +364,26 @@
                                         </div>
                                     </div>
                                     
+                                    <div class="p-3 rounded-3 mt-3" style="background-color: rgba(220, 53, 69, 0.05); border: 1px solid rgba(220, 53, 69, 0.2);">
+                                        <div class="form-check form-switch d-flex align-items-center mb-0">
+                                            <input class="form-check-input me-3" type="checkbox" id="showCalendarFeature" name="showCalendarFeature" <%= settings.showCalendarFeature !== false ? 'checked' : '' %>>
+                                            <div>
+                                                <label class="form-check-label fw-bold text-dark mb-0" for="showCalendarFeature">Enable Calendar Feature</label>
+                                                <div class="text-muted small mt-1">If disabled, the Calendar page will be hidden from the app entirely.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="p-3 rounded-3 mt-3" style="background-color: rgba(25, 135, 84, 0.05); border: 1px solid rgba(25, 135, 84, 0.2);">
+                                        <div class="form-check form-switch d-flex align-items-center mb-0">
+                                            <input class="form-check-input me-3" type="checkbox" id="showZodiacFeature" name="showZodiacFeature" <%= settings.showZodiacFeature !== false ? 'checked' : '' %>>
+                                            <div>
+                                                <label class="form-check-label fw-bold text-dark mb-0" for="showZodiacFeature">Enable Zodiac/Horoscope Feature</label>
+                                                <div class="text-muted small mt-1">If disabled, the Zodiac (Raasulu) page will be hidden from the app entirely.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
                                     <hr class="my-4 opacity-10">
                                     
                                     <div class="mb-2">
@@ -475,6 +495,8 @@
             isSwipeStreakEnabled: document.getElementById('isSwipeStreakEnabled').checked,
             showLongVideos: document.getElementById('showLongVideos').checked,
             showDistrictSelection: document.getElementById('showDistrictSelection').checked,
+            showCalendarFeature: document.getElementById('showCalendarFeature').checked,
+            showZodiacFeature: document.getElementById('showZodiacFeature').checked,
             contactUs: document.getElementById('contactUs').value,
             privacyPolicy: document.getElementById('privacyPolicy').value,
             aboutUs: document.getElementById('aboutUs').value,

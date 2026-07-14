@@ -49,6 +49,14 @@ const appSettingsSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  showCalendarFeature: {
+    type: Boolean,
+    default: true
+  },
+  showZodiacFeature: {
+    type: Boolean,
+    default: true
+  },
   contactUs: {
     type: String,
     default: ''
