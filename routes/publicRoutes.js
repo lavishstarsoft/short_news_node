@@ -1035,22 +1035,47 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
         segments.push({ ...baseQuery, location: { $in: [state, ...stateDistricts] } });
       }
     } else {
+      const locationExclusions = [];
+      
       // Tier 1: District news (last 72 hours)
       if (district) {
         segments.push({ ...baseQuery, location: district, publishedAt: { $gte: cutoff72h } });
+        locationExclusions.push(district);
       }
       // Tier 2: State news
       if (state) {
         segments.push({ ...baseQuery, location: state });
+        locationExclusions.push(state);
       }
       // Tier 3: Neighboring State news
       if (neighborState) {
         segments.push({ ...baseQuery, location: neighborState });
+        locationExclusions.push(neighborState);
       }
-      // Tier 4: National news
-      segments.push({ $and: [{ ...baseQuery }, { $or: [{ scope: 'national' }, { location: 'National' }] }] });
-      // Tier 5: International news
-      segments.push({ $and: [{ ...baseQuery }, { $or: [{ scope: 'international' }, { location: 'International' }] }] });
+      
+      // Tier 4: National news (Exclude already fetched locations to prevent duplicates)
+      const nationalQuery = { 
+        $and: [
+          { ...baseQuery }, 
+          { $or: [{ scope: 'national' }, { location: 'National' }] }
+        ] 
+      };
+      if (locationExclusions.length > 0) {
+        nationalQuery.$and.push({ location: { $nin: locationExclusions } });
+      }
+      segments.push(nationalQuery);
+      
+      // Tier 5: International news (Exclude national and already fetched locations)
+      const intExclusions = [...locationExclusions, 'National'];
+      const internationalQuery = { 
+        $and: [
+          { ...baseQuery }, 
+          { $or: [{ scope: 'international' }, { location: 'International' }] },
+          { scope: { $ne: 'national' } },
+          { location: { $nin: intExclusions } }
+        ] 
+      };
+      segments.push(internationalQuery);
     }
 
     // 3. Get counts for all segments
