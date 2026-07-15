@@ -5,7 +5,7 @@ const FraudBlocklist = require('../models/FraudBlocklist');
 
 const renderSecurityPage = async (req, res) => {
   try {
-    const admin = await Admin.findById(req.session.adminId);
+    const admin = req.admin; // from requireAdmin middleware
     if (!admin) {
       return res.redirect('/admin/login');
     }
@@ -37,7 +37,7 @@ const renderSecurityPage = async (req, res) => {
       ipAggregations,
       deviceAggregations,
       blocklist,
-      isImpersonating: !!req.session.originalAdminId
+      isImpersonating: res.locals.isImpersonating || false
     });
   } catch (error) {
     console.error('Error rendering security page:', error);
@@ -63,7 +63,7 @@ const blockIdentifier = async (req, res) => {
       identifier,
       type,
       reason: reason || 'Suspicious activity flagged by admin',
-      blockedBy: req.session.adminId
+      blockedBy: req.admin.id || req.admin._id
     });
 
     await newBlock.save();
