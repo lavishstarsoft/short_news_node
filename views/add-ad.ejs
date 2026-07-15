@@ -652,7 +652,45 @@
                             processNextFile();
                             return;
                         }
+
+                        // 🚀 BYPASS CROPPER FOR GIFs (Canvas destroys animation)
+                        if (currentFile.type === 'image/gif') {
+                            uploadGifDirectly(currentFile);
+                            return;
+                        }
+
                         openCropModal(currentFile);
+                    }
+
+                    // Directly upload GIF to preserve animation
+                    async function uploadGifDirectly(file) {
+                        const formData = new FormData();
+                        formData.append('media', file, file.name);
+                        
+                        try {
+                            const response = await fetch('/news/upload-ad-media', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            if (response.ok) {
+                                const data = await response.json();
+                                imageUrls.push(data.mediaUrl);
+                                document.getElementById('imageUrls').value = imageUrls.join(',');
+                                updateCarousel();
+                                currentFileIndex++;
+                                processNextFile();
+                            } else {
+                                const errorData = await response.json();
+                                showFeedback('Error: ' + (errorData.error || 'Failed to upload GIF'), 'error');
+                                currentFileIndex++;
+                                processNextFile();
+                            }
+                        } catch (error) {
+                            console.error('Upload error:', error);
+                            showFeedback('Network error occurred while uploading GIF', 'error');
+                            currentFileIndex++;
+                            processNextFile();
+                        }
                     }
 
                     // Open crop modal
