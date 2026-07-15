@@ -2311,7 +2311,7 @@ router.get('/tell-about-us', (req, res) => {
   return res.render('share-preview', {
     ogTitle: 'Tehelka News - India\'s #1 Short News App',
     ogDescription: 'I am using India\'s #1 Telugu short news app. Download now and stay updated effortlessly!',
-    ogImage: 'https://www.news.tehelkanews.in/images/tell_about_us.png',
+    ogImage: 'https://www.news.tehelkanews.in/images/tell_about_us.jpg',
     ogUrl: 'https://www.news.tehelkanews.in/tell-about-us',
     redirectUrl: playStoreUrl
   });

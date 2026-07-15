@@ -382,7 +382,7 @@ router.get('/api/public/invite/:code', async (req, res) => {
       return res.render('share-preview', {
         ogTitle: 'Tehelka News - Refer & Earn',
         ogDescription: 'Get the latest news and earn rewards! Download Tehelka News today.',
-        ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.png',
+        ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.jpg',
         ogUrl: `https://www.news.tehelkanews.in/api/public/invite/${code}`,
         redirectUrl: playStoreUrl
       });
@@ -404,7 +404,7 @@ router.get('/api/public/invite/:code', async (req, res) => {
     return res.render('share-preview', {
       ogTitle: `Refer & Earn ₹5 - Use my invite code: ${code}`,
       ogDescription: 'Join me on Tehelka News app. The best Telugu short news app. Install using my code and get ₹5 bonus!',
-      ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.png',
+      ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.jpg',
       ogUrl: `https://www.news.tehelkanews.in/api/public/invite/${code}`,
       redirectUrl: playStoreUrl
     });
@@ -415,7 +415,7 @@ router.get('/api/public/invite/:code', async (req, res) => {
     return res.render('share-preview', {
       ogTitle: 'Tehelka News',
       ogDescription: 'Get the latest Telugu news on Tehelka News app.',
-      ogImage: 'https://www.news.tehelkanews.in/images/tell_about_us.png',
+      ogImage: 'https://www.news.tehelkanews.in/images/tell_about_us.jpg',
       ogUrl: `https://www.news.tehelkanews.in/api/public/invite/${code}`,
       redirectUrl: playStoreUrl
     });
@@ -441,7 +441,7 @@ router.get('/invite/:code', async (req, res) => {
       return res.render('share-preview', {
         ogTitle: 'Tehelka News - Refer & Earn',
         ogDescription: 'Get the latest news and earn rewards! Download Tehelka News today.',
-        ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.png',
+        ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.jpg',
         ogUrl: `https://www.news.tehelkanews.in/invite/${code}`,
         redirectUrl: playStoreUrl
       });
@@ -462,7 +462,7 @@ router.get('/invite/:code', async (req, res) => {
     return res.render('share-preview', {
       ogTitle: `Refer & Earn ₹5 - Use my invite code: ${code}`,
       ogDescription: 'Join me on Tehelka News app. The best Telugu short news app. Install using my code and get ₹5 bonus!',
-      ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.png',
+      ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.jpg',
       ogUrl: `https://www.news.tehelkanews.in/invite/${code}`,
       redirectUrl: playStoreUrl
     });
@@ -473,7 +473,7 @@ router.get('/invite/:code', async (req, res) => {
     return res.render('share-preview', {
       ogTitle: 'Tehelka News',
       ogDescription: 'Get the latest Telugu news on Tehelka News app.',
-      ogImage: 'https://www.news.tehelkanews.in/images/tell_about_us.png',
+      ogImage: 'https://www.news.tehelkanews.in/images/tell_about_us.jpg',
       ogUrl: `https://www.news.tehelkanews.in/invite/${code}`,
       redirectUrl: playStoreUrl
     });
