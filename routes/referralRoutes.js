@@ -4,6 +4,7 @@ const Referral = require('../models/Referral');
 const User = require('../models/User');
 const AppSettings = require('../models/AppSettings');
 const WalletTransaction = require('../models/WalletTransaction');
+const PendingReferral = require('../models/PendingReferral');
 const playIntegrityService = require('../services/playIntegrityService');
 const hmacAuth = require('../middleware/hmacAuth');
 
@@ -343,6 +344,85 @@ router.post('/api/public/referral/track-usage', async (req, res) => {
 
   } catch (error) {
     console.error('❌ [Referral] Track usage error:', error);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// ============================================================
+// GET /api/public/invite/:code
+// Redirect endpoint: saves fingerprint, then sends user to Play Store
+// ============================================================
+router.get('/api/public/invite/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    if (!code || code.length < 4 || code.length > 20) {
+      return res.status(400).send('Invalid referral code');
+    }
+
+    // Verify the referral code belongs to a real user
+    const referrer = await User.findOne({ referralCode: code });
+    if (!referrer) {
+      // Even if invalid code, redirect to Play Store anyway
+      console.log(`⚠️ [Invite] Invalid referral code: ${code}, redirecting anyway`);
+      return res.redirect(`https://play.google.com/store/apps/details?id=com.lavish.yellowsingam`);
+    }
+
+    // Save fingerprint for fallback matching
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    await PendingReferral.create({
+      referralCode: code,
+      ipAddress,
+      userAgent
+    });
+
+    console.log(`🔗 [Invite] Saved fingerprint for code ${code} | IP: ${ipAddress}`);
+
+    // Redirect to Play Store with referrer parameter
+    const playStoreUrl = `https://play.google.com/store/apps/details?id=com.lavish.yellowsingam&referrer=${code}`;
+    return res.redirect(playStoreUrl);
+
+  } catch (error) {
+    console.error('❌ [Invite] Error:', error);
+    // On error, still redirect to Play Store
+    return res.redirect('https://play.google.com/store/apps/details?id=com.lavish.yellowsingam');
+  }
+});
+
+// ============================================================
+// POST /api/public/referral/fallback-match
+// Called by Flutter app when PlayInstallReferrer returns organic/null
+// Matches device fingerprint to recover the lost referral code
+// ============================================================
+router.post('/api/public/referral/fallback-match', async (req, res) => {
+  try {
+    const { deviceInfo } = req.body;
+
+    // Get the IP of the app making this request
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection.remoteAddress;
+
+    // Find a PendingReferral created in the last 1 hour from this same IP
+    const pending = await PendingReferral.findOne({
+      ipAddress: ipAddress
+    }).sort({ createdAt: -1 }); // Most recent first
+
+    if (!pending) {
+      return res.json({ success: false, referralCode: null, reason: 'no_match' });
+    }
+
+    console.log(`🎯 [Fallback] Matched IP ${ipAddress} to referral code ${pending.referralCode}`);
+
+    // Delete the pending record so it can't be reused
+    await PendingReferral.deleteOne({ _id: pending._id });
+
+    return res.json({
+      success: true,
+      referralCode: pending.referralCode
+    });
+
+  } catch (error) {
+    console.error('❌ [Fallback] Error:', error);
     return res.status(500).json({ success: false, error: 'Server error' });
   }
 });
