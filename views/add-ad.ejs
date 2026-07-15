@@ -635,8 +635,27 @@
                         });
                     }
 
+                    // Check if WebP is animated (safely read binary)
+                    function isAnimatedWebP(file) {
+                        return new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const buffer = new Uint8Array(e.target.result);
+                                let isAnimated = false;
+                                for (let i = 0; i < buffer.length - 3; i++) {
+                                    if (buffer[i] === 0x41 && buffer[i+1] === 0x4E && buffer[i+2] === 0x49 && buffer[i+3] === 0x4D) { // 'A', 'N', 'I', 'M'
+                                        isAnimated = true;
+                                        break;
+                                    }
+                                }
+                                resolve(isAnimated);
+                            };
+                            reader.readAsArrayBuffer(file.slice(0, 1024));
+                        });
+                    }
+
                     // Process next file in queue
-                    function processNextFile() {
+                    async function processNextFile() {
                         if (currentFileIndex >= filesToProcess.length) {
                             filesToProcess = [];
                             currentFileIndex = 0;
@@ -653,10 +672,18 @@
                             return;
                         }
 
-                        // 🚀 BYPASS CROPPER FOR GIFs and WEBP (Canvas destroys animation)
-                        if (currentFile.type === 'image/gif' || currentFile.type === 'image/webp') {
+                        // 🚀 BYPASS CROPPER FOR GIFs and ANIMATED WEBP (Canvas destroys animation)
+                        if (currentFile.type === 'image/gif') {
                             uploadAnimatedDirectly(currentFile);
                             return;
+                        }
+                        
+                        if (currentFile.type === 'image/webp') {
+                            const isAnimated = await isAnimatedWebP(currentFile);
+                            if (isAnimated) {
+                                uploadAnimatedDirectly(currentFile);
+                                return;
+                            }
                         }
 
                         openCropModal(currentFile);
