@@ -284,6 +284,7 @@
                         mobileNumber: u.mobileNumber || '',
                         createdAt: u.createdAt,
                         lastLogin: u.lastLogin,
+                        deviceFingerprint: u.deviceFingerprint,
                         activityCounts: u.activityCounts || { likes: 0, dislikes: 0, comments: 0 },
                         interactions: u.interactions || { likes: [], dislikes: [], comments: [] }
                     };
@@ -360,6 +361,10 @@
                                     (user.mobileNumber ? '<div class="usr-info-row"><span class="usr-info-label">Mobile</span><span class="usr-info-value">' + escapeHtml(user.mobileNumber) + '</span></div>' : '') +
                                     '<div class="usr-info-row"><span class="usr-info-label">Registered</span><span class="usr-info-value">' + formatDate(user.createdAt) + '</span></div>' +
                                     '<div class="usr-info-row"><span class="usr-info-label">Last login</span><span class="usr-info-value">' + formatDate(user.lastLogin) + '</span></div>' +
+                                    (user.deviceFingerprint ? 
+                                        '<div class="usr-info-row mt-3"><span class="usr-info-label">Device ID</span><span class="usr-info-value"><span class="badge bg-secondary">' + escapeHtml(user.deviceFingerprint) + '</span></span></div>' +
+                                        '<div class="usr-info-row"><button class="btn btn-sm btn-outline-danger w-100 mt-2" onclick="blockDevice(\'' + escapeHtml(user.deviceFingerprint) + '\')"><i class="fas fa-ban"></i> Block Device</button></div>' 
+                                        : '') +
                                 '</div>' +
                             '</div>' +
                             '<div>' +

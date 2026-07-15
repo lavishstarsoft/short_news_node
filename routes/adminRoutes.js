@@ -2,6 +2,7 @@ const express = require('express');
 const adminController = require('../controllers/adminController');
 const zodiacController = require('../controllers/zodiacController');
 const commandCenterController = require('../controllers/commandCenterController');
+const securityController = require('../controllers/securityController');
 
 const router = express.Router();
 

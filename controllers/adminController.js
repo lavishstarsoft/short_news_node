@@ -3032,10 +3032,12 @@ async function getUserById(req, res) {
       _id: user.googleId || user._id, // Prefer Google ID for consistency if available
       username: user.displayName,
       email: user.email,
-      phone: user.phone || 'Not provided',
+      phone: user.phone || user.mobileNumber || 'Not provided',
       profilePic: user.photoUrl || user.profilePic || '/images/default-avatar.png',
       createdAt: user.createdAt,
-      userType: user.googleId ? 'Google User' : 'Standard User'
+      userType: user.googleId ? 'Google User' : 'Standard User',
+      deviceFingerprint: user.deviceFingerprint || 'Unknown',
+      referralCode: user.referralCode || 'None'
     };
 
     res.json(userData);

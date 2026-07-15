@@ -7,6 +7,7 @@ const WalletTransaction = require('../models/WalletTransaction');
 const PendingReferral = require('../models/PendingReferral');
 const playIntegrityService = require('../services/playIntegrityService');
 const hmacAuth = require('../middleware/hmacAuth');
+const FraudBlocklist = require('../models/FraudBlocklist');
 
 // ============================================================
 // 🔐 FRAUD CHECK CONSTANTS
@@ -36,6 +37,19 @@ router.post('/api/public/referral/claim', hmacAuth, async (req, res) => {
         success: false,
         error: 'Missing required fields: referralCode, referredUserId, deviceFingerprint, integrityToken'
       });
+    }
+
+    // --- Blocklist Check ---
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection.remoteAddress;
+    const isBlocked = await FraudBlocklist.findOne({ 
+      $or: [
+        { identifier: deviceFingerprint, type: 'device' },
+        { identifier: ipAddress, type: 'ip' }
+      ]
+    });
+
+    if (isBlocked) {
+      return res.status(403).json({ success: false, error: 'Security block: Access denied' });
     }
 
     // --- Fetch Dynamic App Settings ---
@@ -439,6 +453,18 @@ router.post('/api/public/referral/fallback-match', async (req, res) => {
 
     // Get the IP of the app making this request
     const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection.remoteAddress;
+
+    // --- Blocklist Check ---
+    const isBlocked = await FraudBlocklist.findOne({ 
+      $or: [
+        { identifier: deviceInfo, type: 'device' },
+        { identifier: ipAddress, type: 'ip' }
+      ]
+    });
+
+    if (isBlocked) {
+      return res.json({ success: false, referralCode: null, reason: 'security_block' });
+    }
 
     // Find a PendingReferral created in the last 1 hour from this same IP
     const pending = await PendingReferral.findOne({
