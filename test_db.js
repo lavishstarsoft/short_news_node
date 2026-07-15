@@ -2,20 +2,22 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 dotenv.config();
 
-async function run() {
+async function check() {
   await mongoose.connect(process.env.MONGODB_URI);
-  console.log("Connected to MongoDB");
   const User = require('./models/User');
   const Referral = require('./models/Referral');
+  const PendingReferral = require('./models/PendingReferral');
   
-  const recentUsers = await User.find().sort({ createdAt: -1 }).limit(5);
-  console.log("Recent Users:");
-  recentUsers.forEach(u => console.log(`- ${u.name} (ID: ${u._id}) | referredBy: ${u.referredBy || 'None'} | createdAt: ${u.createdAt}`));
+  const user = await User.findOne({ email: 'amararapumonika@gmail.com' });
+  console.log('User:', user ? 'Exists' : 'Null');
   
-  const recentReferrals = await Referral.find().sort({ createdAt: -1 }).limit(5);
-  console.log("\nRecent Referrals:");
-  recentReferrals.forEach(r => console.log(`- Referrer: ${r.referrerId} | Referred: ${r.referredUserId} | Status: ${r.status} | createdAt: ${r.createdAt}`));
+  const refs = await Referral.find();
+  console.log('Total Referrals:', refs.length);
+  console.log('Referrals:', refs.map(r => r.referredEmail || r.referredUserId));
+  
+  const pends = await PendingReferral.find();
+  console.log('Total PendingReferrals:', pends.length);
   
   process.exit(0);
 }
-run();
+check();

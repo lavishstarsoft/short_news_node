@@ -203,6 +203,23 @@
                                                         </select>
                                                         <div class="form-text">The ad will only be shown to users who selected this language.</div>
                                                     </div>
+                                                    
+                                                    <div class="mb-3">
+                                                        <label for="adFormat" class="form-label">Ad Format</label>
+                                                        <select class="form-select" id="adFormat">
+                                                            <option value="image_only" <%= (typeof ad !== 'undefined' && ad.adFormat === 'image_only') ? 'selected' : '' %>>Image Only (Full Screen)</option>
+                                                            <option value="news_format" <%= (typeof ad !== 'undefined' && ad.adFormat === 'news_format') ? 'selected' : '' %>>News Format (Text + Button)</option>
+                                                        </select>
+                                                        <div class="form-text">Choose how the ad is displayed in the app.</div>
+                                                    </div>
+
+                                                    <div class="mb-3" id="buttonTextContainer" style="display: <%= (typeof ad !== 'undefined' && ad.adFormat === 'news_format') ? 'block' : 'none' %>;">
+                                                        <label for="buttonText" class="form-label">Button Text (For News Format)</label>
+                                                        <input type="text" class="form-control" id="buttonText"
+                                                            placeholder="e.g., Refer and Earn ₹5"
+                                                            value="<%= typeof ad !== 'undefined' ? ad.buttonText : '' %>">
+                                                    </div>
+
                                                     <div class="mb-3">
                                                         <label for="title" class="form-label">Ad Title</label>
                                                         <input type="text" class="form-control" id="title"
@@ -243,7 +260,6 @@
                                                             </div>
                                                         </div>
                                                     </div>
-
                                                     <div class="mb-3">
                                                         <label for="linkUrl" class="form-label">Link URL
                                                             (Optional)</label>
@@ -472,6 +488,18 @@
                             });
                         }
 
+                        const adFormatSelect = document.getElementById('adFormat');
+                        const buttonTextContainer = document.getElementById('buttonTextContainer');
+                        if (adFormatSelect && buttonTextContainer) {
+                            adFormatSelect.addEventListener('change', function() {
+                                if (this.value === 'news_format') {
+                                    buttonTextContainer.style.display = 'block';
+                                } else {
+                                    buttonTextContainer.style.display = 'none';
+                                }
+                            });
+                        }
+
                         updateCarousel();
                         setupMobileMenu();
                     });
@@ -481,6 +509,8 @@
                         const adId = document.getElementById('adId').value;
                         const title = document.getElementById('title').value;
                         const content = document.getElementById('content').value;
+                        const adFormat = document.getElementById('adFormat').value;
+                        const buttonText = document.getElementById('buttonText').value;
                         const linkUrl = document.getElementById('linkUrl').value;
                         const positionInterval = document.getElementById('positionInterval').value;
                         const maxViewsPerDay = document.getElementById('maxViewsPerDay').value;
@@ -633,18 +663,24 @@
                             cropImage.src = e.target.result;
                             document.getElementById('cropModal').classList.add('active');
                             if (cropper) cropper.destroy();
+                            
+                            const adFormatValue = document.getElementById('adFormat') ? document.getElementById('adFormat').value : 'image_only';
+                            const targetAspectRatio = adFormatValue === 'news_format' ? 16 / 9 : 9 / 20;
+                            
                             cropper = new Cropper(cropImage, {
-                                aspectRatio: 9 / 20,
+                                aspectRatio: targetAspectRatio,
                                 viewMode: 1,
                                 dragMode: 'move',
                                 autoCropArea: 1,
                                 ready() {
-                                    // Add safe area box to cropper
-                                    const cropperBox = document.querySelector('.cropper-crop-box');
-                                    if (cropperBox && !document.querySelector('.safe-area-box')) {
-                                        const safeArea = document.createElement('div');
-                                        safeArea.className = 'safe-area-box';
-                                        cropperBox.appendChild(safeArea);
+                                    // Add safe area box to cropper only for image_only
+                                    if (adFormatValue === 'image_only') {
+                                        const cropperBox = document.querySelector('.cropper-crop-box');
+                                        if (cropperBox && !document.querySelector('.safe-area-box')) {
+                                            const safeArea = document.createElement('div');
+                                            safeArea.className = 'safe-area-box';
+                                            cropperBox.appendChild(safeArea);
+                                        }
                                     }
                                 }
                             });
@@ -667,9 +703,14 @@
                     if (applyCrop) {
                         applyCrop.addEventListener('click', async function () {
                             if (!cropper) return;
+                            
+                            const adFormatValue = document.getElementById('adFormat') ? document.getElementById('adFormat').value : 'image_only';
+                            const cropWidth = adFormatValue === 'news_format' ? 1920 : 1080;
+                            const cropHeight = adFormatValue === 'news_format' ? 1080 : 2400;
+
                             const canvas = cropper.getCroppedCanvas({
-                                width: 1080,
-                                height: 2400,
+                                width: cropWidth,
+                                height: cropHeight,
                                 imageSmoothingEnabled: true,
                                 imageSmoothingQuality: 'high',
                             });

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="te">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= ogTitle %></title>
+
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="<%= ogTitle %>">
+    <meta name="description" content="<%= ogDescription %>">
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<%= ogUrl %>">
+    <meta property="og:title" content="<%= ogTitle %>">
+    <meta property="og:description" content="<%= ogDescription %>">
+    <meta property="og:image" content="<%= ogImage %>">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:type" content="image/jpeg">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="<%= ogUrl %>">
+    <meta property="twitter:title" content="<%= ogTitle %>">
+    <meta property="twitter:description" content="<%= ogDescription %>">
+    <meta property="twitter:image" content="<%= ogImage %>">
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f8fafc;
+            margin: 0;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            max-width: 500px;
+        }
+        h1 { color: #2563eb; }
+        p { color: #64748b; font-size: 1.1rem; }
+        .btn {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 12px 24px;
+            background-color: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><%= ogTitle %></h1>
+        <p><%= ogDescription %></p>
+        <p>మరికొద్ది క్షణాల్లో యాప్ ఓపెన్ అవుతుంది...</p>
+        <a href="<%= redirectUrl %>" class="btn">ఇప్పుడే ఓపెన్ చేయండి (Open Now)</a>
+    </div>
+    
+    <script>
+        // Redirect after a short delay
+        setTimeout(function() {
+            window.location.href = "<%- redirectUrl %>";
+        }, 1500);
+    </script>
+</body>
+</html>

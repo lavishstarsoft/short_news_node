@@ -378,7 +378,14 @@ router.get('/api/public/invite/:code', async (req, res) => {
     if (!referrer) {
       // Even if invalid code, redirect to Play Store anyway
       console.log(`⚠️ [Invite] Invalid referral code: ${code}, redirecting anyway`);
-      return res.redirect(`https://play.google.com/store/apps/details?id=com.lavish.yellowsingam`);
+      const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam';
+      return res.render('share-preview', {
+        ogTitle: 'Tehelka News - Refer & Earn',
+        ogDescription: 'Get the latest news and earn rewards! Download Tehelka News today.',
+        ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.png',
+        ogUrl: `https://www.news.tehelkanews.in/api/public/invite/${code}`,
+        redirectUrl: playStoreUrl
+      });
     }
 
     // Save fingerprint for fallback matching
@@ -393,14 +400,25 @@ router.get('/api/public/invite/:code', async (req, res) => {
 
     console.log(`🔗 [Invite] Saved fingerprint for code ${code} | IP: ${ipAddress}`);
 
-    // Redirect to Play Store with referrer parameter
     const playStoreUrl = `https://play.google.com/store/apps/details?id=com.lavish.yellowsingam&referrer=${code}`;
-    return res.redirect(playStoreUrl);
+    return res.render('share-preview', {
+      ogTitle: `Refer & Earn ₹5 - Use my invite code: ${code}`,
+      ogDescription: 'Join me on Tehelka News app. The best Telugu short news app. Install using my code and get ₹5 bonus!',
+      ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.png',
+      ogUrl: `https://www.news.tehelkanews.in/api/public/invite/${code}`,
+      redirectUrl: playStoreUrl
+    });
 
   } catch (error) {
     console.error('❌ [Invite] Error:', error);
-    // On error, still redirect to Play Store
-    return res.redirect('https://play.google.com/store/apps/details?id=com.lavish.yellowsingam');
+    const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam';
+    return res.render('share-preview', {
+      ogTitle: 'Tehelka News',
+      ogDescription: 'Get the latest Telugu news on Tehelka News app.',
+      ogImage: 'https://www.news.tehelkanews.in/images/tell_about_us.png',
+      ogUrl: `https://www.news.tehelkanews.in/api/public/invite/${code}`,
+      redirectUrl: playStoreUrl
+    });
   }
 });
 
@@ -419,7 +437,14 @@ router.get('/invite/:code', async (req, res) => {
     const referrer = await User.findOne({ referralCode: code });
     if (!referrer) {
       console.log(`⚠️ [Invite] Invalid referral code: ${code}, redirecting anyway`);
-      return res.redirect(`https://play.google.com/store/apps/details?id=com.lavish.yellowsingam`);
+      const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam';
+      return res.render('share-preview', {
+        ogTitle: 'Tehelka News - Refer & Earn',
+        ogDescription: 'Get the latest news and earn rewards! Download Tehelka News today.',
+        ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.png',
+        ogUrl: `https://www.news.tehelkanews.in/invite/${code}`,
+        redirectUrl: playStoreUrl
+      });
     }
 
     const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection.remoteAddress;
@@ -434,11 +459,24 @@ router.get('/invite/:code', async (req, res) => {
     console.log(`🔗 [Invite-Short] Saved fingerprint for code ${code} | IP: ${ipAddress}`);
 
     const playStoreUrl = `https://play.google.com/store/apps/details?id=com.lavish.yellowsingam&referrer=${code}`;
-    return res.redirect(playStoreUrl);
+    return res.render('share-preview', {
+      ogTitle: `Refer & Earn ₹5 - Use my invite code: ${code}`,
+      ogDescription: 'Join me on Tehelka News app. The best Telugu short news app. Install using my code and get ₹5 bonus!',
+      ogImage: 'https://www.news.tehelkanews.in/images/refer_and_earn.png',
+      ogUrl: `https://www.news.tehelkanews.in/invite/${code}`,
+      redirectUrl: playStoreUrl
+    });
 
   } catch (error) {
     console.error('❌ [Invite] Error:', error);
-    return res.redirect('https://play.google.com/store/apps/details?id=com.lavish.yellowsingam');
+    const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam';
+    return res.render('share-preview', {
+      ogTitle: 'Tehelka News',
+      ogDescription: 'Get the latest Telugu news on Tehelka News app.',
+      ogImage: 'https://www.news.tehelkanews.in/images/tell_about_us.png',
+      ogUrl: `https://www.news.tehelkanews.in/invite/${code}`,
+      redirectUrl: playStoreUrl
+    });
   }
 });
 

@@ -6,6 +6,8 @@ const adSchema = new mongoose.Schema({
   imageUrl: { type: String }, // Kept for backward compatibility
   imageUrls: { type: [String], default: [] }, // New field for multiple images
   linkUrl: { type: String },
+  adFormat: { type: String, enum: ['image_only', 'news_format'], default: 'image_only' },
+  buttonText: { type: String },
   isActive: { type: Boolean, default: true },
   scheduleEnabled: { type: Boolean, default: false },
   scheduleStart: { type: Date },

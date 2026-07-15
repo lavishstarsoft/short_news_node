@@ -2303,4 +2303,18 @@ router.post('/api/zodiac/:id/dislike', zodiacController.dislikeZodiac);
 router.post('/api/zodiac/:id/comment', zodiacController.commentZodiac);
 router.get('/api/zodiac/:id/comments', zodiacController.getZodiacComments);
 
+// ==========================================
+// GET /tell-about-us (General App Sharing)
+// ==========================================
+router.get('/tell-about-us', (req, res) => {
+  const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam';
+  return res.render('share-preview', {
+    ogTitle: 'Tehelka News - India\'s #1 Short News App',
+    ogDescription: 'I am using India\'s #1 Telugu short news app. Download now and stay updated effortlessly!',
+    ogImage: 'https://www.news.tehelkanews.in/images/tell_about_us.png',
+    ogUrl: 'https://www.news.tehelkanews.in/tell-about-us',
+    redirectUrl: playStoreUrl
+  });
+});
+
 module.exports = router;
