@@ -11,6 +11,27 @@ const CommentReport = require('../models/CommentReport');
 const Admin = require('../models/Admin');
 const zodiacController = require('../controllers/zodiacController');
 
+// ==========================================
+// Check IP Route (For Debugging Referrals)
+// ==========================================
+router.get('/my-ip', (req, res) => {
+  const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection.remoteAddress;
+  res.send(`
+    <html>
+      <head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+      <body style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f8fafc; margin: 0;">
+        <div style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center;">
+          <h2 style="color: #475569; margin-top: 0;">Your Current IP Address is:</h2>
+          <h1 style="color: #2563eb; font-size: 2.5rem; margin: 1rem 0;">${ipAddress}</h1>
+          <p style="color: #64748b; max-width: 300px; margin: 0 auto;">
+            This is the IP address the server sees. For the referral to work perfectly, this IP must remain the same from the moment you click the link until you open the app.
+          </p>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
 // Import cache middleware for Redis caching
 const { cacheMiddleware, clearCache } = require('../middleware/cache');
 
