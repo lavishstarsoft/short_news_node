@@ -48,7 +48,7 @@
   function populateNotificationFields(newsItem) {
     const titleInput = document.getElementById('notifTitleInput');
     const messageInput = document.getElementById('notifMessageInput');
-    if (titleInput) titleInput.value = stripHtmlToPlainText(newsItem.title || '');
+    if (titleInput) titleInput.value = newsItem.title || '';
     if (messageInput) {
       messageInput.value = stripHtmlToPlainText(newsItem.content || '');
       resizeMessageTextarea();
@@ -92,22 +92,51 @@
     if (modal) modal.classList.add('active');
   }
 
+  function applyFormattingToSelection(input, prefix, suffix) {
+    if (input && input.selectionStart !== undefined && input.selectionStart !== input.selectionEnd) {
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      const selectedText = input.value.substring(start, end);
+      const beforeText = input.value.substring(0, start);
+      const afterText = input.value.substring(end);
+      
+      input.value = beforeText + prefix + selectedText + suffix + afterText;
+      
+      input.focus();
+      input.setSelectionRange(start, start + prefix.length + selectedText.length + suffix.length);
+      return true;
+    }
+    return false;
+  }
+
   function selectTitleColor(btn) {
-    document.querySelectorAll('#titleColorPresets .color-btn').forEach(function (b) {
-      b.classList.remove('selected');
-    });
-    btn.classList.add('selected');
-    selectedTitleColor = btn.dataset.color;
-    const custom = document.getElementById('customTitleColor');
-    if (custom) custom.value = selectedTitleColor;
+    const titleInput = document.getElementById('notifTitleInput');
+    const applied = applyFormattingToSelection(titleInput, '<font color="' + btn.dataset.color + '">', '</font>');
+    
+    if (!applied) {
+      document.querySelectorAll('#titleColorPresets .color-btn').forEach(function (b) {
+        b.classList.remove('selected');
+      });
+      btn.classList.add('selected');
+      selectedTitleColor = btn.dataset.color;
+      const custom = document.getElementById('customTitleColor');
+      if (custom) custom.value = selectedTitleColor;
+    }
+    
     updateNotifPreview();
   }
 
   function selectCustomTitleColor(color) {
-    document.querySelectorAll('#titleColorPresets .color-btn').forEach(function (b) {
-      b.classList.remove('selected');
-    });
-    selectedTitleColor = color;
+    const titleInput = document.getElementById('notifTitleInput');
+    const applied = applyFormattingToSelection(titleInput, '<font color="' + color + '">', '</font>');
+    
+    if (!applied) {
+      document.querySelectorAll('#titleColorPresets .color-btn').forEach(function (b) {
+        b.classList.remove('selected');
+      });
+      selectedTitleColor = color;
+    }
+    
     updateNotifPreview();
   }
 
@@ -129,15 +158,22 @@
     const messageCount = document.getElementById('notifMessageCount');
 
     if (previewTitle) {
-      previewTitle.textContent = title || 'Title Preview';
+      previewTitle.innerHTML = title || 'Title Preview';
       previewTitle.style.color = selectedTitleColor;
       let fontSize = '0.72rem';
       if (selectedTitleFontSize === 'small') fontSize = '0.64rem';
       else if (selectedTitleFontSize === 'large') fontSize = '0.82rem';
       previewTitle.style.fontSize = fontSize;
     }
+    const includeDesc = document.getElementById('includeDescriptionCheckbox')?.checked;
+    
     if (previewMessage) {
-      previewMessage.textContent = message || 'Message preview will appear here...';
+      if (includeDesc) {
+        previewMessage.style.display = 'block';
+        previewMessage.textContent = message || 'Message preview will appear here...';
+      } else {
+        previewMessage.style.display = 'none';
+      }
     }
     if (titleCount) {
       titleCount.textContent = (document.getElementById('notifTitleInput')?.value.length || 0) + '/100';
@@ -159,10 +195,11 @@
     if (!currentNotificationNewsItem) return;
 
     const title = document.getElementById('notifTitleInput')?.value.trim();
-    const message = document.getElementById('notifMessageInput')?.value.trim();
+    const includeDesc = document.getElementById('includeDescriptionCheckbox')?.checked;
+    const message = includeDesc ? document.getElementById('notifMessageInput')?.value.trim() : '';
 
-    if (!title || !message) {
-      alert('Please enter both title and message');
+    if (!title) {
+      alert('Please enter a title for the notification');
       return;
     }
 
@@ -220,4 +257,16 @@
   global.updateNotifPreview = updateNotifPreview;
   global.closeNotificationModal = closeNotificationModal;
   global.confirmSendNotification = confirmSendNotification;
+  
+  global.toggleDescriptionField = function() {
+    const isChecked = document.getElementById('includeDescriptionCheckbox')?.checked;
+    const msgInput = document.getElementById('notifMessageInput');
+    const msgCount = document.getElementById('notifMessageCount');
+    
+    if (msgInput && msgCount) {
+      msgInput.style.display = isChecked ? 'block' : 'none';
+      msgCount.style.display = isChecked ? 'inline' : 'none';
+    }
+    updateNotifPreview();
+  };
 })(typeof window !== 'undefined' ? window : global);

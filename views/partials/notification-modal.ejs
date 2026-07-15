@@ -49,10 +49,13 @@
 
                     <div class="notif-field">
                         <div class="notif-field-head">
-                            <label for="notifMessageInput">Message</label>
-                            <span class="notif-char-count" id="notifMessageCount">0 chars</span>
+                            <label for="notifMessageInput">
+                                <input type="checkbox" id="includeDescriptionCheckbox" onchange="toggleDescriptionField()" style="margin-right: 5px;">
+                                Include Description
+                            </label>
+                            <span class="notif-char-count" id="notifMessageCount" style="display: none;">0 chars</span>
                         </div>
-                        <textarea id="notifMessageInput" class="notif-input notif-textarea" placeholder="Notification message..." rows="4" oninput="updateNotifPreview()"></textarea>
+                        <textarea id="notifMessageInput" class="notif-input notif-textarea" placeholder="Notification message..." rows="4" oninput="updateNotifPreview()" style="display: none;"></textarea>
                     </div>
 
                     <details class="notif-style-panel" open>
@@ -64,11 +67,11 @@
                             <div class="notif-style-row">
                                 <span class="notif-style-label">Color</span>
                                 <div class="color-presets" id="titleColorPresets">
-                                    <button type="button" class="color-btn selected" style="background:#FF6F00;" data-color="#FF6F00" onclick="selectTitleColor(this)" title="Orange"></button>
-                                    <button type="button" class="color-btn" style="background:#E53935;" data-color="#E53935" onclick="selectTitleColor(this)" title="Red"></button>
-                                    <button type="button" class="color-btn" style="background:#1E88E5;" data-color="#1E88E5" onclick="selectTitleColor(this)" title="Blue"></button>
-                                    <button type="button" class="color-btn" style="background:#43A047;" data-color="#43A047" onclick="selectTitleColor(this)" title="Green"></button>
-                                    <button type="button" class="color-btn" style="background:#8E24AA;" data-color="#8E24AA" onclick="selectTitleColor(this)" title="Purple"></button>
+                                    <button type="button" class="color-btn selected" style="background:#FF6F00;" data-color="#FF6F00" onmousedown="event.preventDefault(); selectTitleColor(this)" title="Orange"></button>
+                                    <button type="button" class="color-btn" style="background:#E53935;" data-color="#E53935" onmousedown="event.preventDefault(); selectTitleColor(this)" title="Red"></button>
+                                    <button type="button" class="color-btn" style="background:#1E88E5;" data-color="#1E88E5" onmousedown="event.preventDefault(); selectTitleColor(this)" title="Blue"></button>
+                                    <button type="button" class="color-btn" style="background:#43A047;" data-color="#43A047" onmousedown="event.preventDefault(); selectTitleColor(this)" title="Green"></button>
+                                    <button type="button" class="color-btn" style="background:#8E24AA;" data-color="#8E24AA" onmousedown="event.preventDefault(); selectTitleColor(this)" title="Purple"></button>
                                     <label class="custom-color-picker" title="Custom color">
                                         <input type="color" id="customTitleColor" value="#FF6F00" onchange="selectCustomTitleColor(this.value)">
                                         <span><i class="fas fa-plus"></i></span>
