@@ -391,6 +391,44 @@ router.get('/api/public/invite/:code', async (req, res) => {
 });
 
 // ============================================================
+// GET /invite/:code  (CLEAN SHORT URL)
+// Same as above but with a clean, shareable URL
+// e.g. https://www.news.cbnyellowsingam.in/invite/E54F5FD8
+// ============================================================
+router.get('/invite/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    if (!code || code.length < 4 || code.length > 20) {
+      return res.status(400).send('Invalid referral code');
+    }
+
+    const referrer = await User.findOne({ referralCode: code });
+    if (!referrer) {
+      console.log(`⚠️ [Invite] Invalid referral code: ${code}, redirecting anyway`);
+      return res.redirect(`https://play.google.com/store/apps/details?id=com.lavish.yellowsingam`);
+    }
+
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    await PendingReferral.create({
+      referralCode: code,
+      ipAddress,
+      userAgent
+    });
+
+    console.log(`🔗 [Invite-Short] Saved fingerprint for code ${code} | IP: ${ipAddress}`);
+
+    const playStoreUrl = `https://play.google.com/store/apps/details?id=com.lavish.yellowsingam&referrer=${code}`;
+    return res.redirect(playStoreUrl);
+
+  } catch (error) {
+    console.error('❌ [Invite] Error:', error);
+    return res.redirect('https://play.google.com/store/apps/details?id=com.lavish.yellowsingam');
+  }
+});
+
+// ============================================================
 // POST /api/public/referral/fallback-match
 // Called by Flutter app when PlayInstallReferrer returns organic/null
 // Matches device fingerprint to recover the lost referral code
