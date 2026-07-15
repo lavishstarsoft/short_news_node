@@ -4491,7 +4491,40 @@ const updateReferralStatus = async (req, res) => {
   }
 };
 
+// ==========================================
+// User Deletion (Protected by .env password)
+// ==========================================
+const deleteUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    const envPassword = process.env.USER_DELETE_PASSWORD || process.env.REJECTED_NEWS_DELETE_PASSWORD;
+
+    if (!envPassword) {
+      return res.status(500).json({ success: false, message: 'Deletion password not configured on server (.env)' });
+    }
+
+    if (!password || password !== envPassword) {
+      return res.status(401).json({ success: false, message: 'Invalid deletion password' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    await User.findByIdAndDelete(id);
+
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ success: false, message: 'Server error while deleting user' });
+  }
+};
+
 module.exports = {
+  deleteUserById,
   renderLoginPage,
   login,
   logout,
