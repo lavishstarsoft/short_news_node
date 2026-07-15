@@ -255,8 +255,7 @@
                                                                     id="uploadImageButton">
                                                                     <i class="fas fa-upload me-1"></i> Upload Images
                                                                 </button>
-                                                                <input type="file" id="imageUpload" accept="image/*"
-                                                                    multiple class="d-none">
+                                                                <input type="file" id="imageUpload" accept="image/*,video/*" multiple class="d-none">
                                                             </div>
                                                         </div>
                                                     </div>
@@ -636,22 +635,20 @@
                     }
 
                     // Check if WebP is animated (safely read binary)
-                    function isAnimatedWebP(file) {
-                        return new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                const buffer = new Uint8Array(e.target.result);
-                                let isAnimated = false;
-                                for (let i = 0; i < buffer.length - 3; i++) {
-                                    if (buffer[i] === 0x41 && buffer[i+1] === 0x4E && buffer[i+2] === 0x49 && buffer[i+3] === 0x4D) { // 'A', 'N', 'I', 'M'
-                                        isAnimated = true;
-                                        break;
-                                    }
+                    async function isAnimatedWebP(file) {
+                        try {
+                            const buffer = await file.arrayBuffer(); // Read full file just in case
+                            const bytes = new Uint8Array(buffer);
+                            for (let i = 0; i < bytes.length - 3; i++) {
+                                if (bytes[i] === 0x41 && bytes[i+1] === 0x4E && bytes[i+2] === 0x49 && bytes[i+3] === 0x4D) {
+                                    return true;
                                 }
-                                resolve(isAnimated);
-                            };
-                            reader.readAsArrayBuffer(file.slice(0, 1024));
-                        });
+                            }
+                            return false;
+                        } catch (e) {
+                            console.error('Error checking WebP:', e);
+                            return false;
+                        }
                     }
 
                     // Process next file in queue
@@ -665,23 +662,24 @@
                         }
 
                         currentFile = filesToProcess[currentFileIndex];
-                        if (!currentFile.type.startsWith('image/')) {
-                            showFeedback('Please select image files only', 'error');
+                        if (!currentFile.type.startsWith('image/') && !currentFile.type.startsWith('video/')) {
+                            showFeedback('Please select image or video files only', 'error');
                             currentFileIndex++;
                             processNextFile();
                             return;
                         }
 
-                        // 🚀 BYPASS CROPPER FOR GIFs and ANIMATED WEBP (Canvas destroys animation)
-                        if (currentFile.type === 'image/gif') {
-                            uploadAnimatedDirectly(currentFile);
+                        // 🚀 BYPASS CROPPER FOR GIFs, ANIMATED WEBP, and VIDEOS
+                        if (currentFile.type === 'image/gif' || currentFile.type.startsWith('video/')) {
+                            uploadMediaDirectly(currentFile);
                             return;
                         }
                         
-                        if (currentFile.type === 'image/webp') {
+                        const isWebpExt = currentFile.name.toLowerCase().endsWith('.webp');
+                        if (currentFile.type === 'image/webp' || isWebpExt) {
                             const isAnimated = await isAnimatedWebP(currentFile);
                             if (isAnimated) {
-                                uploadAnimatedDirectly(currentFile);
+                                uploadMediaDirectly(currentFile);
                                 return;
                             }
                         }
@@ -689,8 +687,8 @@
                         openCropModal(currentFile);
                     }
 
-                    // Directly upload GIF/WebP to preserve animation
-                    async function uploadAnimatedDirectly(file) {
+                    // Directly upload media (GIF/WebP/Video) to preserve animation/quality
+                    async function uploadMediaDirectly(file) {
                         const formData = new FormData();
                         formData.append('media', file, file.name);
                         
@@ -840,11 +838,17 @@
                             const item = document.createElement('div');
                             item.className = `image-preview-item ${isActive}`;
                             item.dataset.index = index;
+                            
+                            const isVideo = url.match(/\.(mp4|webm|mov|avi)$/i) || url.includes('/short_news_videos/');
+                            const mediaElement = isVideo 
+                                ? `<video src="${url}" class="img-fluid rounded" controls autoplay muted loop style="max-height: 400px; width: auto;"></video>`
+                                : `<img src="${url}" class="img-fluid rounded" alt="Image Preview">`;
+                                
                             item.innerHTML = `
                     <button type="button" class="remove-image-btn" onclick="removeImage(${index})">
                         <i class="fas fa-times"></i>
                     </button>
-                    <img src="${url}" class="img-fluid rounded" alt="Image Preview">
+                    ${mediaElement}
                 `;
                             carousel.appendChild(item);
                             if (indicatorsContainer) {
