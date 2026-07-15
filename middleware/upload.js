@@ -99,9 +99,13 @@ const createMulterR2Interface = (options = {}) => {
                         let thumbnailPath = null;
 
                         // Image processing with Sharp
-                        if (mimetype.startsWith('image/')) {
+                        if (mimetype === 'image/gif') {
+                            // 🚀 BYPASS SHARP FOR GIFs to preserve animation perfectly
+                            req.file.path = await uploadToR2(buffer, folderName, req.file.originalname, mimetype);
+                            req.file.thumbnailPath = req.file.path; // Use same GIF for thumb to keep animation
+                        } else if (mimetype.startsWith('image/')) {
                             // 1. Generate Main Image (1080px or original)
-                            let sharpInstance = sharp(buffer, { animated: true });
+                            let sharpInstance = sharp(buffer);
                             if (resize && width && height) {
                                 sharpInstance = sharpInstance.resize(width, height, { fit: 'cover' });
                             }
@@ -112,7 +116,7 @@ const createMulterR2Interface = (options = {}) => {
                             req.file.path = await uploadToR2(mainBuffer, folderName, req.file.originalname, mainMimetype);
 
                             // 2. Generate Thumbnail (400px width)
-                            const thumbBuffer = await sharp(buffer, { animated: true })
+                            const thumbBuffer = await sharp(buffer)
                                 .resize(400) // Small width for thumbnails
                                 .webp({ quality: 60 })
                                 .toBuffer();
