@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
     },
     source: {
       type: String,
-      enum: ['gps', 'manual', 'inferred'],
+      enum: ['gps', 'manual', 'inferred', null],
       default: null
     },
     additionalLocations: [{ type: String }],
