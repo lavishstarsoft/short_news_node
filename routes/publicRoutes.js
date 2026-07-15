@@ -1024,9 +1024,15 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
       // Favourite/manual location pick: show only that district/state news
       if (district) {
         segments.push({ ...baseQuery, location: district, publishedAt: { $gte: cutoff72h } });
-      }
-      if (state) {
-        segments.push({ ...baseQuery, location: state });
+        if (state) {
+          segments.push({ ...baseQuery, location: state });
+        }
+      } else if (state) {
+        // If they manually selected a STATE, they should see both State-level news
+        // AND all the District-level news within that state!
+        const dists = await Location.getDistrictsForState(state);
+        const stateDistricts = dists.map(d => d.name);
+        segments.push({ ...baseQuery, location: { $in: [state, ...stateDistricts] } });
       }
     } else {
       // Tier 1: District news (last 72 hours)
