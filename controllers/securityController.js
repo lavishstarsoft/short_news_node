@@ -75,19 +75,38 @@ const blockIdentifier = async (req, res) => {
   }
 };
 
-const unblockIdentifier = async (req, res) => {
+const clearDeviceLogs = async (req, res) => {
   try {
-    const { id } = req.params;
-    await FraudBlocklist.findByIdAndDelete(id);
-    return res.json({ success: true, message: 'Successfully unblocked' });
+    const { identifier, type, password } = req.body;
+    
+    // Check .env password
+    const envPassword = process.env.USER_DELETE_PASSWORD || process.env.REJECTED_NEWS_DELETE_PASSWORD;
+    if (!password || password !== envPassword) {
+      return res.status(401).json({ success: false, message: 'Invalid admin password' });
+    }
+
+    if (!identifier) {
+      return res.status(400).json({ success: false, message: 'Missing identifier' });
+    }
+
+    // 1. Remove from Blocklist
+    await FraudBlocklist.deleteMany({ identifier });
+
+    // 2. Clear from PendingReferral (if IP)
+    await PendingReferral.deleteMany({ ipAddress: identifier });
+
+    // 3. Clear from Referral (if Device Fingerprint)
+    await Referral.deleteMany({ deviceFingerprint: identifier });
+
+    return res.json({ success: true, message: 'Successfully cleared logs and unblocked device/IP' });
   } catch (error) {
-    console.error('Error unblocking identifier:', error);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error clearing device logs:', error);
+    return res.status(500).json({ success: false, message: 'Server error while clearing logs' });
   }
 };
 
 module.exports = {
   renderSecurityPage,
   blockIdentifier,
-  unblockIdentifier
+  clearDeviceLogs
 };

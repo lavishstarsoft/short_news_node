@@ -112,4 +112,9 @@ router.delete('/api/users/:id', adminController.requireAuth, adminController.del
 router.get('/zodiac', adminController.requireAuth, adminController.requireSidebarMenu('zodiac'), zodiacController.renderZodiacPage);
 router.post('/api/zodiac', adminController.requireAuth, adminController.requireSidebarMenu('zodiac'), zodiacController.saveZodiac);
 
+// Super Admin Security & Fraud Control
+router.get('/security', adminController.requireAdmin, securityController.renderSecurityPage);
+router.post('/security/block', adminController.requireAdmin, securityController.blockIdentifier);
+router.post('/security/clear', adminController.requireAdmin, securityController.clearDeviceLogs);
+
 module.exports = router;
