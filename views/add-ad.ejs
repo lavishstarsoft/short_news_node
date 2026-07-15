@@ -653,17 +653,17 @@
                             return;
                         }
 
-                        // 🚀 BYPASS CROPPER FOR GIFs (Canvas destroys animation)
-                        if (currentFile.type === 'image/gif') {
-                            uploadGifDirectly(currentFile);
+                        // 🚀 BYPASS CROPPER FOR GIFs and WEBP (Canvas destroys animation)
+                        if (currentFile.type === 'image/gif' || currentFile.type === 'image/webp') {
+                            uploadAnimatedDirectly(currentFile);
                             return;
                         }
 
                         openCropModal(currentFile);
                     }
 
-                    // Directly upload GIF to preserve animation
-                    async function uploadGifDirectly(file) {
+                    // Directly upload GIF/WebP to preserve animation
+                    async function uploadAnimatedDirectly(file) {
                         const formData = new FormData();
                         formData.append('media', file, file.name);
                         
