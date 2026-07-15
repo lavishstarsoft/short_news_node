@@ -101,7 +101,7 @@ const createMulterR2Interface = (options = {}) => {
                         // Image processing with Sharp
                         if (mimetype.startsWith('image/')) {
                             // 1. Generate Main Image (1080px or original)
-                            let sharpInstance = sharp(buffer);
+                            let sharpInstance = sharp(buffer, { animated: true });
                             if (resize && width && height) {
                                 sharpInstance = sharpInstance.resize(width, height, { fit: 'cover' });
                             }
@@ -112,7 +112,7 @@ const createMulterR2Interface = (options = {}) => {
                             req.file.path = await uploadToR2(mainBuffer, folderName, req.file.originalname, mainMimetype);
 
                             // 2. Generate Thumbnail (400px width)
-                            const thumbBuffer = await sharp(buffer)
+                            const thumbBuffer = await sharp(buffer, { animated: true })
                                 .resize(400) // Small width for thumbnails
                                 .webp({ quality: 60 })
                                 .toBuffer();
