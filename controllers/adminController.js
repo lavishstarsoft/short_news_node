@@ -3802,6 +3802,11 @@ async function approveNews(req, res) {
       console.log('⚠️ WebSocket io not available for in-app notifications');
     }
 
+    if (existingNews.authorId) {
+       const { checkAndCreditWallet } = require('../utils/walletHelpers');
+       checkAndCreditWallet(existingNews.authorId).catch(err => console.error(err));
+    }
+
     res.json({
       success: true,
       message: 'News approved and published!',
@@ -4510,6 +4515,105 @@ const deleteUserById = async (req, res) => {
   }
 };
 
+// Get reporter daily stats for UI dashboard
+async function getReporterDailyStats(req, res) {
+  try {
+    const reporterId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
+    if (!reporterId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const admin = await Admin.findById(reporterId);
+    if (!admin) return res.status(404).json({ error: 'Admin not found' });
+
+    const { AppSettings } = require('../models/AppSettings');
+    const settings = await require('../models/AppSettings').findOne({ key: 'update_flags' });
+    const maxReward = settings?.reporterMaxDailyReward || 30;
+    const targetNews = settings?.reporterTargetNews || 5;
+    const amountPerNews = maxReward / targetNews;
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const newsToday = await News.find({
+      authorId: reporterId,
+      publishedAt: { $gte: startOfDay, $lte: endOfDay }
+    }).lean();
+
+    const approvedToday = await News.countDocuments({
+      authorId: reporterId,
+      isActive: true,
+      'approvalStatus.isApproved': true,
+      'approvalStatus.approvedAt': { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    let pendingCount = 0;
+    let rejectedCount = 0;
+
+    newsToday.forEach(n => {
+      if (!n.isActive && !n.rejectionStatus?.isRejected) {
+        pendingCount++;
+      }
+      if (n.rejectionStatus?.isRejected) {
+        rejectedCount++;
+      }
+    });
+
+    const isTargetReached = approvedToday >= targetNews;
+    const remainingForReward = Math.max(0, targetNews - approvedToday);
+    
+    const dateString = startOfDay.toISOString().split('T')[0];
+    const referenceId = `reward_${reporterId}_${dateString}`;
+    const AdminWalletTransaction = require('../models/AdminWalletTransaction');
+    const rewardGiven = await AdminWalletTransaction.exists({ referenceId });
+
+    res.json({
+      approvedCount: approvedToday,
+      rejectedCount,
+      pendingCount,
+      totalSubmittedToday: newsToday.length,
+      targetNews,
+      maxReward,
+      amountPerNews,
+      remainingForReward,
+      isTargetReached,
+      rewardGiven: !!rewardGiven,
+      walletBalance: admin.walletBalance || 0
+    });
+  } catch (error) {
+    console.error('Error fetching daily stats:', error);
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+}
+
+// Render Reporter Wallet Page
+async function renderReporterWalletPage(req, res) {
+  try {
+    const admin = await Admin.findById(req.adminId || req.userId || req.admin?.id).lean();
+    res.render('my-wallet', {
+      title: 'My Wallet',
+      admin,
+      activePage: 'my-wallet'
+    });
+  } catch (err) {
+    res.status(500).send('Error loading wallet page');
+  }
+}
+
+// Render Wallet Settings Page
+async function renderWalletSettingsPage(req, res) {
+  try {
+    const admin = await Admin.findById(req.adminId || req.userId || req.admin?.id).lean();
+    res.render('wallet-settings', {
+      title: 'Wallet Settings',
+      admin,
+      activePage: 'wallet-settings'
+    });
+  } catch (err) {
+    res.status(500).send('Error loading wallet settings page');
+  }
+}
+
 module.exports = {
   deleteUserById,
   renderLoginPage,
@@ -4576,5 +4680,8 @@ module.exports = {
   updatePollStatusRest,
   updatePollRest,
   renderReferralsPage,
-  updateReferralStatus
+  updateReferralStatus,
+  getReporterDailyStats,
+  renderReporterWalletPage,
+  renderWalletSettingsPage
 };

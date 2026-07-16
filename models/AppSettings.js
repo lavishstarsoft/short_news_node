@@ -100,6 +100,22 @@ const appSettingsSchema = new mongoose.Schema({
   isReferralEnabled: {
     type: Boolean,
     default: true
+  },
+  reporterMaxDailyReward: {
+    type: Number,
+    default: 30
+  },
+  reporterTargetNews: {
+    type: Number,
+    default: 5
+  },
+  minWithdrawalAmount: {
+    type: Number,
+    default: 500
+  },
+  maxWithdrawalAmount: {
+    type: Number,
+    default: 5000
   }
 }, { timestamps: true });
 

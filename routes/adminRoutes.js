@@ -116,5 +116,9 @@ router.post('/api/zodiac', adminController.requireAuth, adminController.requireS
 router.get('/security', adminController.requireAdmin, securityController.renderSecurityPage);
 router.post('/security/block', adminController.requireAdmin, securityController.blockIdentifier);
 router.post('/security/clear', adminController.requireAdmin, securityController.clearDeviceLogs);
+// Reporter Wallet / Stats API
+router.get('/api/reporter/daily-stats', adminController.requireAuth, adminController.getReporterDailyStats);
+router.get('/reporter/wallet', adminController.requireAuth, adminController.renderReporterWalletPage);
+router.get('/wallet-settings', adminController.requireAdmin, adminController.renderWalletSettingsPage);
 
 module.exports = router;

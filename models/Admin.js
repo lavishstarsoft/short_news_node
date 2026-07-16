@@ -97,6 +97,10 @@ const adminSchema = new mongoose.Schema({
     showName: { type: Boolean, default: true },
     showConstituency: { type: Boolean, default: true }
   },
+  walletBalance: {
+    type: Number,
+    default: 0
+  },
   permissions: {
     canViewReporterDetails: { type: Boolean, default: false },
     canAccessAdminDashboard: { type: Boolean, default: false },

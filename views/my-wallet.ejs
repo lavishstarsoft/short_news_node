@@ -1,0 +1,218 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .wallet-card {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    position: relative;
+    overflow: hidden;
+  }
+  .wallet-card::after {
+    content: '';
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 150px;
+    height: 150px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%;
+  }
+  .wallet-balance {
+    font-size: 2.5rem;
+    font-weight: 700;
+  }
+  .progress-tracker {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    margin-bottom: 24px;
+  }
+  .news-stat-box {
+    text-align: center;
+    padding: 15px;
+    border-radius: 12px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+  }
+  .news-stat-box h3 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: bold;
+  }
+  .news-stat-box p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+  .stat-approved { color: #198754; }
+  .stat-rejected { color: #dc3545; }
+  .stat-pending { color: #fd7e14; }
+  
+  .history-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+  }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-2 mb-4 border-bottom">
+    <h1 class="h2 page-title">My Wallet & Earnings</h1>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-6 mb-4">
+      <div class="wallet-card">
+        <h5 class="mb-1 text-light">Total Available Balance</h5>
+        <div class="wallet-balance mb-3">₹<span id="walletBalance">0</span></div>
+        <button id="withdrawBtn" class="btn btn-light fw-bold px-4" disabled>
+          <i class="fas fa-hand-holding-usd me-2"></i> Withdraw Funds
+        </button>
+        <p class="mt-2 mb-0 small text-light opacity-75" id="withdrawHelpText">
+          Minimum withdrawal amount: ₹Loading...
+        </p>
+      </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+      <div class="progress-tracker h-100">
+        <h5 class="border-bottom pb-2 mb-3">Today's Progress (Target: <span id="targetNewsCount">5</span>)</h5>
+        <div class="row g-2 mb-3">
+          <div class="col-4">
+            <div class="news-stat-box">
+              <h3 class="stat-approved" id="approvedCount">0</h3>
+              <p>Approved</p>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="news-stat-box">
+              <h3 class="stat-pending" id="pendingCount">0</h3>
+              <p>Pending</p>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="news-stat-box">
+              <h3 class="stat-rejected" id="rejectedCount">0</h3>
+              <p>Rejected</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="alert alert-info d-flex align-items-center mb-0" id="rewardStatusAlert">
+          <i class="fas fa-info-circle fa-2x me-3"></i>
+          <div>
+            <strong id="rewardStatusTitle">Loading your progress...</strong><br>
+            <span id="rewardStatusDesc" class="small">Please wait while we fetch today's stats.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-white py-3">
+      <h5 class="mb-0 fw-bold"><i class="fas fa-history me-2 text-primary"></i> Transaction History</h5>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 history-table">
+          <thead>
+            <tr>
+              <th class="ps-4">Date</th>
+              <th>Description</th>
+              <th>Type</th>
+              <th class="text-end pe-4">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="transactionsList">
+            <tr>
+              <td colspan="4" class="text-center py-4 text-muted">Loading transactions...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Withdrawal Modal -->
+<div class="modal fade" id="withdrawModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold">Withdraw Funds</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="withdrawForm">
+          <div class="mb-3">
+            <label class="form-label text-muted small fw-bold">Amount (₹)</label>
+            <input type="number" class="form-control form-control-lg" id="withdrawAmount" required>
+          </div>
+          <div class="mb-4">
+            <label class="form-label text-muted small fw-bold">Payment Details (UPI ID or Bank A/C)</label>
+            <textarea class="form-control" id="paymentDetails" rows="3" placeholder="Enter your PhonePe/GPay number or Bank Account details..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Submit Request</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const res = await fetch('/admin/api/reporter/daily-stats');
+      if (res.ok) {
+        const data = await res.json();
+        
+        // Update UI counters
+        document.getElementById('walletBalance').textContent = data.walletBalance;
+        document.getElementById('approvedCount').textContent = data.approvedCount;
+        document.getElementById('pendingCount').textContent = data.pendingCount;
+        document.getElementById('rejectedCount').textContent = data.rejectedCount;
+        document.getElementById('targetNewsCount').textContent = data.targetNews;
+        
+        const minWithdraw = data.minWithdrawalAmount || 500;
+        document.getElementById('withdrawHelpText').textContent = `Minimum withdrawal amount: ₹${minWithdraw}`;
+        
+        if (data.walletBalance >= minWithdraw) {
+          const btn = document.getElementById('withdrawBtn');
+          btn.disabled = false;
+          btn.onclick = () => new bootstrap.Modal(document.getElementById('withdrawModal')).show();
+        }
+        
+        const titleEl = document.getElementById('rewardStatusTitle');
+        const descEl = document.getElementById('rewardStatusDesc');
+        const alertEl = document.getElementById('rewardStatusAlert');
+        
+        if (data.rewardGiven) {
+          alertEl.className = 'alert alert-success d-flex align-items-center mb-0';
+          alertEl.innerHTML = `<i class="fas fa-check-circle fa-2x me-3"></i>
+            <div>
+              <strong>Target Reached!</strong><br>
+              <span class="small">You have received your ₹${data.maxReward} reward for today. Great job!</span>
+            </div>`;
+        } else {
+          alertEl.className = 'alert alert-warning d-flex align-items-center mb-0';
+          titleEl.textContent = `Keep Going!`;
+          descEl.innerHTML = `You need <strong>${data.remainingForReward} more approved news</strong> to earn ₹${data.maxReward} today.<br>(Value per approved news: ₹${data.amountPerNews})`;
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  });
+</script>
+
+<%- include('partials/footer') %>

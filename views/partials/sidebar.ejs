@@ -1,23 +1,150 @@
+<style>
+/* Custom Accordion Sidebar Styles */
+.sidebar {
+    /* Assuming standard bootstrap bg is used, let's just style the nav */
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.sidebar-header h4 {
+    letter-spacing: 1px;
+}
+
+.nav-section-title {
+    color: #6c757d; /* Muted gray */
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 1rem 1.5rem 0.5rem;
+    margin-top: 0.5rem;
+}
+
+/* Accordion Parent Link */
+.nav-link.has-submenu {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    border-radius: 8px;
+    margin: 2px 10px;
+    padding: 10px 15px;
+    transition: all 0.2s ease;
+}
+
+.nav-link.has-submenu .nav-text {
+    flex-grow: 1;
+}
+
+.nav-link.has-submenu .toggle-icon {
+    font-size: 0.8rem;
+    transition: transform 0.3s ease;
+    opacity: 0.7;
+}
+
+.nav-link.has-submenu[aria-expanded="true"] .toggle-icon {
+    transform: rotate(180deg);
+}
+.nav-link.has-submenu[aria-expanded="true"] {
+    background: rgba(255,255,255,0.05);
+}
+
+/* Submenu container (Accordion body) */
+.submenu-collapse {
+    position: relative;
+    margin-bottom: 5px;
+}
+
+/* Remove the global vertical line */
+.submenu-collapse::before {
+    display: none;
+}
+
+/* Submenu Items */
+.submenu-collapse .nav-item {
+    position: relative;
+}
+
+/* Vertical Hierarchical Line on Each Item */
+.submenu-collapse .nav-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 27px; /* Align with the center of the parent icon */
+    width: 1px;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Stop the vertical line exactly halfway down the last item to form the "L" shape */
+.submenu-collapse .nav-item:last-child::before {
+    bottom: 50%;
+}
+
+.submenu-collapse .nav-link {
+    padding: 8px 15px 8px 45px;
+    font-size: 0.85rem;
+    margin: 2px 10px;
+    border-radius: 6px;
+    color: rgba(255,255,255,0.7);
+    transition: all 0.2s;
+}
+
+.submenu-collapse .nav-link:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.05);
+}
+
+.submenu-collapse .nav-link.active {
+    color: #fff;
+    background: rgba(13, 110, 253, 0.2);
+    font-weight: 600;
+}
+
+/* Horizontal branch line for submenu items */
+.submenu-collapse .nav-link::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 27px;
+    width: 12px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.submenu-collapse .nav-link.active::before,
+.submenu-collapse .nav-link:hover::before {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Standard Nav Item (No Submenu) */
+.nav-item-standalone .nav-link {
+    margin: 2px 10px;
+    border-radius: 8px;
+    padding: 10px 15px;
+}
+</style>
+
 <div class="col-md-3 col-lg-2 d-md-block sidebar" id="sidebar">
-    <div class="position-sticky pt-3">
-        <div class="sidebar-header text-center py-3 mb-3">
-            <h4 class="mb-0">Short News</h4>
-            <p class="small mb-0">Admin Dashboard</p>
+    <div class="position-sticky pt-3 pb-5">
+        <div class="sidebar-header text-center py-3 mb-2">
+            <h4 class="mb-0 text-white fw-bold">Short News</h4>
+            <p class="small mb-0 text-white-50">Admin Dashboard</p>
             <% if (typeof admin !=='undefined' && admin) { %>
-                <div class="d-flex align-items-center justify-content-center mt-2">
+                <div class="d-flex align-items-center justify-content-center mt-3 p-2 mx-3 rounded" style="background: rgba(0,0,0,0.2);">
                     <i class="fas fa-user-circle fa-2x text-white me-2"></i>
                     <div class="text-white text-start">
-                        <div class="fw-bold">
+                        <div class="fw-bold lh-1 mb-1">
                             <%= admin.username %>
                         </div>
-                        <div class="small">
-                            <%= admin.role %>
+                        <div class="small text-white-50 lh-1">
+                            <%= admin.role.toUpperCase() %>
                         </div>
                     </div>
                 </div>
             <% } %>
         </div>
-        <ul class="nav flex-column">
+
+        <ul class="nav flex-column" id="sidebarAccordion">
             <% 
                 var canView = function(menu) {
                     if (typeof admin === 'undefined' || !admin) return false;
@@ -30,267 +157,385 @@
                     }
                     return admin.permissions.sidebar[menu] !== false;
                 };
+                
+                const isAdmin = typeof admin !=='undefined' && admin && (admin.role==='admin' || admin.role==='superadmin');
+                const isReporter = typeof admin !=='undefined' && admin && admin.role==='reporter';
+
                 const dashboardLink = (typeof isImpersonating !== 'undefined' && isImpersonating && admin) ? `/admin/editors/${admin.id}/dashboard` : '/news';
                 const newsListLink = (typeof isImpersonating !== 'undefined' && isImpersonating && admin) ? `/admin/editors/${admin.id}/news-list` : '/news-list';
             %>
+
+            <!-- ==============================
+                 MAIN NAVIGATION
+            =============================== -->
+            <div class="nav-section-title">Main Navigation</div>
+
             <% if (canView('dashboard') && (typeof isImpersonating === 'undefined' || !isImpersonating)) { %>
-            <li class="nav-item">
+            <li class="nav-item nav-item-standalone">
                 <a class="nav-link ripple <%= activePage === 'dashboard' ? 'active' : '' %>" href="<%= dashboardLink %>">
                     <i class="fas fa-home me-3"></i>
                     <span class="nav-text">Dashboard</span>
                 </a>
             </li>
             <% } %>
-            <% if (canView('newsList')) { %>
+
+            <!-- News & Content Group -->
+            <% 
+                const showNewsGroup = canView('addNews') || canView('newsList') || canView('pendingNews') || canView('rejectedNews') || canView('plagiarismReport');
+                const newsGroupActive = ['add-news', 'news-list', 'pending-news', 'rejected-news', 'plagiarism-report'].includes(activePage);
+            %>
+            <% if (showNewsGroup) { %>
             <li class="nav-item">
-                <a class="nav-link ripple <%= activePage === 'news-list' ? 'active' : '' %>" href="<%= newsListLink %>">
-                    <i class="fas fa-newspaper me-3"></i>
-                    <span class="nav-text">News List</span>
+                <a class="nav-link has-submenu text-white <%= newsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseNews" role="button" aria-expanded="<%= newsGroupActive ? 'true' : 'false' %>" aria-controls="collapseNews">
+                    <i class="fas fa-newspaper me-3 w-20px text-center"></i>
+                    <span class="nav-text">News & Content</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
                 </a>
-            </li>
-            <% } %>
-            <% if (canView('addNews')) { %>
-            <li class="nav-item">
-                <a class="nav-link ripple <%= activePage === 'add-news' ? 'active' : '' %>" href="/add-news">
-                    <i class="fas fa-plus-circle me-3"></i>
-                    <span class="nav-text">Add News</span>
-                </a>
-            </li>
-            <% } %>
-            <% if (canView('pendingNews')) { %>
-            <li class="nav-item">
-                <a class="nav-link ripple <%= activePage === 'pending-news' ? 'active' : '' %>" href="/admin/pending-news">
-                    <i class="fas fa-inbox me-3"></i>
-                    <span class="nav-text">Pending News</span>
-                    <span class="badge bg-warning ms-2">Review</span>
-                </a>
-            </li>
-            <% } %>
-            <% if (canView('rejectedNews')) { %>
-            <li class="nav-item">
-                <a class="nav-link ripple <%= activePage === 'rejected-news' ? 'active' : '' %>" href="/admin/rejected-news">
-                    <i class="fas fa-trash me-3"></i>
-                    <span class="nav-text">Rejected News</span>
-                </a>
-            </li>
-            <% } %>
-            <% if (canView('plagiarismReport')) { %>
-            <li class="nav-item">
-                <a class="nav-link ripple <%= activePage === 'plagiarism-report' ? 'active' : '' %>" href="/admin/plagiarism-report">
-                    <i class="fas fa-fingerprint me-3"></i>
-                    <span class="nav-text">Plagiarism Report</span>
-                </a>
-            </li>
-            <% } %>
-            <% if (canView('viralVideos')) { %>
-            <li class="nav-item">
-                <a class="nav-link ripple <%= activePage === 'viral-videos' ? 'active' : '' %>" href="/viral-videos">
-                    <i class="fas fa-video me-3"></i>
-                    <span class="nav-text">Viral Videos</span>
-                </a>
-            </li>
-            <% } %>
-            <% if (canView('polls')) { %>
-            <li class="nav-item">
-                <a class="nav-link ripple <%= activePage === 'polls' ? 'active' : '' %>" href="/admin/polls">
-                    <i class="fas fa-poll me-3"></i>
-                    <span class="nav-text">Polls</span>
-                </a>
-            </li>
-            <% } %>
-            <% if (canView('zodiac')) { %>
-            <li class="nav-item">
-                <a class="nav-link ripple <%= activePage === 'zodiac' ? 'active' : '' %>" href="/admin/zodiac">
-                    <i class="fas fa-calendar-alt me-3"></i>
-                    <span class="nav-text">Zodiac Calendar</span>
-                </a>
-            </li>
-            <% } %>
-            <% if (canView('longVideos')) { %>
-            <li class="nav-item">
-                <a class="nav-link ripple <%= activePage === 'long-videos' ? 'active' : '' %>" href="/long-videos">
-                    <i class="fas fa-tv me-3"></i>
-                    <span class="nav-text">Long Videos / Programs</span>
-                </a>
-            </li>
-            <% } %>
-            <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
-                admin.role==='superadmin' )) { %>
-                <li class="nav-item">
-                    <a class="nav-link ripple <%= activePage === 'ads' ? 'active' : '' %>" href="/ads/ads">
-                        <i class="fas fa-ad me-3"></i>
-                        <span class="nav-text">Ads Management</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ripple <%= activePage === 'intelligent-ads' ? 'active' : '' %>"
-                        href="/intelligent-ads">
-                        <i class="fas fa-brain me-3"></i>
-                        <span class="nav-text">Intelligent Ads</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ripple <%= activePage === 'register-editor' ? 'active' : '' %>"
-                        href="/register-editor">
-                        <i class="fas fa-user-plus me-3"></i>
-                        <span class="nav-text">Register Editor</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ripple <%= activePage === 'registration-fields' ? 'active' : '' %>"
-                        href="/registration-fields">
-                        <i class="fas fa-list-alt me-3"></i>
-                        <span class="nav-text">Form Registration</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ripple <%= activePage === 'reporter-applications' ? 'active' : '' %>"
-                        href="/reporter-applications">
-                        <i class="fas fa-clipboard-list me-3"></i>
-                        <span class="nav-text">Reporter Applications</span>
-                        <span class="badge bg-info ms-2">New</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ripple <%= activePage === 'editors' ? 'active' : '' %>" href="/editors">
-                        <i class="fas fa-users me-3"></i>
-                        <span class="nav-text">Editors</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ripple <%= activePage === 'command-center' ? 'active' : '' %>" href="/admin/command-center">
-                        <i class="fas fa-satellite-dish me-3"></i>
-                        <span class="nav-text">Command Center</span>
-                        <span class="badge bg-danger ms-2">New</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ripple <%= activePage === 'security' ? 'active' : '' %>" href="/admin/security">
-                        <i class="fas fa-shield-alt me-3"></i>
-                        <span class="nav-text">Security & Fraud</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ripple <%= activePage === 'performance-analytics' ? 'active' : '' %>" href="/admin/performance-analytics">
-                        <i class="fas fa-chart-line me-3"></i>
-                        <span class="nav-text">Performance Analytics</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ripple <%= activePage === 'users' ? 'active' : '' %>" href="/admin/users">
-                        <i class="fas fa-users me-3"></i>
-                        <span class="nav-text">Users</span>
-                    </a>
-                </li>
-            <% } %>
-            <% if (canView('categories')) { %>
-                    <li class="nav-item">
-                        <a class="nav-link ripple <%= activePage === 'categories' ? 'active' : '' %>"
-                            href="/categories">
-                            <i class="fas fa-list me-3"></i>
-                            <span class="nav-text">Categories</span>
-                        </a>
-                    </li>
-            <% } %>
-            <% if (canView('programCategories')) { %>
-                    <li class="nav-item">
-                        <a class="nav-link ripple <%= activePage === 'program-categories' ? 'active' : '' %>"
-                            href="/categories?type=program">
-                            <i class="fas fa-list-alt me-3"></i>
-                            <span class="nav-text">Program Categories</span>
-                        </a>
-                    </li>
-            <% } %>
-            <% if (canView('locations')) { %>
-                    <li class="nav-item">
-                        <a class="nav-link ripple <%= activePage === 'locations' ? 'active' : '' %>" href="/locations">
-                            <i class="fas fa-map-marker-alt me-3"></i>
-                            <span class="nav-text">Locations</span>
-                        </a>
-                    </li>
-            <% } %>
-                    <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
-                        admin.role==='superadmin' )) { %>
+                <div class="collapse submenu-collapse <%= newsGroupActive ? 'show' : '' %>" id="collapseNews" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <% if (canView('addNews')) { %>
                         <li class="nav-item">
-                            <a class="nav-link ripple <%= activePage === 'languages' ? 'active' : '' %>" href="/languages">
-                                <i class="fas fa-language me-3"></i>
-                                <span class="nav-text">Languages</span>
+                            <a class="nav-link <%= activePage === 'add-news' ? 'active' : '' %>" href="/add-news">Add News</a>
+                        </li>
+                        <% } %>
+                        <% if (canView('newsList')) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'news-list' ? 'active' : '' %>" href="<%= newsListLink %>">News List</a>
+                        </li>
+                        <% } %>
+                        <% if (canView('pendingNews')) { %>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'pending-news' ? 'active' : '' %>" href="/admin/pending-news">
+                                Pending News <span class="badge bg-warning rounded-pill">Review</span>
                             </a>
                         </li>
-                    <% } %>
-            <% if (canView('reports')) { %>
-                    <li class="nav-item">
-                        <a class="nav-link ripple <%= activePage === 'reports' ? 'active' : '' %>"
-                            href="/admin/reports">
-                            <i class="fas fa-flag me-3"></i>
-                            <span class="nav-text">Reports</span>
-                        </a>
-                    </li>
+                        <% } %>
+                        <% if (canView('rejectedNews')) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'rejected-news' ? 'active' : '' %>" href="/admin/rejected-news">Rejected News</a>
+                        </li>
+                        <% } %>
+                        <% if (canView('plagiarismReport')) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'plagiarism-report' ? 'active' : '' %>" href="/admin/plagiarism-report">Plagiarism Report</a>
+                        </li>
+                        <% } %>
+                    </ul>
+                </div>
+            </li>
             <% } %>
 
-                    <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
-                        admin.role==='superadmin' || (admin.role==='subeditor' && admin.permissions && admin.permissions.canSendNotifications))) { %>
+            <!-- Media & Entertainment Group -->
+            <% 
+                const showMediaGroup = canView('viralVideos') || canView('longVideos') || canView('polls') || canView('zodiac');
+                const mediaGroupActive = ['viral-videos', 'long-videos', 'polls', 'zodiac'].includes(activePage);
+            %>
+            <% if (showMediaGroup) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu text-white <%= mediaGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseMedia" role="button" aria-expanded="<%= mediaGroupActive ? 'true' : 'false' %>" aria-controls="collapseMedia">
+                    <i class="fas fa-photo-video me-3 w-20px text-center"></i>
+                    <span class="nav-text">Media & Media</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= mediaGroupActive ? 'show' : '' %>" id="collapseMedia" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <% if (canView('viralVideos')) { %>
                         <li class="nav-item">
-                            <a class="nav-link ripple <%= activePage === 'notifications' ? 'active' : '' %>"
-                                href="/admin/notifications">
-                                <i class="fas fa-bell me-3"></i>
-                                <span class="nav-text">Send Notification</span>
+                            <a class="nav-link <%= activePage === 'viral-videos' ? 'active' : '' %>" href="/viral-videos">Viral Videos</a>
+                        </li>
+                        <% } %>
+                        <% if (canView('longVideos')) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'long-videos' ? 'active' : '' %>" href="/long-videos">Long Videos</a>
+                        </li>
+                        <% } %>
+                        <% if (canView('polls')) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'polls' ? 'active' : '' %>" href="/admin/polls">Polls</a>
+                        </li>
+                        <% } %>
+                        <% if (canView('zodiac')) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'zodiac' ? 'active' : '' %>" href="/admin/zodiac">Zodiac Calendar</a>
+                        </li>
+                        <% } %>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
+            <!-- Categories & Locations Group -->
+            <% 
+                const showCatsGroup = canView('categories') || canView('programCategories') || canView('locations') || isAdmin;
+                const catsGroupActive = ['categories', 'program-categories', 'locations', 'languages'].includes(activePage);
+            %>
+            <% if (showCatsGroup) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu text-white <%= catsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseCats" role="button" aria-expanded="<%= catsGroupActive ? 'true' : 'false' %>" aria-controls="collapseCats">
+                    <i class="fas fa-tags me-3 w-20px text-center"></i>
+                    <span class="nav-text">Categories & Regions</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= catsGroupActive ? 'show' : '' %>" id="collapseCats" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <% if (canView('categories')) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'categories' ? 'active' : '' %>" href="/categories">News Categories</a>
+                        </li>
+                        <% } %>
+                        <% if (canView('programCategories')) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'program-categories' ? 'active' : '' %>" href="/categories?type=program">Program Categories</a>
+                        </li>
+                        <% } %>
+                        <% if (canView('locations')) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'locations' ? 'active' : '' %>" href="/locations">Locations</a>
+                        </li>
+                        <% } %>
+                        <% if (isAdmin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'languages' ? 'active' : '' %>" href="/languages">Languages</a>
+                        </li>
+                        <% } %>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
+
+            <!-- ==============================
+                 MANAGEMENT
+            =============================== -->
+            <div class="nav-section-title">Management</div>
+
+            <!-- Team & Roles Group -->
+            <% 
+                const showTeamGroup = isAdmin || canView('editors'); // Assume subeditors can view editors list if canView returns true, though usually admin
+                const teamGroupActive = ['editors', 'register-editor', 'reporter-applications'].includes(activePage);
+            %>
+            <% if (showTeamGroup) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu text-white <%= teamGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseTeam" role="button" aria-expanded="<%= teamGroupActive ? 'true' : 'false' %>" aria-controls="collapseTeam">
+                    <i class="fas fa-user-tie me-3 w-20px text-center"></i>
+                    <span class="nav-text">Team & Staff</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= teamGroupActive ? 'show' : '' %>" id="collapseTeam" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <% if (isAdmin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'editors' ? 'active' : '' %>" href="/editors">All Staff (Editors)</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'register-editor' ? 'active' : '' %>" href="/register-editor">Register New Staff</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'reporter-applications' ? 'active' : '' %>" href="/reporter-applications">
+                                Applications <span class="badge bg-info rounded-pill">New</span>
                             </a>
                         </li>
-                    <% } %>
-                    
-                    <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
-                        admin.role==='superadmin' )) { %>
-                        <li class="nav-item">
-                            <a class="nav-link ripple <%= activePage === 'onesignal-analytics' ? 'active' : '' %>"
-                                href="/admin/onesignal-analytics">
-                                <i class="fas fa-chart-bar me-3"></i>
-                                <span class="nav-text">OneSignal Analytics</span>
-                            </a>
-                        </li>
-                    <% } %>
-                    <% if (typeof admin !=='undefined' && admin && admin.role && (admin.role==='admin' ||
-                        admin.role==='superadmin' )) { %>
-                        <li class="nav-item">
-                            <a class="nav-link ripple <%= activePage === 'app-settings' ? 'active' : '' %>"
-                                href="/admin/app-settings">
-                                <i class="fas fa-mobile-alt me-3"></i>
-                                <span class="nav-text">App Settings</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link ripple <%= activePage === 'r2-usage' ? 'active' : '' %>"
-                                href="/admin/r2-usage">
-                                <i class="fas fa-cloud me-3"></i>
-                                <span class="nav-text">R2 Usage</span>
-                            </a>
-                        </li>
-                    <% } %>
-                        <li class="nav-item">
-                            <a class="nav-link ripple <%= activePage === 'referrals' ? 'active' : '' %>"
-                                href="/admin/referrals">
-                                <i class="fas fa-hand-holding-usd me-3"></i>
-                                <span class="nav-text">Refer & Earn</span>
-                            </a>
-                        </li>
+                        <% } else if (canView('editors')) { %>
                             <li class="nav-item">
-                                <a class="nav-link ripple <%= activePage === 'profile' ? 'active' : '' %>"
-                                    href="/admin/profile">
-                                    <i class="fas fa-user me-3"></i>
-                                    <span class="nav-text">Profile</span>
-                                </a>
+                                <a class="nav-link <%= activePage === 'editors' ? 'active' : '' %>" href="/editors">All Staff</a>
                             </li>
-                            <li class="nav-item mt-3">
-                                <a class="nav-link ripple" href="/logout">
-                                    <i class="fas fa-sign-out-alt me-3"></i>
-                                    <span class="nav-text">Logout</span>
-                                </a>
-                            </li>
+                        <% } %>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
+            <!-- Users Group -->
+            <% 
+                const showUsersGroup = isAdmin;
+                const usersGroupActive = ['users', 'registration-fields', 'referrals'].includes(activePage);
+            %>
+            <% if (showUsersGroup) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu text-white <%= usersGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseUsers" role="button" aria-expanded="<%= usersGroupActive ? 'true' : 'false' %>" aria-controls="collapseUsers">
+                    <i class="fas fa-users me-3 w-20px text-center"></i>
+                    <span class="nav-text">App Users</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= usersGroupActive ? 'show' : '' %>" id="collapseUsers" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'users' ? 'active' : '' %>" href="/admin/users">Users List</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'registration-fields' ? 'active' : '' %>" href="/registration-fields">Form Registration</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'referrals' ? 'active' : '' %>" href="/admin/referrals">Refer & Earn Data</a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
+            <!-- Advertisements Group -->
+            <% 
+                const showAdsGroup = isAdmin;
+                const adsGroupActive = ['ads', 'intelligent-ads'].includes(activePage);
+            %>
+            <% if (showAdsGroup) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu text-white <%= adsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseAds" role="button" aria-expanded="<%= adsGroupActive ? 'true' : 'false' %>" aria-controls="collapseAds">
+                    <i class="fas fa-ad me-3 w-20px text-center"></i>
+                    <span class="nav-text">Advertisements</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= adsGroupActive ? 'show' : '' %>" id="collapseAds" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'ads' ? 'active' : '' %>" href="/ads/ads">Ads Management</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'intelligent-ads' ? 'active' : '' %>" href="/intelligent-ads">Intelligent Ads</a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
+
+            <!-- ==============================
+                 SYSTEM & FINANCIAL
+            =============================== -->
+            <div class="nav-section-title">System & Financial</div>
+
+            <!-- Analytics & Reports Group -->
+            <% 
+                const showAnalyticsGroup = canView('reports') || isAdmin;
+                const analyticsGroupActive = ['reports', 'performance-analytics', 'onesignal-analytics'].includes(activePage);
+            %>
+            <% if (showAnalyticsGroup) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu text-white <%= analyticsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseAnalytics" role="button" aria-expanded="<%= analyticsGroupActive ? 'true' : 'false' %>" aria-controls="collapseAnalytics">
+                    <i class="fas fa-chart-line me-3 w-20px text-center"></i>
+                    <span class="nav-text">Analytics & Reports</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= analyticsGroupActive ? 'show' : '' %>" id="collapseAnalytics" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <% if (canView('reports')) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'reports' ? 'active' : '' %>" href="/admin/reports">General Reports</a>
+                        </li>
+                        <% } %>
+                        <% if (isAdmin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'performance-analytics' ? 'active' : '' %>" href="/admin/performance-analytics">Performance</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'onesignal-analytics' ? 'active' : '' %>" href="/admin/onesignal-analytics">OneSignal</a>
+                        </li>
+                        <% } %>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
+            <!-- System Configuration Group -->
+            <% 
+                const canSendNotif = isAdmin || (typeof admin !=='undefined' && admin.role==='subeditor' && admin.permissions && admin.permissions.canSendNotifications);
+                const showSystemGroup = isAdmin || canSendNotif;
+                const systemGroupActive = ['command-center', 'security', 'notifications', 'app-settings', 'r2-usage'].includes(activePage);
+            %>
+            <% if (showSystemGroup) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu text-white <%= systemGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseSystem" role="button" aria-expanded="<%= systemGroupActive ? 'true' : 'false' %>" aria-controls="collapseSystem">
+                    <i class="fas fa-cogs me-3 w-20px text-center"></i>
+                    <span class="nav-text">System & Security</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= systemGroupActive ? 'show' : '' %>" id="collapseSystem" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <% if (canSendNotif) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'notifications' ? 'active' : '' %>" href="/admin/notifications">Send Notification</a>
+                        </li>
+                        <% } %>
+                        <% if (isAdmin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'command-center' ? 'active' : '' %>" href="/admin/command-center">
+                                Command Center <span class="badge bg-danger rounded-pill">New</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'security' ? 'active' : '' %>" href="/admin/security">Security & Fraud</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'app-settings' ? 'active' : '' %>" href="/admin/app-settings">App Settings</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'r2-usage' ? 'active' : '' %>" href="/admin/r2-usage">R2 CDN Usage</a>
+                        </li>
+                        <% } %>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
+            <!-- Financial Group -->
+            <% if (isAdmin || isReporter) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu text-white <%= ['wallet-settings', 'my-wallet'].includes(activePage) ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseFinance" role="button" aria-expanded="<%= ['wallet-settings', 'my-wallet'].includes(activePage) ? 'true' : 'false' %>" aria-controls="collapseFinance">
+                    <i class="fas fa-money-check-alt me-3 w-20px text-center"></i>
+                    <span class="nav-text">Financial & Wallet</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= ['wallet-settings', 'my-wallet'].includes(activePage) ? 'show' : '' %>" id="collapseFinance" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <% if (isAdmin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'wallet-settings' ? 'active' : '' %>" href="/admin/wallet-settings">Wallet Settings</a>
+                        </li>
+                        <% } %>
+                        <% if (isReporter) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'my-wallet' ? 'active' : '' %>" href="/admin/reporter/wallet">My Earnings Wallet</a>
+                        </li>
+                        <% } %>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
+
+            <!-- ==============================
+                 ACCOUNT
+            =============================== -->
+            <div class="nav-section-title">My Account</div>
+
+            <li class="nav-item nav-item-standalone">
+                <a class="nav-link ripple <%= activePage === 'profile' ? 'active' : '' %>" href="/admin/profile">
+                    <i class="fas fa-user me-3 w-20px text-center"></i>
+                    <span class="nav-text">Profile</span>
+                </a>
+            </li>
+            <li class="nav-item nav-item-standalone mb-4">
+                <a class="nav-link ripple text-danger" href="/logout">
+                    <i class="fas fa-sign-out-alt me-3 w-20px text-center"></i>
+                    <span class="nav-text">Logout</span>
+                </a>
+            </li>
         </ul>
-        <div class="sidebar-footer text-center py-3 mt-3">
-            <small class="text-white">© 2025 Short News</small>
+        
+        <div class="sidebar-footer text-center py-4 mt-3 border-top border-secondary">
+            <small class="text-white-50">© 2025 Short News</small>
         </div>
     </div>
-
-    <!-- Sidebar JS can go here if specific to sidebar -->
 </div>
+
+<script>
+// Sidebar Auto-scroll to active item on load
+document.addEventListener("DOMContentLoaded", function() {
+    setTimeout(() => {
+        const activeItem = document.querySelector('#sidebar .nav-link.active');
+        if (activeItem) {
+            activeItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, 300);
+});
+</script>
