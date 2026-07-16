@@ -2172,7 +2172,7 @@ async function sendNotification(req, res) {
     }
 
     const plainTitle = title;
-    const plainMessage = message ? message : ' '; // Space for OneSignal if empty
+    const plainMessage = message ? message : '\u200B'; // Zero-width space for OneSignal if empty
 
     let targetLanguage = language ? normalizeNewsLanguage(language) : null;
     let linkedNewsItem = null;

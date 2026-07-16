@@ -44,7 +44,7 @@
                             <label for="notifTitleInput">Title</label>
                             <span class="notif-char-count" id="notifTitleCount">0/100</span>
                         </div>
-                        <input type="text" id="notifTitleInput" class="notif-input" placeholder="Headline users will see..." maxlength="100" oninput="updateNotifPreview()">
+                        <div contenteditable="true" id="notifTitleInput" class="notif-input" placeholder="Headline users will see..." oninput="updateNotifPreview()" style="min-height: 40px; overflow-y: auto; background: white; border: 1px solid #ccc; padding: 10px; border-radius: 4px; font-size: 14px; white-space: pre-wrap;"></div>
                     </div>
 
                     <div class="notif-field">

@@ -48,7 +48,7 @@
   function populateNotificationFields(newsItem) {
     const titleInput = document.getElementById('notifTitleInput');
     const messageInput = document.getElementById('notifMessageInput');
-    if (titleInput) titleInput.value = newsItem.title || '';
+    if (titleInput) titleInput.innerHTML = newsItem.title || '';
     if (messageInput) {
       messageInput.value = stripHtmlToPlainText(newsItem.content || '');
       resizeMessageTextarea();
@@ -92,26 +92,23 @@
     if (modal) modal.classList.add('active');
   }
 
-  function applyFormattingToSelection(input, prefix, suffix) {
-    if (input && input.selectionStart !== undefined && input.selectionStart !== input.selectionEnd) {
-      const start = input.selectionStart;
-      const end = input.selectionEnd;
-      const selectedText = input.value.substring(start, end);
-      const beforeText = input.value.substring(0, start);
-      const afterText = input.value.substring(end);
-      
-      input.value = beforeText + prefix + selectedText + suffix + afterText;
-      
-      input.focus();
-      input.setSelectionRange(start, start + prefix.length + selectedText.length + suffix.length);
-      return true;
+  function applyFormattingToSelection(color) {
+    const titleInput = document.getElementById('notifTitleInput');
+    // Ensure titleInput has focus
+    titleInput.focus();
+    
+    // Check if there's an actual selection within the title input
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0 && !selection.isCollapsed) {
+        // The execCommand will apply the color visually to the selected text
+        document.execCommand('foreColor', false, color);
+        return true;
     }
     return false;
   }
 
   function selectTitleColor(btn) {
-    const titleInput = document.getElementById('notifTitleInput');
-    const applied = applyFormattingToSelection(titleInput, '<font color="' + btn.dataset.color + '">', '</font>');
+    const applied = applyFormattingToSelection(btn.dataset.color);
     
     if (!applied) {
       document.querySelectorAll('#titleColorPresets .color-btn').forEach(function (b) {
@@ -127,8 +124,7 @@
   }
 
   function selectCustomTitleColor(color) {
-    const titleInput = document.getElementById('notifTitleInput');
-    const applied = applyFormattingToSelection(titleInput, '<font color="' + color + '">', '</font>');
+    const applied = applyFormattingToSelection(color);
     
     if (!applied) {
       document.querySelectorAll('#titleColorPresets .color-btn').forEach(function (b) {
@@ -150,7 +146,7 @@
   }
 
   function updateNotifPreview() {
-    const title = document.getElementById('notifTitleInput')?.value || 'Title Preview';
+    const title = document.getElementById('notifTitleInput')?.innerHTML || 'Title Preview';
     const message = document.getElementById('notifMessageInput')?.value || 'Message preview will appear here...';
     const previewTitle = document.getElementById('previewTitle');
     const previewMessage = document.getElementById('previewMessage');
@@ -176,7 +172,7 @@
       }
     }
     if (titleCount) {
-      titleCount.textContent = (document.getElementById('notifTitleInput')?.value.length || 0) + '/100';
+      titleCount.textContent = (document.getElementById('notifTitleInput')?.innerText.length || 0) + '/100';
     }
     if (messageCount) {
       const messageLen = document.getElementById('notifMessageInput')?.value.length || 0;
@@ -194,7 +190,7 @@
   function confirmSendNotification() {
     if (!currentNotificationNewsItem) return;
 
-    const title = document.getElementById('notifTitleInput')?.value.trim();
+    const title = document.getElementById('notifTitleInput')?.innerHTML.trim();
     const includeDesc = document.getElementById('includeDescriptionCheckbox')?.checked;
     const message = includeDesc ? document.getElementById('notifMessageInput')?.value.trim() : '';
 
