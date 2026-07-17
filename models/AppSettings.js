@@ -116,6 +116,11 @@ const appSettingsSchema = new mongoose.Schema({
   maxWithdrawalAmount: {
     type: Number,
     default: 5000
+  },
+  /** When true, reporters Next.js site can open in normal browsers; when false, WebView/app only. */
+  allowReporterBrowserAccess: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

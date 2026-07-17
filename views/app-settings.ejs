@@ -373,6 +373,21 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    <% if (admin && admin.role === 'superadmin') { %>
+                                    <div class="p-3 rounded-3 mt-3" style="background-color: rgba(220, 53, 69, 0.06); border: 1px solid rgba(220, 53, 69, 0.25);">
+                                        <div class="form-check form-switch d-flex align-items-center mb-0">
+                                            <input class="form-check-input me-3" type="checkbox" id="allowReporterBrowserAccess" name="allowReporterBrowserAccess" <%= settings.allowReporterBrowserAccess === true ? 'checked' : '' %>>
+                                            <div>
+                                                <label class="form-check-label fw-bold text-dark mb-0" for="allowReporterBrowserAccess">Allow Reporter Portal in Browser</label>
+                                                <div class="text-muted small mt-1">
+                                                    <strong>ON:</strong> reporters site opens in Chrome/Safari too (dev).<br>
+                                                    <strong>OFF:</strong> Flutter WebView app only (production default).
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <% } %>
                                     
                                     <div class="row g-4 mt-2">
                                         <div class="col-md-6">
@@ -573,6 +588,11 @@
             referralHelpText: document.getElementById('referralHelpText').value,
             isReferralEnabled: document.getElementById('isReferralEnabled').checked
         };
+
+        const browserAccessToggle = document.getElementById('allowReporterBrowserAccess');
+        if (browserAccessToggle) {
+            payload.allowReporterBrowserAccess = browserAccessToggle.checked;
+        }
 
         try {
             const response = await fetch('/api/admin/app-settings', {

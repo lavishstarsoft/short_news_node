@@ -43,7 +43,7 @@ router.get('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
 // Admin route to update app settings
 router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl, referralHelpText, referralRewardAmount, referralRequiredDays, maxDailyReferralBudget, referralShareUrl, isReferralEnabled } = req.body;
+        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl, referralHelpText, referralRewardAmount, referralRequiredDays, maxDailyReferralBudget, referralShareUrl, isReferralEnabled, allowReporterBrowserAccess } = req.body;
         let settings = await AppSettings.findOne({ key: 'update_flags' });
 
         if (!settings) {
@@ -76,6 +76,11 @@ router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
         if (maxDailyReferralBudget !== undefined) settings.maxDailyReferralBudget = Number(maxDailyReferralBudget);
         if (referralShareUrl !== undefined) settings.referralShareUrl = referralShareUrl;
         if (isReferralEnabled !== undefined) settings.isReferralEnabled = isReferralEnabled;
+
+        // Superadmin-only: allow reporters site in normal browsers (dev)
+        if (allowReporterBrowserAccess !== undefined && req.admin?.role === 'superadmin') {
+            settings.allowReporterBrowserAccess = !!allowReporterBrowserAccess;
+        }
 
         await settings.save();
         res.json(settings);
@@ -115,7 +120,8 @@ router.get('/api/public/app-settings', async (req, res) => {
                 referralRequiredDays: 7,
                 maxDailyReferralBudget: 5000,
                 referralShareUrl: 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam',
-                isReferralEnabled: true
+                isReferralEnabled: true,
+                allowReporterBrowserAccess: false
             };
         } else {
             responseSettings = settings.toObject();
@@ -124,6 +130,9 @@ router.get('/api/public/app-settings', async (req, res) => {
             }
             if (responseSettings.zodiacEnabledLanguages === undefined) {
                 responseSettings.zodiacEnabledLanguages = ['te', 'hi', 'en', 'ta', 'mr'];
+            }
+            if (responseSettings.allowReporterBrowserAccess === undefined) {
+                responseSettings.allowReporterBrowserAccess = false;
             }
         }
 
@@ -135,6 +144,19 @@ router.get('/api/public/app-settings', async (req, res) => {
     } catch (error) {
         console.error('Error fetching public app settings:', error);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Lightweight flag for reporters middleware (browser vs WebView-only)
+router.get('/api/public/reporter-browser-access', cacheMiddleware(10), async (req, res) => {
+    try {
+        const settings = await AppSettings.findOne({ key: 'update_flags' }).select('allowReporterBrowserAccess').lean();
+        res.json({
+            allowReporterBrowserAccess: !!settings?.allowReporterBrowserAccess
+        });
+    } catch (error) {
+        console.error('Error fetching reporter browser access flag:', error);
+        res.status(500).json({ allowReporterBrowserAccess: false });
     }
 });
 
