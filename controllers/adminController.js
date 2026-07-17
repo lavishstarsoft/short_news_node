@@ -4578,7 +4578,9 @@ async function getReporterDailyStats(req, res) {
       remainingForReward,
       isTargetReached,
       rewardGiven: !!rewardGiven,
-      walletBalance: admin.walletBalance || 0
+      walletBalance: admin.walletBalance || 0,
+      minWithdrawalAmount: settings?.minWithdrawalAmount || 500,
+      maxWithdrawalAmount: settings?.maxWithdrawalAmount || 5000
     });
   } catch (error) {
     console.error('Error fetching daily stats:', error);
@@ -4611,6 +4613,79 @@ async function renderWalletSettingsPage(req, res) {
     });
   } catch (err) {
     res.status(500).send('Error loading wallet settings page');
+  }
+}
+
+// Get wallet settings (JSON)
+async function getWalletSettings(req, res) {
+  try {
+    const AppSettings = require('../models/AppSettings');
+    let settings = await AppSettings.findOne({ key: 'update_flags' });
+    if (!settings) {
+      settings = await new AppSettings().save();
+    }
+    res.json({
+      reporterTargetNews: settings.reporterTargetNews ?? 5,
+      reporterMaxDailyReward: settings.reporterMaxDailyReward ?? 30,
+      minWithdrawalAmount: settings.minWithdrawalAmount ?? 500,
+      maxWithdrawalAmount: settings.maxWithdrawalAmount ?? 5000
+    });
+  } catch (error) {
+    console.error('Error fetching wallet settings:', error);
+    res.status(500).json({ error: 'Failed to fetch wallet settings' });
+  }
+}
+
+// Update wallet settings
+async function updateWalletSettings(req, res) {
+  try {
+    const {
+      reporterTargetNews,
+      reporterMaxDailyReward,
+      minWithdrawalAmount,
+      maxWithdrawalAmount
+    } = req.body;
+
+    const target = Number(reporterTargetNews);
+    const maxReward = Number(reporterMaxDailyReward);
+    const minWithdraw = Number(minWithdrawalAmount);
+    const maxWithdraw = Number(maxWithdrawalAmount);
+
+    if (!Number.isFinite(target) || target < 1) {
+      return res.status(400).json({ error: 'Target news count must be at least 1' });
+    }
+    if (!Number.isFinite(maxReward) || maxReward < 1) {
+      return res.status(400).json({ error: 'Max daily reward must be at least ₹1' });
+    }
+    if (!Number.isFinite(minWithdraw) || minWithdraw < 1) {
+      return res.status(400).json({ error: 'Minimum withdrawal must be at least ₹1' });
+    }
+    if (!Number.isFinite(maxWithdraw) || maxWithdraw < minWithdraw) {
+      return res.status(400).json({ error: 'Maximum withdrawal must be >= minimum withdrawal' });
+    }
+
+    const AppSettings = require('../models/AppSettings');
+    let settings = await AppSettings.findOne({ key: 'update_flags' });
+    if (!settings) {
+      settings = new AppSettings();
+    }
+
+    settings.reporterTargetNews = Math.floor(target);
+    settings.reporterMaxDailyReward = maxReward;
+    settings.minWithdrawalAmount = minWithdraw;
+    settings.maxWithdrawalAmount = maxWithdraw;
+    await settings.save();
+
+    res.json({
+      success: true,
+      reporterTargetNews: settings.reporterTargetNews,
+      reporterMaxDailyReward: settings.reporterMaxDailyReward,
+      minWithdrawalAmount: settings.minWithdrawalAmount,
+      maxWithdrawalAmount: settings.maxWithdrawalAmount
+    });
+  } catch (error) {
+    console.error('Error updating wallet settings:', error);
+    res.status(500).json({ error: 'Failed to update wallet settings' });
   }
 }
 
@@ -4683,5 +4758,7 @@ module.exports = {
   updateReferralStatus,
   getReporterDailyStats,
   renderReporterWalletPage,
-  renderWalletSettingsPage
+  renderWalletSettingsPage,
+  getWalletSettings,
+  updateWalletSettings
 };

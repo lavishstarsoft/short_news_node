@@ -120,5 +120,7 @@ router.post('/security/clear', adminController.requireAdmin, securityController.
 router.get('/api/reporter/daily-stats', adminController.requireAuth, adminController.getReporterDailyStats);
 router.get('/reporter/wallet', adminController.requireAuth, adminController.renderReporterWalletPage);
 router.get('/wallet-settings', adminController.requireAdmin, adminController.renderWalletSettingsPage);
+router.get('/api/wallet-settings', adminController.requireAdmin, adminController.getWalletSettings);
+router.put('/api/wallet-settings', adminController.requireAdmin, adminController.updateWalletSettings);
 
 module.exports = router;

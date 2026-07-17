@@ -299,7 +299,8 @@ app.use(cors({
 const rateLimitValidate = { xForwardedForHeader: false };
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_MAX) || 1000,
+  // Mobile feed (views + pagination + ads) easily exceeds 1000 under fast swipe.
+  max: Number(process.env.RATE_LIMIT_MAX) || 5000,
   standardHeaders: true,
   legacyHeaders: false,
   validate: rateLimitValidate,
