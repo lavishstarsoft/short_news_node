@@ -77,8 +77,8 @@
       <div class="stat-card">
         <div class="icon-box text-warning bg-warning bg-opacity-10"><i class="fas fa-clock"></i></div>
         <div>
-          <h6 class="text-muted mb-1 fw-bold">Pending Requests</h6>
-          <h4 class="mb-0 fw-bold">0</h4>
+          <h6 className="text-muted mb-1 fw-bold">Pending Requests</h6>
+          <h4 className="mb-0 fw-bold" id="topPendingCount">0</h4>
         </div>
       </div>
     </div>
@@ -99,6 +99,7 @@
       <div class="card settings-card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0 fw-bold">Pending Withdrawal Requests</h5>
+          <button type="button" class="btn btn-sm btn-outline-primary" id="refreshWithdrawalsBtn">Refresh</button>
         </div>
         <div class="card-body p-0">
           <table class="table table-hover align-middle mb-0">
@@ -111,9 +112,9 @@
                 <th class="text-end pe-4">Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="withdrawalsTableBody">
               <tr>
-                <td colspan="5" class="text-center py-4 text-muted">No pending requests at the moment.</td>
+                <td colspan="5" class="text-center py-4 text-muted">Loading...</td>
               </tr>
             </tbody>
           </table>
@@ -154,15 +155,15 @@
 
                 <hr class="my-4">
 
-                <h5 class="fw-bold mb-3">Withdrawal Limits</h5>
+                <h5 class="fw-bold mb-3">Fixed Daily Withdrawal</h5>
+                <p class="text-muted small mb-3">
+                  Reporters can withdraw only this exact amount (example: ₹200, ₹500, or ₹1000). No custom amount.
+                </p>
                 <div class="row mb-4">
                   <div class="col-md-6">
-                    <label class="form-label fw-bold">Minimum Withdrawal (₹)</label>
-                    <input type="number" class="form-control" id="minWithdrawalAmount" value="500" required>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-bold">Maximum Withdrawal (₹)</label>
-                    <input type="number" class="form-control" id="maxWithdrawalAmount" value="5000" required>
+                    <label class="form-label fw-bold">Fixed Withdrawal Amount (₹)</label>
+                    <input type="number" class="form-control" id="fixedWithdrawalAmount" value="500" min="1" required>
+                    <div class="form-text">Same amount for every withdraw request today.</div>
                   </div>
                 </div>
 
@@ -190,8 +191,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     const targetInput = document.getElementById('reporterTargetNews');
     const maxRewardInput = document.getElementById('reporterMaxDailyReward');
-    const minWithdrawInput = document.getElementById('minWithdrawalAmount');
-    const maxWithdrawInput = document.getElementById('maxWithdrawalAmount');
+    const fixedWithdrawInput = document.getElementById('fixedWithdrawalAmount');
     const calcPreview = document.getElementById('calcPreview');
     const form = document.getElementById('walletSettingsForm');
     const saveBtn = document.getElementById('saveWalletSettingsBtn');
@@ -224,8 +224,8 @@
         const data = await res.json();
         targetInput.value = data.reporterTargetNews ?? 5;
         maxRewardInput.value = data.reporterMaxDailyReward ?? 30;
-        minWithdrawInput.value = data.minWithdrawalAmount ?? 500;
-        maxWithdrawInput.value = data.maxWithdrawalAmount ?? 5000;
+        fixedWithdrawInput.value =
+          data.fixedWithdrawalAmount ?? data.minWithdrawalAmount ?? 500;
         updatePreview();
       } catch (err) {
         console.error(err);
@@ -243,14 +243,14 @@
       saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
 
       try {
+        const fixedAmount = Number(fixedWithdrawInput.value);
         const res = await fetch('/admin/api/wallet-settings', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             reporterTargetNews: Number(targetInput.value),
             reporterMaxDailyReward: Number(maxRewardInput.value),
-            minWithdrawalAmount: Number(minWithdrawInput.value),
-            maxWithdrawalAmount: Number(maxWithdrawInput.value)
+            fixedWithdrawalAmount: fixedAmount
           })
         });
         const data = await res.json().catch(() => ({}));
@@ -259,10 +259,10 @@
         }
         targetInput.value = data.reporterTargetNews;
         maxRewardInput.value = data.reporterMaxDailyReward;
-        minWithdrawInput.value = data.minWithdrawalAmount;
-        maxWithdrawInput.value = data.maxWithdrawalAmount;
+        fixedWithdrawInput.value =
+          data.fixedWithdrawalAmount ?? data.minWithdrawalAmount;
         updatePreview();
-        showAlert('success', '<i class="fas fa-check-circle me-2"></i><strong>Saved!</strong> Wallet settings updated successfully.');
+        showAlert('success', '<i class="fas fa-check-circle me-2"></i><strong>Saved!</strong> Fixed withdrawal amount updated.');
       } catch (err) {
         console.error(err);
         showAlert('danger', `<i class="fas fa-exclamation-triangle me-2"></i><strong>Error!</strong> ${err.message || 'Could not save settings.'}`);
@@ -273,6 +273,67 @@
     });
 
     loadSettings();
+
+    // ---- Withdrawal requests (admin) ----
+    const withdrawalsBody = document.getElementById('withdrawalsTableBody');
+    const topPendingCount = document.getElementById('topPendingCount');
+
+    async function loadWithdrawals() {
+      try {
+        const res = await fetch('/admin/api/wallet/withdrawals?status=pending');
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+        const list = data.withdrawals || [];
+        if (topPendingCount) topPendingCount.textContent = String(list.length);
+
+        if (!list.length) {
+          withdrawalsBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No pending requests at the moment.</td></tr>`;
+          return;
+        }
+
+        withdrawalsBody.innerHTML = list.map(w => {
+          const name = (w.reporter && (w.reporter.name || w.reporter.username)) || 'Unknown';
+          const date = w.createdAt ? new Date(w.createdAt).toLocaleString('en-IN') : '-';
+          const details = (w.paymentDetails || '').replace(/</g, '&lt;');
+          return `<tr>
+            <td class="ps-4 fw-semibold">${name}</td>
+            <td class="fw-bold text-success">₹${w.amount}</td>
+            <td style="max-width:240px;white-space:pre-wrap;font-size:13px;">${details}</td>
+            <td class="small text-muted">${date}</td>
+            <td class="text-end pe-4">
+              <button class="btn btn-sm btn-success me-1" onclick="processWithdrawal('${w.id}','approve')">Approve</button>
+              <button class="btn btn-sm btn-outline-danger" onclick="processWithdrawal('${w.id}','reject')">Reject</button>
+            </td>
+          </tr>`;
+        }).join('');
+      } catch (err) {
+        console.error(err);
+        withdrawalsBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger">Failed to load requests.</td></tr>`;
+      }
+    }
+
+    window.processWithdrawal = async function(id, action) {
+      const remarks = action === 'reject'
+        ? (prompt('Rejection reason (optional):') || 'Rejected by admin')
+        : (prompt('Payment note (optional):') || 'Paid');
+      if (remarks === null) return;
+      try {
+        const res = await fetch(`/admin/api/wallet/withdrawals/${id}/process`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, remarks })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        alert(data.message || 'Done');
+        loadWithdrawals();
+      } catch (err) {
+        alert(err.message || 'Failed to process');
+      }
+    };
+
+    document.getElementById('refreshWithdrawalsBtn')?.addEventListener('click', loadWithdrawals);
+    loadWithdrawals();
   });
 </script>
 

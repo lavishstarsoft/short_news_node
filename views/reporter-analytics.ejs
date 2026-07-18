@@ -1,0 +1,429 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius:12px; border:none; box-shadow:0 4px 6px rgba(0,0,0,.04); }
+  .settings-card .card-header { background:#fff; border-bottom:1px solid #f0f0f0; padding:14px 18px; border-radius:12px 12px 0 0; }
+  .stat-card { background:#fff; border-radius:12px; padding:16px 18px; border:1px solid #f0f0f0; height:100%; }
+  .stat-card h6 { font-size:11px; letter-spacing:.04em; }
+  .range-pills .nav-link { border-radius:8px; font-weight:600; color:#495057; padding:7px 16px; font-size:13.5px; }
+  .range-pills .nav-link.active { background:#0d6efd; color:#fff; }
+  .rank-badge { width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; background:#f3f4f6; color:#374151; }
+  .rank-1 { background:#fbbf24; color:#fff; }
+  .rank-2 { background:#9ca3af; color:#fff; }
+  .rank-3 { background:#d97706; color:#fff; }
+  .mini-bar { height:6px; border-radius:3px; background:#e5e7eb; overflow:hidden; }
+  .mini-bar > div { height:100%; border-radius:3px; background:#16a34a; }
+  .clickable-row { cursor:pointer; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h1 class="h2 page-title mb-1">Reporter Analytics</h1>
+      <p class="text-muted mb-0">Earnings, productivity and location coverage — click any reporter for full drill-down.</p>
+    </div>
+    <button type="button" class="btn btn-outline-primary fw-bold" id="refreshBtn"><i class="fas fa-sync-alt me-2"></i>Refresh</button>
+  </div>
+
+  <!-- Date range -->
+  <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
+    <ul class="nav nav-pills range-pills" id="rangePills">
+      <li class="nav-item"><button class="nav-link" data-range="today">Today</button></li>
+      <li class="nav-item"><button class="nav-link active" data-range="7d">Last 7 days</button></li>
+      <li class="nav-item"><button class="nav-link" data-range="30d">Last 30 days</button></li>
+      <li class="nav-item"><button class="nav-link" data-range="month">This month</button></li>
+      <li class="nav-item"><button class="nav-link" data-range="all">All time</button></li>
+    </ul>
+    <div class="d-flex align-items-center gap-1 ms-2">
+      <input type="date" class="form-control form-control-sm" id="customFrom" style="width:150px">
+      <span class="text-muted small">to</span>
+      <input type="date" class="form-control form-control-sm" id="customTo" style="width:150px">
+      <button class="btn btn-sm btn-primary fw-bold" id="customApplyBtn">Go</button>
+    </div>
+  </div>
+
+  <!-- Overview cards -->
+  <div class="row g-3 mb-4" id="overviewCards">
+    <div class="col-md-3 col-6">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold mb-1">EARNINGS CREDITED</h6>
+        <h4 class="fw-bold text-success mb-0" id="ovCredited">₹0</h4>
+        <small class="text-muted" id="ovCreditedSub">-</small>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold mb-1">PAID OUT (WITHDRAWALS)</h6>
+        <h4 class="fw-bold mb-0" id="ovPaid">₹0</h4>
+        <small class="text-muted" id="ovPaidSub">-</small>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold mb-1">PENDING WITHDRAWALS</h6>
+        <h4 class="fw-bold text-warning mb-0" id="ovPending">₹0</h4>
+        <small class="text-muted" id="ovPendingSub">-</small>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold mb-1">WALLET LIABILITY</h6>
+        <h4 class="fw-bold text-primary mb-0" id="ovLiability">₹0</h4>
+        <small class="text-muted" id="ovLiabilitySub">total balance in all wallets</small>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold mb-1">ACTIVE REPORTERS</h6>
+        <h4 class="fw-bold mb-0" id="ovActive">0</h4>
+        <small class="text-muted" id="ovActiveSub">-</small>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold mb-1">NEWS SUBMITTED</h6>
+        <h4 class="fw-bold mb-0" id="ovNews">0</h4>
+        <small class="text-muted" id="ovNewsSub">-</small>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold mb-1">APPROVAL RATE</h6>
+        <h4 class="fw-bold mb-0" id="ovApproval">0%</h4>
+        <div class="mini-bar mt-2"><div id="ovApprovalBar" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold mb-1">AVG EARNING / ACTIVE REPORTER</h6>
+        <h4 class="fw-bold mb-0" id="ovAvg">₹0</h4>
+        <small class="text-muted">in selected range</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard -->
+  <div class="card settings-card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <strong><i class="fas fa-trophy text-warning me-2"></i>Reporter Leaderboard</strong>
+      <select class="form-select form-select-sm" id="sortSelect" style="width:auto">
+        <option value="earned">Sort: Top Earned</option>
+        <option value="posts">Sort: Most Posts</option>
+        <option value="approved">Sort: Most Approved</option>
+        <option value="views">Sort: Most Views</option>
+        <option value="approvalRate">Sort: Best Approval Rate</option>
+        <option value="balance">Sort: Highest Balance</option>
+      </select>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="bg-light">
+            <tr>
+              <th class="ps-4">#</th>
+              <th>Reporter</th>
+              <th>Location</th>
+              <th>Earned</th>
+              <th>Withdrawn</th>
+              <th>Balance</th>
+              <th>Posts</th>
+              <th>Approved</th>
+              <th>Approval %</th>
+              <th>Views</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardBody">
+            <tr><td colspan="10" class="text-center py-4 text-muted">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location analytics -->
+  <div class="row">
+    <div class="col-lg-8 mb-4">
+      <div class="card settings-card h-100">
+        <div class="card-header"><strong><i class="fas fa-map-marker-alt text-danger me-2"></i>Location wise Coverage</strong></div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="bg-light">
+                <tr>
+                  <th class="ps-4">Location</th>
+                  <th>Posts</th>
+                  <th>Approved</th>
+                  <th>Approval %</th>
+                  <th>Views</th>
+                  <th>Active Reporters</th>
+                  <th>Registered</th>
+                </tr>
+              </thead>
+              <tbody id="locationsBody">
+                <tr><td colspan="7" class="text-center py-4 text-muted">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4 mb-4">
+      <div class="card settings-card h-100">
+        <div class="card-header"><strong><i class="fas fa-bell-slash text-warning me-2"></i>Silent Areas</strong></div>
+        <div class="card-body p-0">
+          <p class="text-muted small px-3 pt-2 mb-1">Reporters unnaru kani ee range lo posts levu:</p>
+          <ul class="list-group list-group-flush" id="silentBody">
+            <li class="list-group-item text-muted small">Loading...</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Reporter drill-down modal -->
+<div class="modal fade" id="reporterModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" id="rmTitle">Reporter</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="rmBody">
+        <div class="text-center py-5 text-muted">Loading...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  let currentRange = '7d';
+  let customDates = null;
+  let detailChart = null;
+
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const num = (n) => Number(n || 0).toLocaleString('en-IN');
+  const dt = (d) => d ? new Date(d).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '-';
+
+  function ymd(d) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+  }
+
+  function rangeParams() {
+    const p = new URLSearchParams();
+    const now = new Date();
+    if (customDates) {
+      if (customDates.from) p.set('from', customDates.from);
+      if (customDates.to) p.set('to', customDates.to);
+      return p;
+    }
+    if (currentRange === 'today') {
+      p.set('from', ymd(now)); p.set('to', ymd(now));
+    } else if (currentRange === '7d') {
+      const from = new Date(); from.setDate(from.getDate() - 6);
+      p.set('from', ymd(from)); p.set('to', ymd(now));
+    } else if (currentRange === '30d') {
+      const from = new Date(); from.setDate(from.getDate() - 29);
+      p.set('from', ymd(from)); p.set('to', ymd(now));
+    } else if (currentRange === 'month') {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1);
+      p.set('from', ymd(from)); p.set('to', ymd(now));
+    }
+    // 'all' → no params
+    return p;
+  }
+
+  async function loadOverview() {
+    try {
+      const res = await fetch('/admin/api/reporter-analytics/overview?' + rangeParams().toString());
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed');
+
+      document.getElementById('ovCredited').textContent = inr(d.earnings.credited);
+      document.getElementById('ovCreditedSub').textContent = `${num(d.earnings.creditCount)} credits`;
+      document.getElementById('ovPaid').textContent = inr(d.withdrawals.paidAmount);
+      document.getElementById('ovPaidSub').textContent = `${num(d.withdrawals.paidCount)} payouts`;
+      document.getElementById('ovPending').textContent = inr(d.withdrawals.pendingAmount);
+      document.getElementById('ovPendingSub').textContent = `${num(d.withdrawals.pendingCount)} requests waiting`;
+      document.getElementById('ovLiability').textContent = inr(d.wallet.totalLiability);
+      document.getElementById('ovLiabilitySub').textContent = `across ${num(d.wallet.reporterCount)} reporters`;
+      document.getElementById('ovActive').textContent = num(d.reporters.activeInRange);
+      document.getElementById('ovActiveSub').textContent = `today: ${num(d.reporters.activeToday)}`;
+      document.getElementById('ovNews').textContent = num(d.news.total);
+      document.getElementById('ovNewsSub').textContent = `${num(d.news.approved)} approved · ${num(d.news.rejected)} rejected`;
+      document.getElementById('ovApproval').textContent = (d.news.approvalRate || 0) + '%';
+      document.getElementById('ovApprovalBar').style.width = (d.news.approvalRate || 0) + '%';
+      document.getElementById('ovAvg').textContent = inr(d.earnings.avgPerActiveReporter);
+    } catch (err) { console.error(err); }
+  }
+
+  async function loadLeaderboard() {
+    const body = document.getElementById('leaderboardBody');
+    body.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">Loading...</td></tr>';
+    try {
+      const p = rangeParams();
+      p.set('sort', document.getElementById('sortSelect').value);
+      const res = await fetch('/admin/api/reporter-analytics/leaderboard?' + p.toString());
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed');
+
+      const list = d.reporters || [];
+      if (!list.length) {
+        body.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">No activity in this range.</td></tr>';
+        return;
+      }
+      body.innerHTML = list.map((r, i) => `<tr class="clickable-row" onclick="openReporter('${r.id}')">
+        <td class="ps-4"><span class="rank-badge ${i < 3 ? 'rank-' + (i+1) : ''}">${i + 1}</span></td>
+        <td><div class="fw-semibold">${esc(r.name)}</div><div class="small text-muted">${esc(r.mobileNumber || r.username)} · ${esc(r.language.toUpperCase())}</div></td>
+        <td class="small">${esc(r.location || '-')}</td>
+        <td class="fw-bold text-success">${inr(r.earned)}</td>
+        <td class="small">${inr(r.withdrawn)}</td>
+        <td class="small fw-semibold">${inr(r.walletBalance)}</td>
+        <td>${num(r.posts)}</td>
+        <td class="text-success fw-semibold">${num(r.approved)}</td>
+        <td><div class="d-flex align-items-center gap-2"><span class="small fw-bold">${r.approvalRate}%</span><div class="mini-bar flex-grow-1" style="min-width:40px"><div style="width:${r.approvalRate}%"></div></div></div></td>
+        <td class="small">${num(r.views)}</td>
+      </tr>`).join('');
+    } catch (err) {
+      body.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-danger">${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  async function loadLocations() {
+    const body = document.getElementById('locationsBody');
+    const silent = document.getElementById('silentBody');
+    body.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Loading...</td></tr>';
+    try {
+      const res = await fetch('/admin/api/reporter-analytics/locations?' + rangeParams().toString());
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed');
+
+      const list = d.locations || [];
+      body.innerHTML = list.length ? list.map((l) => `<tr>
+        <td class="ps-4 fw-semibold">${esc(l.location)}</td>
+        <td>${num(l.posts)}</td>
+        <td class="text-success">${num(l.approved)}</td>
+        <td><span class="small fw-bold">${l.approvalRate}%</span></td>
+        <td class="small">${num(l.views)}</td>
+        <td>${num(l.activeReporters)}</td>
+        <td class="small text-muted">${num(l.registeredReporters)}</td>
+      </tr>`).join('') : '<tr><td colspan="7" class="text-center py-4 text-muted">No posts in this range.</td></tr>';
+
+      const sl = d.silentLocations || [];
+      silent.innerHTML = sl.length
+        ? sl.map((s) => `<li class="list-group-item d-flex justify-content-between align-items-center">
+            <span class="small fw-semibold">${esc(s.location)}</span>
+            <span class="badge bg-warning bg-opacity-25 text-warning">${num(s.registeredReporters)} reporters</span>
+          </li>`).join('')
+        : '<li class="list-group-item text-muted small">All areas active 🎉</li>';
+    } catch (err) {
+      body.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  function loadAll() { loadOverview(); loadLeaderboard(); loadLocations(); }
+
+  // ---- Reporter drill-down ----
+  window.openReporter = async function (id) {
+    const modal = new bootstrap.Modal(document.getElementById('reporterModal'));
+    const bodyEl = document.getElementById('rmBody');
+    bodyEl.innerHTML = '<div class="text-center py-5 text-muted">Loading...</div>';
+    modal.show();
+    try {
+      const res = await fetch(`/admin/api/reporter-analytics/reporter/${id}?days=30`);
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed');
+
+      const r = d.reporter, t = d.totals;
+      document.getElementById('rmTitle').innerHTML = `${esc(r.name)} <span class="text-muted fs-6 fw-normal">· ${esc(r.location || '-')} · ${esc(r.language.toUpperCase())}</span>`;
+
+      bodyEl.innerHTML = `
+        <div class="row g-3 mb-3">
+          <div class="col-md-2 col-4"><div class="stat-card"><h6 class="text-muted fw-bold mb-1">EARNED</h6><h5 class="fw-bold text-success mb-0">${inr(t.earned)}</h5></div></div>
+          <div class="col-md-2 col-4"><div class="stat-card"><h6 class="text-muted fw-bold mb-1">WITHDRAWN</h6><h5 class="fw-bold mb-0">${inr(t.withdrawn)}</h5></div></div>
+          <div class="col-md-2 col-4"><div class="stat-card"><h6 class="text-muted fw-bold mb-1">BALANCE</h6><h5 class="fw-bold text-primary mb-0">${inr(r.walletBalance)}</h5></div></div>
+          <div class="col-md-2 col-4"><div class="stat-card"><h6 class="text-muted fw-bold mb-1">POSTS</h6><h5 class="fw-bold mb-0">${num(t.posts)}</h5></div></div>
+          <div class="col-md-2 col-4"><div class="stat-card"><h6 class="text-muted fw-bold mb-1">APPROVAL</h6><h5 class="fw-bold mb-0">${t.approvalRate}%</h5></div></div>
+          <div class="col-md-2 col-4"><div class="stat-card"><h6 class="text-muted fw-bold mb-1">VIEWS</h6><h5 class="fw-bold mb-0">${num(t.views)}</h5></div></div>
+        </div>
+        <div class="card settings-card mb-3"><div class="card-body"><canvas id="rmChart" height="80"></canvas></div></div>
+        <div class="row">
+          <div class="col-md-6">
+            <h6 class="fw-bold mb-2">Recent Transactions</h6>
+            <ul class="list-group list-group-flush small mb-3">
+              ${(d.recentTransactions || []).map((tx) => `<li class="list-group-item d-flex justify-content-between">
+                <span style="max-width:65%">${esc(tx.description)}<br><span class="text-muted">${dt(tx.createdAt)}</span></span>
+                <span class="fw-bold ${tx.type === 'credit' ? 'text-success' : 'text-danger'}">${tx.type === 'credit' ? '+' : '−'}${inr(tx.amount)}</span>
+              </li>`).join('') || '<li class="list-group-item text-muted">No transactions</li>'}
+            </ul>
+          </div>
+          <div class="col-md-6">
+            <h6 class="fw-bold mb-2">Recent Withdrawals</h6>
+            <ul class="list-group list-group-flush small">
+              ${(d.recentWithdrawals || []).map((w) => `<li class="list-group-item d-flex justify-content-between">
+                <span>${inr(w.amount)} · <span class="fw-bold text-${w.status === 'approved' ? 'success' : w.status === 'rejected' ? 'danger' : 'warning'}">${esc(w.status)}</span>${w.utr ? `<br><span class="text-muted">UTR: ${esc(w.utr)}</span>` : ''}</span>
+                <span class="text-muted">${dt(w.createdAt)}</span>
+              </li>`).join('') || '<li class="list-group-item text-muted">No withdrawals</li>'}
+            </ul>
+          </div>
+        </div>`;
+
+      const series = d.series || [];
+      if (detailChart) { detailChart.destroy(); detailChart = null; }
+      detailChart = new Chart(document.getElementById('rmChart'), {
+        data: {
+          labels: series.map((s) => s.date.slice(5)),
+          datasets: [
+            { type: 'bar', label: 'Earned (₹)', data: series.map((s) => s.earned), backgroundColor: 'rgba(22,163,74,0.6)', yAxisID: 'y' },
+            { type: 'line', label: 'Approved posts', data: series.map((s) => s.approved), borderColor: '#0d6efd', backgroundColor: '#0d6efd', tension: 0.3, yAxisID: 'y1' }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            y: { beginAtZero: true, position: 'left', title: { display: true, text: '₹' } },
+            y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { precision: 0 } }
+          },
+          plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } }
+        }
+      });
+    } catch (err) {
+      bodyEl.innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`;
+    }
+  };
+
+  // ---- events ----
+  document.querySelectorAll('#rangePills .nav-link').forEach((b) => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#rangePills .nav-link').forEach((x) => x.classList.remove('active'));
+      b.classList.add('active');
+      currentRange = b.dataset.range;
+      customDates = null;
+      document.getElementById('customFrom').value = '';
+      document.getElementById('customTo').value = '';
+      loadAll();
+    });
+  });
+
+  document.getElementById('customApplyBtn').addEventListener('click', () => {
+    const from = document.getElementById('customFrom').value;
+    const to = document.getElementById('customTo').value;
+    if (!from && !to) return;
+    customDates = { from, to };
+    document.querySelectorAll('#rangePills .nav-link').forEach((x) => x.classList.remove('active'));
+    loadAll();
+  });
+
+  document.getElementById('sortSelect').addEventListener('change', loadLeaderboard);
+  document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+  loadAll();
+});
+</script>
+
+<%- include('partials/footer') %>

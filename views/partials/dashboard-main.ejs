@@ -16,9 +16,11 @@
                                     });
                                 }
                                 const dashIsEditor = typeof admin !== 'undefined' && admin && admin.role === 'editor';
-                                const dashAdminName = typeof admin !== 'undefined' && admin ? (admin.username || admin.name || 'User') : 'User';
+                                const dashIsSubEditor = typeof admin !== 'undefined' && admin && admin.role === 'subeditor';
+                                const dashAdminName = typeof admin !== 'undefined' && admin ? (admin.name || admin.username || 'User') : 'User';
                             %>
                             <div class="dash-page content-area mt-4">
+                                <% if (!dashIsSubEditor) { %>
                                 <header class="dash-hero">
                                     <div>
                                         <p class="dash-eyebrow"><i class="fas fa-signal"></i> Operations Command Center</p>
@@ -33,7 +35,541 @@
                                         <% } %>
                                     </div>
                                 </header>
+                                <% } %>
 
+                                <!-- ============ SCOPED PERFORMANCE ANALYTICS ============ -->
+                                <style>
+                                    .sd-page { --sd-blue:#2563eb; --sd-green:#16a34a; --sd-red:#ef4444; --sd-orange:#f59e0b; --sd-purple:#7c3aed; --sd-ink:#0f172a; --sd-muted:#64748b; --sd-border:#e8edf3; margin-bottom:28px; }
+                                    .sd-page * { box-sizing:border-box; }
+                                    .sd-card { background:#fff; border:1px solid var(--sd-border); border-radius:14px; box-shadow:0 1px 3px rgba(15,23,42,.04); }
+
+                                    /* Header */
+                                    .sd-header { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+                                    .sd-header h1 { font-size:24px; font-weight:800; color:var(--sd-ink); margin:0; letter-spacing:-.02em; }
+                                    .sd-header .sd-sub { font-size:13px; color:var(--sd-muted); margin:3px 0 0; }
+                                    .sd-header-right { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+                                    .sd-range-pill { display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--sd-border); border-radius:10px; padding:8px 14px; font-size:12.5px; font-weight:700; color:#334155; }
+                                    .sd-range-pill i { color:var(--sd-blue); }
+                                    .sd-refresh { display:inline-flex; align-items:center; gap:7px; background:var(--sd-blue); color:#fff; border:none; border-radius:10px; padding:8px 16px; font-size:12.5px; font-weight:700; cursor:pointer; transition:.15s; }
+                                    .sd-refresh:hover { background:#1d4ed8; }
+                                    .sd-viewas select { border:1px solid var(--sd-border); background:#fff; border-radius:10px; padding:8px 10px; font-size:12.5px; font-weight:600; color:#334155; max-width:230px; }
+
+                                    /* Filter tabs */
+                                    .sd-tabs { display:inline-flex; gap:2px; background:#fff; border:1px solid var(--sd-border); border-radius:11px; padding:4px; flex-wrap:wrap; margin-bottom:18px; }
+                                    .sd-tab { border:none; background:transparent; color:#475569; font-size:12.5px; font-weight:700; padding:7px 15px; border-radius:8px; cursor:pointer; transition:.15s; white-space:nowrap; }
+                                    .sd-tab:hover { background:#f1f5f9; }
+                                    .sd-tab.active { background:var(--sd-blue); color:#fff; box-shadow:0 2px 6px rgba(37,99,235,.3); }
+                                    .sd-custom { display:none; gap:8px; align-items:center; margin:-8px 0 18px; }
+                                    .sd-custom.show { display:flex; flex-wrap:wrap; }
+                                    .sd-custom input { border:1px solid var(--sd-border); border-radius:9px; padding:7px 10px; font-size:12.5px; color:#334155; }
+                                    .sd-custom .sd-apply { border:none; background:var(--sd-blue); color:#fff; font-size:12.5px; font-weight:700; padding:8px 18px; border-radius:9px; cursor:pointer; }
+
+                                    /* Summary cards */
+                                    .sd-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:14px; margin-bottom:18px; }
+                                    .sd-stat { padding:16px 18px; display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+                                    .sd-stat-num { font-size:26px; font-weight:800; color:var(--sd-ink); line-height:1.05; letter-spacing:-.02em; }
+                                    .sd-stat-label { font-size:12px; font-weight:600; color:var(--sd-muted); margin-top:5px; }
+                                    .sd-stat-meta { font-size:11.5px; font-weight:700; margin-top:7px; }
+                                    .sd-stat-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+                                    .sd-ic-blue { background:#eff6ff; color:var(--sd-blue); }   .sd-tx-blue { color:var(--sd-blue); }
+                                    .sd-ic-green { background:#f0fdf4; color:var(--sd-green); } .sd-tx-green { color:var(--sd-green); }
+                                    .sd-ic-red { background:#fef2f2; color:var(--sd-red); }     .sd-tx-red { color:var(--sd-red); }
+                                    .sd-ic-orange { background:#fffbeb; color:var(--sd-orange); } .sd-tx-orange { color:var(--sd-orange); }
+                                    .sd-ic-purple { background:#f5f3ff; color:var(--sd-purple); } .sd-tx-purple { color:var(--sd-purple); }
+
+                                    /* Panels grid */
+                                    .sd-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
+                                    @media (max-width: 1100px) { .sd-grid { grid-template-columns:1fr; } }
+                                    .sd-panel { padding:18px; }
+                                    .sd-panel-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+                                    .sd-panel-head h4 { font-size:14px; font-weight:800; color:var(--sd-ink); margin:0; }
+                                    .sd-panel-head .sd-panel-hint { font-size:11px; color:#94a3b8; font-weight:600; }
+
+                                    /* Assigned locations tree */
+                                    .sd-loc-list { display:flex; flex-direction:column; gap:8px; max-height:290px; overflow-y:auto; padding-right:4px; }
+                                    .sd-loc-state { border:1px solid #f1f5f9; border-radius:10px; overflow:hidden; }
+                                    .sd-loc-state-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; cursor:pointer; background:#f8fafc; }
+                                    .sd-loc-state-head:hover { background:#f1f5f9; }
+                                    .sd-loc-state-head strong { font-size:13px; font-weight:800; color:var(--sd-ink); }
+                                    .sd-loc-state-head .sd-loc-count { font-size:11px; font-weight:700; color:var(--sd-blue); background:#eff6ff; padding:2px 9px; border-radius:999px; }
+                                    .sd-loc-state-body { display:none; padding:10px 12px; }
+                                    .sd-loc-state.open .sd-loc-state-body { display:block; }
+                                    .sd-loc-state.open .sd-loc-caret { transform:rotate(180deg); }
+                                    .sd-loc-caret { transition:.15s; color:#94a3b8; font-size:11px; }
+                                    .sd-loc-dist { font-size:12.5px; font-weight:700; color:#334155; display:flex; align-items:center; gap:6px; margin:7px 0 3px; }
+                                    .sd-loc-dist i { color:var(--sd-green); font-size:11px; }
+                                    .sd-loc-acs { display:flex; flex-wrap:wrap; gap:4px; margin-left:18px; }
+                                    .sd-loc-ac { font-size:10.5px; font-weight:600; background:#f1f5f9; color:#475569; padding:2px 9px; border-radius:999px; }
+
+                                    /* Donut + legend */
+                                    .sd-donut-wrap { display:flex; align-items:center; gap:20px; }
+                                    .sd-donut-box { position:relative; width:170px; height:170px; flex-shrink:0; }
+                                    .sd-donut-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+                                    .sd-donut-center strong { font-size:22px; font-weight:800; color:var(--sd-ink); }
+                                    .sd-donut-center span { font-size:11px; color:var(--sd-muted); font-weight:600; }
+                                    .sd-legend { flex:1; display:flex; flex-direction:column; gap:7px; max-height:220px; overflow-y:auto; }
+                                    .sd-legend-row { display:flex; align-items:center; gap:8px; font-size:12.5px; }
+                                    .sd-legend-dot { width:9px; height:9px; border-radius:99px; flex-shrink:0; }
+                                    .sd-legend-name { flex:1; font-weight:600; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+                                    .sd-legend-count { font-weight:800; color:var(--sd-ink); }
+                                    .sd-legend-pct { width:52px; text-align:right; font-weight:600; color:#94a3b8; font-size:11.5px; }
+                                    @media (max-width: 520px) { .sd-donut-wrap { flex-direction:column; } }
+
+                                    /* Status bars */
+                                    .sd-status-row { margin-bottom:14px; }
+                                    .sd-status-top { display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px; }
+                                    .sd-status-top .sd-status-name { font-weight:700; color:#334155; }
+                                    .sd-status-top .sd-status-val { font-weight:700; color:var(--sd-muted); }
+                                    .sd-status-track { height:9px; background:#f1f5f9; border-radius:99px; overflow:hidden; }
+                                    .sd-status-fill { height:100%; border-radius:99px; transition:width .4s; }
+
+                                    /* Bars (top locations) */
+                                    .sd-bar-row { display:flex; align-items:center; gap:10px; margin-bottom:9px; }
+                                    .sd-bar-label { width:130px; font-size:12.5px; font-weight:600; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+                                    .sd-bar-track { flex:1; height:8px; background:#f1f5f9; border-radius:99px; overflow:hidden; }
+                                    .sd-bar-fill { height:100%; background:var(--sd-blue); border-radius:99px; }
+                                    .sd-bar-count { width:48px; text-align:right; font-size:12.5px; font-weight:800; color:var(--sd-ink); }
+
+                                    /* Table */
+                                    .sd-table { width:100%; border-collapse:collapse; font-size:12.5px; }
+                                    .sd-table th { text-align:left; color:var(--sd-muted); font-weight:700; padding:8px 10px; border-bottom:1px solid #f1f5f9; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; }
+                                    .sd-table td { padding:8px 10px; border-bottom:1px solid #f8fafc; color:var(--sd-ink); font-weight:600; }
+                                    .sd-table tr:last-child td { border-bottom:none; }
+
+                                    /* Trend toggle */
+                                    .sd-mini-toggle { display:inline-flex; background:#f1f5f9; border-radius:8px; padding:2px; }
+                                    .sd-mini-toggle button { border:none; background:transparent; font-size:11px; font-weight:700; color:#64748b; padding:4px 12px; border-radius:6px; cursor:pointer; }
+                                    .sd-mini-toggle button.active { background:#fff; color:var(--sd-blue); box-shadow:0 1px 3px rgba(15,23,42,.1); }
+
+                                    .sd-empty { text-align:center; color:#94a3b8; font-size:12.5px; padding:22px 0; font-weight:600; }
+                                    .sd-chart-box { position:relative; height:220px; }
+
+                                    /* Loading shimmer */
+                                    .sd-page.sd-loading .sd-dim { opacity:.45; pointer-events:none; transition:opacity .15s; }
+                                    .sd-spin { display:none; text-align:center; padding:6px 0 14px; color:var(--sd-muted); font-size:12.5px; font-weight:600; }
+                                    .sd-page.sd-loading .sd-spin { display:block; }
+                                </style>
+
+                                <div class="sd-page" id="scopedAnalytics">
+                                    <div class="sd-header">
+                                        <div>
+                                            <h1><%= dashIsSubEditor ? 'Sub Editor Dashboard' : (dashIsEditor ? 'My Dashboard' : 'Performance Analytics') %></h1>
+                                            <p class="sd-sub">Welcome back, <%= dashAdminName %><span id="sdScopeNote"></span></p>
+                                        </div>
+                                        <div class="sd-header-right">
+                                            <span class="sd-viewas" id="sdViewAsWrap" style="display:none">
+                                                <select id="sdViewAs">
+                                                    <option value="">All Data (Super Admin)</option>
+                                                </select>
+                                            </span>
+                                            <span class="sd-range-pill"><i class="far fa-calendar"></i> <span id="sdRangeLabel">Last 30 Days</span></span>
+                                            <button class="sd-refresh" id="sdRefresh"><i class="fas fa-rotate"></i> Refresh</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="sd-tabs" role="tablist">
+                                        <button class="sd-tab" data-range="today">Today</button>
+                                        <button class="sd-tab" data-range="yesterday">Yesterday</button>
+                                        <button class="sd-tab" data-range="7d">Last 7 Days</button>
+                                        <button class="sd-tab active" data-range="30d">Last 30 Days</button>
+                                        <button class="sd-tab" data-range="thisMonth">This Month</button>
+                                        <button class="sd-tab" data-range="lastMonth">Last Month</button>
+                                        <button class="sd-tab" data-range="custom">Custom Range</button>
+                                    </div>
+                                    <div class="sd-custom" id="sdCustom">
+                                        <input type="date" id="sdFrom"> <span style="font-size:12px;color:#64748b;font-weight:600">to</span> <input type="date" id="sdTo">
+                                        <button class="sd-apply" id="sdApply">Apply</button>
+                                    </div>
+
+                                    <div class="sd-spin"><span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Updating dashboard...</div>
+
+                                    <div class="sd-dim">
+                                        <div class="sd-cards" id="sdCards"></div>
+
+                                        <div class="sd-grid" id="sdRow2">
+                                            <div class="sd-card sd-panel" id="sdLocPanel">
+                                                <div class="sd-panel-head">
+                                                    <h4><i class="fas fa-map-marker-alt" style="color:var(--sd-green)"></i> Assigned Locations</h4>
+                                                    <span class="sd-panel-hint" id="sdLocHint"></span>
+                                                </div>
+                                                <div class="sd-loc-list" id="sdLocTree"></div>
+                                            </div>
+                                            <div class="sd-card sd-panel">
+                                                <div class="sd-panel-head">
+                                                    <h4><i class="fas fa-chart-pie" style="color:var(--sd-blue)"></i> Category Wise Posts</h4>
+                                                </div>
+                                                <div class="sd-donut-wrap">
+                                                    <div class="sd-donut-box">
+                                                        <canvas id="sdCatChart"></canvas>
+                                                        <div class="sd-donut-center"><strong id="sdCatTotal">0</strong><span>Total</span></div>
+                                                    </div>
+                                                    <div class="sd-legend" id="sdCatLegend"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="sd-grid">
+                                            <div class="sd-card sd-panel">
+                                                <div class="sd-panel-head">
+                                                    <h4><i class="fas fa-list-check" style="color:var(--sd-purple)"></i> Post Status Overview</h4>
+                                                </div>
+                                                <div id="sdStatusBars"></div>
+                                            </div>
+                                            <div class="sd-card sd-panel">
+                                                <div class="sd-panel-head">
+                                                    <h4><i class="fas fa-chart-line" style="color:var(--sd-blue)"></i> Posts Trend</h4>
+                                                    <span class="sd-mini-toggle">
+                                                        <button class="active" data-mode="day">Daily</button>
+                                                        <button data-mode="week">Weekly</button>
+                                                    </span>
+                                                </div>
+                                                <div class="sd-chart-box"><canvas id="sdTrendChart"></canvas></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="sd-grid" id="sdRow4">
+                                            <div class="sd-card sd-panel">
+                                                <div class="sd-panel-head">
+                                                    <h4><i class="fas fa-location-dot" style="color:var(--sd-red)"></i> Top Assigned Locations</h4>
+                                                </div>
+                                                <div id="sdTopLoc"></div>
+                                            </div>
+                                            <div class="sd-card sd-panel" id="sdReporterPanel" style="display:none">
+                                                <div class="sd-panel-head">
+                                                    <h4><i class="fas fa-users" style="color:var(--sd-blue)"></i> Reporter-wise Breakdown</h4>
+                                                </div>
+                                                <div style="overflow-x:auto" id="sdReporterWrap"></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="sd-cards" id="sdAllTime"></div>
+                                    </div>
+                                </div>
+
+                                <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+                                <script>
+                                (function () {
+                                    let sdRange = '30d';
+                                    let sdViewAsId = '';
+                                    let sdTargetsLoaded = false;
+                                    let sdTrendMode = 'day';
+                                    let sdTrendData = [];
+                                    let catChart = null;
+                                    let trendChart = null;
+
+                                    const page = document.getElementById('scopedAnalytics');
+                                    const PALETTE = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#7c3aed', '#06b6d4', '#ec4899', '#94a3b8'];
+
+                                    function esc(s) {
+                                        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+                                    }
+                                    function num(n) { return (n || 0).toLocaleString('en-IN'); }
+                                    function compact(n) {
+                                        if ((n || 0) < 10000) return num(n);
+                                        return new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+                                    }
+
+                                    function statCard(value, label, meta, metaTone, icon, iconTone) {
+                                        return `
+                                        <div class="sd-card sd-stat">
+                                            <div>
+                                                <div class="sd-stat-num">${value}</div>
+                                                <div class="sd-stat-label">${label}</div>
+                                                ${meta ? `<div class="sd-stat-meta sd-tx-${metaTone}">${meta}</div>` : ''}
+                                            </div>
+                                            <span class="sd-stat-icon sd-ic-${iconTone}"><i class="fas ${icon}"></i></span>
+                                        </div>`;
+                                    }
+
+                                    function renderCards(s) {
+                                        document.getElementById('sdCards').innerHTML =
+                                            statCard(num(s.total), 'Total Posts', '', '', 'fa-file-lines', 'blue') +
+                                            statCard(num(s.approved), 'Approved', s.total ? s.approvalRate + '%' : '', 'green', 'fa-circle-check', 'green') +
+                                            statCard(num(s.rejected), 'Rejected', s.total ? s.rejectionRate + '%' : '', 'red', 'fa-circle-xmark', 'red') +
+                                            statCard(num(s.pending), 'Pending', s.total ? Math.round((s.pending / s.total) * 100) + '%' : '', 'orange', 'fa-clock', 'orange') +
+                                            statCard(compact(s.views), 'Total Views', '', '', 'fa-eye', 'purple');
+                                    }
+
+                                    function renderAllTime(a) {
+                                        document.getElementById('sdAllTime').innerHTML =
+                                            statCard(num(a.total), 'My Total Posts (All Time)', '', '', 'fa-file-lines', 'blue') +
+                                            statCard(num(a.approved), 'All Time Approved', a.total ? a.approvalRate + '%' : '', 'green', 'fa-circle-check', 'green') +
+                                            statCard(num(a.rejected), 'All Time Rejected', a.total ? a.rejectionRate + '%' : '', 'red', 'fa-circle-xmark', 'red') +
+                                            statCard(num(a.pending), 'All Time Pending', a.total ? a.pendingRate + '%' : '', 'orange', 'fa-clock', 'orange') +
+                                            statCard(num(a.views), 'All Time Views', '', '', 'fa-eye', 'purple');
+                                    }
+
+                                    function renderLocTree(tree) {
+                                        const panel = document.getElementById('sdLocPanel');
+                                        const row2 = document.getElementById('sdRow2');
+                                        if (tree === null) {
+                                            // Superadmin full access — assigned locations panel hide
+                                            panel.style.display = 'none';
+                                            row2.style.gridTemplateColumns = '1fr';
+                                            return;
+                                        }
+                                        panel.style.display = '';
+                                        row2.style.gridTemplateColumns = '';
+                                        const box = document.getElementById('sdLocTree');
+                                        if (!tree.length) {
+                                            box.innerHTML = '<div class="sd-empty">No locations assigned — contact admin</div>';
+                                            document.getElementById('sdLocHint').textContent = '';
+                                            return;
+                                        }
+                                        const distCount = tree.reduce((n, st) => n + st.districts.length, 0);
+                                        document.getElementById('sdLocHint').textContent = `${tree.length} state${tree.length > 1 ? 's' : ''} · ${distCount} district${distCount > 1 ? 's' : ''}`;
+                                        box.innerHTML = tree.map((st, i) => `
+                                            <div class="sd-loc-state ${i === 0 ? 'open' : ''}">
+                                                <div class="sd-loc-state-head" data-loc-toggle>
+                                                    <strong><i class="fas fa-map" style="color:var(--sd-blue);font-size:11px"></i> ${esc(st.name)}</strong>
+                                                    <span style="display:flex;align-items:center;gap:8px">
+                                                        <span class="sd-loc-count">${st.districts.length}</span>
+                                                        <i class="fas fa-chevron-down sd-loc-caret"></i>
+                                                    </span>
+                                                </div>
+                                                <div class="sd-loc-state-body">
+                                                    ${st.districts.map(d => `
+                                                        <div class="sd-loc-dist"><i class="fas fa-location-dot"></i> ${esc(d.name)}</div>
+                                                        ${d.constituencies.length ? `<div class="sd-loc-acs">${d.constituencies.map(c => `<span class="sd-loc-ac">${esc(c)}</span>`).join('')}</div>` : ''}
+                                                    `).join('')}
+                                                </div>
+                                            </div>`).join('');
+                                        box.querySelectorAll('[data-loc-toggle]').forEach(head => {
+                                            head.addEventListener('click', () => head.parentElement.classList.toggle('open'));
+                                        });
+                                    }
+
+                                    function renderCategoryDonut(categories, total) {
+                                        const withData = categories.filter(c => c.count > 0);
+                                        const top = withData.slice(0, 7);
+                                        const restCount = withData.slice(7).reduce((n, c) => n + c.count, 0);
+                                        const items = [...top];
+                                        if (restCount > 0) items.push({ name: 'Others', count: restCount });
+
+                                        document.getElementById('sdCatTotal').textContent = compact(total);
+                                        const legend = document.getElementById('sdCatLegend');
+                                        if (!items.length) {
+                                            legend.innerHTML = '<div class="sd-empty">No posts in this range</div>';
+                                        } else {
+                                            legend.innerHTML = items.map((it, i) => `
+                                                <div class="sd-legend-row">
+                                                    <span class="sd-legend-dot" style="background:${PALETTE[i % PALETTE.length]}"></span>
+                                                    <span class="sd-legend-name" title="${esc(it.name)}">${esc(it.name)}</span>
+                                                    <span class="sd-legend-count">${num(it.count)}</span>
+                                                    <span class="sd-legend-pct">${total ? ((it.count / total) * 100).toFixed(1) : 0}%</span>
+                                                </div>`).join('');
+                                        }
+
+                                        if (typeof Chart === 'undefined') return;
+                                        if (catChart) catChart.destroy();
+                                        catChart = new Chart(document.getElementById('sdCatChart'), {
+                                            type: 'doughnut',
+                                            data: {
+                                                labels: items.map(i => i.name),
+                                                datasets: [{
+                                                    data: items.length ? items.map(i => i.count) : [1],
+                                                    backgroundColor: items.length ? items.map((_, i) => PALETTE[i % PALETTE.length]) : ['#f1f5f9'],
+                                                    borderWidth: 2,
+                                                    borderColor: '#fff'
+                                                }]
+                                            },
+                                            options: {
+                                                cutout: '72%',
+                                                responsive: true,
+                                                maintainAspectRatio: false,
+                                                plugins: { legend: { display: false }, tooltip: { enabled: items.length > 0 } }
+                                            }
+                                        });
+                                    }
+
+                                    function renderStatusBars(s) {
+                                        const rows = [
+                                            { name: 'Approved', val: s.approved, color: '#16a34a' },
+                                            { name: 'Rejected', val: s.rejected, color: '#ef4444' },
+                                            { name: 'Pending', val: s.pending, color: '#f59e0b' },
+                                            { name: 'Published', val: s.published, color: '#2563eb' },
+                                            { name: 'Draft / Off', val: s.draft, color: '#94a3b8' }
+                                        ];
+                                        document.getElementById('sdStatusBars').innerHTML = rows.map(r => {
+                                            const pct = s.total ? Math.round((r.val / s.total) * 100) : 0;
+                                            return `
+                                            <div class="sd-status-row">
+                                                <div class="sd-status-top">
+                                                    <span class="sd-status-name">${r.name}</span>
+                                                    <span class="sd-status-val">${num(r.val)} (${pct}%)</span>
+                                                </div>
+                                                <div class="sd-status-track"><div class="sd-status-fill" style="width:${pct}%;background:${r.color}"></div></div>
+                                            </div>`;
+                                        }).join('');
+                                    }
+
+                                    function groupWeekly(trend) {
+                                        const weeks = {};
+                                        trend.forEach(t => {
+                                            const d = new Date(t.date + 'T00:00:00');
+                                            const day = (d.getDay() + 6) % 7; // Monday start
+                                            d.setDate(d.getDate() - day);
+                                            const key = d.toISOString().slice(0, 10);
+                                            weeks[key] = (weeks[key] || 0) + t.count;
+                                        });
+                                        return Object.keys(weeks).sort().map(k => ({ date: k, count: weeks[k] }));
+                                    }
+
+                                    function renderTrend() {
+                                        if (typeof Chart === 'undefined') return;
+                                        const data = sdTrendMode === 'week' ? groupWeekly(sdTrendData) : sdTrendData;
+                                        const labels = data.map(t => {
+                                            const d = new Date(t.date + 'T00:00:00');
+                                            return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+                                        });
+                                        if (trendChart) trendChart.destroy();
+                                        trendChart = new Chart(document.getElementById('sdTrendChart'), {
+                                            type: 'line',
+                                            data: {
+                                                labels,
+                                                datasets: [{
+                                                    label: 'Posts',
+                                                    data: data.map(t => t.count),
+                                                    borderColor: '#2563eb',
+                                                    backgroundColor: 'rgba(37,99,235,.08)',
+                                                    fill: true,
+                                                    tension: 0.35,
+                                                    pointRadius: data.length > 40 ? 0 : 3,
+                                                    pointBackgroundColor: '#fff',
+                                                    pointBorderColor: '#2563eb',
+                                                    pointBorderWidth: 2,
+                                                    borderWidth: 2
+                                                }]
+                                            },
+                                            options: {
+                                                responsive: true,
+                                                maintainAspectRatio: false,
+                                                plugins: { legend: { display: false } },
+                                                scales: {
+                                                    x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 10 }, color: '#94a3b8' } },
+                                                    y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { precision: 0, font: { size: 10 }, color: '#94a3b8' } }
+                                                }
+                                            }
+                                        });
+                                    }
+
+                                    function renderTopLocations(locations) {
+                                        const max = Math.max(0, ...locations.map(l => l.count));
+                                        document.getElementById('sdTopLoc').innerHTML = !locations.length
+                                            ? '<div class="sd-empty">No posts in this range</div>'
+                                            : locations.slice(0, 10).map(l => `
+                                                <div class="sd-bar-row">
+                                                    <span class="sd-bar-label" title="${esc(l.name)}">${esc(l.name)}</span>
+                                                    <span class="sd-bar-track"><span class="sd-bar-fill" style="width:${max ? Math.max(3, Math.round((l.count / max) * 100)) : 0}%"></span></span>
+                                                    <span class="sd-bar-count">${num(l.count)}</span>
+                                                </div>`).join('');
+                                    }
+
+                                    function renderReporters(reporters, scopeRole) {
+                                        const panel = document.getElementById('sdReporterPanel');
+                                        const row4 = document.getElementById('sdRow4');
+                                        // Reporter (editor) sonta dashboard lo ee table avasaram ledu
+                                        const show = reporters.length > 0 && scopeRole !== 'editor';
+                                        panel.style.display = show ? '' : 'none';
+                                        row4.style.gridTemplateColumns = show ? '' : '1fr';
+                                        if (!show) return;
+                                        document.getElementById('sdReporterWrap').innerHTML = `
+                                            <table class="sd-table">
+                                                <thead><tr><th>Reporter</th><th>Total</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>Views</th></tr></thead>
+                                                <tbody>
+                                                ${reporters.map(r => `<tr>
+                                                    <td>${esc(r.author)}</td>
+                                                    <td>${num(r.total)}</td>
+                                                    <td style="color:#16a34a">${num(r.approved)}</td>
+                                                    <td style="color:#ef4444">${num(r.rejected)}</td>
+                                                    <td style="color:#f59e0b">${num(r.pending)}</td>
+                                                    <td>${compact(r.views)}</td>
+                                                </tr>`).join('')}
+                                                </tbody>
+                                            </table>`;
+                                    }
+
+                                    function render(data) {
+                                        document.getElementById('sdRangeLabel').textContent = data.range.label;
+                                        document.getElementById('sdScopeNote').textContent = data.scope.fullAccess
+                                            ? ' — All Data (Super Admin)'
+                                            : (data.scope.viewingAs ? ` — Viewing: ${data.scope.name}` : '');
+
+                                        renderCards(data.summary);
+                                        renderLocTree(data.assignedLocations);
+                                        renderCategoryDonut(data.categories, data.summary.total);
+                                        renderStatusBars(data.summary);
+                                        sdTrendData = data.dailyTrend;
+                                        renderTrend();
+                                        renderTopLocations(data.locations);
+                                        renderReporters(data.reporters, data.scope.role);
+                                        renderAllTime(data.allTime || { total: 0, approved: 0, rejected: 0, pending: 0, views: 0 });
+
+                                        if (data.viewTargets && !sdTargetsLoaded) {
+                                            sdTargetsLoaded = true;
+                                            const sel = document.getElementById('sdViewAs');
+                                            data.viewTargets.forEach(t => {
+                                                const opt = document.createElement('option');
+                                                opt.value = t.id;
+                                                opt.textContent = `${t.name} (Sub Editor)`;
+                                                sel.appendChild(opt);
+                                            });
+                                            document.getElementById('sdViewAsWrap').style.display = 'inline-block';
+                                        }
+                                    }
+
+                                    async function load() {
+                                        page.classList.add('sd-loading');
+                                        let url = `/admin/api/scoped-analytics?range=${sdRange}`;
+                                        if (sdRange === 'custom') {
+                                            const from = document.getElementById('sdFrom').value;
+                                            const to = document.getElementById('sdTo').value;
+                                            if (!from || !to) { page.classList.remove('sd-loading'); return; }
+                                            url += `&from=${from}&to=${to}`;
+                                        }
+                                        if (sdViewAsId) url += `&viewAs=${sdViewAsId}`;
+                                        try {
+                                            const res = await fetch(url);
+                                            const data = await res.json();
+                                            if (!res.ok) throw new Error(data.error || 'Failed');
+                                            render(data);
+                                        } catch (err) {
+                                            document.getElementById('sdCards').innerHTML = `<div class="sd-empty" style="grid-column:1/-1">${esc(err.message || 'Failed to load analytics')}</div>`;
+                                        } finally {
+                                            page.classList.remove('sd-loading');
+                                        }
+                                    }
+
+                                    document.querySelectorAll('#scopedAnalytics .sd-tab').forEach(tab => {
+                                        tab.addEventListener('click', function () {
+                                            document.querySelectorAll('#scopedAnalytics .sd-tab').forEach(t => t.classList.remove('active'));
+                                            this.classList.add('active');
+                                            sdRange = this.getAttribute('data-range');
+                                            document.getElementById('sdCustom').classList.toggle('show', sdRange === 'custom');
+                                            if (sdRange !== 'custom') load();
+                                        });
+                                    });
+                                    document.getElementById('sdApply').addEventListener('click', load);
+                                    document.getElementById('sdRefresh').addEventListener('click', load);
+                                    document.getElementById('sdViewAs').addEventListener('change', function () {
+                                        sdViewAsId = this.value;
+                                        load();
+                                    });
+                                    document.querySelectorAll('#scopedAnalytics .sd-mini-toggle button').forEach(btn => {
+                                        btn.addEventListener('click', function () {
+                                            document.querySelectorAll('#scopedAnalytics .sd-mini-toggle button').forEach(b => b.classList.remove('active'));
+                                            this.classList.add('active');
+                                            sdTrendMode = this.getAttribute('data-mode');
+                                            renderTrend();
+                                        });
+                                    });
+
+                                    load();
+                                })();
+                                </script>
+                                <!-- ============ /SCOPED PERFORMANCE ANALYTICS ============ -->
+
+                                <% if (!dashIsSubEditor) { %>
                                 <div class="dash-kpi-grid">
                                     <div class="dash-kpi">
                                         <div class="dash-kpi-top">
@@ -470,4 +1006,5 @@
                             </div>
                         <% } %>
                                 </section>
+                                <% } %><%# end !dashIsSubEditor legacy sections %>
                             </div>

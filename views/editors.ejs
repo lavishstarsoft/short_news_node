@@ -587,7 +587,43 @@
                                     <!-- Reporter message -->
                                     <div class="editor-step-banner reporter-only-section" id="editPermsReporterNote">
                                         <span class="step-icon">✅</span>
-                                        <div><strong>No permissions needed for Reporters</strong><br>Reporters simply write and submit news. Permissions are only for Sub-Editors. You can skip this tab.</div>
+                                        <div><strong>No permissions needed for Reporters</strong><br>Reporters simply write and submit news. Permissions are only for Sub-Editors. Wallet settings below apply to this member.</div>
+                                    </div>
+
+                                    <!-- Wallet & Daily Earnings (per member) -->
+                                    <div id="editWalletConfigBlock">
+                                        <div class="editor-step-banner green" style="background:#ecfdf5;border-color:#a7f3d0">
+                                            <span class="step-icon">💰</span>
+                                            <div><strong>Wallet &amp; Daily Earnings</strong><br>Settings here apply <b>only to this member</b>. Other reporters are not affected. If wallet is OFF, the app hides wallet, daily target and earnings completely.</div>
+                                        </div>
+
+                                        <div class="editor-perm-card">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="editWalletEnabled">
+                                                <label class="form-check-label" for="editWalletEnabled"><strong>Wallet Enabled</strong></label>
+                                            </div>
+                                            <div class="hint">ON = this member sees wallet, daily target and earns daily rewards. OFF = wallet section fully hidden, no reward credits.</div>
+                                        </div>
+
+                                        <div class="row g-3" id="editWalletNumbersRow">
+                                            <div class="col-md-6">
+                                                <div class="editor-field">
+                                                    <label for="editWalletDailyTarget">Daily Target (news per day)
+                                                        <span class="info-tip">?<span class="info-tip-text">How many approved news this member needs in one day to earn the daily reward. Leave empty to use the global default.</span></span>
+                                                    </label>
+                                                    <input type="number" id="editWalletDailyTarget" min="1" step="1" placeholder="Global default">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="editor-field">
+                                                    <label for="editWalletDailyReward">Daily Reward (₹)
+                                                        <span class="info-tip">?<span class="info-tip-text">Amount credited when the daily target is reached. Leave empty to use the global default.</span></span>
+                                                    </label>
+                                                    <input type="number" id="editWalletDailyReward" min="1" step="1" placeholder="Global default">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="hint mb-3">Empty boxes = global defaults from the Wallet Settings page apply (e.g. 5 news / ₹30).</div>
                                     </div>
 
                                     <!-- Sub-editor permissions -->
@@ -1701,6 +1737,11 @@
                             cb.checked = optIn ? sidebarPerms[menu] === true : sidebarPerms[menu] !== false;
                         });
 
+                        const walletConfig = editor.walletConfig || {};
+                        document.getElementById('editWalletEnabled').checked = walletConfig.enabled === true;
+                        document.getElementById('editWalletDailyTarget').value = walletConfig.dailyTargetNews || '';
+                        document.getElementById('editWalletDailyReward').value = walletConfig.dailyRewardAmount || '';
+
                         document.getElementById('editApprovalScope').value = (permissions.approvalScope === 'locations') ? 'geography' : (permissions.approvalScope || 'reporters');
                         loadManagedCoverage('edit', permissions);
                         loadAllowedLanguages('edit', editor);
@@ -1761,7 +1802,12 @@
                             canEditNews: document.getElementById('editCanEditNews').checked,
                             requiresSourceLink: document.getElementById('editRequiresSourceLink').checked,
                             approvalScope: document.getElementById('editApprovalScope').value,
-                            sidebar: sidebarData
+                            sidebar: sidebarData,
+                            walletConfig: {
+                                enabled: document.getElementById('editWalletEnabled').checked,
+                                dailyTargetNews: document.getElementById('editWalletDailyTarget').value || null,
+                                dailyRewardAmount: document.getElementById('editWalletDailyReward').value || null
+                            }
                         };
 
                         fetch(`/admin/editors/${id}`, {

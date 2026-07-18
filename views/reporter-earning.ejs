@@ -1,0 +1,346 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius:12px; border:none; box-shadow:0 4px 6px rgba(0,0,0,.04); }
+  .settings-card .card-header { background:#fff; border-bottom:1px solid #f0f0f0; padding:14px 18px; }
+  .settings-card .card-body { padding:18px; }
+  .lang-pill { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:8px 14px; font-weight:600; font-size:13px; color:#374151; margin:0 6px 8px 0; }
+  .lang-pill.active { background:#E31E24; border-color:#E31E24; color:#fff; }
+  .sec { font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#6b7280; margin:14px 0 8px; }
+  .color-row { display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+  .color-row label { display:block; font-size:11px; font-weight:700; color:#6b7280; margin-bottom:4px; }
+  .preview-phone { border:1px solid #e5e7eb; border-radius:16px; overflow:hidden; min-height:520px; background:#F3F4F6; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h1 class="h2 page-title mb-1">Reporter Earning Page</h1>
+      <p class="text-muted mb-0">Extra-income page — design like reference, per language.</p>
+    </div>
+    <button type="button" id="saveBtn" class="btn btn-primary fw-bold px-4">Save for this language</button>
+  </div>
+
+  <div id="langPills" class="mb-3"></div>
+  <div id="saveAlert" class="alert d-none"></div>
+  <input type="hidden" id="language" value="">
+
+  <div class="row">
+    <div class="col-lg-7 mb-4">
+      <div class="card settings-card mb-3">
+        <div class="card-header"><strong>Hero banner</strong></div>
+        <div class="card-body">
+          <div class="mb-0 d-flex gap-2 align-items-start">
+            <img id="heroPreview" alt="" class="rounded border" style="width:90px;height:90px;object-fit:cover;display:none;background:#eee;">
+            <div class="flex-grow-1">
+              <input type="hidden" id="heroImageUrl">
+              <input type="file" id="heroImageFile" class="form-control form-control-sm" accept="image/*">
+              <div class="form-text">Full-width hero banner image only.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card settings-card mb-3">
+        <div class="card-header"><strong>Body content</strong></div>
+        <div class="card-body">
+          <div class="color-row mb-2"><div><label>Page BG</label><input type="color" class="form-control form-control-color" id="pageBgColor" value="#f3f4f6"></div></div>
+          <div class="mb-2"><label class="form-label fw-bold small">Greeting title</label><input class="form-control form-control-sm" id="greetingTitle"></div>
+          <div class="color-row mb-2">
+            <div><label>Color</label><input type="color" class="form-control form-control-color" id="greetingTitleColor"></div>
+            <div><label>Size</label><input type="number" class="form-control form-control-sm" id="greetingTitleFontSize" style="width:80px"></div>
+            <div class="form-check mt-4"><input type="checkbox" class="form-check-input" id="greetingTitleBold" checked><label class="form-check-label small fw-bold" for="greetingTitleBold">Bold</label></div>
+            <div class="form-check mt-4"><input type="checkbox" class="form-check-input" id="greetingTitleUnderline"><label class="form-check-label small fw-bold" for="greetingTitleUnderline">Underline</label></div>
+          </div>
+          <div class="mb-2"><label class="form-label fw-bold small">Greeting body</label><textarea class="form-control form-control-sm" id="greetingBody" rows="3"></textarea></div>
+          <div class="color-row mb-3">
+            <div><label>Body color</label><input type="color" class="form-control form-control-color" id="greetingBodyColor"></div>
+            <div><label>Size</label><input type="number" class="form-control form-control-sm" id="greetingBodyFontSize" style="width:80px"></div>
+          </div>
+
+          <div class="sec">Dashed highlight box</div>
+          <textarea class="form-control form-control-sm mb-2" id="highlightText" rows="3"></textarea>
+          <div class="color-row mb-3">
+            <div><label>BG</label><input type="color" class="form-control form-control-color" id="highlightBgColor"></div>
+            <div><label>Text</label><input type="color" class="form-control form-control-color" id="highlightTextColor"></div>
+            <div><label>Border</label><input type="color" class="form-control form-control-color" id="highlightBorderColor"></div>
+            <div><label>Size</label><input type="number" class="form-control form-control-sm" id="highlightFontSize" style="width:80px"></div>
+            <div class="form-check mt-4"><input type="checkbox" class="form-check-input" id="highlightBold"><label class="form-check-label small fw-bold" for="highlightBold">Bold</label></div>
+          </div>
+
+          <div class="sec">Info list</div>
+          <input class="form-control form-control-sm mb-2" id="infoTitle" placeholder="Section title">
+          <div class="color-row mb-2">
+            <div><label>Title color</label><input type="color" class="form-control form-control-color" id="infoTitleColor"></div>
+            <div><label>Size</label><input type="number" class="form-control form-control-sm" id="infoTitleFontSize" style="width:80px"></div>
+            <div class="form-check mt-4"><input type="checkbox" class="form-check-input" id="infoTitleBold" checked><label class="form-check-label small fw-bold" for="infoTitleBold">Bold</label></div>
+            <div class="form-check mt-4"><input type="checkbox" class="form-check-input" id="infoTitleUnderline"><label class="form-check-label small fw-bold" for="infoTitleUnderline">Underline</label></div>
+          </div>
+          <input class="form-control form-control-sm mb-2" id="infoIntro" placeholder="Intro line">
+          <textarea class="form-control form-control-sm mb-2" id="infoItems" rows="7" placeholder="One item per line"></textarea>
+          <div class="color-row mb-3">
+            <div><label>Item color</label><input type="color" class="form-control form-control-color" id="infoItemColor"></div>
+            <div><label>Bullet</label><input type="color" class="form-control form-control-color" id="infoBulletColor"></div>
+            <div><label>Size</label><input type="number" class="form-control form-control-sm" id="infoItemFontSize" style="width:80px"></div>
+          </div>
+
+          <div class="sec">Income section</div>
+          <input class="form-control form-control-sm mb-2" id="incomeTitle">
+          <div class="color-row mb-2">
+            <div><label>Title color</label><input type="color" class="form-control form-control-color" id="incomeTitleColor"></div>
+            <div><label>Size</label><input type="number" class="form-control form-control-sm" id="incomeTitleFontSize" style="width:80px"></div>
+            <div class="form-check mt-4"><input type="checkbox" class="form-check-input" id="incomeTitleBold" checked><label class="form-check-label small fw-bold" for="incomeTitleBold">Bold</label></div>
+            <div class="form-check mt-4"><input type="checkbox" class="form-check-input" id="incomeTitleUnderline"><label class="form-check-label small fw-bold" for="incomeTitleUnderline">Underline</label></div>
+          </div>
+          <textarea class="form-control form-control-sm mb-2" id="incomeBody" rows="4"></textarea>
+          <div class="color-row mb-3">
+            <div><label>Body color</label><input type="color" class="form-control form-control-color" id="incomeBodyColor"></div>
+            <div><label>Size</label><input type="number" class="form-control form-control-sm" id="incomeBodyFontSize" style="width:80px"></div>
+          </div>
+
+          <div class="sec">Sign-off + WhatsApp CTA</div>
+          <input class="form-control form-control-sm mb-2" id="signoffText">
+          <div class="color-row mb-2">
+            <div><label>Color</label><input type="color" class="form-control form-control-color" id="signoffColor"></div>
+            <div><label>Size</label><input type="number" class="form-control form-control-sm" id="signoffFontSize" style="width:80px"></div>
+            <div class="form-check mt-4"><input type="checkbox" class="form-check-input" id="signoffBold" checked><label class="form-check-label small fw-bold" for="signoffBold">Bold</label></div>
+          </div>
+          <input class="form-control form-control-sm mb-2" id="ctaText" placeholder="CTA text">
+          <input class="form-control form-control-sm mb-2" id="ctaUrl" placeholder="https://wa.me/91XXXXXXXXXX">
+          <div class="color-row">
+            <div><label>CTA BG</label><input type="color" class="form-control form-control-color" id="ctaBgColor" value="#16a34a"></div>
+            <div><label>CTA text</label><input type="color" class="form-control form-control-color" id="ctaTextColor" value="#ffffff"></div>
+            <div><label>Size</label><input type="number" class="form-control form-control-sm" id="ctaFontSize" style="width:80px"></div>
+            <div class="form-check mt-4"><input type="checkbox" class="form-check-input" id="ctaEnabled" checked><label class="form-check-label small fw-bold" for="ctaEnabled">Show CTA</label></div>
+            <div class="form-check mt-4"><input type="checkbox" class="form-check-input" id="ctaBold" checked><label class="form-check-label small fw-bold" for="ctaBold">Bold</label></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5 mb-4">
+      <div class="card settings-card">
+        <div class="card-header"><strong>Live preview</strong></div>
+        <div class="card-body"><div id="livePreview" class="preview-phone"></div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const fields = [
+    'pageBgColor','heroImageUrl',
+    'greetingTitle','greetingTitleColor','greetingTitleFontSize','greetingTitleBold','greetingTitleUnderline','greetingBody','greetingBodyColor','greetingBodyFontSize',
+    'highlightText','highlightBgColor','highlightTextColor','highlightBorderColor','highlightFontSize','highlightBold',
+    'infoTitle','infoTitleColor','infoTitleFontSize','infoTitleBold','infoTitleUnderline','infoIntro','infoIntroColor','infoIntroFontSize','infoItems','infoItemColor','infoItemFontSize','infoBulletColor',
+    'incomeTitle','incomeTitleColor','incomeTitleFontSize','incomeTitleBold','incomeTitleUnderline','incomeBody','incomeBodyColor','incomeBodyFontSize',
+    'signoffText','signoffColor','signoffFontSize','signoffBold','ctaText','ctaUrl','ctaBgColor','ctaTextColor','ctaFontSize','ctaBold','ctaEnabled'
+  ];
+
+  const langPills = document.getElementById('langPills');
+  const alertBox = document.getElementById('saveAlert');
+  const saveBtn = document.getElementById('saveBtn');
+  const livePreview = document.getElementById('livePreview');
+  let items = [];
+
+  function el(id) { return document.getElementById(id); }
+  function val(id) {
+    const n = el(id);
+    if (!n) return '';
+    if (n.type === 'checkbox') return n.checked;
+    return n.value;
+  }
+  function setVal(id, v) {
+    const n = el(id);
+    if (!n) return;
+    if (n.type === 'checkbox') n.checked = !!v;
+    else n.value = v == null ? '' : v;
+  }
+
+  function showAlert(type, msg) {
+    alertBox.className = `alert alert-${type}`;
+    alertBox.textContent = msg;
+    alertBox.classList.remove('d-none');
+    setTimeout(() => alertBox.classList.add('d-none'), 3500);
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function getState() {
+    const itemsText = String(val('infoItems') || '');
+    return {
+      language: val('language'),
+      pageBgColor: val('pageBgColor'),
+      heroImageUrl: val('heroImageUrl'),
+      greetingTitle: val('greetingTitle'),
+      greetingTitleColor: val('greetingTitleColor'),
+      greetingTitleFontSize: Number(val('greetingTitleFontSize')) || 18,
+      greetingTitleBold: !!val('greetingTitleBold'),
+      greetingTitleUnderline: !!val('greetingTitleUnderline'),
+      greetingBody: val('greetingBody'),
+      greetingBodyColor: val('greetingBodyColor'),
+      greetingBodyFontSize: Number(val('greetingBodyFontSize')) || 14,
+      highlightText: val('highlightText'),
+      highlightBgColor: val('highlightBgColor'),
+      highlightTextColor: val('highlightTextColor'),
+      highlightBorderColor: val('highlightBorderColor'),
+      highlightFontSize: Number(val('highlightFontSize')) || 14,
+      highlightBold: !!val('highlightBold'),
+      infoTitle: val('infoTitle'),
+      infoTitleColor: val('infoTitleColor'),
+      infoTitleFontSize: Number(val('infoTitleFontSize')) || 17,
+      infoTitleBold: !!val('infoTitleBold'),
+      infoTitleUnderline: !!val('infoTitleUnderline'),
+      infoIntro: val('infoIntro'),
+      infoIntroColor: val('greetingBodyColor') || '#374151',
+      infoIntroFontSize: Number(val('greetingBodyFontSize')) || 14,
+      infoItems: itemsText.split('\n').map(s => s.trim()).filter(Boolean),
+      infoItemColor: val('infoItemColor'),
+      infoItemFontSize: Number(val('infoItemFontSize')) || 14,
+      infoBulletColor: val('infoBulletColor'),
+      incomeTitle: val('incomeTitle'),
+      incomeTitleColor: val('incomeTitleColor'),
+      incomeTitleFontSize: Number(val('incomeTitleFontSize')) || 17,
+      incomeTitleBold: !!val('incomeTitleBold'),
+      incomeTitleUnderline: !!val('incomeTitleUnderline'),
+      incomeBody: val('incomeBody'),
+      incomeBodyColor: val('incomeBodyColor'),
+      incomeBodyFontSize: Number(val('incomeBodyFontSize')) || 14,
+      signoffText: val('signoffText'),
+      signoffColor: val('signoffColor'),
+      signoffFontSize: Number(val('signoffFontSize')) || 15,
+      signoffBold: !!val('signoffBold'),
+      ctaText: val('ctaText'),
+      ctaUrl: val('ctaUrl'),
+      ctaBgColor: val('ctaBgColor'),
+      ctaTextColor: val('ctaTextColor'),
+      ctaFontSize: Number(val('ctaFontSize')) || 15,
+      ctaBold: !!val('ctaBold'),
+      ctaEnabled: !!val('ctaEnabled')
+    };
+  }
+
+  function styleText(color, size, bold, underline) {
+    return `color:${color};font-size:${size}px;font-weight:${bold?800:500};text-decoration:${underline?'underline':'none'};`;
+  }
+
+  function renderPreview() {
+    const s = getState();
+    const heroImg = s.heroImageUrl
+      ? `<img src="${escapeHtml(s.heroImageUrl)}" style="width:100%;height:180px;object-fit:cover;display:block;">`
+      : `<div style="height:140px;background:#e5e7eb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:12px;">No hero image</div>`;
+    let html = `<div style="background:${s.pageBgColor};">`;
+    html += heroImg;
+    html += `<div style="padding:16px;padding-bottom:70px;">`;
+    html += `<div style="margin-bottom:8px;${styleText(s.greetingTitleColor,s.greetingTitleFontSize,s.greetingTitleBold,s.greetingTitleUnderline)}">${escapeHtml(s.greetingTitle)}</div>`;
+    html += `<div style="margin-bottom:12px;line-height:1.5;${styleText(s.greetingBodyColor,s.greetingBodyFontSize,false,false)};white-space:pre-wrap;">${escapeHtml(s.greetingBody)}</div>`;
+    html += `<div style="background:${s.highlightBgColor};border:1.5px dashed ${s.highlightBorderColor};padding:12px;margin-bottom:16px;line-height:1.5;${styleText(s.highlightTextColor,s.highlightFontSize,s.highlightBold,false)};white-space:pre-wrap;">${escapeHtml(s.highlightText)}</div>`;
+    html += `<div style="margin-bottom:6px;${styleText(s.infoTitleColor,s.infoTitleFontSize,s.infoTitleBold,s.infoTitleUnderline)}">${escapeHtml(s.infoTitle)}</div>`;
+    html += `<div style="margin-bottom:8px;${styleText(s.infoIntroColor,s.infoIntroFontSize,false,false)}">${escapeHtml(s.infoIntro)}</div>`;
+    html += `<ul style="padding-left:18px;margin:0 0 16px;">`;
+    (s.infoItems||[]).forEach(it => {
+      html += `<li style="margin-bottom:6px;${styleText(s.infoItemColor,s.infoItemFontSize,false,false)}"><span style="color:${s.infoBulletColor}"></span>${escapeHtml(it)}</li>`;
+    });
+    html += `</ul>`;
+    html += `<div style="margin-bottom:6px;${styleText(s.incomeTitleColor,s.incomeTitleFontSize,s.incomeTitleBold,s.incomeTitleUnderline)}">${escapeHtml(s.incomeTitle)}</div>`;
+    html += `<div style="margin-bottom:14px;line-height:1.5;white-space:pre-wrap;${styleText(s.incomeBodyColor,s.incomeBodyFontSize,false,false)}">${escapeHtml(s.incomeBody)}</div>`;
+    html += `<div style="${styleText(s.signoffColor,s.signoffFontSize,s.signoffBold,false)}">${escapeHtml(s.signoffText)}</div>`;
+    html += `</div>`;
+    if (s.ctaEnabled) {
+      html += `<div style="background:${s.ctaBgColor};color:${s.ctaTextColor};padding:14px;text-align:center;font-size:${s.ctaFontSize}px;font-weight:${s.ctaBold?800:500};">✉ ${escapeHtml(s.ctaText)}</div>`;
+    }
+    html += `</div>`;
+    livePreview.innerHTML = html;
+
+    const hp = el('heroPreview');
+    if (s.heroImageUrl) { hp.src = s.heroImageUrl; hp.style.display = 'block'; }
+    else { hp.removeAttribute('src'); hp.style.display = 'none'; }
+  }
+
+  function fillForm(item) {
+    setVal('language', item.language);
+    Object.keys(item).forEach((k) => {
+      if (k === 'infoItems') setVal('infoItems', (item.infoItems || []).join('\n'));
+      else if (el(k)) setVal(k, item[k]);
+    });
+    renderPreview();
+  }
+
+  function selectLanguage(code) {
+    const item = items.find(i => i.language === code);
+    if (item) fillForm(item);
+    [...langPills.querySelectorAll('.lang-pill')].forEach(btn => btn.classList.toggle('active', btn.dataset.lang === code));
+  }
+
+  function renderPills() {
+    langPills.innerHTML = '';
+    items.forEach(item => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'lang-pill';
+      btn.dataset.lang = item.language;
+      btn.textContent = `${item.name}${item.nativeName ? ' · ' + item.nativeName : ''}`;
+      btn.addEventListener('click', () => selectLanguage(item.language));
+      langPills.appendChild(btn);
+    });
+    if (items.length) selectLanguage(items[0].language);
+  }
+
+  document.querySelectorAll('input, textarea').forEach(n => {
+    n.addEventListener('input', renderPreview);
+    n.addEventListener('change', renderPreview);
+  });
+
+  el('heroImageFile').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('image', file);
+    try {
+      const res = await fetch('/admin/api/reporter-earning/upload-image', { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      setVal('heroImageUrl', data.imageUrl || '');
+      renderPreview();
+      showAlert('success', 'Image uploaded — click Save');
+    } catch (err) {
+      showAlert('danger', err.message || 'Upload failed');
+      e.target.value = '';
+    }
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    const original = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = 'Saving...';
+    try {
+      const res = await fetch('/admin/api/reporter-earning', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getState())
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      const idx = items.findIndex(i => i.language === data.item.language);
+      if (idx >= 0) items[idx] = { ...items[idx], ...data.item, isSaved: true };
+      showAlert('success', `Saved for ${data.item.language.toUpperCase()}`);
+    } catch (err) {
+      showAlert('danger', err.message || 'Could not save');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = original;
+    }
+  });
+
+  fetch('/admin/api/reporter-earning')
+    .then(r => r.json())
+    .then(data => { items = data.items || []; renderPills(); })
+    .catch(() => showAlert('danger', 'Could not load earning page'));
+});
+</script>
+
+<%- include('partials/footer') %>

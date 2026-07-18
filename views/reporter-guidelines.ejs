@@ -1,0 +1,418 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.04); }
+  .settings-card .card-header { background:#fff; border-bottom:1px solid #f0f0f0; padding:16px 20px; }
+  .settings-card .card-body { padding:20px; }
+  .lang-pill { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:8px 14px; font-weight:600; font-size:13px; color:#374151; margin:0 6px 8px 0; }
+  .lang-pill.active { background:#E31E24; border-color:#E31E24; color:#fff; }
+  .card-editor { border:1px solid #e5e7eb; border-radius:12px; padding:14px; margin-bottom:12px; background:#fafafa; }
+  .color-row { display:flex; gap:8px; flex-wrap:wrap; align-items:end; }
+  .color-row label { font-size:11px; font-weight:700; color:#6b7280; display:block; margin-bottom:4px; }
+  .preview-phone { border:1px solid #e5e7eb; border-radius:16px; overflow:hidden; background:#F8F9FA; min-height:420px; }
+  .preview-header { background:#fff; border-bottom:1px solid #f3f4f6; padding:14px; text-align:center; font-weight:800; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h1 class="h2 page-title mb-1">Reporter Guidelines</h1>
+      <p class="text-muted mb-0">Per-language content + card design (colors, font size, underline).</p>
+    </div>
+    <button type="button" id="saveBtn" class="btn btn-primary fw-bold px-4">Save for this language</button>
+  </div>
+
+  <div id="langPills" class="mb-3"></div>
+  <div id="saveAlert" class="alert d-none"></div>
+
+  <div class="row">
+    <div class="col-lg-7 mb-4">
+      <div class="card settings-card mb-3">
+        <div class="card-header"><h5 class="mb-0 fw-bold">Page settings</h5></div>
+        <div class="card-body">
+          <input type="hidden" id="language" value="">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Page title</label>
+            <input type="text" class="form-control" id="pageTitle">
+          </div>
+          <div class="color-row mb-3">
+            <div>
+              <label>Title color</label>
+              <input type="color" class="form-control form-control-color" id="pageTitleColor" value="#111827">
+            </div>
+            <div>
+              <label>Title size</label>
+              <input type="number" class="form-control" id="pageTitleFontSize" min="12" max="32" value="17" style="width:90px">
+            </div>
+            <div class="form-check mt-4">
+              <input class="form-check-input" type="checkbox" id="pageTitleUnderline">
+              <label class="form-check-label fw-bold" for="pageTitleUnderline">Underline</label>
+            </div>
+            <div>
+              <label>Page BG</label>
+              <input type="color" class="form-control form-control-color" id="pageBgColor" value="#F8F9FA">
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-bold">Footer text</label>
+            <input type="text" class="form-control" id="footerText">
+          </div>
+          <div class="color-row">
+            <div>
+              <label>Footer color</label>
+              <input type="color" class="form-control form-control-color" id="footerColor" value="#9CA3AF">
+            </div>
+            <div>
+              <label>Footer size</label>
+              <input type="number" class="form-control" id="footerFontSize" min="10" max="20" value="12" style="width:90px">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="fw-bold mb-0">Cards</h5>
+        <button type="button" id="addCardBtn" class="btn btn-sm btn-outline-primary fw-bold">+ Add card</button>
+      </div>
+      <div id="cardsEditor"></div>
+    </div>
+
+    <div class="col-lg-5 mb-4">
+      <div class="card settings-card">
+        <div class="card-header"><h5 class="mb-0 fw-bold">Live preview</h5></div>
+        <div class="card-body">
+          <div class="preview-phone" id="livePreview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const langPills = document.getElementById('langPills');
+  const cardsEditor = document.getElementById('cardsEditor');
+  const livePreview = document.getElementById('livePreview');
+  const alertBox = document.getElementById('saveAlert');
+  const saveBtn = document.getElementById('saveBtn');
+
+  let items = [];
+  let cards = [];
+
+  function showAlert(type, msg) {
+    alertBox.className = `alert alert-${type}`;
+    alertBox.textContent = msg;
+    alertBox.classList.remove('d-none');
+    setTimeout(() => alertBox.classList.add('d-none'), 3500);
+  }
+
+  function newCard() {
+    return {
+      id: 'card-' + Date.now(),
+      type: 'text',
+      title: 'New card',
+      body: '',
+      items: [],
+      backgroundColor: '#FFFFFF',
+      titleColor: '#111827',
+      bodyColor: '#4B5563',
+      accentColor: '#E31E24',
+      borderColor: '#F3F4F6',
+      titleFontSize: 15,
+      bodyFontSize: 13,
+      titleUnderline: false,
+      titleBold: true,
+      borderRadius: 16,
+      showIcon: true,
+      iconBgColor: '#FEF2F2',
+      iconColor: '#E31E24'
+    };
+  }
+
+  function getPageState() {
+    return {
+      language: document.getElementById('language').value,
+      pageTitle: document.getElementById('pageTitle').value,
+      pageTitleColor: document.getElementById('pageTitleColor').value,
+      pageTitleFontSize: Number(document.getElementById('pageTitleFontSize').value) || 17,
+      pageTitleUnderline: document.getElementById('pageTitleUnderline').checked,
+      pageBgColor: document.getElementById('pageBgColor').value,
+      footerText: document.getElementById('footerText').value,
+      footerColor: document.getElementById('footerColor').value,
+      footerFontSize: Number(document.getElementById('footerFontSize').value) || 12,
+      cards
+    };
+  }
+
+  function renderPreview() {
+    const s = getPageState();
+    livePreview.style.background = s.pageBgColor;
+    const titleStyle = `color:${s.pageTitleColor};font-size:${s.pageTitleFontSize}px;text-decoration:${s.pageTitleUnderline?'underline':'none'};`;
+    let html = `<div class="preview-header" style="${titleStyle}">${escapeHtml(s.pageTitle || 'Guidelines')}</div><div style="padding:12px;display:flex;flex-direction:column;gap:10px;">`;
+    s.cards.forEach((c) => {
+      html += `<div style="background:${c.backgroundColor};border:1px solid ${c.borderColor};border-radius:${c.borderRadius}px;padding:14px;">`;
+      html += `<div style="display:flex;gap:10px;align-items:flex-start;">`;
+      if (c.showIcon) {
+        html += `<div style="width:36px;height:36px;border-radius:999px;background:${c.iconBgColor};color:${c.iconColor};display:flex;align-items:center;justify-content:center;font-weight:900;flex-shrink:0;">•</div>`;
+      }
+      html += `<div style="flex:1;min-width:0;">`;
+      html += `<div style="color:${c.titleColor};font-size:${c.titleFontSize}px;font-weight:${c.titleBold?800:500};text-decoration:${c.titleUnderline?'underline':'none'};margin-bottom:6px;">${escapeHtml(c.title || '')}</div>`;
+      if (c.body) html += `<div style="color:${c.bodyColor};font-size:${c.bodyFontSize}px;line-height:1.45;">${escapeHtml(c.body)}</div>`;
+      if ((c.type === 'list' || c.items?.length) && c.items?.length) {
+        html += `<ul style="margin:8px 0 0;padding-left:0;list-style:none;">`;
+        c.items.forEach((it) => {
+          const color = it.color || c.bodyColor;
+          html += `<li style="display:flex;gap:8px;margin-bottom:6px;color:${color};font-size:${c.bodyFontSize}px;font-weight:${it.bold?700:500};text-decoration:${it.underline?'underline':'none'};"><span style="color:${c.accentColor};">•</span><span>${escapeHtml(it.text)}</span></li>`;
+        });
+        html += `</ul>`;
+      }
+      html += `</div></div></div>`;
+    });
+    if (s.footerText) {
+      html += `<div style="text-align:center;padding:8px 0 4px;color:${s.footerColor};font-size:${s.footerFontSize}px;font-weight:700;">${escapeHtml(s.footerText)}</div>`;
+    }
+    html += `</div>`;
+    livePreview.innerHTML = html;
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function readCardsFromDom() {
+    const next = [];
+    [...cardsEditor.querySelectorAll('.card-editor')].forEach((el, idx) => {
+      const itemsRaw = el.querySelector('.items-input').value || '';
+      const items = itemsRaw.split('\n').map((line) => {
+        const t = line.trim();
+        if (!t) return null;
+        // optional: *text* = underline, **text** = bold (simple markers)
+        let text = t;
+        let underline = false;
+        let bold = false;
+        if (text.startsWith('__') && text.endsWith('__') && text.length > 4) {
+          underline = true;
+          text = text.slice(2, -2);
+        }
+        if (text.startsWith('**') && text.endsWith('**') && text.length > 4) {
+          bold = true;
+          text = text.slice(2, -2);
+        }
+        return { text, underline, bold, color: '' };
+      }).filter(Boolean);
+
+      next.push({
+        id: el.dataset.id || `card-${idx + 1}`,
+        type: el.querySelector('.type-select').value,
+        title: el.querySelector('.title-input').value,
+        body: el.querySelector('.body-input').value,
+        items,
+        backgroundColor: el.querySelector('.bg-color').value,
+        titleColor: el.querySelector('.title-color').value,
+        bodyColor: el.querySelector('.body-color').value,
+        accentColor: el.querySelector('.accent-color').value,
+        borderColor: el.querySelector('.border-color').value,
+        titleFontSize: Number(el.querySelector('.title-size').value) || 15,
+        bodyFontSize: Number(el.querySelector('.body-size').value) || 13,
+        titleUnderline: el.querySelector('.title-underline').checked,
+        titleBold: el.querySelector('.title-bold').checked,
+        borderRadius: Number(el.querySelector('.radius-input').value) || 16,
+        showIcon: el.querySelector('.show-icon').checked,
+        iconBgColor: el.querySelector('.icon-bg').value,
+        iconColor: el.querySelector('.icon-color').value
+      });
+    });
+    cards = next;
+  }
+
+  function renderCardsEditor() {
+    cardsEditor.innerHTML = '';
+    cards.forEach((c, index) => {
+      const itemsText = (c.items || []).map((it) => {
+        let t = it.text || '';
+        if (it.bold) t = `**${t}**`;
+        if (it.underline) t = `__${t}__`;
+        return t;
+      }).join('\n');
+
+      const wrap = document.createElement('div');
+      wrap.className = 'card-editor';
+      wrap.dataset.id = c.id;
+      wrap.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <strong>Card ${index + 1}</strong>
+          <button type="button" class="btn btn-sm btn-outline-danger remove-card">Remove</button>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-4">
+            <label class="form-label fw-bold small mb-1">Type</label>
+            <select class="form-select form-select-sm type-select">
+              <option value="intro">Intro</option>
+              <option value="list">List</option>
+              <option value="text">Text</option>
+              <option value="note">Note</option>
+            </select>
+          </div>
+          <div class="col-8">
+            <label class="form-label fw-bold small mb-1">Title</label>
+            <input class="form-control form-control-sm title-input" value="">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold small mb-1">Body</label>
+            <textarea class="form-control form-control-sm body-input" rows="2"></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold small mb-1">List items (one per line). Use **bold** or __underline__</label>
+            <textarea class="form-control form-control-sm items-input" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="color-row mb-2">
+          <div><label>BG</label><input type="color" class="form-control form-control-color bg-color"></div>
+          <div><label>Title</label><input type="color" class="form-control form-control-color title-color"></div>
+          <div><label>Body</label><input type="color" class="form-control form-control-color body-color"></div>
+          <div><label>Accent</label><input type="color" class="form-control form-control-color accent-color"></div>
+          <div><label>Border</label><input type="color" class="form-control form-control-color border-color"></div>
+          <div><label>Icon BG</label><input type="color" class="form-control form-control-color icon-bg"></div>
+          <div><label>Icon</label><input type="color" class="form-control form-control-color icon-color"></div>
+        </div>
+        <div class="color-row">
+          <div><label>Title size</label><input type="number" class="form-control form-control-sm title-size" min="12" max="32" style="width:80px"></div>
+          <div><label>Body size</label><input type="number" class="form-control form-control-sm body-size" min="11" max="24" style="width:80px"></div>
+          <div><label>Radius</label><input type="number" class="form-control form-control-sm radius-input" min="0" max="32" style="width:80px"></div>
+          <div class="form-check mt-4"><input type="checkbox" class="form-check-input title-underline" id="tu-${c.id}"><label class="form-check-label small fw-bold" for="tu-${c.id}">Title underline</label></div>
+          <div class="form-check mt-4"><input type="checkbox" class="form-check-input title-bold" id="tb-${c.id}"><label class="form-check-label small fw-bold" for="tb-${c.id}">Title bold</label></div>
+          <div class="form-check mt-4"><input type="checkbox" class="form-check-input show-icon" id="si-${c.id}"><label class="form-check-label small fw-bold" for="si-${c.id}">Show icon</label></div>
+        </div>
+      `;
+      cardsEditor.appendChild(wrap);
+
+      wrap.querySelector('.type-select').value = c.type || 'text';
+      wrap.querySelector('.title-input').value = c.title || '';
+      wrap.querySelector('.body-input').value = c.body || '';
+      wrap.querySelector('.items-input').value = itemsText;
+      wrap.querySelector('.bg-color').value = c.backgroundColor || '#FFFFFF';
+      wrap.querySelector('.title-color').value = c.titleColor || '#111827';
+      wrap.querySelector('.body-color').value = c.bodyColor || '#4B5563';
+      wrap.querySelector('.accent-color').value = c.accentColor || '#E31E24';
+      wrap.querySelector('.border-color').value = c.borderColor || '#F3F4F6';
+      wrap.querySelector('.icon-bg').value = c.iconBgColor || '#FEF2F2';
+      wrap.querySelector('.icon-color').value = c.iconColor || '#E31E24';
+      wrap.querySelector('.title-size').value = c.titleFontSize || 15;
+      wrap.querySelector('.body-size').value = c.bodyFontSize || 13;
+      wrap.querySelector('.radius-input').value = c.borderRadius || 16;
+      wrap.querySelector('.title-underline').checked = !!c.titleUnderline;
+      wrap.querySelector('.title-bold').checked = c.titleBold !== false;
+      wrap.querySelector('.show-icon').checked = c.showIcon !== false;
+
+      wrap.querySelector('.remove-card').addEventListener('click', () => {
+        readCardsFromDom();
+        cards = cards.filter((x) => x.id !== c.id);
+        renderCardsEditor();
+        renderPreview();
+      });
+    });
+
+    cardsEditor.querySelectorAll('input, textarea, select').forEach((el) => {
+      el.addEventListener('input', () => {
+        readCardsFromDom();
+        renderPreview();
+      });
+      el.addEventListener('change', () => {
+        readCardsFromDom();
+        renderPreview();
+      });
+    });
+  }
+
+  function fillForm(item) {
+    document.getElementById('language').value = item.language;
+    document.getElementById('pageTitle').value = item.pageTitle || '';
+    document.getElementById('pageTitleColor').value = item.pageTitleColor || '#111827';
+    document.getElementById('pageTitleFontSize').value = item.pageTitleFontSize || 17;
+    document.getElementById('pageTitleUnderline').checked = !!item.pageTitleUnderline;
+    document.getElementById('pageBgColor').value = item.pageBgColor || '#F8F9FA';
+    document.getElementById('footerText').value = item.footerText || '';
+    document.getElementById('footerColor').value = item.footerColor || '#9CA3AF';
+    document.getElementById('footerFontSize').value = item.footerFontSize || 12;
+    cards = Array.isArray(item.cards) ? item.cards.map((c) => ({ ...c })) : [];
+    renderCardsEditor();
+    renderPreview();
+  }
+
+  function selectLanguage(code) {
+    const item = items.find((i) => i.language === code);
+    if (item) fillForm(item);
+    [...langPills.querySelectorAll('.lang-pill')].forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.lang === code);
+    });
+  }
+
+  function renderPills() {
+    langPills.innerHTML = '';
+    items.forEach((item) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'lang-pill';
+      btn.dataset.lang = item.language;
+      btn.textContent = `${item.name}${item.nativeName ? ' · ' + item.nativeName : ''}`;
+      btn.addEventListener('click', () => selectLanguage(item.language));
+      langPills.appendChild(btn);
+    });
+    if (items.length) selectLanguage(items[0].language);
+  }
+
+  ['pageTitle','pageTitleColor','pageTitleFontSize','pageTitleUnderline','pageBgColor','footerText','footerColor','footerFontSize']
+    .forEach((id) => {
+      const el = document.getElementById(id);
+      el.addEventListener('input', renderPreview);
+      el.addEventListener('change', renderPreview);
+    });
+
+  document.getElementById('addCardBtn').addEventListener('click', () => {
+    readCardsFromDom();
+    cards.push(newCard());
+    renderCardsEditor();
+    renderPreview();
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    readCardsFromDom();
+    const original = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = 'Saving...';
+    try {
+      const payload = getPageState();
+      const res = await fetch('/admin/api/reporter-guidelines', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      const idx = items.findIndex((i) => i.language === data.item.language);
+      if (idx >= 0) items[idx] = { ...items[idx], ...data.item, isSaved: true };
+      showAlert('success', `Saved for ${data.item.language.toUpperCase()}`);
+    } catch (err) {
+      showAlert('danger', err.message || 'Could not save');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = original;
+    }
+  });
+
+  fetch('/admin/api/reporter-guidelines')
+    .then((r) => r.json())
+    .then((data) => {
+      items = data.items || [];
+      renderPills();
+    })
+    .catch(() => showAlert('danger', 'Could not load guidelines'));
+});
+</script>
+
+<%- include('partials/footer') %>

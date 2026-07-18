@@ -112,6 +112,12 @@
                                                                 <option value="">Select District</option>
                                                             </select>
                                                         </div>
+                                                        <div class="an-field" id="locationConstituencyWrapper">
+                                                            <label for="locationConstituency" class="an-label">Constituency <span class="an-label-hint">optional</span></label>
+                                                            <select class="an-select" id="locationConstituency">
+                                                                <option value="">Select Constituency (Optional)</option>
+                                                            </select>
+                                                        </div>
                                                         <div class="an-field" style="display:none;">
                                                             <label for="location" class="an-label">Location <span class="an-label-hint">auto</span></label>
                                                             <select class="an-select" id="location">
@@ -369,8 +375,11 @@
                         newsData.scope = newsScope;
 
                         if (newsScope === 'district') {
+                            const constituencyVal = document.getElementById('locationConstituency').value;
                             const districtVal = document.getElementById('locationDistrict').value;
-                            if (districtVal) newsData.location = districtVal;
+                            // Constituency select chesthe adi location; lekapothe district
+                            if (constituencyVal) newsData.location = constituencyVal;
+                            else if (districtVal) newsData.location = districtVal;
                         } else if (newsScope === 'state') {
                             const stateVal = document.getElementById('locationState').value;
                             if (stateVal) newsData.location = stateVal;
@@ -921,46 +930,91 @@
                     const _editorAssignedDistricts = <%- JSON.stringify(typeof editorAssignedDistricts !== 'undefined' ? editorAssignedDistricts : []) %>;
                     const _editorRole = '<%= typeof admin !== "undefined" ? admin.role : "editor" %>';
                     const _isAdminOrSuper = (_editorRole === 'admin' || _editorRole === 'superadmin');
+                    const _isSubEditor = (_editorRole === 'subeditor');
+                    let _lastScopeForStates = null;
+
+                    // Scope batti state dropdown options build cheyadam.
+                    // Sub editor rule: state scope = anni states; district scope = assigned districts unna states matrame.
+                    function rebuildStateOptions() {
+                        const scope = document.getElementById('newsScope').value;
+                        const stateSelect = document.getElementById('locationState');
+                        const prevValue = stateSelect.value;
+                        stateSelect.innerHTML = '<option value="">Select State</option>';
+                        _lastScopeForStates = scope;
+
+                        let allowedStates = null; // null = anni states
+                        if (!_isAdminOrSuper) {
+                            if (_isSubEditor) {
+                                if (scope === 'district' && _editorAssignedDistricts.length > 0) {
+                                    allowedStates = _allHierarchy
+                                        .filter(s => (s.districts || []).some(d => _editorAssignedDistricts.includes(d.name)))
+                                        .map(s => s.name);
+                                }
+                                // state scope: sub editor ki anni states allowed
+                            } else if (_editorAssignedStates.length > 0) {
+                                allowedStates = _editorAssignedStates;
+                            }
+                        }
+
+                        _allHierarchy.forEach(s => {
+                            if (allowedStates && !allowedStates.includes(s.name)) return;
+                            const opt = document.createElement('option');
+                            opt.value = s.name;
+                            opt.textContent = s.localName ? `${s.name} (${s.localName})` : s.name;
+                            stateSelect.appendChild(opt);
+                        });
+
+                        // Previous selection inka valid aithe restore
+                        if (prevValue && Array.from(stateSelect.options).some(o => o.value === prevValue)) {
+                            stateSelect.value = prevValue;
+                        } else if (stateSelect.options.length === 2) {
+                            stateSelect.selectedIndex = 1;
+                        }
+                        onStateChange();
+                    }
 
                     async function loadLocationHierarchy() {
                         try {
                             const resp = await fetch('/api/public/location-hierarchy');
                             _allHierarchy = await resp.json();
 
-                            const stateSelect = document.getElementById('locationState');
-                            stateSelect.innerHTML = '<option value="">Select State</option>';
-
-                            const hasStateFilter = !_isAdminOrSuper && _editorAssignedStates.length > 0;
-                            const hasDistrictFilter = !_isAdminOrSuper && _editorAssignedDistricts.length > 0;
-
-                            _allHierarchy.forEach(s => {
-                                if (hasStateFilter && !_editorAssignedStates.includes(s.name)) return;
-                                const opt = document.createElement('option');
-                                opt.value = s.name;
-                                opt.textContent = s.localName ? `${s.name} (${s.localName})` : s.name;
-                                stateSelect.appendChild(opt);
-                            });
-
-                            if (stateSelect.options.length === 2) {
-                                stateSelect.selectedIndex = 1;
-                                onStateChange();
-                            }
-
                             const currentScope = '<%= typeof news !== "undefined" && news.scope ? news.scope : "state" %>';
                             const currentLocation = '<%= typeof news !== "undefined" && news.location ? news.location : "" %>';
                             document.getElementById('newsScope').value = currentScope;
+                            rebuildStateOptions();
+                            const stateSelect = document.getElementById('locationState');
 
                             if (currentScope === 'state' && currentLocation) {
                                 stateSelect.value = currentLocation;
                             } else if (currentScope === 'district' && currentLocation) {
-                                const parentState = _allHierarchy.find(s =>
-                                    s.districts && s.districts.some(d => d.name === currentLocation)
-                                );
+                                // Location district aa, constituency aa — rendu check cheyali
+                                let parentState = null, parentDistrict = null, isConstituency = false;
+                                _allHierarchy.forEach(s => {
+                                    (s.districts || []).forEach(d => {
+                                        if (d.name === currentLocation) { parentState = s.name; }
+                                        (d.constituencies || []).forEach(c => {
+                                            if (c.name === currentLocation) {
+                                                parentState = s.name;
+                                                parentDistrict = d.name;
+                                                isConstituency = true;
+                                            }
+                                        });
+                                    });
+                                });
                                 if (parentState) {
-                                    stateSelect.value = parentState.name;
+                                    stateSelect.value = parentState;
                                     onStateChange();
                                     setTimeout(() => {
-                                        document.getElementById('locationDistrict').value = currentLocation;
+                                        if (isConstituency) {
+                                            document.getElementById('locationDistrict').value = parentDistrict;
+                                            onDistrictChange();
+                                            setTimeout(() => {
+                                                document.getElementById('locationConstituency').value = currentLocation;
+                                            }, 50);
+                                        } else {
+                                            document.getElementById('locationDistrict').value = currentLocation;
+                                            onDistrictChange();
+                                        }
                                     }, 100);
                                 }
                             }
@@ -990,27 +1044,62 @@
                         if (districtSelect.options.length === 2) {
                             districtSelect.selectedIndex = 1;
                         }
+                        onDistrictChange();
+                    }
+
+                    function onDistrictChange() {
+                        const stateName = document.getElementById('locationState').value;
+                        const districtName = document.getElementById('locationDistrict').value;
+                        const constSelect = document.getElementById('locationConstituency');
+                        constSelect.innerHTML = '<option value="">Select Constituency (Optional)</option>';
+
+                        const stateData = _allHierarchy.find(s => s.name === stateName);
+                        const districtData = stateData && stateData.districts
+                            ? stateData.districts.find(d => d.name === districtName)
+                            : null;
+                        if (districtData && districtData.constituencies) {
+                            districtData.constituencies.forEach(c => {
+                                const opt = document.createElement('option');
+                                opt.value = c.name;
+                                const telugu = c.teluguName || c.localName;
+                                opt.textContent = telugu ? `${c.name} (${telugu})` : c.name;
+                                constSelect.appendChild(opt);
+                            });
+                        }
+                        // Constituencies leni district ki dropdown hide
+                        document.getElementById('locationConstituencyWrapper').style.display =
+                            (constSelect.options.length > 1 && document.getElementById('newsScope').value === 'district') ? '' : 'none';
                     }
 
                     function updateScopeVisibility() {
                         const scope = document.getElementById('newsScope').value;
                         const stateW = document.getElementById('locationStateWrapper');
                         const distW = document.getElementById('locationDistrictWrapper');
+                        const constW = document.getElementById('locationConstituencyWrapper');
+
+                        // Scope maarithe state options malli build cheyali (sub editor rules scope batti untayi)
+                        if (_allHierarchy.length && scope !== _lastScopeForStates && (scope === 'state' || scope === 'district')) {
+                            rebuildStateOptions();
+                        }
 
                         if (scope === 'district') {
                             stateW.style.display = '';
                             distW.style.display = '';
+                            onDistrictChange();
                         } else if (scope === 'state') {
                             stateW.style.display = '';
                             distW.style.display = 'none';
+                            constW.style.display = 'none';
                         } else {
                             stateW.style.display = 'none';
                             distW.style.display = 'none';
+                            constW.style.display = 'none';
                         }
                     }
 
                     document.getElementById('newsScope').addEventListener('change', updateScopeVisibility);
                     document.getElementById('locationState').addEventListener('change', onStateChange);
+                    document.getElementById('locationDistrict').addEventListener('change', onDistrictChange);
 
                     // Filter allowed languages for sub-editors / reporters
                     (function filterAllowedLanguages() {

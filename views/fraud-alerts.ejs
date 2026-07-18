@@ -1,0 +1,365 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius:12px; border:none; box-shadow:0 4px 6px rgba(0,0,0,.04); }
+  .settings-card .card-header { background:#fff; border-bottom:1px solid #f0f0f0; padding:14px 18px; border-radius:12px 12px 0 0; }
+  .alert-count { background:#fff; border-radius:12px; padding:14px 16px; border:1px solid #f0f0f0; text-align:center; cursor:pointer; transition:all .15s; }
+  .alert-count:hover { border-color:#0d6efd; }
+  .alert-count h3 { font-weight:800; margin:0; }
+  .alert-count.safe h3 { color:#16a34a; }
+  .alert-count.danger h3 { color:#dc2626; }
+  .alert-count p { font-size:11px; font-weight:700; color:#6b7280; margin:4px 0 0; text-transform:uppercase; letter-spacing:.03em; }
+  .rep-chip { display:inline-flex; align-items:center; gap:5px; background:#f3f4f6; border-radius:999px; padding:3px 10px; font-size:12px; font-weight:600; margin:2px; }
+  .rep-chip .badge { font-size:9px; }
+  .frozen-badge { background:#dbeafe; color:#1d4ed8; }
+  .suspended-badge { background:#fee2e2; color:#b91c1c; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h1 class="h2 page-title mb-1">Fraud Alerts</h1>
+      <p class="text-muted mb-0">Automatic checks on reporter activity. Freeze wallet or suspend directly from here — all actions audit-logged.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <select class="form-select form-select-sm" id="daysSelect" style="width:auto">
+        <option value="7">Last 7 days</option>
+        <option value="14" selected>Last 14 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+      <button type="button" class="btn btn-outline-primary fw-bold" id="refreshBtn"><i class="fas fa-radar me-2"></i>Run Checks</button>
+    </div>
+  </div>
+
+  <!-- Summary counts -->
+  <div class="row g-3 mb-4" id="summaryRow">
+    <div class="col-md-2 col-4"><div class="alert-count" data-target="secSpikes"><h3 id="cntSpikes">-</h3><p>Post Spikes</p></div></div>
+    <div class="col-md-2 col-4"><div class="alert-count" data-target="secMedia"><h3 id="cntMedia">-</h3><p>Duplicate Media</p></div></div>
+    <div class="col-md-2 col-4"><div class="alert-count" data-target="secContent"><h3 id="cntContent">-</h3><p>Copied Content</p></div></div>
+    <div class="col-md-2 col-4"><div class="alert-count" data-target="secIps"><h3 id="cntIps">-</h3><p>Shared IPs</p></div></div>
+    <div class="col-md-2 col-4"><div class="alert-count" data-target="secLocation"><h3 id="cntLocation">-</h3><p>Location Mismatch</p></div></div>
+    <div class="col-md-2 col-4"><div class="alert-count" data-target="secPlag"><h3 id="cntPlag">-</h3><p>Plagiarism Repeat</p></div></div>
+  </div>
+
+  <div id="loadingBox" class="text-center py-5 text-muted d-none">
+    <div class="spinner-border text-primary mb-2"></div>
+    <div>Running fraud checks...</div>
+  </div>
+
+  <!-- 1. Post spikes -->
+  <div class="card settings-card mb-4" id="secSpikes">
+    <div class="card-header"><strong><i class="fas fa-bolt text-warning me-2"></i>Post Spikes</strong>
+      <span class="text-muted small ms-2">Today 5+ posts AND 3x kanna ekkuva than daily average</span></div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead class="bg-light"><tr><th class="ps-4">Reporter</th><th>Today Posts</th><th>Daily Avg</th><th class="text-end pe-4">Actions</th></tr></thead>
+      <tbody id="bodySpikes"><tr><td colspan="4" class="text-center py-3 text-muted">—</td></tr></tbody>
+    </table></div></div>
+  </div>
+
+  <!-- 2. Duplicate media -->
+  <div class="card settings-card mb-4" id="secMedia">
+    <div class="card-header"><strong><i class="fas fa-images text-danger me-2"></i>Same Media, Multiple Reporters</strong></div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead class="bg-light"><tr><th class="ps-4">Media</th><th>Used</th><th>Reporters</th><th>Sample Titles</th></tr></thead>
+      <tbody id="bodyMedia"><tr><td colspan="4" class="text-center py-3 text-muted">—</td></tr></tbody>
+    </table></div></div>
+  </div>
+
+  <!-- 3. Duplicate content -->
+  <div class="card settings-card mb-4" id="secContent">
+    <div class="card-header"><strong><i class="fas fa-copy text-danger me-2"></i>Same Content, Multiple Reporters</strong>
+      <span class="text-muted small ms-2">identical content hash</span></div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead class="bg-light"><tr><th class="ps-4">Used</th><th>Reporters</th><th>Sample Titles</th></tr></thead>
+      <tbody id="bodyContent"><tr><td colspan="3" class="text-center py-3 text-muted">—</td></tr></tbody>
+    </table></div></div>
+  </div>
+
+  <!-- 4. Shared IPs -->
+  <div class="card settings-card mb-4" id="secIps">
+    <div class="card-header"><strong><i class="fas fa-network-wired text-primary me-2"></i>Shared Login IPs</strong>
+      <span class="text-muted small ms-2">okate IP nunchi multiple reporter accounts login</span></div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead class="bg-light"><tr><th class="ps-4">IP Address</th><th>Accounts</th><th>Reporters</th></tr></thead>
+      <tbody id="bodyIps"><tr><td colspan="3" class="text-center py-3 text-muted">—</td></tr></tbody>
+    </table></div></div>
+  </div>
+
+  <!-- 5. Location mismatch -->
+  <div class="card settings-card mb-4" id="secLocation">
+    <div class="card-header"><strong><i class="fas fa-map-marked-alt text-warning me-2"></i>Location Mismatch</strong>
+      <span class="text-muted small ms-2">60%+ posts registered area bayata nunchi</span></div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead class="bg-light"><tr><th class="ps-4">Reporter</th><th>Registered</th><th>Top Posting Area</th><th>Outside %</th><th class="text-end pe-4">Actions</th></tr></thead>
+      <tbody id="bodyLocation"><tr><td colspan="5" class="text-center py-3 text-muted">—</td></tr></tbody>
+    </table></div></div>
+  </div>
+
+  <!-- 6. Plagiarism repeaters -->
+  <div class="card settings-card mb-4" id="secPlag">
+    <div class="card-header"><strong><i class="fas fa-exclamation-triangle text-danger me-2"></i>Plagiarism Repeaters</strong>
+      <span class="text-muted small ms-2">system duplicate-checker 2+ sarlu flag chesina reporters</span></div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead class="bg-light"><tr><th class="ps-4">Reporter</th><th>Flagged Posts</th><th class="text-end pe-4">Actions</th></tr></thead>
+      <tbody id="bodyPlag"><tr><td colspan="3" class="text-center py-3 text-muted">—</td></tr></tbody>
+    </table></div></div>
+  </div>
+</main>
+
+<!-- Location posts drill-down modal -->
+<div class="modal fade" id="locPostsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header border-0 pb-0">
+        <div>
+          <h5 class="modal-title fw-bold" id="lpTitle">News Locations</h5>
+          <p class="text-muted small mb-0" id="lpSubtitle"></p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex gap-2 mb-3 flex-wrap" id="lpSummary"></div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="bg-light"><tr><th>News Title</th><th>News Location</th><th>Date</th><th>Status</th><th>Match?</th></tr></thead>
+            <tbody id="lpBody"><tr><td colspan="5" class="text-center py-4 text-muted">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Action modal (freeze / suspend) -->
+<div class="modal fade" id="actionModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" id="amTitle">Action</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="bg-light rounded p-3 mb-3" id="amInfo"></div>
+        <div class="mb-2">
+          <label class="form-label fw-bold small">Reason (mandatory)</label>
+          <textarea class="form-control" id="amReason" rows="2" placeholder="Why?"></textarea>
+        </div>
+        <div class="alert alert-danger d-none" id="amError"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger fw-bold" id="amConfirmBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let pendingAction = null;
+  const actionModal = new bootstrap.Modal(document.getElementById('actionModal'));
+
+  function chip(r) {
+    if (!r) return '';
+    const badges =
+      (r.walletFrozen ? '<span class="badge frozen-badge">FROZEN</span>' : '') +
+      (!r.isActive ? '<span class="badge suspended-badge">SUSPENDED</span>' : '');
+    return `<span class="rep-chip">${esc(r.name)} ${badges}</span>`;
+  }
+
+  function actionBtns(r) {
+    if (!r) return '';
+    const freezeBtn = r.walletFrozen
+      ? `<button class="btn btn-sm btn-outline-primary me-1" onclick="doAction('${r.id}','unfreeze','${esc(r.name)}')">Unfreeze</button>`
+      : `<button class="btn btn-sm btn-primary me-1" onclick="doAction('${r.id}','freeze','${esc(r.name)}')">Freeze Wallet</button>`;
+    const suspendBtn = r.isActive
+      ? `<button class="btn btn-sm btn-outline-danger" onclick="doAction('${r.id}','suspend','${esc(r.name)}')">Suspend</button>`
+      : `<button class="btn btn-sm btn-outline-success" onclick="doAction('${r.id}','activate','${esc(r.name)}')">Activate</button>`;
+    return freezeBtn + suspendBtn;
+  }
+
+  async function load() {
+    document.getElementById('loadingBox').classList.remove('d-none');
+    try {
+      const days = document.getElementById('daysSelect').value;
+      const res = await fetch('/admin/api/fraud-alerts?days=' + days);
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed');
+
+      const s = d.summary || {};
+      const setCnt = (id, n) => {
+        const el = document.getElementById(id);
+        el.textContent = n;
+        el.closest('.alert-count').classList.toggle('danger', n > 0);
+        el.closest('.alert-count').classList.toggle('safe', n === 0);
+      };
+      setCnt('cntSpikes', s.postSpikes || 0);
+      setCnt('cntMedia', s.duplicateMedia || 0);
+      setCnt('cntContent', s.duplicateContent || 0);
+      setCnt('cntIps', s.sharedIps || 0);
+      setCnt('cntLocation', s.locationMismatches || 0);
+      setCnt('cntPlag', s.plagiarismRepeaters || 0);
+
+      const empty = (cols, msg) => `<tr><td colspan="${cols}" class="text-center py-3 text-muted">${msg}</td></tr>`;
+
+      document.getElementById('bodySpikes').innerHTML = (d.postSpikes || []).map((x) => `<tr>
+        <td class="ps-4">${chip(x.reporter)}<div class="small text-muted">${esc(x.reporter.mobileNumber)}</div></td>
+        <td class="fw-bold text-danger">${x.todayPosts}</td>
+        <td>${x.dailyAverage}</td>
+        <td class="text-end pe-4">${actionBtns(x.reporter)}</td>
+      </tr>`).join('') || empty(4, 'No spikes detected ✅');
+
+      document.getElementById('bodyMedia').innerHTML = (d.duplicateMedia || []).map((m) => `<tr>
+        <td class="ps-4"><a href="${esc(m.mediaUrl)}" target="_blank" class="small">media link ↗</a></td>
+        <td class="fw-bold">${m.usedCount}×</td>
+        <td>${m.reporters.map(chip).join('')}</td>
+        <td class="small text-muted">${m.sampleTitles.map(esc).join('<br>')}</td>
+      </tr>`).join('') || empty(4, 'No duplicate media ✅');
+
+      document.getElementById('bodyContent').innerHTML = (d.duplicateContent || []).map((c) => `<tr>
+        <td class="ps-4 fw-bold">${c.usedCount}×</td>
+        <td>${c.reporters.map(chip).join('')}</td>
+        <td class="small text-muted">${c.sampleTitles.map(esc).join('<br>')}</td>
+      </tr>`).join('') || empty(3, 'No copied content ✅');
+
+      document.getElementById('bodyIps').innerHTML = (d.sharedIps || []).map((x) => `<tr>
+        <td class="ps-4 font-monospace small">${esc(x.ip)}</td>
+        <td class="fw-bold">${x.reporters.length}</td>
+        <td>${x.reporters.map(chip).join('')}</td>
+      </tr>`).join('') || empty(3, 'No shared IPs ✅');
+
+      document.getElementById('bodyLocation').innerHTML = (d.locationMismatches || []).map((x) => `<tr>
+        <td class="ps-4">${chip(x.reporter)}</td>
+        <td class="small">${esc(x.registeredLocation)}</td>
+        <td class="small fw-semibold">${esc(x.topPostingLocation)}</td>
+        <td><span class="fw-bold text-danger">${x.outsidePercent}%</span> <span class="small text-muted">(${x.outsidePosts}/${x.totalPosts})</span></td>
+        <td class="text-end pe-4"><button class="btn btn-sm btn-outline-secondary me-1" onclick="viewLocationPosts('${x.reporter.id}')"><i class="fas fa-eye me-1"></i>View News</button>${actionBtns(x.reporter)}</td>
+      </tr>`).join('') || empty(5, 'No mismatches ✅');
+
+      document.getElementById('bodyPlag').innerHTML = (d.plagiarismRepeaters || []).map((x) => `<tr>
+        <td class="ps-4">${chip(x.reporter)}</td>
+        <td class="fw-bold text-danger">${x.flaggedPosts}</td>
+        <td class="text-end pe-4">${actionBtns(x.reporter)}</td>
+      </tr>`).join('') || empty(3, 'No repeaters ✅');
+    } catch (err) {
+      alert(err.message || 'Failed to run checks');
+    } finally {
+      document.getElementById('loadingBox').classList.add('d-none');
+    }
+  }
+
+  const locPostsModal = new bootstrap.Modal(document.getElementById('locPostsModal'));
+
+  window.viewLocationPosts = async function (id) {
+    const body = document.getElementById('lpBody');
+    document.getElementById('lpTitle').textContent = 'News Locations';
+    document.getElementById('lpSubtitle').textContent = '';
+    document.getElementById('lpSummary').innerHTML = '';
+    body.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Loading...</td></tr>';
+    locPostsModal.show();
+    try {
+      const days = document.getElementById('daysSelect').value;
+      const res = await fetch(`/admin/api/fraud/reporter/${id}/location-posts?days=${days}`);
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed');
+
+      document.getElementById('lpTitle').textContent = d.reporter.name + ' — News Locations';
+      document.getElementById('lpSubtitle').textContent =
+        `Registered location: ${d.registeredLocation} · Last ${d.days} days`;
+      document.getElementById('lpSummary').innerHTML =
+        `<span class="badge bg-danger-subtle text-danger fs-6 fw-bold">Mismatch: ${d.mismatchPosts}</span>` +
+        `<span class="badge bg-success-subtle text-success fs-6 fw-bold">Match: ${d.totalPosts - d.mismatchPosts}</span>` +
+        `<span class="badge bg-light text-dark fs-6 fw-bold">Total: ${d.totalPosts}</span>`;
+
+      const fmtDate = (iso) => new Date(iso).toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+      });
+      const statusBadge = {
+        approved: '<span class="badge bg-success-subtle text-success">Approved</span>',
+        rejected: '<span class="badge bg-danger-subtle text-danger">Rejected</span>',
+        pending: '<span class="badge bg-warning-subtle text-warning">Pending</span>'
+      };
+
+      body.innerHTML = (d.posts || []).map((p) => `<tr class="${p.mismatch ? 'table-danger' : ''}">
+        <td class="small" style="max-width:280px">${esc(p.title)}</td>
+        <td class="small fw-semibold ${p.mismatch ? 'text-danger' : 'text-success'}">${esc(p.location)}</td>
+        <td class="small text-muted text-nowrap">${fmtDate(p.publishedAt)}</td>
+        <td>${statusBadge[p.status] || ''}</td>
+        <td>${p.mismatch
+          ? '<span class="fw-bold text-danger">✗ Mismatch</span>'
+          : '<span class="fw-bold text-success">✓ Match</span>'}</td>
+      </tr>`).join('') || '<tr><td colspan="5" class="text-center py-4 text-muted">Ee period lo posts levu.</td></tr>';
+    } catch (err) {
+      body.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger">${esc(err.message)}</td></tr>`;
+    }
+  };
+
+  window.doAction = function (id, kind, name) {
+    pendingAction = { id, kind };
+    const titles = {
+      freeze: 'Freeze Wallet', unfreeze: 'Unfreeze Wallet',
+      suspend: 'Suspend Account', activate: 'Re-activate Account'
+    };
+    document.getElementById('amTitle').textContent = titles[kind];
+    document.getElementById('amInfo').innerHTML = `<strong>${esc(name)}</strong>`;
+    document.getElementById('amReason').value = '';
+    document.getElementById('amError').classList.add('d-none');
+    const btn = document.getElementById('amConfirmBtn');
+    btn.className = 'btn fw-bold ' + (kind === 'unfreeze' || kind === 'activate' ? 'btn-success' : 'btn-danger');
+    btn.textContent = titles[kind];
+    actionModal.show();
+  };
+
+  document.getElementById('amConfirmBtn').addEventListener('click', async () => {
+    if (!pendingAction) return;
+    const { id, kind } = pendingAction;
+    const reason = document.getElementById('amReason').value.trim();
+    const errBox = document.getElementById('amError');
+    const needsReason = kind === 'freeze' || kind === 'suspend';
+    if (needsReason && reason.length < 5) {
+      errBox.textContent = 'Reason is mandatory (min 5 characters).';
+      errBox.classList.remove('d-none');
+      return;
+    }
+    const btn = document.getElementById('amConfirmBtn');
+    btn.disabled = true;
+    try {
+      const url = (kind === 'freeze' || kind === 'unfreeze')
+        ? `/admin/api/fraud/reporter/${id}/wallet-freeze`
+        : `/admin/api/fraud/reporter/${id}/suspend`;
+      const body = (kind === 'freeze' || kind === 'unfreeze')
+        ? { freeze: kind === 'freeze', reason }
+        : { suspend: kind === 'suspend', reason };
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      actionModal.hide();
+      load();
+    } catch (err) {
+      errBox.textContent = err.message || 'Failed';
+      errBox.classList.remove('d-none');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.querySelectorAll('.alert-count').forEach((el) => {
+    el.addEventListener('click', () => {
+      document.getElementById(el.dataset.target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', load);
+  document.getElementById('daysSelect').addEventListener('change', load);
+  load();
+});
+</script>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,395 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+  }
+  .settings-card .card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 20px 24px;
+  }
+  .settings-card .card-body { padding: 24px; }
+  .lang-pill {
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #374151;
+    margin: 0 6px 8px 0;
+  }
+  .lang-pill.active {
+    background: #E31E24;
+    border-color: #E31E24;
+    color: #fff;
+  }
+  .preview-box {
+    background: #1A1A1A;
+    border-radius: 16px;
+    padding: 16px;
+    color: #fff;
+  }
+  .preview-card {
+    border-radius: 14px;
+    background: linear-gradient(180deg, #444 0%, #111 100%);
+    color: #fff;
+    padding: 14px;
+    min-height: 150px;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .preview-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.85) 100%);
+  }
+  .preview-card > * { position: relative; z-index: 1; }
+  .section-label {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin: 18px 0 10px;
+  }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-4 border-bottom">
+    <h1 class="h2 page-title">Reporter Home Content</h1>
+    <p class="text-muted mb-0">
+      Banner + 2 home cards — edit per language from your existing Languages list.
+    </p>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-7 mb-4">
+      <div class="card settings-card">
+        <div class="card-header">
+          <h5 class="mb-0 fw-bold">Edit home content</h5>
+        </div>
+        <div class="card-body">
+          <div id="langPills" class="mb-3"></div>
+
+          <form id="homeContentForm">
+            <input type="hidden" id="language" value="">
+
+            <div class="section-label">Banner</div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Title</label>
+              <input type="text" class="form-control" id="title" required placeholder="ShortNews">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Title highlight (red word)</label>
+              <input type="text" class="form-control" id="titleHighlight" placeholder="Reporter / రిపోర్టర్">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Message</label>
+              <textarea class="form-control" id="message" rows="4" required></textarea>
+            </div>
+
+            <div class="section-label">Card 1 (left)</div>
+            <div class="row g-2">
+              <div class="col-12"><input class="form-control" id="card1Title" placeholder="Title" required></div>
+              <div class="col-12"><input class="form-control" id="card1Subtitle" placeholder="Subtitle" required></div>
+              <div class="col-6"><input class="form-control" id="card1Cta" placeholder="CTA text" required></div>
+              <div class="col-6"><input class="form-control" id="card1Href" placeholder="/post"></div>
+              <div class="col-12">
+                <label class="form-label fw-bold mb-1">Background image</label>
+                <div class="d-flex gap-2 align-items-start">
+                  <img id="card1ImagePreview" src="" alt="" class="rounded border" style="width:72px;height:96px;object-fit:cover;background:#eee;display:none;">
+                  <div class="flex-grow-1">
+                    <input type="hidden" id="card1ImageUrl" value="">
+                    <input type="file" class="form-control form-control-sm" id="card1ImageFile" accept="image/*">
+                    <div class="form-text">Portrait image required. Until uploaded, app shows skeleton.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-label">Card 2 (right)</div>
+            <div class="row g-2 mb-3">
+              <div class="col-12"><input class="form-control" id="card2Title" placeholder="Title" required></div>
+              <div class="col-12"><input class="form-control" id="card2Subtitle" placeholder="Subtitle" required></div>
+              <div class="col-6"><input class="form-control" id="card2Cta" placeholder="CTA text" required></div>
+              <div class="col-6"><input class="form-control" id="card2Href" placeholder="/guidelines"></div>
+              <div class="col-12">
+                <label class="form-label fw-bold mb-1">Background image</label>
+                <div class="d-flex gap-2 align-items-start">
+                  <img id="card2ImagePreview" src="" alt="" class="rounded border" style="width:72px;height:96px;object-fit:cover;background:#eee;display:none;">
+                  <div class="flex-grow-1">
+                    <input type="hidden" id="card2ImageUrl" value="">
+                    <input type="file" class="form-control form-control-sm" id="card2ImageFile" accept="image/*">
+                    <div class="form-text">Portrait image required. Until uploaded, app shows skeleton.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="saveAlert" class="alert d-none"></div>
+            <button type="submit" id="saveBtn" class="btn btn-primary fw-bold px-4">Save for this language</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5 mb-4">
+      <div class="card settings-card">
+        <div class="card-header">
+          <h5 class="mb-0 fw-bold">Live preview</h5>
+        </div>
+        <div class="card-body">
+          <div class="preview-box mb-3">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <div style="width:28px;height:28px;background:#E31E24;border-radius:6px;"></div>
+              <h2 class="mb-0" style="font-size:18px;font-weight:900;">
+                <span id="previewTitle">ShortNews</span>
+                <span style="color:#E31E24;" id="previewHighlight">Reporter</span>
+              </h2>
+            </div>
+            <p id="previewMessage" class="mb-0" style="font-size:13px;color:#d1d5db;line-height:1.5;"></p>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-6">
+              <div class="preview-card">
+                <div id="pv1Title" style="font-size:14px;font-weight:800;margin-top:6px;">Title</div>
+                <div id="pv1Subtitle" style="font-size:11px;opacity:.75;margin-top:4px;">Subtitle</div>
+                <div id="pv1Cta" style="font-size:12px;font-weight:700;margin-top:10px;">CTA →</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="preview-card">
+                <div id="pv2Title" style="font-size:14px;font-weight:800;margin-top:6px;">Title</div>
+                <div id="pv2Subtitle" style="font-size:11px;opacity:.75;margin-top:4px;">Subtitle</div>
+                <div id="pv2Cta" style="font-size:12px;font-weight:700;margin-top:10px;">CTA →</div>
+              </div>
+            </div>
+          </div>
+
+          <p class="small text-muted mt-3 mb-0">
+            Reporter app shows content for their <strong>working language</strong>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const langPills = document.getElementById('langPills');
+    const languageInput = document.getElementById('language');
+    const fields = {
+      title: document.getElementById('title'),
+      titleHighlight: document.getElementById('titleHighlight'),
+      message: document.getElementById('message'),
+      card1Title: document.getElementById('card1Title'),
+      card1Subtitle: document.getElementById('card1Subtitle'),
+      card1Cta: document.getElementById('card1Cta'),
+      card1Href: document.getElementById('card1Href'),
+      card1ImageUrl: document.getElementById('card1ImageUrl'),
+      card2Title: document.getElementById('card2Title'),
+      card2Subtitle: document.getElementById('card2Subtitle'),
+      card2Cta: document.getElementById('card2Cta'),
+      card2Href: document.getElementById('card2Href'),
+      card2ImageUrl: document.getElementById('card2ImageUrl')
+    };
+    const card1Preview = document.getElementById('card1ImagePreview');
+    const card2Preview = document.getElementById('card2ImagePreview');
+    const form = document.getElementById('homeContentForm');
+    const saveBtn = document.getElementById('saveBtn');
+    const alertBox = document.getElementById('saveAlert');
+
+    let items = [];
+
+    function showAlert(type, msg) {
+      alertBox.className = `alert alert-${type}`;
+      alertBox.textContent = msg;
+      alertBox.classList.remove('d-none');
+      setTimeout(() => alertBox.classList.add('d-none'), 3500);
+    }
+
+    function setThumb(imgEl, url) {
+      if (url) {
+        imgEl.src = url;
+        imgEl.style.display = 'block';
+      } else {
+        imgEl.removeAttribute('src');
+        imgEl.style.display = 'none';
+      }
+    }
+
+    function updatePreview() {
+      document.getElementById('previewTitle').textContent = fields.title.value || 'ShortNews';
+      document.getElementById('previewHighlight').textContent = fields.titleHighlight.value || '';
+      document.getElementById('previewMessage').textContent = fields.message.value || '';
+      document.getElementById('pv1Title').textContent = fields.card1Title.value || 'Title';
+      document.getElementById('pv1Subtitle').textContent = fields.card1Subtitle.value || '';
+      document.getElementById('pv1Cta').textContent = (fields.card1Cta.value || 'CTA') + ' →';
+      document.getElementById('pv2Title').textContent = fields.card2Title.value || 'Title';
+      document.getElementById('pv2Subtitle').textContent = fields.card2Subtitle.value || '';
+      document.getElementById('pv2Cta').textContent = (fields.card2Cta.value || 'CTA') + ' →';
+
+      const pv1 = document.querySelectorAll('.preview-card')[0];
+      const pv2 = document.querySelectorAll('.preview-card')[1];
+      if (pv1) {
+        pv1.style.backgroundImage = fields.card1ImageUrl.value
+          ? `url('${fields.card1ImageUrl.value}')`
+          : '';
+      }
+      if (pv2) {
+        pv2.style.backgroundImage = fields.card2ImageUrl.value
+          ? `url('${fields.card2ImageUrl.value}')`
+          : '';
+      }
+      setThumb(card1Preview, fields.card1ImageUrl.value);
+      setThumb(card2Preview, fields.card2ImageUrl.value);
+    }
+
+    function fillForm(item) {
+      fields.title.value = item.title || '';
+      fields.titleHighlight.value = item.titleHighlight || '';
+      fields.message.value = item.message || '';
+      fields.card1Title.value = item.card1?.title || '';
+      fields.card1Subtitle.value = item.card1?.subtitle || '';
+      fields.card1Cta.value = item.card1?.cta || '';
+      fields.card1Href.value = item.card1?.href || '/post';
+      fields.card1ImageUrl.value = item.card1?.imageUrl || '';
+      fields.card2Title.value = item.card2?.title || '';
+      fields.card2Subtitle.value = item.card2?.subtitle || '';
+      fields.card2Cta.value = item.card2?.cta || '';
+      fields.card2Href.value = item.card2?.href || '/guidelines';
+      fields.card2ImageUrl.value = item.card2?.imageUrl || '';
+      document.getElementById('card1ImageFile').value = '';
+      document.getElementById('card2ImageFile').value = '';
+      updatePreview();
+    }
+
+    function selectLanguage(code) {
+      languageInput.value = code;
+      const item = items.find((i) => i.language === code);
+      if (item) fillForm(item);
+      [...langPills.querySelectorAll('.lang-pill')].forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.lang === code);
+      });
+    }
+
+    function renderPills() {
+      langPills.innerHTML = '';
+      items.forEach((item) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'lang-pill';
+        btn.dataset.lang = item.language;
+        btn.textContent = `${item.name}${item.nativeName ? ' · ' + item.nativeName : ''}`;
+        btn.addEventListener('click', () => selectLanguage(item.language));
+        langPills.appendChild(btn);
+      });
+      if (items.length) selectLanguage(items[0].language);
+    }
+
+    async function load() {
+      const res = await fetch('/admin/api/reporter-home-content');
+      if (!res.ok) throw new Error('Failed to load');
+      const data = await res.json();
+      items = data.items || [];
+      renderPills();
+    }
+
+    async function uploadCardImage(fileInput, hiddenUrlInput) {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('image', file);
+      const res = await fetch('/admin/api/reporter-home-content/upload-image', {
+        method: 'POST',
+        body: fd
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      hiddenUrlInput.value = data.imageUrl || '';
+      updatePreview();
+      showAlert('success', 'Image uploaded — click Save to apply');
+    }
+
+    document.getElementById('card1ImageFile').addEventListener('change', async (e) => {
+      try {
+        await uploadCardImage(e.target, fields.card1ImageUrl);
+      } catch (err) {
+        showAlert('danger', err.message || 'Upload failed');
+        e.target.value = '';
+      }
+    });
+    document.getElementById('card2ImageFile').addEventListener('change', async (e) => {
+      try {
+        await uploadCardImage(e.target, fields.card2ImageUrl);
+      } catch (err) {
+        showAlert('danger', err.message || 'Upload failed');
+        e.target.value = '';
+      }
+    });
+
+    Object.values(fields).forEach((el) => {
+      if (el && el.type !== 'hidden') el.addEventListener('input', updatePreview);
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const original = saveBtn.innerHTML;
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = 'Saving...';
+      try {
+        const res = await fetch('/admin/api/reporter-home-content', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            language: languageInput.value,
+            title: fields.title.value,
+            titleHighlight: fields.titleHighlight.value,
+            message: fields.message.value,
+            card1: {
+              title: fields.card1Title.value,
+              subtitle: fields.card1Subtitle.value,
+              cta: fields.card1Cta.value,
+              href: fields.card1Href.value || '/post',
+              imageUrl: fields.card1ImageUrl.value || ''
+            },
+            card2: {
+              title: fields.card2Title.value,
+              subtitle: fields.card2Subtitle.value,
+              cta: fields.card2Cta.value,
+              href: fields.card2Href.value || '/guidelines',
+              imageUrl: fields.card2ImageUrl.value || ''
+            }
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Save failed');
+        const idx = items.findIndex((i) => i.language === data.item.language);
+        if (idx >= 0) items[idx] = { ...items[idx], ...data.item, isSaved: true };
+        showAlert('success', `Saved for ${data.item.language.toUpperCase()}`);
+      } catch (err) {
+        showAlert('danger', err.message || 'Could not save');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = original;
+      }
+    });
+
+    load().catch((err) => {
+      console.error(err);
+      showAlert('danger', 'Could not load languages / content');
+    });
+  });
+</script>
+
+<%- include('partials/footer') %>

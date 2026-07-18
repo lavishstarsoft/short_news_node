@@ -1,0 +1,240 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius:12px; border:none; box-shadow:0 4px 6px rgba(0,0,0,.04); }
+  .settings-card .card-header { background:#fff; border-bottom:1px solid #f0f0f0; padding:16px 20px; border-radius:12px 12px 0 0; }
+  .stat-card { background:#fff; border-radius:12px; padding:18px; border:1px solid #f0f0f0; display:flex; align-items:center; gap:14px; }
+  .stat-icon { width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .status-tabs .nav-link { border-radius:8px; font-weight:600; color:#495057; padding:8px 18px; }
+  .status-tabs .nav-link.active { background:#0d6efd; color:#fff; }
+  .badge-status { font-size:11px; font-weight:700; padding:5px 10px; border-radius:999px; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h1 class="h2 page-title mb-1">Withdrawals Queue</h1>
+      <p class="text-muted mb-0">Approve or reject reporter payout requests. Every action is audit-logged.</p>
+    </div>
+    <button type="button" class="btn btn-outline-primary fw-bold" id="refreshBtn"><i class="fas fa-sync-alt me-2"></i>Refresh</button>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-4 mb-3">
+      <div class="stat-card">
+        <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="fas fa-clock"></i></div>
+        <div>
+          <h6 class="text-muted mb-1 fw-bold small">PENDING</h6>
+          <h4 class="mb-0 fw-bold"><span id="statPendingCount">0</span> <small class="text-muted fs-6" id="statPendingAmt"></small></h4>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="stat-card">
+        <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="fas fa-check-circle"></i></div>
+        <div>
+          <h6 class="text-muted mb-1 fw-bold small">APPROVED (PAID)</h6>
+          <h4 class="mb-0 fw-bold"><span id="statApprovedCount">0</span> <small class="text-muted fs-6" id="statApprovedAmt"></small></h4>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="stat-card">
+        <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="fas fa-times-circle"></i></div>
+        <div>
+          <h6 class="text-muted mb-1 fw-bold small">REJECTED</h6>
+          <h4 class="mb-0 fw-bold"><span id="statRejectedCount">0</span> <small class="text-muted fs-6" id="statRejectedAmt"></small></h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="nav nav-pills status-tabs mb-3" id="statusTabs">
+    <li class="nav-item"><button class="nav-link active" data-status="pending">Pending</button></li>
+    <li class="nav-item"><button class="nav-link" data-status="approved">Approved</button></li>
+    <li class="nav-item"><button class="nav-link" data-status="rejected">Rejected</button></li>
+    <li class="nav-item"><button class="nav-link" data-status="all">All</button></li>
+  </ul>
+
+  <div class="card settings-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="bg-light">
+            <tr>
+              <th class="ps-4">Reporter</th>
+              <th>Amount</th>
+              <th>Payment Details</th>
+              <th>Requested</th>
+              <th>Status</th>
+              <th>Processed By</th>
+              <th>UTR / Remarks</th>
+              <th class="text-end pe-4">Action</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="8" class="text-center py-4 text-muted">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Process modal -->
+<div class="modal fade" id="processModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" id="processModalTitle">Process Withdrawal</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="bg-light rounded p-3 mb-3" id="processModalInfo"></div>
+        <div class="mb-3" id="utrGroup">
+          <label class="form-label fw-bold small">UTR / Transaction Reference <span class="text-muted fw-normal">(bank/UPI reference after payment)</span></label>
+          <input type="text" class="form-control" id="utrInput" placeholder="e.g. 415XXXXXXXXX">
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-bold small" id="remarksLabel">Remarks</label>
+          <textarea class="form-control" id="remarksInput" rows="2" placeholder="Note..."></textarea>
+        </div>
+        <div class="alert alert-danger d-none" id="processModalError"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn fw-bold" id="processConfirmBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  let currentStatus = 'pending';
+  let currentAction = null;
+  let currentId = null;
+  const tableBody = document.getElementById('tableBody');
+  const modalEl = document.getElementById('processModal');
+  const modal = new bootstrap.Modal(modalEl);
+
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const dt = (d) => d ? new Date(d).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
+
+  const statusBadge = (s) => {
+    const map = { pending: 'bg-warning bg-opacity-25 text-warning', approved: 'bg-success bg-opacity-25 text-success', rejected: 'bg-danger bg-opacity-25 text-danger' };
+    return `<span class="badge-status ${map[s] || 'bg-secondary bg-opacity-25'}">${esc(s).toUpperCase()}</span>`;
+  };
+
+  async function load() {
+    tableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Loading...</td></tr>';
+    try {
+      const res = await fetch(`/admin/api/wallet/withdrawals?status=${currentStatus}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+
+      const c = data.counts || {}, a = data.amounts || {};
+      document.getElementById('statPendingCount').textContent = c.pending || 0;
+      document.getElementById('statPendingAmt').textContent = inr(a.pending);
+      document.getElementById('statApprovedCount').textContent = c.approved || 0;
+      document.getElementById('statApprovedAmt').textContent = inr(a.approved);
+      document.getElementById('statRejectedCount').textContent = c.rejected || 0;
+      document.getElementById('statRejectedAmt').textContent = inr(a.rejected);
+
+      const list = data.withdrawals || [];
+      if (!list.length) {
+        tableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No requests found.</td></tr>';
+        return;
+      }
+
+      tableBody.innerHTML = list.map((w) => {
+        const r = w.reporter || {};
+        const actions = w.status === 'pending'
+          ? `<button class="btn btn-sm btn-success me-1" onclick="openProcess('${w.id}','approve','${esc(r.name)}',${w.amount})">Approve</button>
+             <button class="btn btn-sm btn-outline-danger" onclick="openProcess('${w.id}','reject','${esc(r.name)}',${w.amount})">Reject</button>`
+          : '<span class="text-muted small">—</span>';
+        const utrRemarks = [w.utr ? `<span class="fw-bold">${esc(w.utr)}</span>` : '', esc(w.remarks)].filter(Boolean).join('<br>') || '-';
+        return `<tr>
+          <td class="ps-4">
+            <div class="fw-semibold">${esc(r.name || 'Unknown')}</div>
+            <div class="small text-muted">${esc(r.mobileNumber || '')} · Bal: ${inr(r.walletBalance)}</div>
+          </td>
+          <td class="fw-bold text-success">${inr(w.amount)}</td>
+          <td style="max-width:220px;white-space:pre-wrap;font-size:12.5px;">${esc(w.paymentDetails)}</td>
+          <td class="small text-muted">${dt(w.createdAt)}</td>
+          <td>${statusBadge(w.status)}</td>
+          <td class="small">${esc(w.processedBy || '-')}<div class="text-muted">${w.processedAt ? dt(w.processedAt) : ''}</div></td>
+          <td class="small" style="max-width:180px;">${utrRemarks}</td>
+          <td class="text-end pe-4">${actions}</td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  window.openProcess = function (id, action, name, amount) {
+    currentId = id;
+    currentAction = action;
+    document.getElementById('processModalTitle').textContent = action === 'approve' ? 'Approve & Pay' : 'Reject Request';
+    document.getElementById('processModalInfo').innerHTML =
+      `<strong>${esc(name)}</strong> — <span class="text-success fw-bold">${inr(amount)}</span>`;
+    document.getElementById('utrGroup').style.display = action === 'approve' ? '' : 'none';
+    document.getElementById('remarksLabel').textContent = action === 'approve' ? 'Remarks (optional)' : 'Rejection reason (required)';
+    document.getElementById('utrInput').value = '';
+    document.getElementById('remarksInput').value = '';
+    document.getElementById('processModalError').classList.add('d-none');
+    const btn = document.getElementById('processConfirmBtn');
+    btn.className = `btn fw-bold ${action === 'approve' ? 'btn-success' : 'btn-danger'}`;
+    btn.textContent = action === 'approve' ? 'Approve & Debit Wallet' : 'Reject';
+    modal.show();
+  };
+
+  document.getElementById('processConfirmBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('processConfirmBtn');
+    const errBox = document.getElementById('processModalError');
+    const remarks = document.getElementById('remarksInput').value.trim();
+    const utr = document.getElementById('utrInput').value.trim();
+
+    if (currentAction === 'reject' && !remarks) {
+      errBox.textContent = 'Rejection reason is required.';
+      errBox.classList.remove('d-none');
+      return;
+    }
+
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/admin/api/wallet/withdrawals/${currentId}/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: currentAction, remarks, utr })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      modal.hide();
+      load();
+    } catch (err) {
+      errBox.textContent = err.message || 'Failed to process';
+      errBox.classList.remove('d-none');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.querySelectorAll('#statusTabs .nav-link').forEach((b) => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#statusTabs .nav-link').forEach((x) => x.classList.remove('active'));
+      b.classList.add('active');
+      currentStatus = b.dataset.status;
+      load();
+    });
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', load);
+  load();
+});
+</script>
+
+<%- include('partials/footer') %>

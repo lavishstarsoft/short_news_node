@@ -97,10 +97,76 @@ const adminSchema = new mongoose.Schema({
     showName: { type: Boolean, default: true },
     showConstituency: { type: Boolean, default: true }
   },
+  // Fraud control: frozen wallet keeps balance but blocks withdrawals
+  walletFrozen: {
+    type: Boolean,
+    default: false
+  },
+  walletFreezeReason: {
+    type: String,
+    default: ''
+  },
   walletBalance: {
     type: Number,
     default: 0
   },
+  /**
+   * Per-reporter wallet & daily earnings config.
+   * enabled=false: wallet/earnings fully hidden + no daily reward credits.
+   * dailyTargetNews/dailyRewardAmount=null: global AppSettings values apply.
+   */
+  walletConfig: {
+    enabled: { type: Boolean, default: false },
+    dailyTargetNews: { type: Number, default: null, min: 1 },
+    dailyRewardAmount: { type: Number, default: null, min: 1 }
+  },
+  /** Saved UPI / bank accounts for reporter withdrawals (max enforced in API). */
+  payoutMethods: [{
+    type: {
+      type: String,
+      enum: ['upi', 'bank'],
+      required: true
+    },
+    label: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    upiId: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    accountHolderName: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    accountNumber: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    ifsc: {
+      type: String,
+      default: '',
+      trim: true,
+      uppercase: true
+    },
+    bankName: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    isDefault: {
+      type: Boolean,
+      default: false
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   permissions: {
     canViewReporterDetails: { type: Boolean, default: false },
     canAccessAdminDashboard: { type: Boolean, default: false },

@@ -20,6 +20,15 @@ const withdrawalRequestSchema = new mongoose.Schema({
     type: String,
     required: true // e.g., UPI ID or Bank Details provided by the reporter
   },
+  payoutMethodId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null
+  },
+  payoutType: {
+    type: String,
+    enum: ['upi', 'bank'],
+    default: null
+  },
   processedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin',
@@ -30,6 +39,11 @@ const withdrawalRequestSchema = new mongoose.Schema({
     default: null
   },
   remarks: {
+    type: String,
+    default: ''
+  },
+  // Bank/UPI transaction reference entered by admin when paying out
+  utr: {
     type: String,
     default: ''
   }

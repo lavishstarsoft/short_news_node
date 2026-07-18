@@ -1,0 +1,117 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius:12px; border:none; box-shadow:0 4px 6px rgba(0,0,0,.04); }
+  .settings-card .card-header { background:#fff; border-bottom:1px solid #f0f0f0; padding:14px 18px; border-radius:12px 12px 0 0; }
+  .stat-card { background:#fff; border-radius:12px; padding:16px 18px; border:1px solid #f0f0f0; }
+  .stat-card h6 { font-size:11px; letter-spacing:.04em; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h1 class="h2 page-title mb-1">Monthly Report</h1>
+      <p class="text-muted mb-0">Month-wise reporter earnings, payouts and productivity — accountant-ready CSV.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <input type="month" class="form-control" id="monthInput" style="width:auto">
+      <button type="button" class="btn btn-primary fw-bold" id="loadBtn">Load</button>
+      <button type="button" class="btn btn-outline-success fw-bold" id="csvBtn"><i class="fas fa-file-csv me-2"></i>CSV</button>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-6"><div class="stat-card"><h6 class="text-muted fw-bold mb-1">TOTAL EARNED</h6><h4 class="fw-bold text-success mb-0" id="tEarned">₹0</h4></div></div>
+    <div class="col-md-3 col-6"><div class="stat-card"><h6 class="text-muted fw-bold mb-1">TOTAL PAID OUT</h6><h4 class="fw-bold mb-0" id="tPaid">₹0</h4></div></div>
+    <div class="col-md-2 col-4"><div class="stat-card"><h6 class="text-muted fw-bold mb-1">POSTS</h6><h4 class="fw-bold mb-0" id="tPosts">0</h4></div></div>
+    <div class="col-md-2 col-4"><div class="stat-card"><h6 class="text-muted fw-bold mb-1">APPROVED</h6><h4 class="fw-bold mb-0" id="tApproved">0</h4></div></div>
+    <div class="col-md-2 col-4"><div class="stat-card"><h6 class="text-muted fw-bold mb-1">ACTIVE REPORTERS</h6><h4 class="fw-bold mb-0" id="tReporters">0</h4></div></div>
+  </div>
+
+  <div class="card settings-card">
+    <div class="card-header"><strong id="tableTitle">Report</strong></div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="bg-light">
+            <tr>
+              <th class="ps-4">#</th>
+              <th>Reporter</th>
+              <th>Location</th>
+              <th>Lang</th>
+              <th>Earned</th>
+              <th>Paid Out</th>
+              <th>Posts</th>
+              <th>Approved</th>
+              <th>Rejected</th>
+              <th>Views</th>
+              <th>Balance Now</th>
+            </tr>
+          </thead>
+          <tbody id="reportBody">
+            <tr><td colspan="11" class="text-center py-4 text-muted">Select a month and click Load.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const num = (n) => Number(n || 0).toLocaleString('en-IN');
+
+  const monthInput = document.getElementById('monthInput');
+  const now = new Date();
+  monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  async function load() {
+    const body = document.getElementById('reportBody');
+    body.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted">Loading...</td></tr>';
+    try {
+      const month = monthInput.value;
+      if (!month) throw new Error('Select a month');
+      const res = await fetch('/admin/api/reports/monthly?month=' + month);
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed');
+
+      document.getElementById('tEarned').textContent = inr(d.totals.earned);
+      document.getElementById('tPaid').textContent = inr(d.totals.paidOut);
+      document.getElementById('tPosts').textContent = num(d.totals.posts);
+      document.getElementById('tApproved').textContent = num(d.totals.approved);
+      document.getElementById('tReporters').textContent = num(d.reporterCount);
+      document.getElementById('tableTitle').textContent = `Report for ${month} — ${d.reporterCount} reporters`;
+
+      const rows = d.rows || [];
+      body.innerHTML = rows.length ? rows.map((r, i) => `<tr>
+        <td class="ps-4 text-muted small">${i + 1}</td>
+        <td><div class="fw-semibold">${esc(r.name)}</div><div class="small text-muted">${esc(r.mobileNumber)}</div></td>
+        <td class="small">${esc(r.location || '-')}</td>
+        <td class="small">${esc(r.language)}</td>
+        <td class="fw-bold text-success">${inr(r.earned)}</td>
+        <td>${inr(r.paidOut)}${r.payoutCount ? `<span class="small text-muted"> (${r.payoutCount})</span>` : ''}</td>
+        <td>${num(r.posts)}</td>
+        <td class="text-success fw-semibold">${num(r.approved)}</td>
+        <td class="text-danger">${num(r.rejected)}</td>
+        <td class="small">${num(r.views)}</td>
+        <td class="small fw-semibold">${inr(r.currentBalance)}</td>
+      </tr>`).join('') : '<tr><td colspan="11" class="text-center py-4 text-muted">No activity this month.</td></tr>';
+    } catch (err) {
+      body.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-danger">${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  document.getElementById('loadBtn').addEventListener('click', load);
+  document.getElementById('csvBtn').addEventListener('click', () => {
+    if (!monthInput.value) return;
+    window.location.href = '/admin/api/reports/monthly?month=' + monthInput.value + '&format=csv';
+  });
+
+  load();
+});
+</script>
+
+<%- include('partials/footer') %>

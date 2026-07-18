@@ -1,0 +1,499 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius:12px; border:none; box-shadow:0 4px 6px rgba(0,0,0,.04); }
+  .settings-card .card-header { background:#fff; border-bottom:1px solid #f0f0f0; padding:14px 18px; border-radius:12px 12px 0 0; }
+  .scope-chip { background:#fff; border:1px solid #f0f0f0; border-radius:12px; padding:10px 16px; text-align:center; }
+  .scope-chip h5 { font-weight:800; margin:0; }
+  .scope-chip p { font-size:10px; font-weight:700; color:#6b7280; margin:2px 0 0; text-transform:uppercase; letter-spacing:.03em; }
+  #mapSvg { width:100%; height:auto; display:block; }
+  .map-region { stroke:#fff; stroke-width:.6; cursor:pointer; transition:opacity .1s; }
+  .map-region:hover { opacity:.8; stroke:#111; stroke-width:1; }
+  .map-region.selected { stroke:#111; stroke-width:1.6; }
+  .map-label { font-size:9px; font-weight:700; fill:#111; pointer-events:none; text-anchor:middle; paint-order:stroke; stroke:#fff; stroke-width:2.5px; stroke-linejoin:round; }
+  #mapTooltip { position:fixed; z-index:2000; background:#111; color:#fff; border-radius:8px; padding:8px 12px; font-size:12px; pointer-events:none; display:none; max-width:240px; }
+  .rank-row { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid #f5f5f5; cursor:pointer; }
+  .rank-row:hover { background:#f9fafb; }
+  .rank-row .bar { height:6px; border-radius:3px; background:#16a34a; }
+  .legend-swatch { width:22px; height:12px; display:inline-block; border-radius:2px; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h1 class="h2 page-title mb-1">News Map</h1>
+      <p class="text-muted mb-0">E state / district / constituency nunchi enni news vastunnayo — dark green = ekkuva news. State click chesthe districts, district click chesthe constituency map (AP/TG) kanipistundi.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <select class="form-select form-select-sm" id="daysSelect" style="width:auto">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="0">All time</option>
+      </select>
+      <button type="button" class="btn btn-outline-primary fw-bold" id="refreshBtn"><i class="fas fa-rotate me-2"></i>Refresh</button>
+    </div>
+  </div>
+
+  <!-- Non-map scopes -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-2 col-4"><div class="scope-chip"><h5 id="chipTotal">-</h5><p>Total News</p></div></div>
+    <div class="col-md-2 col-4"><div class="scope-chip"><h5 id="chipNational">-</h5><p>National</p></div></div>
+    <div class="col-md-2 col-4"><div class="scope-chip"><h5 id="chipIntl">-</h5><p>International</p></div></div>
+    <div class="col-md-2 col-4"><div class="scope-chip"><h5 id="chipUnknown">-</h5><p>Location Ledu</p></div></div>
+    <div class="col-md-2 col-4"><div class="scope-chip"><h5 id="chipStates">-</h5><p>Active States</p></div></div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Map -->
+    <div class="col-lg-8">
+      <div class="card settings-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <div>
+            <button type="button" class="btn btn-sm btn-light fw-bold d-none me-2" id="backBtn"><i class="fas fa-arrow-left me-1"></i>India</button>
+            <strong id="mapTitle">India — State Wise News</strong>
+          </div>
+          <div class="small text-muted d-flex align-items-center gap-1" id="legendBox"></div>
+        </div>
+        <div class="card-body p-2 position-relative">
+          <div id="mapLoading" class="text-center py-5 text-muted">
+            <div class="spinner-border text-success mb-2"></div>
+            <div>Map loading...</div>
+          </div>
+          <svg id="mapSvg" viewBox="0 0 800 780" class="d-none"></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side panel -->
+    <div class="col-lg-4">
+      <div class="card settings-card mb-4">
+        <div class="card-header"><strong id="rankTitle">Top States</strong></div>
+        <div class="card-body" id="rankList" style="max-height:520px; overflow-y:auto;">
+          <div class="text-center text-muted py-3">Loading...</div>
+        </div>
+      </div>
+      <div class="card settings-card d-none" id="unmatchedCard">
+        <div class="card-header"><strong>Map lo match avvani locations</strong></div>
+        <div class="card-body small" id="unmatchedList"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="mapTooltip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const TOPO_URL = 'https://cdn.jsdelivr.net/gh/udit-001/india-maps-data@main/topojson/india.json';
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const num = (n) => Number(n || 0).toLocaleString('en-IN');
+
+  const svg = d3.select('#mapSvg');
+  const W = 800, H = 780;
+  const tooltip = document.getElementById('mapTooltip');
+
+  let topo = null;          // topojson
+  let statesGeo = null;     // states FeatureCollection
+  let districtsGeo = null;  // all-districts FeatureCollection
+  let acGeo = null;         // AP+TG assembly constituencies FeatureCollection (lazy load)
+  let teluguDistGeo = null; // AP+TG latest (2022+) districts FeatureCollection (lazy load)
+  let apiData = null;       // /api/news-map response
+  let currentState = null;  // null = India view
+  let currentView = 'india'; // 'india' | 'state' | 'district'
+
+  // DB lo unna kotha district names -> census map lo unna old district names
+  const DISTRICT_ALIASES = {
+    'nellore': 's.p.s. nellore', 'spsr nellore': 's.p.s. nellore',
+    'kadapa': 'y.s.r. kadapa', 'ysr kadapa': 'y.s.r. kadapa', 'cuddapah': 'y.s.r. kadapa',
+    'vijayawada': 'krishna', 'ntr': 'krishna',
+    'eluru': 'west godavari',
+    'konaseema': 'east godavari', 'dr br ambedkar konaseema': 'east godavari',
+    'kakinada': 'east godavari',
+    'palnadu': 'guntur', 'bapatla': 'guntur',
+    'nandyal': 'kurnool',
+    'tirupati': 'chittoor', 'annamayya': 'chittoor',
+    'markapuram': 'prakasam', 'ongole': 'prakasam',
+    'anakapalli': 'visakhapatnam', 'alluri sitharama raju': 'visakhapatnam',
+    'parvathipuram manyam': 'vizianagaram',
+    'sri sathya sai': 'anantapur', 'puttaparthi': 'anantapur',
+    'warangal': 'warangal urban', 'hanumakonda': 'warangal urban',
+    'medchal': 'medchal malkajgiri', 'medchal-malkajgiri': 'medchal malkajgiri',
+    'rangareddy': 'ranga reddy',
+    'mumbai': 'mumbai', 'mumbai city': 'mumbai',
+    'bengaluru': 'bangalore', 'bangalore urban': 'bangalore'
+  };
+  const norm = (s) => String(s || '').toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
+
+  const zeroFill = '#f3f4f6';
+  const greenScale = (v, max) => {
+    if (!v) return zeroFill;
+    const t = Math.sqrt(v) / Math.sqrt(Math.max(max, 1));
+    return d3.interpolateRgb('#c7ecd1', '#14532d')(Math.max(0.08, t));
+  };
+
+  function showTooltip(html, event) {
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (event.clientX + 14) + 'px';
+    tooltip.style.top = (event.clientY - 10) + 'px';
+  }
+  function hideTooltip() { tooltip.style.display = 'none'; }
+
+  function legend(max) {
+    const stops = [0, 0.1, 0.35, 0.7, 1].map((t) => {
+      const v = Math.round(t * t * max);
+      return `<span class="legend-swatch" style="background:${t === 0 ? zeroFill : greenScale(Math.max(v,1), max)}"></span>`;
+    }).join('');
+    document.getElementById('legendBox').innerHTML = `<span class="me-1">0</span>${stops}<span class="ms-1">${num(max)}</span>`;
+  }
+
+  function drawMap(features, countFor, onClick, tooltipFor, labelFor) {
+    svg.selectAll('*').remove();
+    const fc = { type: 'FeatureCollection', features };
+    const projection = d3.geoMercator().fitSize([W, H], fc);
+    const path = d3.geoPath(projection);
+    const max = d3.max(features, (f) => countFor(f)) || 0;
+    legend(max);
+
+    svg.append('g').selectAll('path')
+      .data(features)
+      .join('path')
+      .attr('class', 'map-region')
+      .attr('data-region', (f) => f.properties.district || f.properties.st_nm || f.properties.name)
+      .attr('d', path)
+      .attr('fill', (f) => greenScale(countFor(f), max))
+      .on('mousemove', function (event, f) { showTooltip(tooltipFor(f), event); })
+      .on('mouseleave', hideTooltip)
+      .on('click', (event, f) => onClick && onClick(f));
+
+    // Count labels (only for regions with news)
+    svg.append('g').selectAll('text')
+      .data(features.filter((f) => countFor(f) > 0))
+      .join('text')
+      .attr('class', 'map-label')
+      .attr('transform', (f) => `translate(${path.centroid(f)})`)
+      .text((f) => labelFor(f));
+  }
+
+  /* ---------------- India (states) view ---------------- */
+  function stateCount(name) {
+    return (apiData.states[name] && apiData.states[name].total) || 0;
+  }
+
+  function drawIndia() {
+    currentState = null;
+    currentView = 'india';
+    document.getElementById('backBtn').classList.add('d-none');
+    document.getElementById('mapTitle').textContent = 'India — State Wise News';
+    document.getElementById('rankTitle').textContent = 'Top States';
+
+    drawMap(
+      statesGeo.features,
+      (f) => stateCount(f.properties.st_nm),
+      (f) => openState(f.properties.st_nm),
+      (f) => {
+        const name = f.properties.st_nm;
+        const s = apiData.states[name];
+        if (!s || !s.total) return `<strong>${esc(name)}</strong><br>News levu`;
+        let distDirect = 0, constTotal = 0;
+        Object.values(s.districts).forEach((d) => {
+          distDirect += d.direct;
+          constTotal += Object.values(d.constituencies).reduce((sum, c) => sum + c, 0);
+        });
+        return `<strong>${esc(name)}</strong><br>Total: <strong>${num(s.total)}</strong> news` +
+          `<br><span style="opacity:.75">State tag: ${num(s.direct)} · Districts: ${num(distDirect)} · Constituencies: ${num(constTotal)}</span>` +
+          `<br><span style="opacity:.75">Click chesthe districts kanipistayi</span>`;
+      },
+      (f) => num(stateCount(f.properties.st_nm))
+    );
+
+    renderRankList(
+      Object.entries(apiData.states).map(([name, s]) => ({ name, count: s.total })),
+      (name) => openState(name)
+    );
+    renderUnmatched(apiData.unmatched);
+  }
+
+  /* ---------------- State (districts) view ---------------- */
+  let stateCtx = null; // { stateName, mapCounts, featureToDb, unmatchedDistricts }
+
+  // AP/TG ki 2022 reorganisation tarvata latest districts (AP 26, TG 33) — census map lo ivi levu
+  const TELUGU_STATES = new Set(['Andhra Pradesh', 'Telangana']);
+  const TELUGU_DIST_URL = '/geo/telugu-districts.geojson';
+
+  async function loadTeluguDistGeo() {
+    if (teluguDistGeo) return teluguDistGeo;
+    try {
+      teluguDistGeo = await fetch(TELUGU_DIST_URL).then((r) => r.json());
+    } catch (e) {
+      teluguDistGeo = { type: 'FeatureCollection', features: [] };
+    }
+    return teluguDistGeo;
+  }
+
+  async function openState(stateName) {
+    let features = [];
+    if (TELUGU_STATES.has(stateName)) {
+      const g = await loadTeluguDistGeo();
+      features = g.features.filter((f) => f.properties.st_nm === stateName);
+    }
+    if (!features.length) {
+      features = districtsGeo.features.filter((f) => f.properties.st_nm === stateName);
+    }
+    if (!features.length) return;
+    currentState = stateName;
+    currentView = 'state';
+
+    const s = apiData.states[stateName] || { total: 0, direct: 0, districts: {} };
+
+    // District totals -> census map names (aliases apply chesi)
+    const mapCounts = new Map();      // censusName -> rolled-up total
+    const featureToDb = new Map();    // censusName -> [db district names]
+    const unmatchedDistricts = [];
+    const featureIndex = new Map(features.map((f) => [norm(f.properties.district), f.properties.district]));
+    Object.entries(s.districts).forEach(([dbName, d]) => {
+      const n = norm(dbName);
+      const target = featureIndex.get(n) || featureIndex.get(norm(DISTRICT_ALIASES[n] || ''));
+      if (target) {
+        mapCounts.set(target, (mapCounts.get(target) || 0) + d.total);
+        if (!featureToDb.has(target)) featureToDb.set(target, []);
+        featureToDb.get(target).push(dbName);
+      } else {
+        unmatchedDistricts.push({ name: dbName, count: d.total });
+      }
+    });
+    stateCtx = { stateName, mapCounts, featureToDb, unmatchedDistricts };
+
+    document.getElementById('backBtn').classList.remove('d-none');
+    document.getElementById('backBtn').innerHTML = '<i class="fas fa-arrow-left me-1"></i>India';
+    document.getElementById('mapTitle').textContent = `${stateName} — District Wise News`;
+
+    drawMap(
+      features,
+      (f) => mapCounts.get(f.properties.district) || 0,
+      (f) => {
+        const dbNames = featureToDb.get(f.properties.district);
+        if (dbNames && dbNames.length) openDistrictPanel(f.properties.district, dbNames);
+      },
+      (f) => {
+        const censusName = f.properties.district;
+        const c = mapCounts.get(censusName) || 0;
+        if (!c) return `<strong>${esc(censusName)}</strong><br>News levu`;
+        const dbNames = featureToDb.get(censusName) || [];
+        let direct = 0, constTotal = 0;
+        dbNames.forEach((dn) => {
+          const d = s.districts[dn];
+          direct += d.direct;
+          constTotal += Object.values(d.constituencies).reduce((sum, x) => sum + x, 0);
+        });
+        return `<strong>${esc(censusName)}</strong><br>Total: <strong>${num(c)}</strong> news` +
+          `<br><span style="opacity:.75">District tag: ${num(direct)} · Constituencies: ${num(constTotal)}</span>` +
+          `<br><span style="opacity:.75">Click chesthe constituencies kanipistayi</span>`;
+      },
+      (f) => num(mapCounts.get(f.properties.district))
+    );
+
+    renderDistrictRanking();
+    renderUnmatched(unmatchedDistricts, 'Ee district names map lo dorakaledu (spelling check cheyandi):');
+  }
+
+  function renderDistrictRanking() {
+    const { stateName } = stateCtx;
+    const s = apiData.states[stateName] || { direct: 0, districts: {} };
+    svg.selectAll('.map-region').classed('selected', false);
+    document.getElementById('rankTitle').textContent = `${stateName} Districts`;
+    const rows = Object.entries(s.districts).map(([name, d]) => ({ name, count: d.total }));
+    renderRankList(rows, (dbName) => {
+      // db name -> census feature name (alias tho)
+      let censusName = null;
+      stateCtx.featureToDb.forEach((names, cn) => { if (names.includes(dbName)) censusName = cn; });
+      openDistrictPanel(censusName, [dbName]);
+    }, s.direct
+      ? `"${stateName}" ani state peru tho tag ayina news: <strong>${num(s.direct)}</strong> (e district ki count avvavu)`
+      : '');
+  }
+
+  /* ---------------- District (constituencies) view ---------------- */
+  const AC_GEO_URL = '/geo/telugu-assembly.geojson';
+
+  async function loadAcGeo() {
+    if (acGeo) return acGeo;
+    try {
+      acGeo = await fetch(AC_GEO_URL).then((r) => r.json());
+    } catch (e) {
+      acGeo = { type: 'FeatureCollection', features: [] };
+    }
+    return acGeo;
+  }
+
+  async function openDistrictPanel(censusName, dbNames) {
+    const s = apiData.states[stateCtx.stateName];
+    if (!s) return;
+
+    const title = dbNames.join(' + ');
+
+    // Constituency counts (dbNames anni kalipi)
+    let directTotal = 0;
+    const constCounts = new Map();
+    dbNames.forEach((dn) => {
+      const d = s.districts[dn];
+      if (!d) return;
+      directTotal += d.direct;
+      Object.entries(d.constituencies).forEach(([cName, cCount]) => {
+        constCounts.set(cName, (constCounts.get(cName) || 0) + cCount);
+      });
+    });
+
+    // AP/TG ki assembly constituency boundaries unnayi — constituency map draw cheyyadam
+    const geo = await loadAcGeo();
+    const dbNameSet = new Set(dbNames);
+    const acFeatures = geo.features.filter(
+      (f) => f.properties.st === stateCtx.stateName && dbNameSet.has(f.properties.dist)
+    );
+
+    if (acFeatures.length) {
+      currentView = 'district';
+      document.getElementById('backBtn').classList.remove('d-none');
+      document.getElementById('backBtn').innerHTML = `<i class="fas fa-arrow-left me-1"></i>${esc(stateCtx.stateName)}`;
+      document.getElementById('mapTitle').textContent = `${title} — Constituency Wise News`;
+
+      drawMap(
+        acFeatures,
+        (f) => constCounts.get(f.properties.name) || 0,
+        null,
+        (f) => {
+          const c = constCounts.get(f.properties.name) || 0;
+          return `<strong>${esc(f.properties.name)}</strong>` +
+            `<br><span style="opacity:.75">${esc(title)} · ${esc(stateCtx.stateName)}</span>` +
+            `<br>${c ? `News: <strong>${num(c)}</strong>` : 'News levu'}`;
+        },
+        (f) => num(constCounts.get(f.properties.name))
+      );
+    } else {
+      // AC boundaries leni states lo district ni highlight matrame chestham
+      svg.selectAll('.map-region').classed('selected', false);
+      if (censusName) {
+        svg.selectAll('.map-region')
+          .filter(function () { return this.getAttribute('data-region') === censusName; })
+          .classed('selected', true);
+      }
+    }
+
+    document.getElementById('rankTitle').textContent = `${title} — Constituencies`;
+
+    const constRows = Array.from(constCounts, ([name, count]) => ({ name, count }));
+
+    const box = document.getElementById('rankList');
+    const backLink = `<div class="small fw-bold text-primary mb-2" style="cursor:pointer" id="backToDistricts"><i class="fas fa-arrow-left me-1"></i>${esc(stateCtx.stateName)} districts</div>`;
+
+    if (!constRows.length) {
+      box.innerHTML = backLink +
+        `<div class="text-muted small py-2">Ee district lo constituency tag tho news levu.</div>` +
+        (directTotal ? `<div class="small text-muted">"${esc(title)}" district tag news: <strong>${num(directTotal)}</strong></div>` : '');
+    } else {
+      constRows.sort((a, b) => b.count - a.count);
+      const max = constRows[0].count;
+      box.innerHTML = backLink + constRows.map((r) => `
+        <div class="rank-row">
+          <div style="flex:1; min-width:0;">
+            <div class="d-flex justify-content-between">
+              <span class="fw-semibold small text-truncate">${esc(r.name)}</span>
+              <span class="fw-bold small text-success">${num(r.count)}</span>
+            </div>
+            <div class="bar mt-1" style="width:${Math.max(4, Math.round((r.count / max) * 100))}%"></div>
+          </div>
+        </div>`).join('') +
+        (directTotal
+          ? `<div class="small text-muted mt-3">"${esc(title)}" ani district peru tho direct tag: <strong>${num(directTotal)}</strong> news (e constituency ki count avvavu)</div>`
+          : '');
+    }
+    document.getElementById('backToDistricts').addEventListener('click', () => openState(stateCtx.stateName));
+  }
+
+  /* ---------------- Side panel ---------------- */
+  function renderRankList(rows, onClick, footnote) {
+    const box = document.getElementById('rankList');
+    rows = rows.filter((r) => r.count > 0).sort((a, b) => b.count - a.count);
+    if (!rows.length) {
+      box.innerHTML = '<div class="text-center text-muted py-3">Ee period lo news levu.</div>';
+      return;
+    }
+    const max = rows[0].count;
+    box.innerHTML = rows.map((r) => `
+      <div class="rank-row" ${onClick ? `data-name="${esc(r.name)}"` : ''}>
+        <div style="flex:1; min-width:0;">
+          <div class="d-flex justify-content-between">
+            <span class="fw-semibold small text-truncate">${esc(r.name)}</span>
+            <span class="fw-bold small text-success">${num(r.count)}</span>
+          </div>
+          <div class="bar mt-1" style="width:${Math.max(4, Math.round((r.count / max) * 100))}%"></div>
+        </div>
+      </div>`).join('') +
+      (footnote ? `<div class="small text-muted mt-3">${footnote}</div>` : '');
+    if (onClick) {
+      box.querySelectorAll('.rank-row').forEach((el) => {
+        el.addEventListener('click', () => onClick(el.dataset.name));
+      });
+    }
+  }
+
+  function renderUnmatched(list, title) {
+    const card = document.getElementById('unmatchedCard');
+    if (!list || !list.length) { card.classList.add('d-none'); return; }
+    card.classList.remove('d-none');
+    document.getElementById('unmatchedList').innerHTML =
+      (title ? `<div class="text-muted mb-2">${title}</div>` : '<div class="text-muted mb-2">Ee location names states/districts ga gurthinchaledu:</div>') +
+      list.slice(0, 20).map((u) => `<span class="badge bg-light text-dark border me-1 mb-1">${esc(u.name)} · ${num(u.count)}</span>`).join('');
+  }
+
+  /* ---------------- Data loading ---------------- */
+  async function loadData() {
+    document.getElementById('mapLoading').classList.remove('d-none');
+    document.getElementById('mapSvg').classList.add('d-none');
+    try {
+      const days = document.getElementById('daysSelect').value;
+      const [apiRes, topoLoaded] = await Promise.all([
+        fetch('/admin/api/news-map?days=' + days).then((r) => r.json()),
+        topo ? Promise.resolve(topo) : fetch(TOPO_URL).then((r) => r.json())
+      ]);
+      if (apiRes.error) throw new Error(apiRes.error);
+      apiData = apiRes;
+      if (!topo) {
+        topo = topoLoaded;
+        statesGeo = topojson.feature(topo, topo.objects.states);
+        districtsGeo = topojson.feature(topo, topo.objects.districts);
+      }
+
+      document.getElementById('chipTotal').textContent = num(apiData.totalNews);
+      document.getElementById('chipNational').textContent = num(apiData.scopes.National || 0);
+      document.getElementById('chipIntl').textContent = num(apiData.scopes.International || 0);
+      document.getElementById('chipUnknown').textContent = num(apiData.unknown);
+      document.getElementById('chipStates').textContent =
+        num(Object.values(apiData.states).filter((s) => s.total > 0).length);
+
+      document.getElementById('mapLoading').classList.add('d-none');
+      document.getElementById('mapSvg').classList.remove('d-none');
+
+      if (currentState && apiData.states[currentState]) openState(currentState);
+      else drawIndia();
+    } catch (err) {
+      document.getElementById('mapLoading').innerHTML =
+        `<div class="text-danger py-4">Map load avvaledu: ${esc(err.message)}</div>`;
+    }
+  }
+
+  document.getElementById('backBtn').addEventListener('click', () => {
+    if (currentView === 'district' && currentState) openState(currentState);
+    else drawIndia();
+  });
+  document.getElementById('refreshBtn').addEventListener('click', loadData);
+  document.getElementById('daysSelect').addEventListener('change', loadData);
+  loadData();
+});
+</script>
+
+<%- include('partials/footer') %>

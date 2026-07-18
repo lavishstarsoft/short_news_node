@@ -720,6 +720,38 @@ async function renderEditNewsPage(req, res) {
   }
 }
 
+/**
+ * Sub editor news posting area check:
+ * - state / national / international scope: location restriction ledu (anni states allowed)
+ * - district scope: assignedDistricts set chesi unte, aa districts + vaati constituencies ki matrame post cheyagalru
+ * Returns error message string, or null if allowed.
+ */
+async function validatePostingArea(reqAdmin, scope, location) {
+  if (!reqAdmin || reqAdmin.role !== 'subeditor') return null;
+
+  const adminDoc = await Admin.findById(reqAdmin.id).select('assignedDistricts allowedScopes').lean();
+
+  const allowedScopes = (adminDoc?.allowedScopes || []).filter(Boolean);
+  if (allowedScopes.length && !allowedScopes.includes(scope)) {
+    return `You are not allowed to post ${scope} news.`;
+  }
+
+  if (scope !== 'district') return null;
+
+  const districts = (adminDoc?.assignedDistricts || []).filter(Boolean);
+  if (!districts.length) return null; // posting area restriction set cheyyaledu
+
+  const loc = (location || '').trim();
+  if (!loc) return 'Please select a district for district news.';
+  if (districts.includes(loc)) return null;
+
+  const constituency = await Location.findOne({ name: loc, locationType: 'constituency' })
+    .select('parentName').lean();
+  if (constituency && districts.includes(constituency.parentName)) return null;
+
+  return `You can post district news only for your assigned districts (${districts.join(', ')}) and their constituencies.`;
+}
+
 // Create new news (include author information)
 async function createNews(req, res) {
   try {
@@ -730,6 +762,11 @@ async function createNews(req, res) {
       if (!isLanguageAllowedForEditor(authorDetails, articleLanguage)) {
         return res.status(403).json({ error: 'You are not allowed to post news in this language.' });
       }
+    }
+
+    const postingAreaError = await validatePostingArea(req.admin, req.body.scope || 'state', req.body.location);
+    if (postingAreaError) {
+      return res.status(403).json({ error: postingAreaError });
     }
 
     const limits = await getDisplayLimitsForLanguage(articleLanguage);
@@ -928,6 +965,13 @@ async function updateNews(req, res) {
       if (!isLanguageAllowedForEditor(authorForLang, articleLanguage)) {
         return res.status(403).json({ error: 'You are not allowed to post news in this language.' });
       }
+    }
+
+    const effectiveScope = req.body.scope !== undefined ? req.body.scope : (existingNews.scope || 'state');
+    const effectiveLocation = req.body.location !== undefined ? req.body.location : existingNews.location;
+    const postingAreaError = await validatePostingArea(req.admin, effectiveScope, effectiveLocation);
+    if (postingAreaError) {
+      return res.status(403).json({ error: postingAreaError });
     }
 
     const limits = await getDisplayLimitsForLanguage(articleLanguage);

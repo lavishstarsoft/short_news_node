@@ -312,7 +312,7 @@
             <!-- Team & Roles Group -->
             <% 
                 const showTeamGroup = isAdmin || canView('editors'); // Assume subeditors can view editors list if canView returns true, though usually admin
-                const teamGroupActive = ['editors', 'register-editor', 'reporter-applications'].includes(activePage);
+                const teamGroupActive = ['editors', 'register-editor'].includes(activePage);
             %>
             <% if (showTeamGroup) { %>
             <li class="nav-item">
@@ -330,16 +330,57 @@
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'register-editor' ? 'active' : '' %>" href="/register-editor">Register New Staff</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'reporter-applications' ? 'active' : '' %>" href="/reporter-applications">
-                                Applications <span class="badge bg-info rounded-pill">New</span>
-                            </a>
-                        </li>
                         <% } else if (canView('editors')) { %>
                             <li class="nav-item">
                                 <a class="nav-link <%= activePage === 'editors' ? 'active' : '' %>" href="/editors">All Staff</a>
                             </li>
                         <% } %>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
+            <!-- Reporters Group -->
+            <% 
+                const showReportersGroup = isAdmin;
+                const reportersGroupActive = ['reporter-analytics', 'news-map', 'fraud-alerts', 'reporter-applications', 'reporter-home-content', 'reporter-guidelines', 'reporter-earning'].includes(activePage);
+            %>
+            <% if (showReportersGroup) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu text-white <%= reportersGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseReporters" role="button" aria-expanded="<%= reportersGroupActive ? 'true' : 'false' %>" aria-controls="collapseReporters">
+                    <i class="fas fa-id-badge me-3 w-20px text-center"></i>
+                    <span class="nav-text">Reporters</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= reportersGroupActive ? 'show' : '' %>" id="collapseReporters" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'reporter-analytics' ? 'active' : '' %>" href="/admin/reporter-analytics">
+                                Analytics <span class="badge bg-success rounded-pill">New</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'news-map' ? 'active' : '' %>" href="/admin/news-map">
+                                News Map <span class="badge bg-success rounded-pill">New</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'fraud-alerts' ? 'active' : '' %>" href="/admin/fraud-alerts">
+                                Fraud Alerts <span class="badge bg-danger rounded-pill">New</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'reporter-applications' ? 'active' : '' %>" href="/reporter-applications">Applications</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'reporter-home-content' ? 'active' : '' %>" href="/admin/reporter-home-content">Home Content</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'reporter-guidelines' ? 'active' : '' %>" href="/admin/reporter-guidelines">Guidelines</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'reporter-earning' ? 'active' : '' %>" href="/admin/reporter-earning">Earning Page</a>
+                        </li>
                     </ul>
                 </div>
             </li>
@@ -478,16 +519,29 @@
             <% } %>
 
             <!-- Financial Group -->
+            <% const financeActive = ['wallet-settings', 'my-wallet', 'withdrawals-queue', 'wallet-transactions', 'audit-logs', 'monthly-report'].includes(activePage); %>
             <% if (isAdmin || isReporter) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= ['wallet-settings', 'my-wallet'].includes(activePage) ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseFinance" role="button" aria-expanded="<%= ['wallet-settings', 'my-wallet'].includes(activePage) ? 'true' : 'false' %>" aria-controls="collapseFinance">
+                <a class="nav-link has-submenu text-white <%= financeActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseFinance" role="button" aria-expanded="<%= financeActive ? 'true' : 'false' %>" aria-controls="collapseFinance">
                     <i class="fas fa-money-check-alt me-3 w-20px text-center"></i>
                     <span class="nav-text">Financial & Wallet</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
                 </a>
-                <div class="collapse submenu-collapse <%= ['wallet-settings', 'my-wallet'].includes(activePage) ? 'show' : '' %>" id="collapseFinance" data-bs-parent="#sidebarAccordion">
+                <div class="collapse submenu-collapse <%= financeActive ? 'show' : '' %>" id="collapseFinance" data-bs-parent="#sidebarAccordion">
                     <ul class="nav flex-column">
                         <% if (isAdmin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'withdrawals-queue' ? 'active' : '' %>" href="/admin/withdrawals-queue">Withdrawals Queue</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'wallet-transactions' ? 'active' : '' %>" href="/admin/wallet-transactions">Transactions Ledger</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'monthly-report' ? 'active' : '' %>" href="/admin/monthly-report">Monthly Report</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'audit-logs' ? 'active' : '' %>" href="/admin/audit-logs">Audit Logs</a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'wallet-settings' ? 'active' : '' %>" href="/admin/wallet-settings">Wallet Settings</a>
                         </li>

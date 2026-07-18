@@ -278,9 +278,19 @@ function applyReporterCoverageFields(editor, body = {}) {
     editor.constituency = editor.assignedConstituencies[0];
   }
 
+  const oldStates = editor.assignedStates || [];
+  const oldDist = editor.assignedDistricts || [];
+  const oldConst = editor.assignedConstituencies || [];
+
   const legacy = body.assignedLocations !== undefined
     ? uniqueStrings(body.assignedLocations)
-    : (editor.assignedLocations || []);
+    : (editor.assignedLocations || []).filter(loc => 
+        !oldStates.includes(loc) && 
+        !oldDist.includes(loc) && 
+        !oldConst.includes(loc) &&
+        loc !== editor.assignedState &&
+        loc !== editor.location
+      );
 
   editor.assignedLocations = computeAssignedLocations({
     states: editor.assignedStates,
@@ -310,9 +320,17 @@ function applySubEditorCoveragePermissions(editor, body = {}) {
   editor.permissions.managedConstituencies = uniqueStrings(body.managedConstituencies);
   editor.permissions.managedReporterIds = uniqueStrings(body.managedReporterIds);
 
+  const oldManagedStates = editor.permissions.managedStates || [];
+  const oldManagedDist = editor.permissions.managedDistricts || [];
+  const oldManagedConst = editor.permissions.managedConstituencies || [];
+
   const legacyManaged = body.managedLocations !== undefined
     ? uniqueStrings(body.managedLocations)
-    : (editor.permissions.managedLocations || []);
+    : (editor.permissions.managedLocations || []).filter(loc => 
+        !oldManagedStates.includes(loc) && 
+        !oldManagedDist.includes(loc) && 
+        !oldManagedConst.includes(loc)
+      );
 
   editor.permissions.managedLocations = computeAssignedLocations({
     states: editor.permissions.managedStates,

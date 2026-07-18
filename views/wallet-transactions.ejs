@@ -1,0 +1,335 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius:12px; border:none; box-shadow:0 4px 6px rgba(0,0,0,.04); }
+  .stat-card { background:#fff; border-radius:12px; padding:18px; border:1px solid #f0f0f0; }
+  .filter-bar { background:#fff; border-radius:12px; padding:14px 16px; border:1px solid #f0f0f0; }
+  .filter-bar label { font-size:11px; font-weight:700; color:#6b7280; margin-bottom:3px; display:block; }
+  .tx-credit { color:#16a34a; font-weight:700; }
+  .tx-debit { color:#dc2626; font-weight:700; }
+  #reporterResults { position:absolute; top:100%; left:0; right:0; z-index:20; background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,.1); max-height:220px; overflow-y:auto; }
+  #reporterResults .item { padding:8px 12px; cursor:pointer; font-size:13px; }
+  #reporterResults .item:hover { background:#f3f4f6; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h1 class="h2 page-title mb-1">Wallet Transactions Ledger</h1>
+      <p class="text-muted mb-0">Every credit and debit across all reporters — filter, audit, export.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-outline-success fw-bold" id="exportBtn"><i class="fas fa-file-csv me-2"></i>Export CSV</button>
+      <button type="button" class="btn btn-primary fw-bold" data-bs-toggle="modal" data-bs-target="#adjustModal"><i class="fas fa-plus-minus me-2"></i>Manual Adjustment</button>
+    </div>
+  </div>
+
+  <div class="row mb-3">
+    <div class="col-md-3 mb-3">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold small mb-1">TOTAL CREDITED</h6>
+        <h4 class="fw-bold text-success mb-0" id="statCredit">₹0</h4>
+        <small class="text-muted" id="statCreditCount">0 transactions</small>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold small mb-1">TOTAL DEBITED</h6>
+        <h4 class="fw-bold text-danger mb-0" id="statDebit">₹0</h4>
+        <small class="text-muted" id="statDebitCount">0 transactions</small>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold small mb-1">NET (CREDIT − DEBIT)</h6>
+        <h4 class="fw-bold mb-0" id="statNet">₹0</h4>
+        <small class="text-muted">for current filter</small>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="stat-card">
+        <h6 class="text-muted fw-bold small mb-1">RECORDS</h6>
+        <h4 class="fw-bold mb-0" id="statTotal">0</h4>
+        <small class="text-muted">matching filter</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="filter-bar mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label>Search reporter (name / mobile)</label>
+        <input type="text" class="form-control form-control-sm" id="fQ" placeholder="e.g. Shiva or 98XXXXXXXX">
+      </div>
+      <div class="col-md-2">
+        <label>Type</label>
+        <select class="form-select form-select-sm" id="fType">
+          <option value="">All</option>
+          <option value="credit">Credit</option>
+          <option value="debit">Debit</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label>From</label>
+        <input type="date" class="form-control form-control-sm" id="fFrom">
+      </div>
+      <div class="col-md-2">
+        <label>To</label>
+        <input type="date" class="form-control form-control-sm" id="fTo">
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-primary btn-sm fw-bold flex-grow-1" id="applyBtn">Apply</button>
+        <button class="btn btn-light btn-sm fw-bold" id="clearBtn">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card settings-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="bg-light">
+            <tr>
+              <th class="ps-4">Date</th>
+              <th>Reporter</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Balance Before → After</th>
+              <th>Description</th>
+              <th>Reference</th>
+            </tr>
+          </thead>
+          <tbody id="txBody">
+            <tr><td colspan="7" class="text-center py-4 text-muted">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+      <span class="small text-muted" id="pageInfo"></span>
+      <div class="btn-group">
+        <button class="btn btn-sm btn-outline-secondary" id="prevBtn">← Prev</button>
+        <button class="btn btn-sm btn-outline-secondary" id="nextBtn">Next →</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Manual adjustment modal -->
+<div class="modal fade" id="adjustModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold">Manual Wallet Adjustment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning small py-2">
+          <i class="fas fa-shield-alt me-1"></i> This action is recorded in the audit log with your name.
+        </div>
+        <div class="mb-3 position-relative">
+          <label class="form-label fw-bold small">Reporter</label>
+          <input type="text" class="form-control" id="adjReporterSearch" placeholder="Type name or mobile (min 2 chars)" autocomplete="off">
+          <input type="hidden" id="adjReporterId">
+          <div id="reporterResults" class="d-none"></div>
+          <div class="form-text" id="adjReporterSelected"></div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-6">
+            <label class="form-label fw-bold small">Type</label>
+            <select class="form-select" id="adjType">
+              <option value="credit">Credit (add money)</option>
+              <option value="debit">Debit (remove money)</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold small">Amount (₹)</label>
+            <input type="number" class="form-control" id="adjAmount" min="1" placeholder="100">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-bold small">Reason (mandatory)</label>
+          <textarea class="form-control" id="adjReason" rows="2" placeholder="Why is this adjustment needed?"></textarea>
+        </div>
+        <div class="alert alert-danger d-none" id="adjError"></div>
+        <div class="alert alert-success d-none" id="adjSuccess"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary fw-bold" id="adjSubmitBtn">Apply Adjustment</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  let page = 1;
+  let lastTotal = 0;
+  const limit = 25;
+
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const dt = (d) => d ? new Date(d).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
+
+  function filterParams() {
+    const p = new URLSearchParams();
+    const q = document.getElementById('fQ').value.trim();
+    const type = document.getElementById('fType').value;
+    const from = document.getElementById('fFrom').value;
+    const to = document.getElementById('fTo').value;
+    if (q) p.set('q', q);
+    if (type) p.set('type', type);
+    if (from) p.set('from', from);
+    if (to) p.set('to', to);
+    return p;
+  }
+
+  async function load() {
+    const body = document.getElementById('txBody');
+    body.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Loading...</td></tr>';
+    try {
+      const p = filterParams();
+      p.set('page', page);
+      p.set('limit', limit);
+      const res = await fetch('/admin/api/wallet-transactions?' + p.toString());
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+
+      lastTotal = data.total || 0;
+      const t = data.totals || {};
+      document.getElementById('statCredit').textContent = inr(t.creditAmount);
+      document.getElementById('statCreditCount').textContent = (t.creditCount || 0) + ' transactions';
+      document.getElementById('statDebit').textContent = inr(t.debitAmount);
+      document.getElementById('statDebitCount').textContent = (t.debitCount || 0) + ' transactions';
+      const net = (t.creditAmount || 0) - (t.debitAmount || 0);
+      const netEl = document.getElementById('statNet');
+      netEl.textContent = inr(net);
+      netEl.className = 'fw-bold mb-0 ' + (net >= 0 ? 'text-success' : 'text-danger');
+      document.getElementById('statTotal').textContent = lastTotal.toLocaleString('en-IN');
+
+      const list = data.transactions || [];
+      if (!list.length) {
+        body.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No transactions found.</td></tr>';
+      } else {
+        body.innerHTML = list.map((tx) => {
+          const r = tx.reporter || {};
+          return `<tr>
+            <td class="ps-4 small text-muted">${dt(tx.createdAt)}</td>
+            <td><div class="fw-semibold">${esc(r.name || 'Unknown')}</div><div class="small text-muted">${esc(r.mobileNumber || '')}</div></td>
+            <td><span class="${tx.type === 'credit' ? 'tx-credit' : 'tx-debit'}">${tx.type === 'credit' ? 'CREDIT' : 'DEBIT'}</span></td>
+            <td class="fw-bold">${tx.type === 'credit' ? '+' : '−'}${inr(tx.amount)}</td>
+            <td class="small">${inr(tx.balanceBefore)} → <strong>${inr(tx.balanceAfter)}</strong></td>
+            <td class="small" style="max-width:260px;">${esc(tx.description)}</td>
+            <td class="small text-muted" style="max-width:160px;word-break:break-all;">${esc(tx.referenceId || '-')}</td>
+          </tr>`;
+        }).join('');
+      }
+
+      const totalPages = Math.max(1, Math.ceil(lastTotal / limit));
+      document.getElementById('pageInfo').textContent = `Page ${page} of ${totalPages} (${lastTotal} records)`;
+      document.getElementById('prevBtn').disabled = page <= 1;
+      document.getElementById('nextBtn').disabled = page >= totalPages;
+    } catch (err) {
+      body.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  document.getElementById('applyBtn').addEventListener('click', () => { page = 1; load(); });
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    ['fQ','fFrom','fTo'].forEach((id) => document.getElementById(id).value = '');
+    document.getElementById('fType').value = '';
+    page = 1;
+    load();
+  });
+  document.getElementById('fQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') { page = 1; load(); } });
+  document.getElementById('prevBtn').addEventListener('click', () => { if (page > 1) { page--; load(); } });
+  document.getElementById('nextBtn').addEventListener('click', () => { page++; load(); });
+
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    window.location.href = '/admin/api/wallet-transactions/export?' + filterParams().toString();
+  });
+
+  // ---- Manual adjustment ----
+  const searchInput = document.getElementById('adjReporterSearch');
+  const resultsBox = document.getElementById('reporterResults');
+  let searchTimer;
+
+  searchInput.addEventListener('input', () => {
+    document.getElementById('adjReporterId').value = '';
+    document.getElementById('adjReporterSelected').textContent = '';
+    clearTimeout(searchTimer);
+    const q = searchInput.value.trim();
+    if (q.length < 2) { resultsBox.classList.add('d-none'); return; }
+    searchTimer = setTimeout(async () => {
+      try {
+        const res = await fetch('/admin/api/wallet-reporters/search?q=' + encodeURIComponent(q));
+        const data = await res.json();
+        const list = data.reporters || [];
+        if (!list.length) { resultsBox.classList.add('d-none'); return; }
+        resultsBox.innerHTML = list.map((r) =>
+          `<div class="item" data-id="${r.id}" data-name="${esc(r.name)}" data-bal="${r.walletBalance}">
+            <strong>${esc(r.name)}</strong> <span class="text-muted">· ${esc(r.mobileNumber || r.username)} · Bal ${inr(r.walletBalance)}</span>
+          </div>`
+        ).join('');
+        resultsBox.classList.remove('d-none');
+        resultsBox.querySelectorAll('.item').forEach((el) => {
+          el.addEventListener('click', () => {
+            document.getElementById('adjReporterId').value = el.dataset.id;
+            searchInput.value = el.dataset.name;
+            document.getElementById('adjReporterSelected').textContent = `Selected: ${el.dataset.name} (current balance ${inr(el.dataset.bal)})`;
+            resultsBox.classList.add('d-none');
+          });
+        });
+      } catch { resultsBox.classList.add('d-none'); }
+    }, 250);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!resultsBox.contains(e.target) && e.target !== searchInput) resultsBox.classList.add('d-none');
+  });
+
+  document.getElementById('adjSubmitBtn').addEventListener('click', async () => {
+    const errBox = document.getElementById('adjError');
+    const okBox = document.getElementById('adjSuccess');
+    errBox.classList.add('d-none');
+    okBox.classList.add('d-none');
+
+    const reporterId = document.getElementById('adjReporterId').value;
+    const type = document.getElementById('adjType').value;
+    const amount = Number(document.getElementById('adjAmount').value);
+    const reason = document.getElementById('adjReason').value.trim();
+
+    if (!reporterId) { errBox.textContent = 'Please select a reporter from search results.'; errBox.classList.remove('d-none'); return; }
+    if (!amount || amount <= 0) { errBox.textContent = 'Enter a valid amount.'; errBox.classList.remove('d-none'); return; }
+    if (reason.length < 5) { errBox.textContent = 'Reason is mandatory (min 5 characters).'; errBox.classList.remove('d-none'); return; }
+
+    const btn = document.getElementById('adjSubmitBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/admin/api/wallet-adjustment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reporterId, type, amount, reason })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      okBox.textContent = data.message + ` (new balance ${inr(data.balanceAfter)})`;
+      okBox.classList.remove('d-none');
+      document.getElementById('adjAmount').value = '';
+      document.getElementById('adjReason').value = '';
+      load();
+    } catch (err) {
+      errBox.textContent = err.message || 'Adjustment failed';
+      errBox.classList.remove('d-none');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  load();
+});
+</script>
+
+<%- include('partials/footer') %>

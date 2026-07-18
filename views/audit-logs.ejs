@@ -1,0 +1,211 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius:12px; border:none; box-shadow:0 4px 6px rgba(0,0,0,.04); }
+  .filter-bar { background:#fff; border-radius:12px; padding:14px 16px; border:1px solid #f0f0f0; }
+  .filter-bar label { font-size:11px; font-weight:700; color:#6b7280; margin-bottom:3px; display:block; }
+  .action-pill { font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+  .diff-box { background:#f8f9fa; border-radius:8px; padding:8px 10px; font-size:12px; font-family:monospace; white-space:pre-wrap; word-break:break-word; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h1 class="h2 page-title mb-1">Audit Logs</h1>
+      <p class="text-muted mb-0">Who did what, when — financial actions and settings changes. Append-only.</p>
+    </div>
+    <button type="button" class="btn btn-outline-primary fw-bold" id="refreshBtn"><i class="fas fa-sync-alt me-2"></i>Refresh</button>
+  </div>
+
+  <div class="filter-bar mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label>Search (admin / reporter / text)</label>
+        <input type="text" class="form-control form-control-sm" id="fQ" placeholder="e.g. superadmin or Shiva">
+      </div>
+      <div class="col-md-3">
+        <label>Action</label>
+        <select class="form-select form-select-sm" id="fAction">
+          <option value="">All actions</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label>From</label>
+        <input type="date" class="form-control form-control-sm" id="fFrom">
+      </div>
+      <div class="col-md-2">
+        <label>To</label>
+        <input type="date" class="form-control form-control-sm" id="fTo">
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button class="btn btn-primary btn-sm fw-bold flex-grow-1" id="applyBtn">Apply</button>
+        <button class="btn btn-light btn-sm fw-bold" id="clearBtn">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card settings-card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="bg-light">
+            <tr>
+              <th class="ps-4">Time</th>
+              <th>Admin</th>
+              <th>Action</th>
+              <th>Target</th>
+              <th>Description</th>
+              <th>IP</th>
+              <th class="text-end pe-4">Details</th>
+            </tr>
+          </thead>
+          <tbody id="logsBody">
+            <tr><td colspan="7" class="text-center py-4 text-muted">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+      <span class="small text-muted" id="pageInfo"></span>
+      <div class="btn-group">
+        <button class="btn btn-sm btn-outline-secondary" id="prevBtn">← Prev</button>
+        <button class="btn btn-sm btn-outline-secondary" id="nextBtn">Next →</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Details modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold">Audit Entry Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="detailsBody"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  let page = 1;
+  const limit = 30;
+  let logsCache = [];
+
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const dt = (d) => d ? new Date(d).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' }) : '-';
+
+  const actionColors = {
+    withdrawal_approve: 'bg-success bg-opacity-25 text-success',
+    withdrawal_reject: 'bg-danger bg-opacity-25 text-danger',
+    wallet_manual_credit: 'bg-primary bg-opacity-25 text-primary',
+    wallet_manual_debit: 'bg-warning bg-opacity-25 text-warning',
+    wallet_settings_update: 'bg-info bg-opacity-25 text-info',
+    transactions_export: 'bg-secondary bg-opacity-25 text-secondary'
+  };
+
+  function pill(action) {
+    const cls = actionColors[action] || 'bg-secondary bg-opacity-25 text-secondary';
+    return `<span class="action-pill ${cls}">${esc(action)}</span>`;
+  }
+
+  async function load() {
+    const body = document.getElementById('logsBody');
+    body.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Loading...</td></tr>';
+    try {
+      const p = new URLSearchParams();
+      const q = document.getElementById('fQ').value.trim();
+      const action = document.getElementById('fAction').value;
+      const from = document.getElementById('fFrom').value;
+      const to = document.getElementById('fTo').value;
+      if (q) p.set('q', q);
+      if (action) p.set('action', action);
+      if (from) p.set('from', from);
+      if (to) p.set('to', to);
+      p.set('page', page);
+      p.set('limit', limit);
+
+      const res = await fetch('/admin/api/audit-logs?' + p.toString());
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+
+      // Populate action dropdown (keep selection)
+      const sel = document.getElementById('fAction');
+      const current = sel.value;
+      const existing = new Set([...sel.options].map((o) => o.value));
+      (data.actions || []).forEach((a) => {
+        if (!existing.has(a)) {
+          const opt = document.createElement('option');
+          opt.value = a;
+          opt.textContent = a;
+          sel.appendChild(opt);
+        }
+      });
+      sel.value = current;
+
+      logsCache = data.logs || [];
+      if (!logsCache.length) {
+        body.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No audit entries found.</td></tr>';
+      } else {
+        body.innerHTML = logsCache.map((l, i) => `<tr>
+          <td class="ps-4 small text-muted" style="white-space:nowrap;">${dt(l.createdAt)}</td>
+          <td><div class="fw-semibold">${esc(l.actorName || '-')}</div><div class="small text-muted">${esc(l.actorRole || '')}</div></td>
+          <td>${pill(l.action)}</td>
+          <td class="small">${esc(l.targetName || '-')}</td>
+          <td class="small" style="max-width:320px;">${esc(l.description)}</td>
+          <td class="small text-muted">${esc(l.ip || '-')}</td>
+          <td class="text-end pe-4"><button class="btn btn-sm btn-outline-secondary" onclick="showDetails(${i})">View</button></td>
+        </tr>`).join('');
+      }
+
+      const total = data.total || 0;
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      document.getElementById('pageInfo').textContent = `Page ${page} of ${totalPages} (${total} entries)`;
+      document.getElementById('prevBtn').disabled = page <= 1;
+      document.getElementById('nextBtn').disabled = page >= totalPages;
+    } catch (err) {
+      body.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  window.showDetails = function (i) {
+    const l = logsCache[i];
+    if (!l) return;
+    const fmt = (v) => v == null ? '<span class="text-muted">—</span>' : `<div class="diff-box">${esc(JSON.stringify(v, null, 2))}</div>`;
+    document.getElementById('detailsBody').innerHTML = `
+      <table class="table table-sm mb-3">
+        <tr><th style="width:130px;">Time</th><td>${dt(l.createdAt)}</td></tr>
+        <tr><th>Admin</th><td>${esc(l.actorName)} (${esc(l.actorRole)})</td></tr>
+        <tr><th>Action</th><td>${pill(l.action)}</td></tr>
+        <tr><th>Entity</th><td>${esc(l.entityType)} ${l.entityId ? '· ' + esc(l.entityId) : ''}</td></tr>
+        <tr><th>Target</th><td>${esc(l.targetName || '-')}</td></tr>
+        <tr><th>IP</th><td>${esc(l.ip || '-')}</td></tr>
+        <tr><th>Description</th><td>${esc(l.description)}</td></tr>
+      </table>
+      <div class="row">
+        <div class="col-6"><h6 class="fw-bold small text-muted">BEFORE</h6>${fmt(l.before)}</div>
+        <div class="col-6"><h6 class="fw-bold small text-muted">AFTER</h6>${fmt(l.after)}</div>
+      </div>`;
+    new bootstrap.Modal(document.getElementById('detailsModal')).show();
+  };
+
+  document.getElementById('applyBtn').addEventListener('click', () => { page = 1; load(); });
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    ['fQ','fFrom','fTo'].forEach((id) => document.getElementById(id).value = '');
+    document.getElementById('fAction').value = '';
+    page = 1;
+    load();
+  });
+  document.getElementById('fQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') { page = 1; load(); } });
+  document.getElementById('prevBtn').addEventListener('click', () => { if (page > 1) { page--; load(); } });
+  document.getElementById('nextBtn').addEventListener('click', () => { page++; load(); });
+  document.getElementById('refreshBtn').addEventListener('click', load);
+
+  load();
+});
+</script>
+
+<%- include('partials/footer') %>

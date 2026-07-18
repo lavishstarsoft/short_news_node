@@ -259,6 +259,8 @@
 
                 // Load locations
                 async function loadLocations() {
+                    // Sub-editor dashboard lo ee section undadu
+                    if (!document.getElementById('locationsContainer')) return;
                     try {
                         const response = await fetch('/locations/api/locations');
                         if (!response.ok) {
@@ -268,7 +270,8 @@
                         renderLocations(locations);
                     } catch (error) {
                         console.error('Error loading locations:', error);
-                        document.getElementById('locationsContainer').innerHTML = `
+                        const errContainer = document.getElementById('locationsContainer');
+                        if (errContainer) errContainer.innerHTML = `
                     <div class="col-12 text-center">
                         <p class="text-danger">Error loading locations: ${error.message}</p>
                     </div>
@@ -279,6 +282,7 @@
                 // Render locations
                 function renderLocations(locations) {
                     const container = document.getElementById('locationsContainer');
+                    if (!container) return;
 
                     if (locations.length === 0) {
                         container.innerHTML = `
@@ -625,6 +629,8 @@
 
                 // --- Live Stream Logic ---
                 document.addEventListener('DOMContentLoaded', function () {
+                    // Sub-editor dashboard lo live panel undadu
+                    if (!document.getElementById('liveStreamToggle')) return;
                     loadLiveStreamStatus();
 
                     // Toggle change listener

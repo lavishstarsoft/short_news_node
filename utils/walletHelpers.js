@@ -111,19 +111,40 @@ async function validateLedger(adminId) {
 }
 
 /**
+ * Per-reporter wallet config resolve chestundi.
+ * enabled: admin ON chesthe matrame true (default false).
+ * targetNews / maxReward: reporter-specific values; null aithe global AppSettings fallback.
+ */
+function resolveWalletConfig(admin, settings) {
+  const cfg = admin?.walletConfig || {};
+  return {
+    enabled: cfg.enabled === true,
+    targetNews: (Number.isFinite(cfg.dailyTargetNews) && cfg.dailyTargetNews > 0)
+      ? cfg.dailyTargetNews
+      : (settings?.reporterTargetNews || 5),
+    maxReward: (Number.isFinite(cfg.dailyRewardAmount) && cfg.dailyRewardAmount > 0)
+      ? cfg.dailyRewardAmount
+      : (settings?.reporterMaxDailyReward || 30)
+  };
+}
+
+/**
  * Checks today's approved news count for a reporter.
  * If they hit the target, credits the daily max reward.
  */
 async function checkAndCreditWallet(reporterId) {
   try {
     const admin = await Admin.findById(reporterId);
-    if (!admin || admin.role !== 'reporter') return;
+    // Reporters app users are stored as editor/subeditor (not a 'reporter' role)
+    if (!admin || !['editor', 'subeditor'].includes(admin.role)) return;
 
     const settings = await AppSettings.findOne({ key: 'update_flags' });
-    const maxReward = settings?.reporterMaxDailyReward || 30;
-    const targetNews = settings?.reporterTargetNews || 5;
+    const { enabled, targetNews, maxReward } = resolveWalletConfig(admin, settings);
 
-    // Get today's start and end date
+    // Wallet OFF unna reporter ki daily reward credit avvadu
+    if (!enabled) return;
+
+    // Get today's start and end date (server local; IST hosts use IST)
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date();
@@ -137,8 +158,8 @@ async function checkAndCreditWallet(reporterId) {
       'approvalStatus.approvedAt': { $gte: startOfDay, $lte: endOfDay }
     });
 
-    if (approvedCount === targetNews) {
-      // Exactly hit the target! Credit the wallet
+    if (approvedCount >= targetNews) {
+      // Hit the daily target — credit once per day
       const dateString = startOfDay.toISOString().split('T')[0];
       const referenceId = `reward_${reporterId}_${dateString}`;
 
@@ -163,5 +184,6 @@ async function checkAndCreditWallet(reporterId) {
 module.exports = {
   processWalletTransaction,
   validateLedger,
-  checkAndCreditWallet
+  checkAndCreditWallet,
+  resolveWalletConfig
 };
