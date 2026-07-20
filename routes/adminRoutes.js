@@ -71,22 +71,9 @@ router.get('/api/onesignal/analytics', adminController.requireAuth, adminControl
 // Editor stats by date range
 router.get('/api/editor-range-stats', adminController.requireAuth, adminController.getEditorRangeStats);
 
-const reporterPopupController = require('../controllers/reporterPopupController');
-
 // Reporter/Editor API routes (for mobile/Next.js apps)
 router.post('/api/reporter/login', adminController.reporterLogin);
 router.get('/api/reporter/profile', adminController.requireAuth, adminController.getReporterProfile);
-
-// In-App Popup Notification routes
-router.get('/popups', adminController.requireAdmin, reporterPopupController.renderPopupsPage);
-router.get('/api/popups', adminController.requireAdmin, reporterPopupController.getPopups);
-router.post('/api/popups', adminController.requireAdmin, reporterPopupController.createPopup);
-router.put('/api/popups/:id', adminController.requireAdmin, reporterPopupController.updatePopup);
-router.delete('/api/popups/:id', adminController.requireAdmin, reporterPopupController.deletePopup);
-
-// Reporter Dashboard Popup APIs
-router.get('/api/reporter/active-popup', adminController.requireAuth, reporterPopupController.getActiveReporterPopup);
-router.post('/api/reporter/popup/:id/interact', adminController.requireAuth, reporterPopupController.recordPopupInteraction);
 
 // Cloudflare R2 Usage route
 router.get('/r2-usage', adminController.requireAuth, adminController.renderR2UsagePage);
@@ -190,6 +177,23 @@ router.post(
   adminController.uploadReporterHomeCardImage
 );
 router.get('/api/reporter/home-banner', adminController.requireAuth, adminController.getReporterHomeBanner);
+
+// In-app popup notifications (superadmin → reporter app)
+router.get('/popups', adminController.requireAdmin, adminController.renderReporterPopupsPage);
+router.get('/api/popups', adminController.requireAdmin, adminController.getReporterPopupsAdmin);
+router.get('/api/popups/target-options', adminController.requireAdmin, adminController.getReporterPopupTargetOptions);
+router.post('/api/popups', adminController.requireAdmin, adminController.createReporterPopup);
+router.put('/api/popups/:id', adminController.requireAdmin, adminController.updateReporterPopup);
+router.delete('/api/popups/:id', adminController.requireAdmin, adminController.deleteReporterPopup);
+router.get('/api/popups/:id/history', adminController.requireAdmin, adminController.getReporterPopupHistory);
+router.post(
+  '/api/popups/upload-image',
+  adminController.requireAdmin,
+  uploadAdMedia.single('image'),
+  adminController.uploadReporterHomeCardImage
+);
+router.get('/api/reporter/popups', adminController.requireAuth, adminController.getActiveReporterPopups);
+router.post('/api/reporter/popups/:id/ack', adminController.requireAuth, adminController.ackReporterPopup);
 
 // Reporter guidelines (per language + design)
 router.get('/reporter-guidelines', adminController.requireAdmin, adminController.renderReporterGuidelinesPage);

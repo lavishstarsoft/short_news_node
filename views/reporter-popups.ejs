@@ -1,0 +1,574 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .popup-card {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+  }
+  .popup-card .card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 18px 22px;
+  }
+  .popup-table th {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6b7280;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .popup-table td { vertical-align: middle; font-size: 14px; }
+  .status-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .status-live      { background: #dcfce7; color: #15803d; }
+  .status-scheduled { background: #dbeafe; color: #1d4ed8; }
+  .status-expired   { background: #f3f4f6; color: #6b7280; }
+  .status-inactive  { background: #fee2e2; color: #b91c1c; }
+  .prio-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .prio-low      { background: #f3f4f6; color: #6b7280; }
+  .prio-medium   { background: #dbeafe; color: #1d4ed8; }
+  .prio-high     { background: #ffedd5; color: #c2410c; }
+  .prio-critical { background: #fee2e2; color: #b91c1c; }
+  .stat-mini { font-size: 12px; color: #6b7280; white-space: nowrap; }
+  .stat-mini b { color: #111827; }
+  .target-box {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .multi-list {
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 8px 12px;
+    background: #fff;
+  }
+  .multi-list label { display: block; font-size: 13px; padding: 3px 0; cursor: pointer; }
+  .field-hint { font-size: 12px; color: #9ca3af; margin-top: 3px; }
+  .popup-preview {
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  }
+  .popup-preview img { width: 100%; max-height: 140px; object-fit: cover; display: block; }
+  .popup-preview .pv-body { padding: 16px; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-4 border-bottom d-flex flex-wrap justify-content-between align-items-end gap-2">
+    <div>
+      <h1 class="h2 page-title">In-App Popup Notifications</h1>
+      <p class="text-muted mb-0">Reporter app lo auto-open ayye popups — language, schedule, audience prakaram.</p>
+    </div>
+    <button class="btn btn-danger" id="newPopupBtn"><i class="fas fa-plus me-2"></i>New Popup</button>
+  </div>
+
+  <div id="alertBox"></div>
+
+  <div class="card popup-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0 fw-bold">All Popups</h5>
+      <span class="text-muted small" id="popupCount"></span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table popup-table mb-0">
+          <thead>
+            <tr>
+              <th class="ps-3">Title</th>
+              <th>Language</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Schedule</th>
+              <th>Frequency</th>
+              <th>Audience</th>
+              <th>Stats</th>
+              <th class="text-end pe-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="popupRows">
+            <tr><td colspan="9" class="text-center text-muted py-5">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Create / Edit Modal -->
+<div class="modal fade" id="popupModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="popupModalTitle">New Popup</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="fId">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label fw-semibold">Title *</label>
+            <input type="text" class="form-control" id="fTitle" maxlength="120" placeholder="Ex: New feature update">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Language *</label>
+            <select class="form-select" id="fLanguage">
+              <% (languages || []).forEach(function(l) { %>
+                <option value="<%= l.code %>"><%= l.name %><%= l.nativeName ? ' (' + l.nativeName + ')' : '' %></option>
+              <% }); %>
+            </select>
+            <div class="field-hint">Reporter working language tho exact match ayithe matrame chupistundi.</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Message *</label>
+            <textarea class="form-control" id="fMessage" rows="3" maxlength="1000" placeholder="Popup message…"></textarea>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Priority</label>
+            <select class="form-select" id="fPriority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Show Frequency</label>
+            <select class="form-select" id="fFrequency">
+              <option value="once" selected>Once (dismiss ayyaka malli radu)</option>
+              <option value="once_per_day">Once per day</option>
+              <option value="every_login">Every login</option>
+              <option value="always">Always show</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Active</label>
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" id="fActive" checked>
+              <label class="form-check-label" for="fActive">Popup ON</label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Start Date *</label>
+            <input type="datetime-local" class="form-control" id="fStart">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">End Date *</label>
+            <input type="datetime-local" class="form-control" id="fEnd">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Button Text (optional)</label>
+            <input type="text" class="form-control" id="fBtnText" maxlength="40" placeholder="Ex: View details">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Button URL (optional)</label>
+            <input type="text" class="form-control" id="fBtnUrl" placeholder="https://… or /page">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Popup Image (optional)</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="file" class="form-control" id="fImageFile" accept="image/*">
+              <button type="button" class="btn btn-outline-danger btn-sm d-none" id="fImageClear">Remove</button>
+            </div>
+            <input type="hidden" id="fImageUrl">
+            <div class="mt-2 d-none" id="fImagePreviewWrap">
+              <img id="fImagePreview" src="" alt="preview" style="max-height:110px;border-radius:10px;">
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="target-box">
+              <label class="form-label fw-semibold mb-2">Target Audience</label>
+              <select class="form-select mb-3" id="fAudience">
+                <option value="all" selected>All Reporters (selected language lo)</option>
+                <option value="reporters">Selected Reporters</option>
+                <option value="roles">Selected Roles</option>
+                <option value="states">Selected States</option>
+                <option value="districts">Selected Districts</option>
+              </select>
+
+              <div id="targetReporters" class="d-none">
+                <input type="text" class="form-control form-control-sm mb-2" id="reporterSearch" placeholder="Search reporter…">
+                <div class="multi-list" id="reporterList"></div>
+              </div>
+              <div id="targetRoles" class="d-none">
+                <div class="multi-list">
+                  <label><input type="checkbox" class="form-check-input me-2 roleChk" value="editor">Reporters (editor)</label>
+                  <label><input type="checkbox" class="form-check-input me-2 roleChk" value="subeditor">Sub Editors</label>
+                </div>
+              </div>
+              <div id="targetStates" class="d-none">
+                <div class="multi-list" id="stateList"></div>
+              </div>
+              <div id="targetDistricts" class="d-none">
+                <input type="text" class="form-control form-control-sm mb-2" id="districtSearch" placeholder="Search district…">
+                <div class="multi-list" id="districtList"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="savePopupBtn"><i class="fas fa-save me-2"></i>Save Popup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Popup History</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="historyBody">
+        <div class="text-center text-muted py-4">Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var popups = [];
+  var targetOptions = { reporters: [], states: [], districts: [] };
+  var popupModal = new bootstrap.Modal(document.getElementById('popupModal'));
+  var historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+
+  function showAlert(type, msg) {
+    document.getElementById('alertBox').innerHTML =
+      '<div class="alert alert-' + type + ' alert-dismissible fade show">' + esc(msg) +
+      '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+  }
+
+  function fmtDate(d) {
+    if (!d) return '-';
+    var dt = new Date(d);
+    return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) +
+      ' ' + dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function toLocalInput(d) {
+    var dt = new Date(d);
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    return dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate()) +
+      'T' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+  }
+
+  function audienceLabel(t) {
+    if (!t || t.audience === 'all') return 'All reporters';
+    if (t.audience === 'reporters') return (t.reporterIds || []).length + ' reporters';
+    if (t.audience === 'roles') return 'Roles: ' + (t.roles || []).join(', ');
+    if (t.audience === 'states') return 'States: ' + (t.states || []).join(', ');
+    if (t.audience === 'districts') return (t.districts || []).length + ' districts';
+    return t.audience;
+  }
+
+  var FREQ_LABEL = { once: 'Once', once_per_day: 'Once / day', every_login: 'Every login', always: 'Always' };
+
+  function renderRows() {
+    var tbody = document.getElementById('popupRows');
+    document.getElementById('popupCount').textContent = popups.length + ' popups';
+    if (!popups.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-5">' +
+        'No popups yet. "New Popup" click chesi create cheyandi.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = popups.map(function (p) {
+      return '<tr>' +
+        '<td class="ps-3"><div class="fw-semibold">' + esc(p.title) + '</div>' +
+          '<div class="text-muted small text-truncate" style="max-width:220px">' + esc(p.message) + '</div></td>' +
+        '<td><span class="badge bg-light text-dark border">' + esc((p.language || '').toUpperCase()) + '</span></td>' +
+        '<td><span class="prio-pill prio-' + esc(p.priority) + '">' + esc(p.priority) + '</span></td>' +
+        '<td><span class="status-pill status-' + esc(p.status) + '">' + esc(p.status) + '</span></td>' +
+        '<td class="stat-mini">' + fmtDate(p.startDate) + '<br>→ ' + fmtDate(p.endDate) + '</td>' +
+        '<td class="stat-mini">' + esc(FREQ_LABEL[p.frequency] || p.frequency) + '</td>' +
+        '<td class="stat-mini">' + esc(audienceLabel(p.target)) + '</td>' +
+        '<td class="stat-mini">Seen <b>' + p.stats.seen + '</b><br>Dismissed <b>' + p.stats.dismissed + '</b> · Clicked <b>' + p.stats.clicked + '</b></td>' +
+        '<td class="text-end pe-3 text-nowrap">' +
+          '<button class="btn btn-sm btn-outline-secondary me-1" data-act="history" data-id="' + p._id + '" title="History"><i class="fas fa-eye"></i></button>' +
+          '<button class="btn btn-sm btn-outline-primary me-1" data-act="edit" data-id="' + p._id + '" title="Edit"><i class="fas fa-pen"></i></button>' +
+          '<button class="btn btn-sm btn-outline-danger" data-act="delete" data-id="' + p._id + '" title="Delete"><i class="fas fa-trash"></i></button>' +
+        '</td></tr>';
+    }).join('');
+  }
+
+  async function loadPopups() {
+    var res = await fetch('/admin/api/popups');
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Load failed');
+    popups = data.popups || [];
+    renderRows();
+  }
+
+  async function loadTargetOptions() {
+    try {
+      var res = await fetch('/admin/api/popups/target-options');
+      var data = await res.json();
+      if (res.ok) {
+        targetOptions = data;
+        renderReporterList('');
+        renderStateList();
+        renderDistrictList('');
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  function renderReporterList(q) {
+    var box = document.getElementById('reporterList');
+    var lower = (q || '').toLowerCase();
+    box.innerHTML = (targetOptions.reporters || [])
+      .filter(function (r) { return !lower || (r.name || '').toLowerCase().indexOf(lower) !== -1; })
+      .map(function (r) {
+        return '<label><input type="checkbox" class="form-check-input me-2 reporterChk" value="' + r.id + '">' +
+          esc(r.name) + ' <span class="text-muted small">(' + esc(r.role) + ' · ' + esc(r.language) + ')</span></label>';
+      }).join('') || '<div class="text-muted small">No reporters found</div>';
+  }
+
+  function renderStateList() {
+    document.getElementById('stateList').innerHTML = (targetOptions.states || []).map(function (s) {
+      return '<label><input type="checkbox" class="form-check-input me-2 stateChk" value="' + esc(s) + '">' + esc(s) + '</label>';
+    }).join('') || '<div class="text-muted small">No states</div>';
+  }
+
+  function renderDistrictList(q) {
+    var lower = (q || '').toLowerCase();
+    document.getElementById('districtList').innerHTML = (targetOptions.districts || [])
+      .filter(function (d) { return !lower || d.name.toLowerCase().indexOf(lower) !== -1; })
+      .map(function (d) {
+        return '<label><input type="checkbox" class="form-check-input me-2 districtChk" value="' + esc(d.name) + '">' +
+          esc(d.name) + (d.state ? ' <span class="text-muted small">(' + esc(d.state) + ')</span>' : '') + '</label>';
+      }).join('') || '<div class="text-muted small">No districts found</div>';
+  }
+
+  function setChecked(cls, values) {
+    var set = {};
+    (values || []).forEach(function (v) { set[v] = true; });
+    document.querySelectorAll('.' + cls).forEach(function (el) { el.checked = !!set[el.value]; });
+  }
+
+  function getChecked(cls) {
+    return Array.prototype.map.call(
+      document.querySelectorAll('.' + cls + ':checked'),
+      function (el) { return el.value; }
+    );
+  }
+
+  function showAudienceSection() {
+    var aud = document.getElementById('fAudience').value;
+    document.getElementById('targetReporters').classList.toggle('d-none', aud !== 'reporters');
+    document.getElementById('targetRoles').classList.toggle('d-none', aud !== 'roles');
+    document.getElementById('targetStates').classList.toggle('d-none', aud !== 'states');
+    document.getElementById('targetDistricts').classList.toggle('d-none', aud !== 'districts');
+  }
+  document.getElementById('fAudience').addEventListener('change', showAudienceSection);
+
+  document.getElementById('reporterSearch').addEventListener('input', function () {
+    var checked = getChecked('reporterChk');
+    renderReporterList(this.value);
+    setChecked('reporterChk', checked);
+  });
+  document.getElementById('districtSearch').addEventListener('input', function () {
+    var checked = getChecked('districtChk');
+    renderDistrictList(this.value);
+    setChecked('districtChk', checked);
+  });
+
+  // Image upload
+  document.getElementById('fImageFile').addEventListener('change', async function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var fd = new FormData();
+    fd.append('image', file);
+    try {
+      var res = await fetch('/admin/api/popups/upload-image', { method: 'POST', body: fd });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      document.getElementById('fImageUrl').value = data.imageUrl;
+      setImagePreview(data.imageUrl);
+    } catch (e) {
+      showAlert('danger', e.message);
+      this.value = '';
+    }
+  });
+
+  function setImagePreview(url) {
+    var wrap = document.getElementById('fImagePreviewWrap');
+    var clearBtn = document.getElementById('fImageClear');
+    if (url) {
+      document.getElementById('fImagePreview').src = url;
+      wrap.classList.remove('d-none');
+      clearBtn.classList.remove('d-none');
+    } else {
+      wrap.classList.add('d-none');
+      clearBtn.classList.add('d-none');
+    }
+  }
+
+  document.getElementById('fImageClear').addEventListener('click', function () {
+    document.getElementById('fImageUrl').value = '';
+    document.getElementById('fImageFile').value = '';
+    setImagePreview('');
+  });
+
+  function openModal(popup) {
+    document.getElementById('popupModalTitle').textContent = popup ? 'Edit Popup' : 'New Popup';
+    document.getElementById('fId').value = popup ? popup._id : '';
+    document.getElementById('fTitle').value = popup ? popup.title : '';
+    document.getElementById('fMessage').value = popup ? popup.message : '';
+    document.getElementById('fLanguage').value = popup ? popup.language : 'te';
+    document.getElementById('fPriority').value = popup ? popup.priority : 'medium';
+    document.getElementById('fFrequency').value = popup ? popup.frequency : 'once';
+    document.getElementById('fActive').checked = popup ? popup.isActive !== false : true;
+    var now = new Date();
+    document.getElementById('fStart').value = popup ? toLocalInput(popup.startDate) : toLocalInput(now);
+    document.getElementById('fEnd').value = popup
+      ? toLocalInput(popup.endDate)
+      : toLocalInput(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
+    document.getElementById('fBtnText').value = popup ? (popup.buttonText || '') : '';
+    document.getElementById('fBtnUrl').value = popup ? (popup.buttonUrl || '') : '';
+    document.getElementById('fImageUrl').value = popup ? (popup.imageUrl || '') : '';
+    document.getElementById('fImageFile').value = '';
+    setImagePreview(popup ? popup.imageUrl : '');
+
+    var t = (popup && popup.target) || { audience: 'all' };
+    document.getElementById('fAudience').value = t.audience || 'all';
+    showAudienceSection();
+    document.getElementById('reporterSearch').value = '';
+    document.getElementById('districtSearch').value = '';
+    renderReporterList('');
+    renderDistrictList('');
+    setChecked('reporterChk', t.reporterIds || []);
+    setChecked('roleChk', t.roles || []);
+    setChecked('stateChk', t.states || []);
+    setChecked('districtChk', t.districts || []);
+
+    popupModal.show();
+  }
+
+  document.getElementById('newPopupBtn').addEventListener('click', function () { openModal(null); });
+
+  document.getElementById('savePopupBtn').addEventListener('click', async function () {
+    var btn = this;
+    var id = document.getElementById('fId').value;
+    var payload = {
+      title: document.getElementById('fTitle').value,
+      message: document.getElementById('fMessage').value,
+      language: document.getElementById('fLanguage').value,
+      priority: document.getElementById('fPriority').value,
+      frequency: document.getElementById('fFrequency').value,
+      isActive: document.getElementById('fActive').checked,
+      startDate: document.getElementById('fStart').value,
+      endDate: document.getElementById('fEnd').value,
+      buttonText: document.getElementById('fBtnText').value,
+      buttonUrl: document.getElementById('fBtnUrl').value,
+      imageUrl: document.getElementById('fImageUrl').value,
+      target: {
+        audience: document.getElementById('fAudience').value,
+        reporterIds: getChecked('reporterChk'),
+        roles: getChecked('roleChk'),
+        states: getChecked('stateChk'),
+        districts: getChecked('districtChk')
+      }
+    };
+
+    btn.disabled = true;
+    try {
+      var res = await fetch(id ? '/admin/api/popups/' + id : '/admin/api/popups', {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      popupModal.hide();
+      showAlert('success', id ? 'Popup updated' : 'Popup created');
+      await loadPopups();
+    } catch (e) {
+      showAlert('danger', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('popupRows').addEventListener('click', async function (e) {
+    var btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    var id = btn.getAttribute('data-id');
+    var act = btn.getAttribute('data-act');
+    var popup = popups.find(function (p) { return p._id === id; });
+
+    if (act === 'edit') {
+      openModal(popup);
+    } else if (act === 'delete') {
+      if (!confirm('Delete this popup? History kuda delete avtundi.')) return;
+      try {
+        var res = await fetch('/admin/api/popups/' + id, { method: 'DELETE' });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Delete failed');
+        showAlert('success', 'Popup deleted');
+        await loadPopups();
+      } catch (err) { showAlert('danger', err.message); }
+    } else if (act === 'history') {
+      document.getElementById('historyBody').innerHTML = '<div class="text-center text-muted py-4">Loading…</div>';
+      historyModal.show();
+      try {
+        var res2 = await fetch('/admin/api/popups/' + id + '/history');
+        var data2 = await res2.json();
+        if (!res2.ok) throw new Error(data2.error || 'Load failed');
+        var rows = (data2.history || []).map(function (h) {
+          return '<tr>' +
+            '<td>' + esc(h.reporter ? h.reporter.name : 'Deleted user') +
+              (h.reporter ? ' <span class="text-muted small">(' + esc(h.reporter.role) + ')</span>' : '') + '</td>' +
+            '<td>' + h.viewCount + '</td>' +
+            '<td>' + fmtDate(h.lastSeenAt) + '</td>' +
+            '<td>' + (h.dismissedAt ? fmtDate(h.dismissedAt) : '<span class="text-muted">-</span>') + '</td>' +
+            '<td>' + (h.clickedAt ? fmtDate(h.clickedAt) : '<span class="text-muted">-</span>') + '</td>' +
+            '</tr>';
+        }).join('');
+        document.getElementById('historyBody').innerHTML = rows
+          ? '<div class="table-responsive"><table class="table table-sm popup-table">' +
+            '<thead><tr><th>Reporter</th><th>Views</th><th>Last Seen</th><th>Dismissed</th><th>Clicked</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody></table></div>'
+          : '<div class="text-center text-muted py-4">Inka evaru ee popup chudaledu.</div>';
+      } catch (err) {
+        document.getElementById('historyBody').innerHTML =
+          '<div class="text-center text-danger py-4">' + esc(err.message) + '</div>';
+      }
+    }
+  });
+
+  loadPopups().catch(function (e) { showAlert('danger', e.message); });
+  loadTargetOptions();
+});
+</script>
+
+<%- include('partials/footer') %>

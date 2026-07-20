@@ -7550,6 +7550,414 @@ async function uploadReporterHomeCardImage(req, res) {
   }
 }
 
+// ==================== IN-APP POPUP NOTIFICATIONS ====================
+
+function sanitizePopupPayload(body) {
+  const errors = [];
+  const title = String(body.title || '').trim();
+  const message = String(body.message || '').trim();
+  const language = normalizeNewsLanguage(body.language || '');
+
+  if (!title) errors.push('Title is required');
+  if (title.length > 120) errors.push('Title max 120 characters');
+  if (!message) errors.push('Message is required');
+  if (message.length > 1000) errors.push('Message max 1000 characters');
+  if (!language) errors.push('Language is required');
+
+  const priority = ['low', 'medium', 'high', 'critical'].includes(body.priority) ? body.priority : 'medium';
+  const frequency = ['once', 'once_per_day', 'every_login', 'always'].includes(body.frequency) ? body.frequency : 'once';
+
+  const startDate = new Date(body.startDate);
+  const endDate = new Date(body.endDate);
+  if (isNaN(startDate)) errors.push('Valid start date required');
+  if (isNaN(endDate)) errors.push('Valid end date required');
+  if (!isNaN(startDate) && !isNaN(endDate) && startDate > endDate) errors.push('End date must be after start date');
+
+  let buttonUrl = String(body.buttonUrl || '').trim();
+  if (buttonUrl && !/^https?:\/\//i.test(buttonUrl) && !buttonUrl.startsWith('/')) {
+    errors.push('Button URL must start with http(s):// or /');
+  }
+
+  const audience = ['all', 'reporters', 'roles', 'states', 'districts'].includes(body.target?.audience)
+    ? body.target.audience : 'all';
+  const cleanList = (arr) => Array.isArray(arr) ? arr.map(v => String(v).trim()).filter(Boolean) : [];
+
+  return {
+    errors,
+    data: {
+      title,
+      message,
+      language,
+      priority,
+      frequency,
+      startDate,
+      endDate,
+      isActive: body.isActive === true || body.isActive === 'true',
+      buttonText: String(body.buttonText || '').trim().slice(0, 40),
+      buttonUrl,
+      imageUrl: String(body.imageUrl || '').trim(),
+      target: {
+        audience,
+        reporterIds: audience === 'reporters' ? cleanList(body.target?.reporterIds) : [],
+        roles: audience === 'roles' ? cleanList(body.target?.roles) : [],
+        states: audience === 'states' ? cleanList(body.target?.states) : [],
+        districts: audience === 'districts' ? cleanList(body.target?.districts) : []
+      }
+    }
+  };
+}
+
+async function renderReporterPopupsPage(req, res) {
+  try {
+    const { getActiveLanguages } = require('../services/languageRegistry');
+    res.render('reporter-popups', {
+      title: 'In-App Popups',
+      admin: req.admin,
+      activePage: 'reporter-popups',
+      languages: getActiveLanguages()
+    });
+  } catch (error) {
+    console.error('Error rendering reporter popups page:', error);
+    res.status(500).send('Error loading page');
+  }
+}
+
+// Admin: list popups with view stats
+async function getReporterPopupsAdmin(req, res) {
+  try {
+    const ReporterPopup = require('../models/ReporterPopup');
+    const ReporterPopupView = require('../models/ReporterPopupView');
+
+    const popups = await ReporterPopup.find().sort({ createdAt: -1 }).lean();
+    const stats = await ReporterPopupView.aggregate([
+      {
+        $group: {
+          _id: '$popupId',
+          seen: { $sum: { $cond: [{ $gt: ['$viewCount', 0] }, 1, 0] } },
+          dismissed: { $sum: { $cond: [{ $ne: ['$dismissedAt', null] }, 1, 0] } },
+          clicked: { $sum: { $cond: [{ $ne: ['$clickedAt', null] }, 1, 0] } }
+        }
+      }
+    ]);
+    const statMap = {};
+    stats.forEach(s => { statMap[String(s._id)] = s; });
+
+    const now = new Date();
+    res.json({
+      popups: popups.map(p => {
+        const st = statMap[String(p._id)] || { seen: 0, dismissed: 0, clicked: 0 };
+        let status = 'inactive';
+        if (p.isActive) {
+          if (now < new Date(p.startDate)) status = 'scheduled';
+          else if (now > new Date(p.endDate)) status = 'expired';
+          else status = 'live';
+        }
+        return { ...p, stats: { seen: st.seen, dismissed: st.dismissed, clicked: st.clicked }, status };
+      })
+    });
+  } catch (error) {
+    console.error('Error listing popups:', error);
+    res.status(500).json({ error: 'Failed to load popups' });
+  }
+}
+
+async function createReporterPopup(req, res) {
+  try {
+    const { errors, data } = sanitizePopupPayload(req.body || {});
+    if (errors.length) return res.status(400).json({ error: errors[0] });
+
+    const ReporterPopup = require('../models/ReporterPopup');
+    data.createdBy = req.admin.id;
+    data.createdByName = req.admin.username || req.admin.name || '';
+    const popup = await ReporterPopup.create(data);
+
+    try {
+      const { logAudit } = require('../utils/auditLogger');
+      logAudit({
+        req,
+        action: 'popup_create',
+        entityType: 'ReporterPopup',
+        entityId: popup._id.toString(),
+        description: `Popup created: ${popup.title} (${popup.language})`,
+        after: data
+      });
+    } catch (e) { /* audit optional */ }
+
+    res.json({ success: true, popup });
+  } catch (error) {
+    console.error('Error creating popup:', error);
+    res.status(500).json({ error: 'Failed to create popup' });
+  }
+}
+
+async function updateReporterPopup(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid popup id' });
+
+    const { errors, data } = sanitizePopupPayload(req.body || {});
+    if (errors.length) return res.status(400).json({ error: errors[0] });
+
+    const ReporterPopup = require('../models/ReporterPopup');
+    const before = await ReporterPopup.findById(id).lean();
+    if (!before) return res.status(404).json({ error: 'Popup not found' });
+
+    const popup = await ReporterPopup.findByIdAndUpdate(id, { $set: data }, { new: true });
+
+    try {
+      const { logAudit } = require('../utils/auditLogger');
+      logAudit({
+        req,
+        action: 'popup_update',
+        entityType: 'ReporterPopup',
+        entityId: id,
+        description: `Popup updated: ${data.title}`,
+        before,
+        after: data
+      });
+    } catch (e) { /* audit optional */ }
+
+    res.json({ success: true, popup });
+  } catch (error) {
+    console.error('Error updating popup:', error);
+    res.status(500).json({ error: 'Failed to update popup' });
+  }
+}
+
+async function deleteReporterPopup(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid popup id' });
+
+    const ReporterPopup = require('../models/ReporterPopup');
+    const ReporterPopupView = require('../models/ReporterPopupView');
+    const popup = await ReporterPopup.findByIdAndDelete(id);
+    if (!popup) return res.status(404).json({ error: 'Popup not found' });
+    await ReporterPopupView.deleteMany({ popupId: id });
+
+    try {
+      const { logAudit } = require('../utils/auditLogger');
+      logAudit({
+        req,
+        action: 'popup_delete',
+        entityType: 'ReporterPopup',
+        entityId: id,
+        description: `Popup deleted: ${popup.title}`,
+        before: popup.toObject()
+      });
+    } catch (e) { /* audit optional */ }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting popup:', error);
+    res.status(500).json({ error: 'Failed to delete popup' });
+  }
+}
+
+// Admin: per-popup view history
+async function getReporterPopupHistory(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid popup id' });
+
+    const ReporterPopupView = require('../models/ReporterPopupView');
+    const views = await ReporterPopupView.find({ popupId: id })
+      .populate('reporterId', 'name username role location')
+      .sort({ lastSeenAt: -1 })
+      .limit(500)
+      .lean();
+
+    res.json({
+      history: views.map(v => ({
+        reporter: v.reporterId ? {
+          name: v.reporterId.name || v.reporterId.username,
+          role: v.reporterId.role,
+          location: v.reporterId.location
+        } : null,
+        viewCount: v.viewCount,
+        firstSeenAt: v.firstSeenAt,
+        lastSeenAt: v.lastSeenAt,
+        dismissedAt: v.dismissedAt,
+        clickedAt: v.clickedAt
+      }))
+    });
+  } catch (error) {
+    console.error('Error loading popup history:', error);
+    res.status(500).json({ error: 'Failed to load history' });
+  }
+}
+
+/** Reporter target match check — anni server-side, DB doc base */
+function popupTargetsReporter(popup, reporter) {
+  const t = popup.target || {};
+  const audience = t.audience || 'all';
+  if (audience === 'all') return true;
+  if (audience === 'reporters') return (t.reporterIds || []).includes(String(reporter._id));
+  if (audience === 'roles') return (t.roles || []).includes(reporter.role);
+  if (audience === 'states') {
+    const myStates = [
+      ...(reporter.assignedStates || []),
+      ...(reporter.assignedLocations || []),
+      reporter.assignedState,
+      reporter.location
+    ].filter(Boolean);
+    return (t.states || []).some(s => myStates.includes(s));
+  }
+  if (audience === 'districts') {
+    const myDistricts = [
+      ...(reporter.assignedDistricts || []),
+      ...(reporter.assignedLocations || []),
+      reporter.location
+    ].filter(Boolean);
+    return (t.districts || []).some(d => myDistricts.includes(d));
+  }
+  return false;
+}
+
+// Admin: dropdown data for popup targeting (reporters, states, districts)
+async function getReporterPopupTargetOptions(req, res) {
+  try {
+    const Location = require('../models/Location');
+    const [reporters, states, districts] = await Promise.all([
+      Admin.find({ role: { $in: ['editor', 'subeditor'] } })
+        .select('name username role workingLanguage')
+        .sort({ name: 1 })
+        .lean(),
+      Location.find({ isActive: true, locationType: 'state' }).select('name').sort({ name: 1 }).lean(),
+      Location.find({ isActive: true, locationType: 'district' }).select('name parentName').sort({ name: 1 }).lean()
+    ]);
+
+    res.json({
+      reporters: reporters.map(r => ({
+        id: String(r._id),
+        name: r.name || r.username,
+        role: r.role,
+        language: r.workingLanguage || 'te'
+      })),
+      states: states.map(s => s.name),
+      districts: districts.map(d => ({ name: d.name, state: d.parentName || '' }))
+    });
+  } catch (error) {
+    console.error('Error loading popup target options:', error);
+    res.status(500).json({ error: 'Failed to load options' });
+  }
+}
+
+// Reporter: active popups (language + schedule + target + frequency filtered)
+async function getActiveReporterPopups(req, res) {
+  try {
+    const reporterId = resolveReporterId(req);
+    if (!reporterId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const reporter = await Admin.findById(reporterId)
+      .select('role workingLanguage assignedStates assignedState assignedDistricts location')
+      .lean();
+    if (!reporter) return res.status(404).json({ error: 'Account not found' });
+
+    const lang = normalizeNewsLanguage(reporter.workingLanguage || 'te') || 'te';
+    const now = new Date();
+
+    const ReporterPopup = require('../models/ReporterPopup');
+    const ReporterPopupView = require('../models/ReporterPopupView');
+
+    // Indexed query: active + exact language + schedule window
+    const popups = await ReporterPopup.find({
+      isActive: true,
+      language: lang,
+      startDate: { $lte: now },
+      endDate: { $gte: now }
+    }).sort({ createdAt: -1 }).limit(20).lean();
+
+    if (!popups.length) return res.json({ popups: [] });
+
+    const targeted = popups.filter(p => popupTargetsReporter(p, reporter));
+    if (!targeted.length) return res.json({ popups: [] });
+
+    // View states okka query lo
+    const views = await ReporterPopupView.find({
+      reporterId,
+      popupId: { $in: targeted.map(p => p._id) }
+    }).lean();
+    const viewMap = {};
+    views.forEach(v => { viewMap[String(v.popupId)] = v; });
+
+    // IST day start (once_per_day check ki)
+    const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+    const dayStart = new Date(`${ymd}T00:00:00.000+05:30`);
+
+    const eligible = targeted.filter(p => {
+      const v = viewMap[String(p._id)];
+      if (!v || !v.dismissedAt) return true; // inka dismiss cheyaledu
+      switch (p.frequency) {
+        case 'once': return false;
+        case 'once_per_day': return new Date(v.dismissedAt) < dayStart;
+        case 'every_login': return true;  // client sessionStorage handles per-session
+        case 'always': return true;
+        default: return false;
+      }
+    });
+
+    // Priority order: critical mundu
+    const prioRank = { critical: 0, high: 1, medium: 2, low: 3 };
+    eligible.sort((a, b) => (prioRank[a.priority] ?? 9) - (prioRank[b.priority] ?? 9));
+
+    res.json({
+      popups: eligible.map(p => ({
+        id: String(p._id),
+        title: p.title,
+        message: p.message,
+        priority: p.priority,
+        frequency: p.frequency,
+        buttonText: p.buttonText || '',
+        buttonUrl: p.buttonUrl || '',
+        imageUrl: p.imageUrl || ''
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching active popups:', error);
+    res.status(500).json({ error: 'Failed to fetch popups' });
+  }
+}
+
+// Reporter: popup event ack (seen / dismissed / clicked)
+async function ackReporterPopup(req, res) {
+  try {
+    const reporterId = resolveReporterId(req);
+    if (!reporterId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { id } = req.params;
+    const event = String((req.body || {}).event || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid popup id' });
+    if (!['seen', 'dismissed', 'clicked'].includes(event)) {
+      return res.status(400).json({ error: 'Invalid event' });
+    }
+
+    const ReporterPopup = require('../models/ReporterPopup');
+    const popup = await ReporterPopup.findById(id).select('_id').lean();
+    if (!popup) return res.status(404).json({ error: 'Popup not found' });
+
+    const ReporterPopupView = require('../models/ReporterPopupView');
+    const now = new Date();
+    const update = { $set: { lastSeenAt: now }, $setOnInsert: { firstSeenAt: now } };
+    if (event === 'seen') update.$inc = { viewCount: 1 };
+    if (event === 'dismissed') update.$set.dismissedAt = now;
+    if (event === 'clicked') update.$set.clickedAt = now;
+
+    await ReporterPopupView.updateOne(
+      { popupId: id, reporterId },
+      update,
+      { upsert: true }
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    // Upsert race (duplicate key) ni ignore cheyochu — record already undi
+    if (error && error.code === 11000) return res.json({ success: true });
+    console.error('Error acking popup:', error);
+    res.status(500).json({ error: 'Failed to record event' });
+  }
+}
+
 function defaultGuidelinesForLang(code) {
   const lang = String(code || 'en').toLowerCase();
   const packs = {
@@ -8377,6 +8785,15 @@ module.exports = {
   updateReporterHomeContentAdmin,
   getReporterHomeBanner,
   uploadReporterHomeCardImage,
+  renderReporterPopupsPage,
+  getReporterPopupsAdmin,
+  createReporterPopup,
+  updateReporterPopup,
+  deleteReporterPopup,
+  getReporterPopupHistory,
+  getReporterPopupTargetOptions,
+  getActiveReporterPopups,
+  ackReporterPopup,
   renderReporterGuidelinesPage,
   getReporterGuidelinesAdmin,
   updateReporterGuidelinesAdmin,

@@ -343,7 +343,7 @@
             <!-- Reporters Group -->
             <% 
                 const showReportersGroup = isAdmin;
-                const reportersGroupActive = ['reporter-analytics', 'news-map', 'fraud-alerts', 'reporter-applications', 'reporter-home-content', 'reporter-guidelines', 'reporter-earning'].includes(activePage);
+                const reportersGroupActive = ['reporter-analytics', 'news-map', 'fraud-alerts', 'reporter-applications', 'reporter-home-content', 'reporter-guidelines', 'reporter-earning', 'reporter-popups'].includes(activePage);
             %>
             <% if (showReportersGroup) { %>
             <li class="nav-item">
@@ -380,6 +380,11 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'reporter-earning' ? 'active' : '' %>" href="/admin/reporter-earning">Earning Page</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'reporter-popups' ? 'active' : '' %>" href="/admin/popups">
+                                In-App Popups <span class="badge bg-success rounded-pill">New</span>
+                            </a>
                         </li>
                     </ul>
                 </div>
