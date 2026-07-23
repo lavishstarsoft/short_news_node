@@ -247,6 +247,46 @@
                 </div>
             </div>
 
+            <!-- Sub Editor / Super Admin Duplicate Warning Modal (create/publish only) -->
+            <div class="modal fade" id="duplicatePublishWarningModal" tabindex="-1" aria-labelledby="duplicatePublishWarningTitle" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content an-dup-modal">
+                        <div class="modal-body an-dup-modal-body">
+                            <div class="an-dup-icon" aria-hidden="true">⚠️</div>
+                            <h4 id="duplicatePublishWarningTitle" class="an-dup-title">Duplicate / Similar News Detected</h4>
+                            <p class="an-dup-lead" id="dupWarnLead">This news looks very similar to an existing article.</p>
+                            <div class="an-dup-reason" id="dupWarnReasonBox" hidden>
+                                <span class="an-dup-reason-label">Match reason</span>
+                                <span class="an-dup-reason-value" id="dupWarnReason">Content</span>
+                                <p class="an-dup-reason-msg" id="dupWarnReasonMsg"></p>
+                            </div>
+                            <div class="an-dup-stats">
+                                <div class="an-dup-stat">
+                                    <span class="an-dup-stat-label">Duplicate Score</span>
+                                    <span class="an-dup-stat-value" id="dupWarnScore">0%</span>
+                                </div>
+                                <div class="an-dup-stat">
+                                    <span class="an-dup-stat-label">Matched News</span>
+                                    <span class="an-dup-stat-value" id="dupWarnCount">0</span>
+                                </div>
+                                <div class="an-dup-stat">
+                                    <span class="an-dup-stat-label">Type</span>
+                                    <span class="an-dup-stat-value" id="dupWarnType">Similar</span>
+                                </div>
+                            </div>
+                            <div class="an-dup-matches-wrap">
+                                <div class="an-dup-matches-label">Matched news titles</div>
+                                <ul class="an-dup-matches" id="dupWarnMatches"></ul>
+                            </div>
+                            <div class="an-dup-actions">
+                                <button type="button" class="btn an-dup-btn-cancel" id="dupWarnCancelBtn">Cancel</button>
+                                <button type="button" class="btn an-dup-btn-publish" id="dupWarnPublishAnywayBtn">Publish Anyway</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <%- include('partials/footer') %>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
                 <script src="/js/rich-text.js"></script>
@@ -257,6 +297,114 @@
                     let CONTENT_MAX = <%= newsContentMax %>;
                     let CONTENT_MIN = 0;
                     const CURRENT_USER_ROLE = '<%= admin.role %>';
+
+                    // Create-only duplicate gate for roles that publish/create news
+                    const DUPLICATE_GATE_ROLES = ['subeditor', 'superadmin', 'admin'];
+                    function roleNeedsDuplicateGate() {
+                        return DUPLICATE_GATE_ROLES.includes(CURRENT_USER_ROLE);
+                    }
+                    let duplicateGatePassed = false;
+                    let cachedPrecomputedDuplicate = null;
+                    let duplicateModalInstance = null;
+
+                    function getSaveButtonIds() {
+                        return ['saveNewsButton', 'saveNewsButtonMobile', 'saveNewsButtonDesktop', 'saveNewsBtn'];
+                    }
+
+                    function setSaveButtonsEnabled(enabled) {
+                        getSaveButtonIds().forEach(id => {
+                            const btn = document.getElementById(id);
+                            if (btn) {
+                                btn.disabled = !enabled;
+                                btn.style.pointerEvents = enabled ? 'auto' : 'none';
+                            }
+                        });
+                    }
+
+                    function escapeHtmlDup(text) {
+                        return String(text || '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/'/g, '&#39;');
+                    }
+
+                    function getOverallSimilarity(match) {
+                        if (!match) return 0;
+                        if (typeof match.similarity === 'number') return match.similarity;
+                        if (match.similarity && typeof match.similarity.overall === 'number') {
+                            return match.similarity.overall;
+                        }
+                        return 0;
+                    }
+
+                    function resetDuplicateGate() {
+                        duplicateGatePassed = false;
+                        cachedPrecomputedDuplicate = null;
+                    }
+
+                    function showDuplicatePublishWarning(checkData) {
+                        const dc = checkData.duplicateCheck || {};
+                        const score = typeof checkData.score === 'number' ? checkData.score : (dc.score || 0);
+                        const matchCount = typeof checkData.matchCount === 'number'
+                            ? checkData.matchCount
+                            : (dc.matchCount || (checkData.similarArticles || []).length || 0);
+                        const isDup = checkData.hasDuplicate === true || dc.isDuplicate === true;
+                        const matches = checkData.similarArticles || dc.similarArticles || [];
+                        const src = dc.matchSource || '';
+                        const reasonLabel = dc.reasonLabel || (src === 'image' ? 'Image' : src === 'both' ? 'Image + Content' : 'Content');
+                        const reasonMsg = dc.reasonMessage || (
+                            src === 'image'
+                                ? 'Same or very similar image detected (title/content may be different).'
+                                : src === 'both'
+                                    ? 'Same/similar image and similar text content were both detected.'
+                                    : 'Similar title or text content detected.'
+                        );
+
+                        document.getElementById('dupWarnScore').textContent = score + '%';
+                        document.getElementById('dupWarnCount').textContent = String(matchCount);
+                        document.getElementById('dupWarnType').textContent = isDup
+                            ? ('Duplicate · ' + reasonLabel)
+                            : ('Similar · ' + reasonLabel);
+
+                        const lead = document.getElementById('dupWarnLead');
+                        if (lead) {
+                            lead.textContent = reasonMsg;
+                        }
+                        const reasonBox = document.getElementById('dupWarnReasonBox');
+                        const reasonEl = document.getElementById('dupWarnReason');
+                        const reasonMsgEl = document.getElementById('dupWarnReasonMsg');
+                        if (reasonBox && reasonEl && reasonMsgEl) {
+                            reasonEl.textContent = reasonLabel;
+                            reasonMsgEl.textContent = reasonMsg;
+                            reasonBox.hidden = false;
+                            reasonBox.className = 'an-dup-reason an-dup-reason--' + (src || 'content');
+                        }
+
+                        const list = document.getElementById('dupWarnMatches');
+                        if (!matches.length) {
+                            list.innerHTML = '<li class="an-dup-match-empty">No title details available.</li>';
+                        } else {
+                            list.innerHTML = matches.slice(0, 8).map(function (m) {
+                                const title = escapeHtmlDup(m.articleTitle || m.title || 'Untitled');
+                                const sim = getOverallSimilarity(m);
+                                const mSrc = m.matchSource || (m.matchType && /url|bytes|phash|dhash|openclip|ann|media|image/i.test(m.matchType) ? 'image' : 'content');
+                                const mLabel = mSrc === 'image' ? 'Image' : mSrc === 'both' ? 'Image+Content' : 'Content';
+                                return '<li><span class="an-dup-match-score">' + sim + '%</span><span class="an-dup-match-source an-dup-match-source--' + mSrc + '">' + mLabel + '</span><span class="an-dup-match-title">' + title + '</span></li>';
+                            }).join('');
+                        }
+
+                        const modalEl = document.getElementById('duplicatePublishWarningModal');
+                        duplicateModalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+                        duplicateModalInstance.show();
+                    }
+
+                    function closeDuplicatePublishWarning() {
+                        const modalEl = document.getElementById('duplicatePublishWarningModal');
+                        const instance = duplicateModalInstance || bootstrap.Modal.getInstance(modalEl);
+                        if (instance) instance.hide();
+                    }
 
                     function getDisplayConfigForLanguage(code) {
                         const normalized = String(code || 'te').trim().toLowerCase();
@@ -359,7 +507,6 @@
 
                         try {
                             const parsedArray = JSON.parse(document.getElementById('imageUrls').value);
-                            // If parsed array has links, send them; if single media is present, prepend if not there
                             if (parsedArray && parsedArray.length > 0) {
                                 newsData.imageUrls = parsedArray;
                             } else if (mediaUrl && mediaType === 'image') {
@@ -377,14 +524,12 @@
                         if (newsScope === 'district') {
                             const constituencyVal = document.getElementById('locationConstituency').value;
                             const districtVal = document.getElementById('locationDistrict').value;
-                            // Constituency select chesthe adi location; lekapothe district
                             if (constituencyVal) newsData.location = constituencyVal;
                             else if (districtVal) newsData.location = districtVal;
                         } else if (newsScope === 'state') {
                             const stateVal = document.getElementById('locationState').value;
                             if (stateVal) newsData.location = stateVal;
                         }
-                        // national/international: no location needed
 
                         if (location && !newsData.location) {
                             newsData.location = location;
@@ -403,17 +548,69 @@
                             newsData.sourceLink = sourceLinkEl.value;
                         }
 
-                        const saveBtnIds = ['saveNewsButton', 'saveNewsButtonMobile', 'saveNewsButtonDesktop', 'saveNewsBtn'];
-                        saveBtnIds.forEach(id => {
-                            const btn = document.getElementById(id);
-                            if (btn) {
-                                btn.disabled = true;
-                                btn.style.pointerEvents = 'none';
-                            }
-                        });
+                        setSaveButtonsEnabled(false);
 
                         try {
-                            showLoader(newsId ? 'Updating news...' : 'Saving news...');
+                            // Sub Editor / Super Admin CREATE only: dry-run duplicate check before any save/publish.
+                            // Cancel = no save. Publish Anyway / clean = proceed once with reused result.
+                            const needsDuplicateGate =
+                                roleNeedsDuplicateGate() && !newsId;
+
+                            if (needsDuplicateGate && !duplicateGatePassed) {
+                                showLoader('Checking for duplicates...');
+                                const checkRes = await fetch('/admin/api/check-duplicate', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        title,
+                                        content,
+                                        language,
+                                        mediaUrl,
+                                        mediaType,
+                                        imageUrls: newsData.imageUrls || [],
+                                        thumbnailUrl,
+                                        videoUrl: newsData.videoUrl || ''
+                                    })
+                                });
+                                hideLoader();
+
+                                if (!checkRes.ok) {
+                                    showFeedback('Duplicate check failed. Please try again.', 'error');
+                                    setSaveButtonsEnabled(true);
+                                    return;
+                                }
+
+                                const checkData = await checkRes.json();
+                                cachedPrecomputedDuplicate = {
+                                    contentHash: checkData.contentHash,
+                                    duplicateCheck: checkData.duplicateCheck
+                                };
+
+                                const needsWarning =
+                                    checkData.hasDuplicate === true ||
+                                    checkData.isSuspicious === true ||
+                                    (checkData.duplicateCheck &&
+                                        (checkData.duplicateCheck.isDuplicate ||
+                                            checkData.duplicateCheck.isSuspicious));
+
+                                if (needsWarning) {
+                                    showDuplicatePublishWarning(checkData);
+                                    // Keep buttons disabled while modal is open; Cancel re-enables.
+                                    return;
+                                }
+
+                                duplicateGatePassed = true;
+                            }
+
+                            if (
+                                needsDuplicateGate &&
+                                cachedPrecomputedDuplicate &&
+                                cachedPrecomputedDuplicate.contentHash
+                            ) {
+                                newsData.precomputedDuplicate = cachedPrecomputedDuplicate;
+                            }
+
+                            showLoader(newsId ? 'Updating news...' : 'Publishing news...');
                             let response;
                             if (newsId) {
                                 response = await fetch(`/news/api/news/${newsId}`, {
@@ -435,13 +632,14 @@
 
                             hideLoader();
                             if (response.ok) {
-                                // hide warning modal if open
                                 const warnModalEl = document.getElementById('languageWarningModal');
                                 if (warnModalEl) {
                                     const warnModal = bootstrap.Modal.getInstance(warnModalEl);
                                     if (warnModal) warnModal.hide();
                                 }
-                                
+                                closeDuplicatePublishWarning();
+                                resetDuplicateGate();
+
                                 const responseData = await response.json();
 
                                 if (newsId) {
@@ -469,15 +667,13 @@
                                             window.location.href = '/admin/pending-news';
                                         }, 1500);
                                     } else {
-                                        // Update flow - just show success
                                         showFeedback('News updated successfully!', 'success');
                                         setTimeout(() => {
                                             window.location.href = '/news-list';
                                         }, 1500);
                                     }
                                 } else {
-                                    // Direct save - no notification popup
-                                    showFeedback('✅ News added successfully!', 'success');
+                                    showFeedback('✅ News published successfully!', 'success');
                                     setTimeout(() => {
                                         window.location.href = '/news-list';
                                     }, 1500);
@@ -499,16 +695,10 @@
                                     } catch (e) {
                                         document.getElementById('languageWarningText').textContent = 'Language mismatch detected.';
                                     }
+                                    // Keep duplicateGatePassed so Proceed Anyway does not re-open duplicate modal
                                     const warnModal = new bootstrap.Modal(document.getElementById('languageWarningModal'));
                                     warnModal.show();
-                                    
-                                    saveBtnIds.forEach(id => {
-                                        const btn = document.getElementById(id);
-                                        if (btn) {
-                                            btn.disabled = false;
-                                            btn.style.pointerEvents = 'auto';
-                                        }
-                                    });
+                                    setSaveButtonsEnabled(true);
                                     return;
                                 }
                                 const errorText = await response.text();
@@ -518,26 +708,35 @@
                                 } catch (e) {
                                     showFeedback('Error saving news: ' + errorText, 'error');
                                 }
-                                saveBtnIds.forEach(id => {
-                                    const btn = document.getElementById(id);
-                                    if (btn) {
-                                        btn.disabled = false;
-                                        btn.style.pointerEvents = 'auto';
-                                    }
-                                });
+                                if (roleNeedsDuplicateGate() && !newsId) {
+                                    duplicateGatePassed = false;
+                                }
+                                setSaveButtonsEnabled(true);
                             }
                         } catch (error) {
                             hideLoader();
                             console.error('Error:', error);
                             showFeedback('Error saving news: ' + error.message, 'error');
-                            saveBtnIds.forEach(id => {
-                                const btn = document.getElementById(id);
-                                if (btn) {
-                                    btn.disabled = false;
-                                    btn.style.pointerEvents = 'auto';
-                                }
-                            });
+                            // Allow a fresh duplicate gate on retry after hard failure
+                            if (roleNeedsDuplicateGate() && !document.getElementById('newsId').value) {
+                                duplicateGatePassed = false;
+                            }
+                            setSaveButtonsEnabled(true);
                         }
+                    }
+
+                    function confirmDuplicatePublishAnyway() {
+                        closeDuplicatePublishWarning();
+                        duplicateGatePassed = true;
+                        // Re-enter save with gate already passed; reuses cachedPrecomputedDuplicate
+                        saveNews(false);
+                    }
+
+                    function cancelDuplicatePublish() {
+                        closeDuplicatePublishWarning();
+                        resetDuplicateGate();
+                        setSaveButtonsEnabled(true);
+                        hideLoader();
                     }
 
                     // 🔔 Send OneSignal push notification for newly created news
@@ -578,6 +777,15 @@
                             const btn = document.getElementById(id);
                             if (btn) btn.addEventListener('click', (e) => saveNews(false));
                         });
+
+                        const dupCancelBtn = document.getElementById('dupWarnCancelBtn');
+                        if (dupCancelBtn) {
+                            dupCancelBtn.addEventListener('click', cancelDuplicatePublish);
+                        }
+                        const dupPublishAnywayBtn = document.getElementById('dupWarnPublishAnywayBtn');
+                        if (dupPublishAnywayBtn) {
+                            dupPublishAnywayBtn.addEventListener('click', confirmDuplicatePublishAnyway);
+                        }
 
                         const languageSelect = document.getElementById('language');
                         if (languageSelect) {

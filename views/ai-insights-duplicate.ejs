@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: title }) %>
+<link rel="stylesheet" href="/css/ai-insights.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'AI Insights', backButton: true, backUrl: '/' }) %>
+<div class="container-fluid">
+  <div class="row">
+    <%- include('partials/sidebar', { activePage: 'ai-insights-duplicate' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content ai-page">
+
+      <div class="ai-hero">
+        <div>
+          <h1>Duplicate News Insights</h1>
+          <p>Live published articles grouped by semantic similarity. Editorial intelligence only — not a punishment board.</p>
+        </div>
+        <div class="ai-toolbar">
+          <button type="button" class="ai-btn ai-btn-primary" id="btnRunScan">Run AI Scan</button>
+          <button type="button" class="ai-btn ai-btn-ghost" onclick="location.reload()">Refresh</button>
+        </div>
+      </div>
+
+      <% if (!featureEnabled) { %>
+        <div class="ai-disabled-banner">
+          <strong>Feature flag OFF.</strong> Set <code>AI_INSIGHTS_ENABLED=true</code> to show groups.
+          Embeddings coverage and last scan info may still appear below. Background scan uses <code>AI_INSIGHTS_SCAN_ENABLED</code>.
+        </div>
+      <% } %>
+
+      <div class="ai-disclaimer">
+        ⚠️ <%= overview.disclaimer %>
+      </div>
+
+      <% const c = overview.cards || {}; %>
+      <div class="ai-cards">
+        <div class="ai-card accent-blue"><div class="label">Total Live News</div><div class="value"><%= c.totalLiveNews || 0 %></div></div>
+        <div class="ai-card"><div class="label">Duplicate Groups</div><div class="value"><%= c.duplicateGroups || 0 %></div></div>
+        <div class="ai-card"><div class="label">Similar Articles</div><div class="value"><%= c.similarArticles || 0 %></div></div>
+        <div class="ai-card accent-amber"><div class="label">Average Similarity</div><div class="value"><%= c.averageSimilarity || 0 %>%</div></div>
+        <div class="ai-card accent-amber"><div class="label">Highest Similarity</div><div class="value"><%= c.highestSimilarity || 0 %>%</div></div>
+        <div class="ai-card"><div class="label">Today's Groups</div><div class="value"><%= c.todaysGroups || 0 %></div></div>
+        <div class="ai-card"><div class="label">This Week Groups</div><div class="value"><%= c.thisWeekGroups || 0 %></div></div>
+        <div class="ai-card accent-green"><div class="label">Embedding Coverage</div><div class="value"><%= c.embeddingCoverage || 0 %>%</div></div>
+      </div>
+
+      <div class="ai-meta mb-3">
+        <% if (overview.lastScan) { %>
+          Last scan:
+          <%= overview.lastScan.finishedAt ? new Date(overview.lastScan.finishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—' %>
+          · method <%= overview.lastScan.method || '—' %>
+          · groups <%= overview.lastScan.groupsCreated || 0 %>
+          · <%= overview.lastScan.durationMs || 0 %> ms
+        <% } else { %>
+          No completed scan yet. Click <strong>Run AI Scan</strong> after embeddings are READY.
+        <% } %>
+      </div>
+
+      <div class="ai-charts">
+        <div class="ai-panel">
+          <h3>High-Similarity Groups Trend</h3>
+          <canvas id="trendChart" height="120"></canvas>
+        </div>
+        <div class="ai-panel">
+          <h3>Similarity Distribution</h3>
+          <canvas id="distChart" height="120"></canvas>
+        </div>
+      </div>
+
+      <div class="ai-tables">
+        <div class="ai-panel">
+          <h3>Sub Editor Analysis</h3>
+          <div class="ai-table-wrap">
+            <table class="ai-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>High Similarity Pubs</th>
+                  <th>Avg</th>
+                  <th>Highest</th>
+                  <th>Review Required</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% const subs = (people && people.subEditors) || []; %>
+                <% if (!subs.length) { %>
+                  <tr><td colspan="5">No similar-publication patterns yet.</td></tr>
+                <% } %>
+                <% subs.slice(0, 25).forEach(function(row) { %>
+                  <tr>
+                    <td><%= row.name %></td>
+                    <td><%= row.highSimilarityPublications %></td>
+                    <td><%= row.averageSimilarity %>%</td>
+                    <td><%= row.highestSimilarity %>%</td>
+                    <td><%= row.reviewRequiredCount %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="ai-panel">
+          <h3>Reporter Analysis</h3>
+          <div class="ai-table-wrap">
+            <table class="ai-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>High Similarity Pubs</th>
+                  <th>Avg</th>
+                  <th>Highest</th>
+                  <th>Latest</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% const reps = (people && people.reporters) || []; %>
+                <% if (!reps.length) { %>
+                  <tr><td colspan="5">No similar-publication patterns yet.</td></tr>
+                <% } %>
+                <% reps.slice(0, 25).forEach(function(row) { %>
+                  <tr>
+                    <td><%= row.name %></td>
+                    <td><%= row.highSimilarityPublications %></td>
+                    <td><%= row.averageSimilarity %>%</td>
+                    <td><%= row.highestSimilarity %>%</td>
+                    <td><%= row.latestSimilarPublication ? new Date(row.latestSimilarPublication).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—' %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-panel">
+        <h3>Duplicate Groups (Live)</h3>
+        <% const groups = (groupsPayload && groupsPayload.groups) || []; %>
+        <% if (!groups.length) { %>
+          <div class="ai-empty">
+            No groups yet. Ensure live news have READY embeddings, then run an AI Scan.
+          </div>
+        <% } %>
+        <% groups.forEach(function(g) { %>
+          <article class="ai-group">
+            <div class="ai-group-head">
+              <div>
+                <strong>Group #<%= g.groupNumber %></strong>
+                <span class="ai-badge ai-badge-score ms-2"><%= g.highestSimilarityPercent %>% max</span>
+                <span class="ai-meta ms-2"><%= g.similarCount %> similar · span <%= g.spanLabel %></span>
+              </div>
+              <div>
+                <a class="ai-btn ai-btn-ghost" href="/admin/ai-insights/duplicate-news/groups/<%= g.id %>">Open</a>
+                <button type="button" class="ai-btn ai-btn-ghost" onclick="setGroupStatus('<%= g.id %>', 'ignored')">Ignore</button>
+                <button type="button" class="ai-btn ai-btn-ghost" onclick="setGroupStatus('<%= g.id %>', 'archived')">Archive</button>
+              </div>
+            </div>
+            <div class="ai-group-body">
+              <% if (g.original) { %>
+                <div class="ai-member original">
+                  <span class="ai-badge ai-badge-original">✅ ORIGINAL</span>
+                  <h4><%= g.original.headline %></h4>
+                  <div class="meta">
+                    Reporter: <%= g.original.reporterName || '—' %><br>
+                    Sub Editor: <%= g.original.subEditorName || '—' %><br>
+                    <%= g.original.publishedDate %> · <%= g.original.publishedTime %>
+                  </div>
+                </div>
+              <% } %>
+              <div>
+                <% (g.similarsPreview || []).forEach(function(s) { %>
+                  <div class="ai-member similar mb-2">
+                    <span class="ai-badge ai-badge-similar">❌ SIMILAR</span>
+                    <span class="ai-badge ai-badge-score"><%= s.similarityPercent %>%</span>
+                    <h4><%= s.headline %></h4>
+                    <div class="meta">
+                      Reporter: <%= s.reporterName || '—' %><br>
+                      Sub Editor: <%= s.subEditorName || '—' %><br>
+                      <%= s.publishedDate %> · <%= s.publishedTime %><br>
+                      Difference: <%= s.timeDiffLabel %> (<%= s.timeDiffHuman %>)
+                    </div>
+                  </div>
+                <% }) %>
+              </div>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const trend = <%- JSON.stringify(trend || { labels: [], groupCounts: [] }) %>;
+  const distribution = <%- JSON.stringify(distribution || {}) %>;
+
+  (function initCharts() {
+    try {
+      if (typeof Chart === 'undefined') return;
+      const trendCtx = document.getElementById('trendChart');
+      if (trendCtx) {
+        new Chart(trendCtx, {
+          type: 'line',
+          data: {
+            labels: trend.labels || [],
+            datasets: [{
+              label: 'Groups',
+              data: trend.groupCounts || [],
+              borderColor: '#1d4ed8',
+              backgroundColor: 'rgba(29,78,216,0.12)',
+              tension: 0.3,
+              fill: true,
+            }]
+          },
+          options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+        });
+      }
+      const distCtx = document.getElementById('distChart');
+      if (distCtx) {
+        new Chart(distCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['85–90%', '90–95%', '95–100%', 'Other'],
+            datasets: [{
+              data: [
+                distribution['85-90'] || 0,
+                distribution['90-95'] || 0,
+                distribution['95-100'] || 0,
+                distribution.other || 0
+              ],
+              backgroundColor: ['#fbbf24', '#f97316', '#dc2626', '#94a3b8']
+            }]
+          },
+          options: { plugins: { legend: { position: 'bottom' } } }
+        });
+      }
+    } catch (err) {
+      console.warn('AI Insights charts failed', err);
+    }
+  })();
+
+  async function setGroupStatus(id, status) {
+    try {
+      const res = await fetch('/admin/api/ai-insights/groups/' + id + '/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok) throw new Error('Update failed');
+      location.reload();
+    } catch (e) {
+      alert('Could not update group status');
+    }
+  }
+
+  document.getElementById('btnRunScan')?.addEventListener('click', async function () {
+    const btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Scanning…';
+    try {
+      const res = await fetch('/admin/api/ai-insights/scan', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.reason === 'already_running' ? 'A scan is already running.' : (data.error || data.reason || 'Scan failed'));
+      } else {
+        alert('Scan completed. Groups: ' + (data.groupsCreated || 0) + ' · method: ' + (data.method || '—'));
+        location.reload();
+      }
+    } catch (e) {
+      alert('Scan request failed');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Run AI Scan';
+    }
+  });
+</script>
+
+<%- include('partials/footer') %>
+</body>
+</html>

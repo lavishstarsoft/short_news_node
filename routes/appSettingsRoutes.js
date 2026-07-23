@@ -43,7 +43,7 @@ router.get('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
 // Admin route to update app settings
 router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl, referralHelpText, referralRewardAmount, referralRequiredDays, maxDailyReferralBudget, referralShareUrl, isReferralEnabled, allowReporterBrowserAccess } = req.body;
+        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, enableLocationModule, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl, referralHelpText, referralRewardAmount, referralRequiredDays, maxDailyReferralBudget, referralShareUrl, isReferralEnabled, allowReporterBrowserAccess } = req.body;
         let settings = await AppSettings.findOne({ key: 'update_flags' });
 
         if (!settings) {
@@ -61,6 +61,7 @@ router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
         if (isSwipeStreakEnabled !== undefined) settings.isSwipeStreakEnabled = isSwipeStreakEnabled;
         if (showLongVideos !== undefined) settings.showLongVideos = showLongVideos;
         if (showDistrictSelection !== undefined) settings.showDistrictSelection = showDistrictSelection;
+        if (enableLocationModule !== undefined) settings.enableLocationModule = enableLocationModule;
         if (calendarEnabledLanguages !== undefined) settings.calendarEnabledLanguages = calendarEnabledLanguages;
         if (zodiacEnabledLanguages !== undefined) settings.zodiacEnabledLanguages = zodiacEnabledLanguages;
         
@@ -109,6 +110,7 @@ router.get('/api/public/app-settings', async (req, res) => {
                 isSwipeStreakEnabled: true,
                 showLongVideos: true,
                 showDistrictSelection: false,
+                enableLocationModule: true,
                 calendarEnabledLanguages: ['te'],
                 zodiacEnabledLanguages: ['te'],
                 contactUs: '',
@@ -133,6 +135,9 @@ router.get('/api/public/app-settings', async (req, res) => {
             }
             if (responseSettings.allowReporterBrowserAccess === undefined) {
                 responseSettings.allowReporterBrowserAccess = false;
+            }
+            if (responseSettings.enableLocationModule === undefined) {
+                responseSettings.enableLocationModule = true;
             }
         }
 

@@ -49,6 +49,11 @@ const appSettingsSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  /** When true, Flutter shows location onboarding + drawer location UI. */
+  enableLocationModule: {
+    type: Boolean,
+    default: true
+  },
   calendarEnabledLanguages: {
     type: [String],
     default: ['te']

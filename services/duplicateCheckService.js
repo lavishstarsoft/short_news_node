@@ -11,6 +11,10 @@ function normalizeDuplicateCheck(raw) {
       isSuspicious: false,
       score: 0,
       matchCount: 0,
+      mediaPassAt: null,
+      matchSource: null,
+      reasonLabel: null,
+      reasonMessage: null,
       similarArticles: []
     };
   }
@@ -23,6 +27,12 @@ function normalizeDuplicateCheck(raw) {
     score: typeof raw.score === 'number' ? raw.score : 0,
     matchCount: typeof raw.matchCount === 'number' ? raw.matchCount : similarArticles.length,
     checkedAt: raw.checkedAt || null,
+    // Set when AI media cascade successfully hashed the query image.
+    // Pending lazy-check uses this to retry stale false-negatives (e.g. download_failed).
+    mediaPassAt: raw.mediaPassAt || null,
+    matchSource: raw.matchSource || null,
+    reasonLabel: raw.reasonLabel || null,
+    reasonMessage: raw.reasonMessage || null,
     similarArticles
   };
 }
@@ -43,7 +53,10 @@ function buildExactMatchEntry(exactMatch) {
       overall: 100
     },
     isDuplicate: true,
-    isSuspicious: false
+    isSuspicious: false,
+    matchSource: 'content',
+    matchType: 'text_exact',
+    reasonLabel: 'Content'
   };
 }
 
@@ -56,20 +69,38 @@ function buildDuplicateCheckResult(duplicateResults, exactMatch = null) {
       score: 100,
       matchCount: 1,
       checkedAt: new Date(),
+      matchSource: 'content',
+      reasonLabel: 'Content',
+      reasonMessage: 'Similar title or text content detected.',
       similarArticles: [entry]
     };
   }
 
   const topMatches = duplicateResults
     .filter(result => result.similarity.overall >= MIN_MATCH_SCORE)
-    .slice(0, 5);
+    .slice(0, 5)
+    .map((result) => ({
+      ...result,
+      matchSource: result.matchSource || 'content',
+      matchType: result.matchType || 'text_near',
+      reasonLabel: result.reasonLabel || 'Content'
+    }));
+
+  const isDuplicate = duplicateResults.some(result => result.isDuplicate);
+  const isSuspicious = duplicateResults.some(result => result.isSuspicious && !result.isDuplicate);
 
   return {
-    isDuplicate: duplicateResults.some(result => result.isDuplicate),
-    isSuspicious: duplicateResults.some(result => result.isSuspicious && !result.isDuplicate),
+    isDuplicate,
+    isSuspicious,
     score: topMatches.length > 0 ? topMatches[0].similarity.overall : 0,
     matchCount: topMatches.length,
     checkedAt: new Date(),
+    matchSource: isDuplicate || isSuspicious ? 'content' : null,
+    reasonLabel: isDuplicate || isSuspicious ? 'Content' : null,
+    reasonMessage:
+      isDuplicate || isSuspicious
+        ? 'Similar title or text content detected.'
+        : null,
     similarArticles: topMatches
   };
 }

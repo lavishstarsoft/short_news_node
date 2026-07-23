@@ -3,6 +3,7 @@ const adminController = require('../controllers/adminController');
 const zodiacController = require('../controllers/zodiacController');
 const commandCenterController = require('../controllers/commandCenterController');
 const securityController = require('../controllers/securityController');
+const aiInsightsController = require('../controllers/aiInsightsController');
 
 const router = express.Router();
 
@@ -91,6 +92,53 @@ router.post('/api/check-duplicate', adminController.requireAuth, adminController
 router.get('/plagiarism-report', adminController.requireAuth, adminController.renderPlagiarismReportPage);
 router.get('/api/duplicate-details/:id', adminController.requireAuth, adminController.getDuplicateDetails);
 
+// AI Insights — Duplicate News Insights (Super Admin only; precomputed data)
+router.get(
+  '/ai-insights/duplicate-news',
+  adminController.requireAuth,
+  aiInsightsController.renderDuplicateInsightsPage
+);
+router.get(
+  '/ai-insights/duplicate-news/groups/:id',
+  adminController.requireAuth,
+  aiInsightsController.renderGroupDetailPage
+);
+router.get(
+  '/api/ai-insights/overview',
+  adminController.requireAuth,
+  aiInsightsController.apiOverview
+);
+router.get(
+  '/api/ai-insights/groups',
+  adminController.requireAuth,
+  aiInsightsController.apiGroups
+);
+router.get(
+  '/api/ai-insights/groups/:id',
+  adminController.requireAuth,
+  aiInsightsController.apiGroupDetail
+);
+router.get(
+  '/api/ai-insights/people',
+  adminController.requireAuth,
+  aiInsightsController.apiPeople
+);
+router.get(
+  '/api/ai-insights/charts',
+  adminController.requireAuth,
+  aiInsightsController.apiCharts
+);
+router.post(
+  '/api/ai-insights/groups/:id/status',
+  adminController.requireAuth,
+  aiInsightsController.apiUpdateGroupStatus
+);
+router.post(
+  '/api/ai-insights/scan',
+  adminController.requireAuth,
+  aiInsightsController.apiTriggerScan
+);
+
 // Rejected News route
 router.get('/rejected-news', adminController.requireAuth, adminController.renderRejectedNewsPage);
 router.delete('/api/rejected-news', adminController.requireAuth, adminController.deleteAllRejectedNews);
@@ -140,6 +188,7 @@ router.get('/withdrawals-queue', adminController.requireAdmin, adminController.r
 router.get('/wallet-transactions', adminController.requireAdmin, adminController.renderWalletTransactionsPage);
 router.get('/api/wallet-transactions', adminController.requireAdmin, adminController.listWalletTransactionsAdmin);
 router.get('/api/wallet-transactions/export', adminController.requireAdmin, adminController.exportWalletTransactionsCsv);
+router.get('/api/wallet-transactions/export-pdf', adminController.requireAdmin, adminController.exportWalletTransactionsPdf);
 router.post('/api/wallet-adjustment', adminController.requireAdmin, adminController.createWalletAdjustment);
 router.get('/api/wallet-reporters/search', adminController.requireAdmin, adminController.searchWalletReporters);
 router.get('/audit-logs', adminController.requireAdmin, adminController.renderAuditLogsPage);

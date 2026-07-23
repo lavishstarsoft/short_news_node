@@ -892,6 +892,18 @@ app._router.stack.forEach((r) => {
 const { startReferralCron } = require('./services/referralCron');
 startReferralCron();
 
+// Phase-4.1 — PENDING embed worker (no-op unless AI_EMBED_WORKER_ENABLED=true)
+const {
+  maybeStartEmbedPendingWorker,
+} = require('./services/aiDuplicate/semantic/embedPendingWorker');
+maybeStartEmbedPendingWorker();
+
+// AI Insights — duplicate groups scanner (no-op unless AI_INSIGHTS_SCAN_ENABLED=true)
+const {
+  maybeStartInsightsScanWorker,
+} = require('./services/aiInsights/scanWorker');
+maybeStartInsightsScanWorker();
+
 // Log middleware stack for debugging
 console.log('\nMiddleware stack:');
 app._router.stack.forEach((r, i) => {

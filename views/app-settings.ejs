@@ -363,6 +363,19 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    <div class="p-3 rounded-3 mt-3" style="background-color: rgba(33, 150, 243, 0.06); border: 1px solid rgba(33, 150, 243, 0.25);">
+                                        <div class="form-check form-switch d-flex align-items-center mb-0">
+                                            <input class="form-check-input me-3" type="checkbox" id="enableLocationModule" name="enableLocationModule" <%= settings.enableLocationModule !== false ? 'checked' : '' %>>
+                                            <div>
+                                                <label class="form-check-label fw-bold text-dark mb-0" for="enableLocationModule">Enable Location Module</label>
+                                                <div class="text-muted small mt-1">
+                                                    <strong>ON:</strong> Location onboarding + drawer location menu work as today.<br>
+                                                    <strong>OFF:</strong> Skip location screen after language; hide location UI from the app.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     
                                     <div class="p-3 rounded-3 mt-3" style="background-color: rgba(156, 39, 176, 0.05); border: 1px solid rgba(156, 39, 176, 0.2);">
                                         <div class="form-check form-switch d-flex align-items-center mb-0">
@@ -573,6 +586,7 @@
             isSwipeStreakEnabled: document.getElementById('isSwipeStreakEnabled').checked,
             showLongVideos: document.getElementById('showLongVideos').checked,
             showDistrictSelection: document.getElementById('showDistrictSelection').checked,
+            enableLocationModule: document.getElementById('enableLocationModule').checked,
             // Collect language arrays
             calendarEnabledLanguages: Array.from(document.querySelectorAll('.cal-lang-toggle')).filter(cb => cb.checked).map(cb => cb.dataset.lang),
             zodiacEnabledLanguages: Array.from(document.querySelectorAll('.zod-lang-toggle')).filter(cb => cb.checked).map(cb => cb.dataset.lang),

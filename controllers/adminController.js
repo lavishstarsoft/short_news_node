@@ -45,13 +45,61 @@ const ReporterApplication = require('../models/ReporterApplication');
 // Import OneSignal service
 const oneSignalService = require('../services/oneSignalService');
 
-// Import Similarity Detector
-const { checkDuplicate, generateContentHash } = require('../utils/similarityDetector');
+// Import Similarity Detector helpers via duplicate gateway / services
 const {
-  runDuplicateCheck,
-  applyDuplicateCheckToNews,
   normalizeDuplicateCheck
 } = require('../services/duplicateCheckService');
+const { runDuplicateCheckGateway } = require('../services/aiDuplicate/runDuplicateCheckGateway');
+
+/** Pending-news duplicate check via AI gateway (Python /v1/detect; Node fallback if AI off/fails). */
+async function applyPendingDuplicateCheckViaAi(newsId) {
+  const article = await News.findById(newsId)
+    .select('title content language mediaUrl mediaType imageUrls thumbnailUrl videoUrl')
+    .lean();
+  if (!article) return null;
+
+  const { contentHash, duplicateCheck } = await runDuplicateCheckGateway(article, {
+    excludeId: newsId,
+    includePendingCorpus: true
+  });
+
+  await News.findByIdAndUpdate(newsId, {
+    contentHash,
+    duplicateCheck
+  });
+
+  return duplicateCheck;
+}
+
+function articleHasMedia(article) {
+  if (!article) return false;
+  if (article.mediaUrl || article.thumbnailUrl || article.videoUrl) return true;
+  return Array.isArray(article.imageUrls) && article.imageUrls.some(Boolean);
+}
+
+/**
+ * Pending page previously skipped AI when checkedAt existed — even after
+ * media download failed and left a false-negative. Recheck when:
+ * - never checked, or
+ * - has media and not flagged and media cascade never hashed the query image
+ * - fingerprint became ready after the last check
+ */
+function pendingNeedsAiRecheck(article) {
+  const dc = article.duplicateCheck || {};
+  if (dc.isDuplicate || dc.isSuspicious) return false;
+  if (!dc.checkedAt) return true;
+  if (!articleHasMedia(article)) return false;
+  if (!dc.mediaPassAt) return true;
+  const fp = article.mediaFingerprint || {};
+  if (
+    fp.status === 'ready' &&
+    fp.computedAt &&
+    new Date(fp.computedAt) > new Date(dc.checkedAt)
+  ) {
+    return true;
+  }
+  return false;
+}
 
 // Import cache clearing functionality
 const { clearCache } = require('../middleware/cache');
@@ -2132,11 +2180,52 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canSendNotifications, sidebar, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds } = req.body;
+    const { name, username, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canSendNotifications, sidebar, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
       return res.status(404).json({ error: 'Editor not found' });
+    }
+
+    // Super admin only: change login username
+    if (username !== undefined) {
+      if (admin.role !== 'superadmin') {
+        return res.status(403).json({ error: 'Only super admin can change username.' });
+      }
+      const nextUsername = String(username || '').trim();
+      if (!nextUsername) {
+        return res.status(400).json({ error: 'Username cannot be empty.' });
+      }
+      const previousUsername = (editor.username || '').trim();
+      // Same as create flow — no character-class restriction.
+      // Only run uniqueness when the value actually changes.
+      if (nextUsername !== previousUsername) {
+        if (nextUsername.length < 2) {
+          return res.status(400).json({ error: 'Username must be at least 2 characters.' });
+        }
+        const taken = await Admin.findOne({
+          username: nextUsername,
+          _id: { $ne: editor._id }
+        });
+        if (taken) {
+          return res.status(400).json({ error: 'Username already taken. Choose another.' });
+        }
+        editor.username = nextUsername;
+        try {
+          const { logAudit } = require('../utils/auditLogger');
+          logAudit({
+            req,
+            action: 'editor_username_update',
+            entityType: 'Admin',
+            entityId: editor._id.toString(),
+            targetId: editor._id,
+            targetName: editor.name || nextUsername,
+            description: `Username changed from "${previousUsername}" to "${nextUsername}"`,
+            before: { username: previousUsername },
+            after: { username: nextUsername }
+          });
+        } catch (e) { /* audit optional */ }
+      }
     }
 
     // Update fields
@@ -2295,6 +2384,9 @@ async function updateEditor(req, res) {
     });
   } catch (error) {
     console.error('Update editor error:', error);
+    if (error && error.code === 11000) {
+      return res.status(400).json({ error: 'Username already taken. Choose another.' });
+    }
     res.status(500).json({ error: 'An error occurred while updating editor' });
   }
 }
@@ -3846,7 +3938,9 @@ async function getPendingNewsDuplicateCheck(req, res) {
         { rejectionStatus: { $exists: false } }
       ]
     })
-      .select('_id title content language duplicateCheck')
+      .select(
+        '_id title content language mediaUrl mediaType imageUrls thumbnailUrl videoUrl duplicateCheck mediaFingerprint'
+      )
       .sort({ publishedAt: -1 })
       .limit(100)
       .lean();
@@ -3855,23 +3949,48 @@ async function getPendingNewsDuplicateCheck(req, res) {
       return res.json({ success: true, results: [] });
     }
 
-    const results = [];
+    const { scheduleMediaFingerprint } = require('../services/aiDuplicate/scheduleMediaFingerprint');
 
     for (const article of pendingNews) {
-      const hasFreshCheck = article.duplicateCheck?.checkedAt;
-      let duplicateCheck = normalizeDuplicateCheck(article.duplicateCheck);
-
-      if (!hasFreshCheck) {
-        duplicateCheck = await applyDuplicateCheckToNews(article._id);
-        duplicateCheck = normalizeDuplicateCheck(duplicateCheck);
+      const fp = article.mediaFingerprint || {};
+      if (
+        articleHasMedia(article) &&
+        fp.status !== 'ready' &&
+        fp.status !== 'pending'
+      ) {
+        scheduleMediaFingerprint(article);
       }
-
-      results.push({
-        newsId: article._id.toString(),
-        duplicateCheck
-      });
     }
 
+    const recheckIds = pendingNews
+      .filter((article) => pendingNeedsAiRecheck(article))
+      .map((article) => article._id);
+
+    const rechecked = new Map();
+    const concurrency = 3;
+    for (let i = 0; i < recheckIds.length; i += concurrency) {
+      const batch = recheckIds.slice(i, i + concurrency);
+      const batchResults = await Promise.all(
+        batch.map(async (id) => {
+          const dc = await applyPendingDuplicateCheckViaAi(id);
+          return [String(id), normalizeDuplicateCheck(dc)];
+        })
+      );
+      for (const [id, dc] of batchResults) {
+        rechecked.set(id, dc);
+      }
+    }
+
+    const results = pendingNews.map((article) => {
+      const id = article._id.toString();
+      return {
+        newsId: id,
+        duplicateCheck:
+          rechecked.get(id) || normalizeDuplicateCheck(article.duplicateCheck)
+      };
+    });
+
+    res.set('Cache-Control', 'no-store');
     res.json({ success: true, results });
   } catch (error) {
     console.error('Error in lazy duplicate check:', error);
@@ -3889,7 +4008,7 @@ async function getPendingNewsDuplicateMatches(req, res) {
     }
 
     const pendingArticle = await News.findById(id)
-      .select('_id title content author category location language publishedAt isActive rejectionStatus')
+      .select('_id title content author category location language publishedAt isActive rejectionStatus mediaUrl mediaType imageUrls thumbnailUrl videoUrl')
       .lean();
 
     if (!pendingArticle) {
@@ -3906,11 +4025,18 @@ async function getPendingNewsDuplicateMatches(req, res) {
 
     const pendingLang = (pendingArticle.language || 'te').toLowerCase();
 
-    const { duplicateCheck: storedCheck } = await runDuplicateCheck(
+    const { contentHash, duplicateCheck: storedCheck } = await runDuplicateCheckGateway(
       {
         title: pendingArticle.title,
         content: pendingArticle.content,
-        language: pendingLang
+        language: pendingLang,
+        mediaUrl: pendingArticle.mediaUrl || '',
+        mediaType: pendingArticle.mediaType || '',
+        imageUrls: Array.isArray(pendingArticle.imageUrls)
+          ? pendingArticle.imageUrls
+          : [],
+        thumbnailUrl: pendingArticle.thumbnailUrl || '',
+        videoUrl: pendingArticle.videoUrl || ''
       },
       {
         excludeId: pendingArticle._id,
@@ -3920,7 +4046,7 @@ async function getPendingNewsDuplicateMatches(req, res) {
 
     await News.findByIdAndUpdate(pendingArticle._id, {
       duplicateCheck: storedCheck,
-      contentHash: generateContentHash(pendingArticle.title || '', pendingArticle.content || '')
+      contentHash
     });
 
     const matches = (storedCheck.similarArticles || [])
@@ -4071,7 +4197,7 @@ async function updatePendingNews(req, res) {
     ).lean();
 
     if (changedFields.includes('title') || changedFields.includes('content')) {
-      await applyDuplicateCheckToNews(id);
+      await applyPendingDuplicateCheckViaAi(id);
     }
 
     const freshNews = await News.findById(id).lean();
@@ -4375,35 +4501,63 @@ async function rejectNews(req, res) {
   }
 }
 
-// Check for duplicate articles
+// Check for duplicate articles (dry-run — does not save/publish).
+// Uses the same gateway as createNews so AI ON/OFF + Node fallback stay identical.
 async function checkDuplicateArticles(req, res) {
   try {
-    const { title, content } = req.body;
+    const {
+      title,
+      content,
+      language,
+      excludeId,
+      mediaUrl,
+      mediaType,
+      imageUrls,
+      thumbnailUrl,
+      videoUrl
+    } = req.body;
 
     if (!title || !content) {
       return res.status(400).json({ error: 'Title and content required' });
     }
 
-    // Fetch all existing articles (published and pending)
-    const allArticles = await News.find({})
-      .select('_id title content publishedAt author category location')
-      .lean();
+    const { contentHash, duplicateCheck: rawCheck } = await runDuplicateCheckGateway(
+      {
+        title,
+        content,
+        language: language || 'te',
+        mediaUrl: mediaUrl || '',
+        mediaType: mediaType || '',
+        imageUrls: Array.isArray(imageUrls) ? imageUrls : [],
+        thumbnailUrl: thumbnailUrl || '',
+        videoUrl: videoUrl || ''
+      },
+      {
+        excludeId: excludeId || null,
+        includePendingCorpus: true
+      }
+    );
 
-    // Check for duplicates
-    const newArticle = { title, content };
-    const duplicateResults = checkDuplicate(newArticle, allArticles);
-
-    // Filter significant matches (>50% similarity)
-    const significantMatches = duplicateResults
-      .filter(result => result.similarity.overall >= 50)
-      .slice(0, 10); // Top 10 matches
+    const duplicateCheck = normalizeDuplicateCheck(rawCheck);
+    const similarArticles = Array.isArray(duplicateCheck.similarArticles)
+      ? duplicateCheck.similarArticles.slice(0, 10)
+      : [];
 
     res.json({
       success: true,
-      hasDuplicate: duplicateResults.some(r => r.isDuplicate),
-      isSuspicious: duplicateResults.some(r => r.isSuspicious),
-      similarArticles: significantMatches,
-      totalMatches: duplicateResults.length
+      // Legacy response fields (unchanged contract for existing callers)
+      hasDuplicate: duplicateCheck.isDuplicate === true,
+      isSuspicious: duplicateCheck.isSuspicious === true,
+      similarArticles,
+      totalMatches: duplicateCheck.matchCount || similarArticles.length,
+      // Reuse fields — Sub Editor publish gate can pass these back to createNews
+      contentHash,
+      duplicateCheck: {
+        ...duplicateCheck,
+        similarArticles
+      },
+      score: duplicateCheck.score || 0,
+      matchCount: duplicateCheck.matchCount || similarArticles.length
     });
   } catch (error) {
     console.error('Error checking duplicates:', error);
@@ -5997,6 +6151,120 @@ async function exportWalletTransactionsCsv(req, res) {
   }
 }
 
+// Admin: export filtered transactions as PDF (same filters/data as CSV)
+async function exportWalletTransactionsPdf(req, res) {
+  try {
+    const AdminWalletTransaction = require('../models/AdminWalletTransaction');
+    const { streamPdfReport, pdfFilename, formatINR } = require('../utils/pdfReportExport');
+    const filter = await buildWalletTxFilter(req.query);
+
+    const transactions = await AdminWalletTransaction.find(filter)
+      .populate('adminId', 'username name mobileNumber')
+      .sort({ createdAt: -1 })
+      .limit(10000)
+      .lean();
+
+    const columns = [
+      'Date',
+      'Reporter',
+      'Mobile',
+      'Type',
+      'Amount',
+      'Balance Before',
+      'Balance After',
+      'Description',
+      'Reference'
+    ];
+    const tableRows = transactions.map((t) => [
+      new Date(t.createdAt).toLocaleString('en-IN'),
+      t.adminId ? t.adminId.name || t.adminId.username : 'Unknown',
+      t.adminId?.mobileNumber || '',
+      t.type,
+      formatINR(t.amount),
+      formatINR(t.balanceBefore),
+      formatINR(t.balanceAfter),
+      t.description,
+      t.referenceId || ''
+    ]);
+
+    const from = String(req.query.from || '').trim();
+    const to = String(req.query.to || '').trim();
+    let dateRange = 'All dates';
+    if (from && to) dateRange = `${from} to ${to}`;
+    else if (from) dateRange = `From ${from}`;
+    else if (to) dateRange = `Until ${to}`;
+
+    // Summary from the exact same exported collection (no extra DB query)
+    let totalCredit = 0;
+    let totalDebit = 0;
+    const reporterIds = new Set();
+    transactions.forEach((t) => {
+      const amt = Number(t.amount) || 0;
+      if (t.type === 'credit') totalCredit += amt;
+      else if (t.type === 'debit') totalDebit += amt;
+      if (t.adminId?._id) reporterIds.add(String(t.adminId._id));
+      else if (t.adminId) reporterIds.add(String(t.adminId));
+    });
+    const netAmount = totalCredit - totalDebit;
+    const singleReporter =
+      Boolean(req.query.reporterId) || reporterIds.size === 1;
+
+    const summary = {
+      dateRange,
+      totalTransactions: transactions.length,
+      totalCredit,
+      totalDebit,
+      netAmount,
+      totalCreditFormatted: formatINR(totalCredit),
+      totalDebitFormatted: formatINR(totalDebit),
+      netAmountFormatted: formatINR(netAmount),
+      showOpeningClosing: false
+    };
+
+    if (singleReporter && transactions.length > 0) {
+      // Chronological extremes for one wallet only
+      let earliest = transactions[0];
+      let latest = transactions[0];
+      transactions.forEach((t) => {
+        const ts = new Date(t.createdAt).getTime();
+        if (ts < new Date(earliest.createdAt).getTime()) earliest = t;
+        if (ts > new Date(latest.createdAt).getTime()) latest = t;
+      });
+      summary.showOpeningClosing = true;
+      summary.openingBalance = earliest.balanceBefore;
+      summary.closingBalance = latest.balanceAfter;
+      summary.openingBalanceFormatted = formatINR(earliest.balanceBefore);
+      summary.closingBalanceFormatted = formatINR(latest.balanceAfter);
+    }
+
+    const { logAudit } = require('../utils/auditLogger');
+    logAudit({
+      req,
+      action: 'transactions_export',
+      entityType: 'AdminWalletTransaction',
+      description: `Exported ${transactions.length} transactions to PDF`
+    });
+
+    const adminName = req.admin?.name || req.admin?.username || 'Admin';
+    streamPdfReport({
+      res,
+      filename: pdfFilename('wallet-transactions'),
+      title: 'Wallet Transactions Report',
+      adminName,
+      dateRange,
+      columns,
+      rows: tableRows,
+      rightAlignColumns: [4, 5, 6],
+      summary
+    });
+  } catch (error) {
+    console.error('Error exporting transactions PDF:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to export transactions PDF' });
+    }
+  }
+}
+
 // Admin: manual wallet adjustment (credit/debit) with mandatory reason
 async function createWalletAdjustment(req, res) {
   try {
@@ -7247,6 +7515,72 @@ async function getMonthlyReport(req, res) {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="reporter-report-${month}.csv"`);
       return res.send('\uFEFF' + lines.join('\n'));
+    }
+
+    if (String(req.query.format || '') === 'pdf') {
+      const { streamPdfReport, pdfFilename } = require('../utils/pdfReportExport');
+      const columns = [
+        'Reporter',
+        'Mobile',
+        'Location',
+        'Language',
+        'Earned',
+        'Paid Out',
+        'Payouts',
+        'Posts',
+        'Approved',
+        'Rejected',
+        'Views',
+        'Current Balance'
+      ];
+      const tableRows = rows.map((r) => [
+        r.name,
+        r.mobileNumber,
+        r.location,
+        r.language,
+        r.earned,
+        r.paidOut,
+        r.payoutCount,
+        r.posts,
+        r.approved,
+        r.rejected,
+        r.views,
+        r.currentBalance
+      ]);
+      tableRows.push([
+        'TOTAL',
+        '',
+        '',
+        '',
+        totals.earned,
+        totals.paidOut,
+        '',
+        totals.posts,
+        totals.approved,
+        '',
+        totals.views,
+        ''
+      ]);
+
+      const { logAudit } = require('../utils/auditLogger');
+      logAudit({
+        req,
+        action: 'monthly_report_export',
+        entityType: 'Report',
+        description: `Exported monthly report PDF for ${month} (${rows.length} reporters)`
+      });
+
+      const adminName = req.admin?.name || req.admin?.username || 'Admin';
+      return streamPdfReport({
+        res,
+        filename: pdfFilename('reporter-report', month),
+        title: `Monthly Reporter Report — ${month}`,
+        adminName,
+        dateRange: month,
+        columns,
+        rows: tableRows,
+        totalRecords: rows.length
+      });
     }
 
     res.json({ month, totals, reporterCount: rows.length, rows });
@@ -8761,6 +9095,7 @@ module.exports = {
   renderWalletTransactionsPage,
   listWalletTransactionsAdmin,
   exportWalletTransactionsCsv,
+  exportWalletTransactionsPdf,
   createWalletAdjustment,
   searchWalletReporters,
   renderAuditLogsPage,

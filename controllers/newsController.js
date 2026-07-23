@@ -34,7 +34,16 @@ const oneSignalService = require('../services/oneSignalService');
 
 // Import cache middleware for cache invalidation
 const { clearCache } = require('../middleware/cache');
-const { runDuplicateCheck } = require('../services/duplicateCheckService');
+const { runDuplicateCheckGateway } = require('../services/aiDuplicate/runDuplicateCheckGateway');
+const {
+  schedulePendingAfterCreate,
+  schedulePendingAfterUpdate,
+} = require('../services/aiDuplicate/semantic/scheduleNewsVectorPending');
+const {
+  scheduleMediaFingerprint,
+} = require('../services/aiDuplicate/scheduleMediaFingerprint');
+const { generateContentHash } = require('../utils/similarityDetector');
+const { normalizeDuplicateCheck } = require('../services/duplicateCheckService');
 
 // Import Cloudflare R2 deletion utility
 const { deleteFromR2 } = require('../config/cloudflare');
@@ -828,6 +837,11 @@ async function createNews(req, res) {
       newsData.isActive = false;  // → Pending News (Reporter/Editor approval needed)
     }
 
+    // Client-only field for duplicate reuse — never persist on News
+    const precomputedDuplicatePayload = newsData.precomputedDuplicate;
+    delete newsData.precomputedDuplicate;
+    delete newsData.ignoreLanguageWarning;
+
     // Handle media fields for backward compatibility
     if (req.body.mediaUrl) {
       newsData.mediaUrl = req.body.mediaUrl;
@@ -851,18 +865,52 @@ async function createNews(req, res) {
 
     const news = new News(newsData);
 
-    const { contentHash, duplicateCheck } = await runDuplicateCheck(
-      {
-        title: news.title,
-        content: news.content,
-        language: news.language
-      },
-      { includePendingCorpus: true }
-    );
+    // Optional reuse: Sub Editor publish gate already ran the same gateway via
+    // POST /admin/api/check-duplicate. When contentHash still matches, skip a
+    // second identical check. Reporter path never sends precomputedDuplicate.
+    let contentHash;
+    let duplicateCheck;
+    const precomputed = precomputedDuplicatePayload;
+    const expectedHash = generateContentHash(news.title, news.content);
+    const canReusePrecomputed =
+      directPublishRoles.includes(req.admin.role) &&
+      precomputed &&
+      typeof precomputed === 'object' &&
+      precomputed.contentHash &&
+      String(precomputed.contentHash) === String(expectedHash) &&
+      precomputed.duplicateCheck &&
+      typeof precomputed.duplicateCheck === 'object';
+
+    if (canReusePrecomputed) {
+      contentHash = String(precomputed.contentHash);
+      duplicateCheck = normalizeDuplicateCheck(precomputed.duplicateCheck);
+    } else {
+      const result = await runDuplicateCheckGateway(
+        {
+          title: news.title,
+          content: news.content,
+          language: news.language,
+          mediaUrl: news.mediaUrl,
+          mediaType: news.mediaType,
+          imageUrls: news.imageUrls,
+          thumbnailUrl: news.thumbnailUrl,
+          videoUrl: news.videoUrl
+        },
+        { includePendingCorpus: true }
+      );
+      contentHash = result.contentHash;
+      duplicateCheck = result.duplicateCheck;
+    }
+
     news.contentHash = contentHash;
     news.duplicateCheck = duplicateCheck;
 
     await news.save();
+
+    // Phase-4.2 — fire-and-forget PENDING vector (worker embeds async). Never blocks publish.
+    schedulePendingAfterCreate(news);
+    // Media pHash/dHash/OpenCLIP + FAISS index (async). Detect reuses caches.
+    scheduleMediaFingerprint(news);
 
     // Send WebSocket notifications based on role
     const io = req.app.locals.io;
@@ -1057,13 +1105,24 @@ async function updateNews(req, res) {
     const titleChanged = typeof req.body.title !== 'undefined';
     const contentChanged = typeof req.body.content !== 'undefined';
     const languageChanged = typeof req.body.language !== 'undefined';
+    const mediaChanged =
+      typeof req.body.mediaUrl !== 'undefined' ||
+      typeof req.body.imageUrls !== 'undefined' ||
+      typeof req.body.thumbnailUrl !== 'undefined' ||
+      typeof req.body.videoUrl !== 'undefined';
 
-    if (titleChanged || contentChanged || languageChanged) {
-      const { contentHash, duplicateCheck } = await runDuplicateCheck(
+    if (titleChanged || contentChanged || languageChanged || mediaChanged) {
+      const previousContentHash = existingNews.contentHash || null;
+      const { contentHash, duplicateCheck } = await runDuplicateCheckGateway(
         {
           title: news.title,
           content: news.content,
-          language: news.language
+          language: news.language,
+          mediaUrl: news.mediaUrl,
+          mediaType: news.mediaType,
+          imageUrls: news.imageUrls,
+          thumbnailUrl: news.thumbnailUrl,
+          videoUrl: news.videoUrl
         },
         {
           excludeId: news._id,
@@ -1074,6 +1133,15 @@ async function updateNews(req, res) {
       news.contentHash = contentHash;
       news.duplicateCheck = duplicateCheck;
       await news.save();
+
+      // Phase-4.2 — fire-and-forget STALE→PENDING when contentHash changes. Never blocks publish.
+      schedulePendingAfterUpdate({
+        news,
+        previousContentHash,
+      });
+      if (mediaChanged) {
+        scheduleMediaFingerprint(news);
+      }
     }
 
     // 🔄 Clear news cache after updating

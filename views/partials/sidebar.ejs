@@ -225,6 +225,30 @@
             </li>
             <% } %>
 
+            <!-- AI Insights (Super Admin only) -->
+            <% 
+                const isSuperAdminOnly = typeof admin !== 'undefined' && admin && admin.role === 'superadmin';
+                const aiInsightsActive = ['ai-insights-duplicate'].includes(activePage);
+            %>
+            <% if (isSuperAdminOnly) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu text-white <%= aiInsightsActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseAiInsights" role="button" aria-expanded="<%= aiInsightsActive ? 'true' : 'false' %>" aria-controls="collapseAiInsights">
+                    <i class="fas fa-brain me-3 w-20px text-center"></i>
+                    <span class="nav-text">AI Insights</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= aiInsightsActive ? 'show' : '' %>" id="collapseAiInsights" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'ai-insights-duplicate' ? 'active' : '' %>" href="/admin/ai-insights/duplicate-news">
+                                Duplicate News Insights
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
             <!-- Media & Entertainment Group -->
             <% 
                 const showMediaGroup = canView('viralVideos') || canView('longVideos') || canView('polls') || canView('zodiac');

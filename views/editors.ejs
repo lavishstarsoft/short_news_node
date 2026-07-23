@@ -443,6 +443,15 @@
                                             <input type="text" id="editName" placeholder="e.g. Ravi Kumar">
                                         </div>
                                     </div>
+                                    <div class="col-md-6" id="editUsernameFieldWrap" style="display: none;">
+                                        <div class="editor-field">
+                                            <label for="editUsername">Login Username
+                                                <span class="info-tip">?<span class="info-tip-text">Super Admin only. This is the username used to log in. Must be unique.</span></span>
+                                            </label>
+                                            <input type="text" id="editUsername" placeholder="e.g. ravi.reporter" autocomplete="off" spellcheck="false">
+                                            <small class="text-muted">Must be unique. Used for login.</small>
+                                        </div>
+                                    </div>
                                     <div class="col-md-6">
                                         <div class="editor-field">
                                             <label for="editDisplayRole">Display Role
@@ -1698,6 +1707,17 @@
                         }
 
                         document.getElementById('editName').value = editor.name || '';
+                        const editUsernameEl = document.getElementById('editUsername');
+                        const editUsernameWrap = document.getElementById('editUsernameFieldWrap');
+                        const currentAdminRole = '<%= admin.role %>';
+                        const isSuperAdmin = currentAdminRole === 'superadmin';
+                        if (editUsernameWrap) {
+                            editUsernameWrap.style.display = isSuperAdmin ? '' : 'none';
+                        }
+                        if (editUsernameEl) {
+                            editUsernameEl.value = editor.username || '';
+                            editUsernameEl.disabled = !isSuperAdmin;
+                        }
                         const role = editor.role || 'editor';
                         document.getElementById('editRole').value = role;
                         setRoleCards('editRoleCards', role);
@@ -1747,7 +1767,6 @@
                         loadAllowedLanguages('edit', editor);
                         syncApprovalScopeSectionVisibility('edit');
 
-                        const currentAdminRole = '<%= admin.role %>';
                         const adminSection = document.getElementById('adminSettingsSection');
                         if (adminSection) adminSection.style.display = (currentAdminRole === 'superadmin' || currentAdminRole === 'admin') ? 'block' : 'none';
 
@@ -1809,6 +1828,11 @@
                                 dailyRewardAmount: document.getElementById('editWalletDailyReward').value || null
                             }
                         };
+
+                        const editUsernameEl = document.getElementById('editUsername');
+                        if (editUsernameEl && !editUsernameEl.disabled) {
+                            data.username = editUsernameEl.value.trim();
+                        }
 
                         fetch(`/admin/editors/${id}`, {
                             method: 'PUT',

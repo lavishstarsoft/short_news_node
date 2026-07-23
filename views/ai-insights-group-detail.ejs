@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: title }) %>
+<link rel="stylesheet" href="/css/ai-insights.css">
+<body>
+<%- include('partials/top-nav', {
+  pageTitle: 'Group #' + group.groupNumber,
+  backButton: true,
+  backUrl: '/admin/ai-insights/duplicate-news'
+}) %>
+<div class="container-fluid">
+  <div class="row">
+    <%- include('partials/sidebar', { activePage: 'ai-insights-duplicate' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content ai-page">
+
+      <div class="ai-hero">
+        <div>
+          <h1>Group #<%= group.groupNumber %></h1>
+          <p>Who published first vs later — with exact clocks and similarity. Human decision only.</p>
+        </div>
+        <div class="ai-toolbar">
+          <a class="ai-btn ai-btn-ghost" href="/admin/ai-insights/duplicate-news">Back to list</a>
+          <button type="button" class="ai-btn ai-btn-ghost" onclick="setStatus('ignored')">Ignore</button>
+          <button type="button" class="ai-btn ai-btn-ghost" onclick="setStatus('archived')">Archive</button>
+        </div>
+      </div>
+
+      <div class="ai-disclaimer">⚠️ <%= group.advisoryNote %></div>
+
+      <div class="ai-cards">
+        <div class="ai-card accent-amber"><div class="label">Highest Similarity</div><div class="value"><%= group.highestSimilarityPercent %>%</div></div>
+        <div class="ai-card"><div class="label">Similar Articles</div><div class="value"><%= group.similarCount %></div></div>
+        <div class="ai-card"><div class="label">Average Similarity</div><div class="value"><%= group.averageSimilarityPercent %>%</div></div>
+        <div class="ai-card accent-blue"><div class="label">Time Span</div><div class="value" style="font-size:1.05rem"><%= group.spanLabel %></div></div>
+      </div>
+
+      <div class="ai-timeline">
+        <h3 style="margin-top:0">Publish Timeline</h3>
+        <% if (group.original) { %>
+          <div class="ai-timeline-item">
+            <div><strong><%= group.original.publishedTime %></strong><div class="ai-meta"><%= group.original.publishedDate %></div></div>
+            <div class="ai-timeline-dot green"></div>
+            <div>
+              <span class="ai-badge ai-badge-original">✅ ORIGINAL</span>
+              <div><strong><%= group.original.headline %></strong></div>
+              <div class="ai-meta">Reporter: <%= group.original.reporterName || '—' %> · Sub Editor: <%= group.original.subEditorName || '—' %></div>
+            </div>
+          </div>
+        <% } %>
+        <% (group.similars || []).forEach(function(s) { %>
+          <div class="ai-timeline-item">
+            <div class="ai-meta" style="color:#c2410c;font-weight:700"><%= s.timeDiffLabel %><div><%= s.timeDiffHuman %></div></div>
+            <div class="ai-timeline-dot amber"></div>
+            <div class="ai-meta">Difference after original</div>
+          </div>
+          <div class="ai-timeline-item">
+            <div><strong><%= s.publishedTime %></strong><div class="ai-meta"><%= s.publishedDate %></div></div>
+            <div class="ai-timeline-dot red"></div>
+            <div>
+              <span class="ai-badge ai-badge-similar">❌ SIMILAR</span>
+              <span class="ai-badge ai-badge-score"><%= s.similarityPercent %>%</span>
+              <div><strong><%= s.headline %></strong></div>
+              <div class="ai-meta">Reporter: <%= s.reporterName || '—' %> · Sub Editor: <%= s.subEditorName || '—' %></div>
+              <% if (s.newsId) { %>
+                <div class="mt-1"><a href="/edit-news/<%= s.newsId %>" target="_blank">Open article</a></div>
+              <% } %>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+
+      <div class="ai-group-body" style="grid-template-columns:1fr;padding:0">
+        <% if (group.original) { %>
+          <div class="ai-member original mb-3">
+            <span class="ai-badge ai-badge-original">✅ ORIGINAL</span>
+            <h4><%= group.original.headline %></h4>
+            <div class="meta">
+              Reporter: <%= group.original.reporterName || '—' %><br>
+              Sub Editor: <%= group.original.subEditorName || '—' %><br>
+              Published: <%= group.original.publishedDate %> · <%= group.original.publishedTime %><br>
+              <% if (group.original.newsId) { %>
+                <a href="/edit-news/<%= group.original.newsId %>" target="_blank">Open original</a>
+              <% } %>
+            </div>
+          </div>
+        <% } %>
+        <% (group.similars || []).forEach(function(s) { %>
+          <div class="ai-member similar mb-3">
+            <span class="ai-badge ai-badge-similar">❌ SIMILAR</span>
+            <span class="ai-badge ai-badge-score"><%= s.similarityPercent %>%</span>
+            <h4><%= s.headline %></h4>
+            <div class="meta">
+              Reporter: <%= s.reporterName || '—' %><br>
+              Sub Editor: <%= s.subEditorName || '—' %><br>
+              Published: <%= s.publishedDate %> · <%= s.publishedTime %><br>
+              Time difference: <%= s.timeDiffLabel %> (<%= s.timeDiffHuman %>)
+            </div>
+          </div>
+        <% }) %>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script>
+  async function setStatus(status) {
+    try {
+      const res = await fetch('/admin/api/ai-insights/groups/<%= group.id %>/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok) throw new Error('fail');
+      window.location.href = '/admin/ai-insights/duplicate-news';
+    } catch (e) {
+      alert('Could not update status');
+    }
+  }
+</script>
+
+<%- include('partials/footer') %>
+</body>
+</html>

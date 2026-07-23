@@ -37,12 +37,33 @@ const newsSchema = new mongoose.Schema({
   authorConstituency: { type: String }, // Denormalized for performance
   shortId: { type: String, unique: true }, // Short ID for Fact Check (cbnys.co/XXXXXX)
   contentHash: { type: String, index: true }, // Hash for duplicate detection
+  /** Background media fingerprints for ANN / perceptual duplicate (Node-owned). */
+  mediaFingerprint: {
+    status: { type: String, enum: ['pending', 'ready', 'failed'], default: undefined },
+    sha256: { type: String },
+    phash: { type: String },
+    dhash: { type: String },
+    clipEmbedding: { type: [Number], default: undefined },
+    clipEmbeddingVersion: { type: String },
+    modelId: { type: String },
+    dimensions: { type: Number },
+    mediaUrl: { type: String },
+    indexed: { type: Boolean, default: false },
+    lastError: { type: String },
+    computedAt: { type: Date },
+  },
   duplicateCheck: {
     isDuplicate: { type: Boolean, default: false },
     isSuspicious: { type: Boolean, default: false },
     score: { type: Number, default: 0 },
     matchCount: { type: Number, default: 0 },
     checkedAt: { type: Date },
+    /** Set when AI media cascade hashed the query image (sha/phash). */
+    mediaPassAt: { type: Date },
+    /** content | image | both — why duplicate was flagged */
+    matchSource: { type: String },
+    reasonLabel: { type: String },
+    reasonMessage: { type: String },
     similarArticles: { type: mongoose.Schema.Types.Mixed, default: [] }
   },
 

@@ -173,13 +173,22 @@
                                                                 <span class="badge pn-badge-lang"><%= pendingLangLabels[news.language || 'te'] || 'Telugu' %></span>
                                                                 <span class="badge badge-pending"><i class="fas fa-clock"></i> Pending</span>
                                                                 <% if (news.duplicateCheck && (news.duplicateCheck.isDuplicate || news.duplicateCheck.isSuspicious)) { %>
-                                                                    <% if (news.duplicateCheck.isDuplicate) { %>
-                                                                        <span class="badge badge-duplicate" title="High duplicate detected - <%= news.duplicateCheck.score %>% match">
-                                                                            <i class="fas fa-clone"></i> Duplicate (<%= news.duplicateCheck.score %>%)
+                                                                    <% const dc = news.duplicateCheck; %>
+                                                                    <% const src = dc.matchSource || ''; %>
+                                                                    <% const reasonTitle = dc.reasonMessage || (src === 'image' ? 'Image match' : src === 'both' ? 'Image + content match' : 'Content match'); %>
+                                                                    <% if (dc.isDuplicate) { %>
+                                                                        <span class="badge badge-duplicate<%= src === 'image' ? ' badge-dup-image' : src === 'both' ? ' badge-dup-both' : ' badge-dup-content' %>" title="<%= reasonTitle %> — <%= dc.score %>%">
+                                                                            <% if (src === 'image') { %><i class="fas fa-image"></i> Duplicate · Image (<%= dc.score %>%)
+                                                                            <% } else if (src === 'both') { %><i class="fas fa-clone"></i> Duplicate · Image+Content (<%= dc.score %>%)
+                                                                            <% } else { %><i class="fas fa-align-left"></i> Duplicate · Content (<%= dc.score %>%)
+                                                                            <% } %>
                                                                         </span>
-                                                                    <% } else if (news.duplicateCheck.isSuspicious) { %>
-                                                                        <span class="badge badge-suspicious" title="Suspicious similarity - <%= news.duplicateCheck.score %>% match">
-                                                                            <i class="fas fa-magnifying-glass"></i> Similar (<%= news.duplicateCheck.score %>%)
+                                                                    <% } else if (dc.isSuspicious) { %>
+                                                                        <span class="badge badge-suspicious<%= src === 'image' ? ' badge-dup-image' : src === 'both' ? ' badge-dup-both' : ' badge-dup-content' %>" title="<%= reasonTitle %> — <%= dc.score %>%">
+                                                                            <% if (src === 'image') { %><i class="fas fa-image"></i> Similar · Image (<%= dc.score %>%)
+                                                                            <% } else if (src === 'both') { %><i class="fas fa-magnifying-glass"></i> Similar · Image+Content (<%= dc.score %>%)
+                                                                            <% } else { %><i class="fas fa-align-left"></i> Similar · Content (<%= dc.score %>%)
+                                                                            <% } %>
                                                                         </span>
                                                                     <% } %>
                                                                 <% } %>
@@ -210,6 +219,13 @@
                                                                 <div class="duplicate-warning">
                                                                     <strong><i class="fas fa-triangle-exclamation"></i> <%= news.duplicateCheck.matchCount %> similar article<%= news.duplicateCheck.matchCount > 1 ? 's' : '' %> found</strong>
                                                                     <br>Highest match: <%= news.duplicateCheck.score %>% similarity
+                                                                    <% if (news.duplicateCheck.reasonLabel || news.duplicateCheck.reasonMessage) { %>
+                                                                        <br><span class="dup-reason-line">
+                                                                            <strong>Reason:</strong>
+                                                                            <%= news.duplicateCheck.reasonLabel || '' %><% if (news.duplicateCheck.reasonLabel) { %> — <% } %>
+                                                                            <%= news.duplicateCheck.reasonMessage || '' %>
+                                                                        </span>
+                                                                    <% } %>
                                                                 </div>
                                                             <% } %>
 
@@ -1269,9 +1285,33 @@
                 `;
             }
 
+            function formatDupReason(dc) {
+                if (!dc) return { source: 'content', label: 'Content', message: 'Similar title or text content detected.', badgeClass: 'badge-dup-content' };
+                const src = dc.matchSource || 'content';
+                const label = dc.reasonLabel || (src === 'image' ? 'Image' : src === 'both' ? 'Image + Content' : 'Content');
+                const message = dc.reasonMessage || (
+                    src === 'image'
+                        ? 'Same or very similar image detected (title/content may be different).'
+                        : src === 'both'
+                            ? 'Same/similar image and similar text content were both detected.'
+                            : 'Similar title or text content detected.'
+                );
+                const badgeClass = src === 'image' ? 'badge-dup-image' : src === 'both' ? 'badge-dup-both' : 'badge-dup-content';
+                return { source: src, label: label, message: message, badgeClass: badgeClass };
+            }
+
+            function matchSourceChip(match) {
+                const src = (match && match.matchSource) || (match && match.matchType && /url|bytes|phash|dhash|openclip|ann|media|image/i.test(match.matchType) ? 'image' : 'content');
+                if (src === 'image') return '<span class="dup-source-chip dup-source-chip--image"><i class="fas fa-image"></i> Image</span>';
+                if (src === 'both') return '<span class="dup-source-chip dup-source-chip--both"><i class="fas fa-clone"></i> Image+Content</span>';
+                return '<span class="dup-source-chip dup-source-chip--content"><i class="fas fa-align-left"></i> Content</span>';
+            }
+
             function buildDuplicateWarningHtml(dc, newsId, includeChips) {
+                const reason = formatDupReason(dc);
                 let html = '<strong><i class="fas fa-triangle-exclamation"></i> ' + dc.matchCount + ' similar article' + (dc.matchCount > 1 ? 's' : '') + ' found</strong>';
                 html += '<br>Highest match: ' + dc.score + '% similarity';
+                html += '<br><span class="dup-reason-line"><strong>Reason:</strong> ' + reason.label + ' — ' + reason.message + '</span>';
                 if (includeChips && dc.similarArticles && dc.similarArticles.length) {
                     html += '<div class="dup-match-chips">';
                     dc.similarArticles.slice(0, 3).forEach(function(match, idx) {
@@ -1279,6 +1319,7 @@
                         const title = match.articleTitle || 'Untitled article';
                         html += '<button type="button" class="dup-match-chip" onclick="viewDuplicates(\'' + newsId + '\', ' + idx + ')">';
                         html += '<span class="dup-match-chip-score">' + score + '%</span>';
+                        html += matchSourceChip(match);
                         html += '<span class="dup-match-chip-title">' + renderRichExcerpt(title, 42) + '</span>';
                         html += '</button>';
                     });
@@ -1313,6 +1354,7 @@
                         <button type="button" class="pn-dup-match-item${isActive}" onclick="selectDuplicateMatch(${idx})">
                             <div class="pn-dup-match-item-top">
                                 <span class="pn-dup-match-rank">#${idx + 1}</span>
+                                ${matchSourceChip(match)}
                                 <span class="pn-dup-match-score ${matchTier.className}">${score}%</span>
                             </div>
                             <div class="pn-dup-match-title rich-text">${renderRichContent(title)}</div>
@@ -1335,7 +1377,7 @@
                             </div>
                         </div>
                         <div class="pn-dup-summary-card pn-dup-summary-card--match">
-                            <div class="pn-dup-summary-label">Selected match <span class="pn-dup-tier-badge ${tier.className}">${tier.label}</span></div>
+                            <div class="pn-dup-summary-label">Selected match ${matchSourceChip(selected)} <span class="pn-dup-tier-badge ${tier.className}">${tier.label}</span></div>
                             <div class="pn-dup-summary-title rich-text">${renderNewsText(selected.articleTitle)}</div>
                             <div class="pn-dup-summary-meta">
                                 <span><i class="fas fa-user"></i> ${escapeHtml(selected.author || 'Unknown author')}</span>
@@ -1462,14 +1504,19 @@
             // ⚡ LAZY DUPLICATE CHECK: Runs in background after page loads
             document.addEventListener('DOMContentLoaded', async function() {
                 try {
-                    const response = await fetch('/admin/api/pending-news/duplicate-check');
+                    const response = await fetch('/admin/api/pending-news/duplicate-check', {
+                        cache: 'no-store',
+                        headers: { 'Cache-Control': 'no-cache' }
+                    });
                     if (!response.ok) return;
                     const data = await response.json();
                     if (!data.success || !data.results) return;
 
                     data.results.forEach(function(result) {
                         const dc = result.duplicateCheck;
-                        if (!dc || dc.matchCount === 0) return;
+                        if (!dc) return;
+                        const flagged = dc.isDuplicate === true || dc.isSuspicious === true;
+                        if (!flagged && (!dc.matchCount || dc.matchCount === 0)) return;
 
                         duplicateDataCache[result.newsId] = {
                             isDuplicate: dc.isDuplicate,
@@ -1489,17 +1536,30 @@
 
                         const badgeGroup = card.querySelector('.badge-group');
                         if (badgeGroup && !badgeGroup.querySelector('.badge-duplicate, .badge-suspicious')) {
+                            const reason = formatDupReason(dc);
                             if (dc.isDuplicate) {
                                 const badge = document.createElement('span');
-                                badge.className = 'badge badge-duplicate';
-                                badge.title = 'High duplicate detected - ' + dc.score + '% match';
-                                badge.innerHTML = '<i class="fas fa-clone"></i> Duplicate (' + dc.score + '%)';
+                                badge.className = 'badge badge-duplicate ' + reason.badgeClass;
+                                badge.title = reason.message + ' — ' + dc.score + '%';
+                                if (reason.source === 'image') {
+                                    badge.innerHTML = '<i class="fas fa-image"></i> Duplicate · Image (' + dc.score + '%)';
+                                } else if (reason.source === 'both') {
+                                    badge.innerHTML = '<i class="fas fa-clone"></i> Duplicate · Image+Content (' + dc.score + '%)';
+                                } else {
+                                    badge.innerHTML = '<i class="fas fa-align-left"></i> Duplicate · Content (' + dc.score + '%)';
+                                }
                                 badgeGroup.appendChild(badge);
                             } else if (dc.isSuspicious) {
                                 const badge = document.createElement('span');
-                                badge.className = 'badge badge-suspicious';
-                                badge.title = 'Suspicious similarity - ' + dc.score + '% match';
-                                badge.innerHTML = '<i class="fas fa-magnifying-glass"></i> Similar (' + dc.score + '%)';
+                                badge.className = 'badge badge-suspicious ' + reason.badgeClass;
+                                badge.title = reason.message + ' — ' + dc.score + '%';
+                                if (reason.source === 'image') {
+                                    badge.innerHTML = '<i class="fas fa-image"></i> Similar · Image (' + dc.score + '%)';
+                                } else if (reason.source === 'both') {
+                                    badge.innerHTML = '<i class="fas fa-magnifying-glass"></i> Similar · Image+Content (' + dc.score + '%)';
+                                } else {
+                                    badge.innerHTML = '<i class="fas fa-align-left"></i> Similar · Content (' + dc.score + '%)';
+                                }
                                 badgeGroup.appendChild(badge);
                             }
                         }

@@ -21,6 +21,7 @@
     </div>
     <div class="d-flex gap-2">
       <button type="button" class="btn btn-outline-success fw-bold" id="exportBtn"><i class="fas fa-file-csv me-2"></i>Export CSV</button>
+      <button type="button" class="btn btn-outline-danger fw-bold" id="exportPdfBtn"><i class="fas fa-file-pdf me-2"></i>Export PDF</button>
       <button type="button" class="btn btn-primary fw-bold" data-bs-toggle="modal" data-bs-target="#adjustModal"><i class="fas fa-plus-minus me-2"></i>Manual Adjustment</button>
     </div>
   </div>
@@ -249,6 +250,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('exportBtn').addEventListener('click', () => {
     window.location.href = '/admin/api/wallet-transactions/export?' + filterParams().toString();
+  });
+  document.getElementById('exportPdfBtn').addEventListener('click', () => {
+    window.location.href = '/admin/api/wallet-transactions/export-pdf?' + filterParams().toString();
   });
 
   // ---- Manual adjustment ----
