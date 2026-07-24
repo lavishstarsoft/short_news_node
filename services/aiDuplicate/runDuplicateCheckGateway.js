@@ -21,6 +21,7 @@ const { createHttpClient } = require('./client');
 const { createCircuitBreaker } = require('./circuitBreaker');
 const { validateAiDetectResponse } = require('./validateAiResponse');
 const { mapAiResponseToDuplicateCheck } = require('./mapAiToLegacy');
+const { enrichSimilarArticlesFromDb } = require('./enrichSimilarArticles');
 const { fetchAiCandidates } = require('./fetchCandidates');
 const {
   createSemanticShadowService,
@@ -206,10 +207,29 @@ function createGateway(deps = {}) {
       }
 
       breaker.recordSuccess();
-      const duplicateCheck = mapAiResponseToDuplicateCheck(
+      let duplicateCheck = mapAiResponseToDuplicateCheck(
         validated.data,
         candidates
       );
+      try {
+        const enriched = await enrichSimilarArticlesFromDb(
+          duplicateCheck.similarArticles || [],
+          { News: deps.News }
+        );
+        duplicateCheck = {
+          ...duplicateCheck,
+          similarArticles: enriched,
+          matchCount: enriched.length,
+        };
+      } catch (enrichErr) {
+        log.warn('similarArticles enrich failed', {
+          requestId,
+          error:
+            enrichErr && enrichErr.message
+              ? enrichErr.message
+              : 'unknown',
+        });
+      }
       // Keep Node MD5 contentHash for compatibility with legacy exact-hash index
       const contentHash = hashFn(title, content);
 

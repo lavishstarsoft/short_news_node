@@ -4049,30 +4049,21 @@ async function getPendingNewsDuplicateMatches(req, res) {
       contentHash
     });
 
-    const matches = (storedCheck.similarArticles || [])
-      .slice(0, 10)
-      .map(match => ({
-        articleId: match.articleId,
-        articleTitle: match.articleTitle,
-        content: match.content || '',
-        author: match.author,
-        category: match.category,
-        location: match.location,
-        publishedAt: match.publishedAt,
-        similarity: match.similarity,
-        isDuplicate: match.isDuplicate,
-        isSuspicious: match.isSuspicious
-      }));
+    const { enrichSimilarArticlesFromDb } = require('../services/aiDuplicate/enrichSimilarArticles');
+    const enrichedMatches = await enrichSimilarArticlesFromDb(
+      storedCheck.similarArticles || []
+    );
 
-    // Load matched article content for side-by-side modal when missing
-    for (const match of matches) {
-      if (match.content) continue;
-      const articleId = match.articleId?._id || match.articleId;
-      const matchedArticle = await News.findById(String(articleId))
-        .select('content')
-        .lean();
-      match.content = matchedArticle?.content || '';
-    }
+    const duplicateCheck = normalizeDuplicateCheck({
+      ...storedCheck,
+      similarArticles: enrichedMatches,
+      matchCount: enrichedMatches.length
+    });
+
+    // Persist enriched metadata so cards/modal stay consistent
+    await News.findByIdAndUpdate(pendingArticle._id, {
+      duplicateCheck
+    });
 
     res.json({
       success: true,
@@ -4084,9 +4075,11 @@ async function getPendingNewsDuplicateMatches(req, res) {
         category: pendingArticle.category,
         location: pendingArticle.location,
         language: pendingArticle.language,
-        publishedAt: pendingArticle.publishedAt
+        publishedAt: pendingArticle.publishedAt,
+        mediaUrl: pendingArticle.mediaUrl || pendingArticle.thumbnailUrl || null,
+        mediaType: pendingArticle.mediaType || null
       },
-      duplicateCheck: normalizeDuplicateCheck(storedCheck)
+      duplicateCheck
     });
   } catch (error) {
     console.error('Error fetching pending duplicate matches:', error);

@@ -1342,6 +1342,16 @@
                 const matchDate = selected.publishedAt
                     ? new Date(selected.publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                     : 'Unknown date';
+                const isImageMatch =
+                    selected.matchSource === 'image' ||
+                    selected.matchSource === 'both' ||
+                    (selected.matchType && /url|bytes|phash|dhash|openclip|ann|media|image/i.test(selected.matchType));
+                const textScoresZero =
+                    (breakdown.title || 0) === 0 &&
+                    (breakdown.content || 0) === 0 &&
+                    (breakdown.keywords || 0) === 0;
+                const matchStatusLabel =
+                    selected.isActive === true ? 'Published match' : 'Matched article';
 
                 const matchListHtml = matches.map(function(match, idx) {
                     const score = getOverallSimilarity(match);
@@ -1366,6 +1376,28 @@
                     `;
                 }).join('');
 
+                const breakdownHtml = (isImageMatch && textScoresZero)
+                    ? `<div class="pn-dup-image-note">
+                            <strong><i class="fas fa-image"></i> Image match</strong>
+                            <p>This duplicate is based on the same/similar image, not title or text. Text scores below stay 0% by design.</p>
+                       </div>
+                       ${renderSimilarityBar('Title', 0)}
+                       ${renderSimilarityBar('Content', 0)}
+                       ${renderSimilarityBar('Keywords', 0)}`
+                    : `${renderSimilarityBar('Title', breakdown.title)}
+                       ${renderSimilarityBar('Content', breakdown.content)}
+                       ${renderSimilarityBar('Keywords', breakdown.keywords)}`;
+
+                const matchMediaHtml = selected.mediaUrl || selected.thumbnailUrl
+                    ? `<div class="pn-dup-match-media"><img src="${escapeHtml(selected.mediaUrl || selected.thumbnailUrl)}" alt="Matched media" loading="lazy"></div>`
+                    : '';
+
+                const matchBodyHtml = selected.content
+                    ? renderNewsText(selected.content)
+                    : (isImageMatch
+                        ? '<span class="pn-dup-empty-inline">Image matched — article text loaded empty or unavailable. Compare the images and titles above.</span>'
+                        : '<span class="pn-dup-empty-inline">Content not available</span>');
+
                 return `
                     <div class="pn-dup-summary">
                         <div class="pn-dup-summary-card">
@@ -1378,7 +1410,7 @@
                         </div>
                         <div class="pn-dup-summary-card pn-dup-summary-card--match">
                             <div class="pn-dup-summary-label">Selected match ${matchSourceChip(selected)} <span class="pn-dup-tier-badge ${tier.className}">${tier.label}</span></div>
-                            <div class="pn-dup-summary-title rich-text">${renderNewsText(selected.articleTitle)}</div>
+                            <div class="pn-dup-summary-title rich-text">${renderNewsText(selected.articleTitle || 'Untitled article')}</div>
                             <div class="pn-dup-summary-meta">
                                 <span><i class="fas fa-user"></i> ${escapeHtml(selected.author || 'Unknown author')}</span>
                                 <span><i class="fas fa-calendar"></i> ${escapeHtml(matchDate)}</span>
@@ -1389,7 +1421,7 @@
                     <div class="pn-dup-layout">
                         <aside class="pn-dup-match-list">
                             <div class="pn-dup-match-list-head">
-                                <span>Matched published articles</span>
+                                <span>Matched articles</span>
                                 <span class="pn-dup-match-count">${matches.length}</span>
                             </div>
                             ${matchListHtml}
@@ -1401,9 +1433,7 @@
                                     <strong>Similarity breakdown</strong>
                                     <span class="pn-dup-tier-badge ${tier.className}">${breakdown.overall}% overall</span>
                                 </div>
-                                ${renderSimilarityBar('Title', breakdown.title)}
-                                ${renderSimilarityBar('Content', breakdown.content)}
-                                ${renderSimilarityBar('Keywords', breakdown.keywords)}
+                                ${breakdownHtml}
                             </div>
 
                             <div class="pn-dup-side-by-side">
@@ -1416,10 +1446,11 @@
                                 </article>
                                 <article class="pn-dup-article pn-dup-article--published">
                                     <header>
-                                        <span class="pn-dup-article-label">Published match</span>
-                                        <h4 class="rich-text">${renderNewsText(selected.articleTitle)}</h4>
+                                        <span class="pn-dup-article-label">${escapeHtml(matchStatusLabel)}</span>
+                                        <h4 class="rich-text">${renderNewsText(selected.articleTitle || 'Untitled article')}</h4>
                                     </header>
-                                    <div class="pn-dup-article-body rich-text">${selected.content ? renderNewsText(selected.content) : '<span class="pn-dup-empty-inline">Content not available</span>'}</div>
+                                    ${matchMediaHtml}
+                                    <div class="pn-dup-article-body rich-text">${matchBodyHtml}</div>
                                 </article>
                             </div>
                         </section>
