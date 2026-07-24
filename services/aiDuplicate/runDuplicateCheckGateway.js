@@ -216,10 +216,33 @@ function createGateway(deps = {}) {
           duplicateCheck.similarArticles || [],
           { News: deps.News }
         );
+        const selfId = excludeId != null ? String(excludeId) : null;
+        const filtered = selfId
+          ? enriched.filter((row) => {
+              const aid = row && row.articleId != null ? String(row.articleId) : '';
+              if (!aid) return true;
+              if (aid === selfId) return false;
+              if (aid.startsWith(`${selfId}:`)) return false;
+              return true;
+            })
+          : enriched;
+        const clearedSelf =
+          filtered.length === 0 &&
+          (duplicateCheck.isDuplicate || duplicateCheck.isSuspicious);
         duplicateCheck = {
           ...duplicateCheck,
-          similarArticles: enriched,
-          matchCount: enriched.length,
+          similarArticles: filtered,
+          matchCount: filtered.length,
+          ...(clearedSelf
+            ? {
+                isDuplicate: false,
+                isSuspicious: false,
+                score: 0,
+                matchSource: null,
+                reasonLabel: null,
+                reasonMessage: null,
+              }
+            : {}),
         };
       } catch (enrichErr) {
         log.warn('similarArticles enrich failed', {
