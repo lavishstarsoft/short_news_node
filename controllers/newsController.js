@@ -644,8 +644,18 @@ async function getNewsById(req, res) {
       ? await Admin.findById(news.authorId).select('role displayRole').lean()
       : null;
 
+    const payload = news.toObject();
+    // Reporters do not need the frozen admin compare snapshot
+    if (
+      req.admin.role === 'editor' &&
+      payload.revisionStatus &&
+      payload.revisionStatus.revisionSnapshot
+    ) {
+      delete payload.revisionStatus.revisionSnapshot;
+    }
+
     res.json({
-      ...news.toObject(),
+      ...payload,
       authorRole: getAuthorRoleLabel(author),
       authorSystemRole: author?.role || 'editor'
     });
@@ -701,6 +711,18 @@ async function renderEditNewsPage(req, res) {
     // Check if news is rejected and user is not superadmin/assigned subeditor
     if (news.rejectionStatus && news.rejectionStatus.isRejected && !isSuperAdmin && !hasEditPerm) {
       return res.status(403).json({ error: 'Access denied. Rejected news can only be edited by authorized admins.' });
+    }
+
+    // Reporter may open edit page only while Needs Revision
+    if (!canEditAny) {
+      const needsRevision =
+        news.revisionStatus && news.revisionStatus.needsRevision === true;
+      if (!needsRevision) {
+        return res.status(403).json({
+          error:
+            'Access denied. Pending news is locked. You can edit only after an admin sends it back for revision.',
+        });
+      }
     }
 
     const adminDoc = await Admin.findById(req.admin.id)
@@ -926,26 +948,25 @@ async function createNews(req, res) {
         location: news.location,
         publishedAt: news.publishedAt,
         author: news.author,
+        authorId: news.authorId,
         mediaType: news.mediaType,
         mediaUrl: news.mediaUrl,
         thumbnailUrl: news.thumbnailUrl,
         imageUrl: news.imageUrl || news.mediaUrl,
         imageUrls: news.imageUrls || [],
-        language: news.language
+        language: news.language,
+        constituency: news.authorConstituency || authorDetails?.constituency || null,
       };
 
       // ✅ Direct Publish Roles: admin, superadmin, subeditor
       const directPublishRoles = ['admin', 'superadmin', 'subeditor'];
 
       if (directPublishRoles.includes(req.admin.role)) {
-        // ✅ ADMIN/SUB-EDITOR/SUPERADMIN published news → No pending notification, direct publish
-        // Emit different event for Flutter app (Twitter-style pill) without triggering admin pending sound
-        io.emit('news_published', notificationData);
-        console.log('✅ PUBLISHED: Admin/Sub-Editor/SuperAdmin news published directly:', news.title);
+        const { emitPublished } = require('../services/realtime/workflowEmit');
+        emitPublished(io, notificationData);
       } else {
-        // 🔔 REPORTER submitted news → Send pending notification to admin dashboard (sound + toast)
-        io.emit('new_news', notificationData);
-        console.log('🔔 PENDING: Reporter submitted news, admin notified:', news.title);
+        const { emitNewPendingNews } = require('../services/realtime/workflowEmit');
+        emitNewPendingNews(io, notificationData);
       }
     } else {
       console.log('⚠️ WebSocket io not available');
@@ -972,7 +993,7 @@ async function createNews(req, res) {
     res.status(201).json(responsePayload);
   } catch (error) {
     console.error('Error creating news:', error);
-    res.status(400).json({ error: 'Error creating news: ' + error.message });
+    res.status(400).json({ error: 'Error creating news' });
   }
 }
 
@@ -992,6 +1013,14 @@ async function updateNews(req, res) {
     // Check if editor is trying to update someone else's news
     if (!canEditAny && existingNews.authorId !== req.admin.id) {
       return res.status(403).json({ error: 'Access denied. You can only update your own news.' });
+    }
+
+    // Reporter updates must go through Resubmit only (single official revision path)
+    if (!canEditAny) {
+      return res.status(403).json({
+        error:
+          'Access denied. Use Resubmit to submit revisions. Direct updates are not allowed for reporters.',
+      });
     }
 
     // Check if news is rejected and user is not superadmin/assigned subeditor
@@ -1242,6 +1271,14 @@ async function toggleNewsStatus(req, res) {
         return res.status(403).json({ error: 'Access denied. You can only toggle your own news.' });
       }
 
+      // Reporters cannot self-publish — pending/needs-revision must go through admin Approve
+      if (!canEditAny && isActive === true) {
+        return res.status(403).json({
+          error:
+            'Access denied. Reporters cannot publish news. Pending stories require admin approval.',
+        });
+      }
+
       // Check if news is rejected
       if (existingNews.rejectionStatus && existingNews.rejectionStatus.isRejected && !isSuperAdmin && !hasEditPerm) {
         return res.status(403).json({ error: 'Access denied. Rejected news cannot be toggled.' });
@@ -1335,6 +1372,20 @@ async function toggleNewsStatus(req, res) {
         return res.status(403).json({ error: 'Access denied. You can only toggle your own news.' });
       }
 
+      const isSuperAdminMem = req.admin.role === 'superadmin';
+      const hasEditPermMem =
+        req.admin.role === 'subeditor' &&
+        req.admin.permissions &&
+        req.admin.permissions.canEditNews;
+      const canEditAnyMem =
+        isSuperAdminMem || req.admin.role === 'admin' || hasEditPermMem;
+      if (!canEditAnyMem && isActive === true) {
+        return res.status(403).json({
+          error:
+            'Access denied. Reporters cannot publish news. Pending stories require admin approval.',
+        });
+      }
+
       // Language Mismatch Check
       if (isActive === true && !req.body.ignoreLanguageWarning) {
         let expectedLanguageName = null;
@@ -1398,7 +1449,7 @@ async function toggleNewsStatus(req, res) {
     }
   } catch (error) {
     console.error('Error in toggleNewsStatus:', error); // Debug log
-    res.status(500).json({ error: 'Error updating news status: ' + error.message });
+    res.status(500).json({ error: 'Error updating news status' });
   }
 }
 // --- Image Moderation Processing ---
@@ -1474,7 +1525,7 @@ async function uploadMedia(req, res) {
     });
   } catch (error) {
     console.error('Media upload error:', error);
-    res.status(500).json({ error: 'Error uploading media: ' + error.message });
+    res.status(500).json({ error: 'Error uploading media' });
   }
 }
 
@@ -1563,7 +1614,7 @@ async function updateViewCount(req, res) {
     }
   } catch (error) {
     console.error('Error updating view count:', error);
-    res.status(500).json({ error: 'Error updating view count: ' + error.message });
+    res.status(500).json({ error: 'Error updating view count' });
   }
 }
 
@@ -1589,7 +1640,7 @@ async function updateLikeCount(req, res) {
     res.json({ message: 'Like count updated successfully', news });
   } catch (error) {
     console.error('Error updating like count:', error);
-    res.status(500).json({ error: 'Error updating like count: ' + error.message });
+    res.status(500).json({ error: 'Error updating like count' });
   }
 }
 
@@ -1615,7 +1666,7 @@ async function updateDislikeCount(req, res) {
     res.json({ message: 'Dislike count updated successfully', news });
   } catch (error) {
     console.error('Error updating dislike count:', error);
-    res.status(500).json({ error: 'Error updating dislike count: ' + error.message });
+    res.status(500).json({ error: 'Error updating dislike count' });
   }
 }
 
@@ -1645,7 +1696,7 @@ async function deleteNewsComment(req, res) {
     res.json({ message: 'Comment deleted successfully', news });
   } catch (error) {
     console.error('Error deleting news comment:', error);
-    res.status(500).json({ error: 'Error deleting comment: ' + error.message });
+    res.status(500).json({ error: 'Error deleting comment' });
   }
 }
 
@@ -1680,7 +1731,365 @@ async function updateNewsComment(req, res) {
     res.json({ message: 'Comment updated successfully', news });
   } catch (error) {
     console.error('Error updating news comment:', error);
-    res.status(500).json({ error: 'Error updating comment: ' + error.message });
+    res.status(500).json({ error: 'Error updating comment' });
+  }
+}
+
+/**
+ * Reporter Resubmit after Needs Revision.
+ * Single workflow: apply edited fields + clear needsRevision + store change summary.
+ * Idempotent: second call while not needsRevision → 409.
+ */
+async function resubmitNews(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ error: 'News ID is required' });
+    }
+
+    const existingNews = await News.findById(id);
+    if (!existingNews) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    // Ownership — resubmit is reporter workflow
+    if (existingNews.authorId !== req.admin.id) {
+      return res.status(403).json({
+        error: 'Access denied. You can only resubmit your own news.',
+      });
+    }
+
+    if (existingNews.isActive === true) {
+      return res.status(400).json({
+        error: 'Published news cannot be resubmitted.',
+      });
+    }
+
+    if (existingNews.rejectionStatus && existingNews.rejectionStatus.isRejected) {
+      return res.status(400).json({
+        error: 'Rejected news cannot be resubmitted. Reject is final.',
+      });
+    }
+
+    const prevRevision = existingNews.revisionStatus || {};
+    if (prevRevision.needsRevision !== true) {
+      return res.status(409).json({
+        error:
+          'News is not in Needs Revision. Resubmit is only allowed after an admin sends it back.',
+      });
+    }
+
+    const {
+      stripReporterForbiddenFields,
+      buildChangeSummary,
+    } = require('../services/newsRevision/revisionHelpers');
+
+    const body = stripReporterForbiddenFields(req.body || {});
+
+    if (req.admin.permissions?.requiresSourceLink) {
+      const sourceLink =
+        body.sourceLink !== undefined
+          ? body.sourceLink
+          : existingNews.sourceLink;
+      if (!sourceLink || String(sourceLink).trim() === '') {
+        return res.status(400).json({ error: 'Source Link is mandatory' });
+      }
+    }
+
+    const authorForLang = await Admin.findById(req.admin.id).select(
+      'workingLanguage allowedLanguages role'
+    );
+    const articleLanguage = normalizeNewsLanguage(
+      body.language !== undefined ? body.language : existingNews.language
+    );
+
+    if (
+      authorForLang &&
+      authorForLang.role !== 'admin' &&
+      authorForLang.role !== 'superadmin'
+    ) {
+      if (!isLanguageAllowedForEditor(authorForLang, articleLanguage)) {
+        return res
+          .status(403)
+          .json({ error: 'You are not allowed to post news in this language.' });
+      }
+    }
+
+    const effectiveScope =
+      body.scope !== undefined ? body.scope : existingNews.scope || 'state';
+    const effectiveLocation =
+      body.location !== undefined ? body.location : existingNews.location;
+    const postingAreaError = await validatePostingArea(
+      req.admin,
+      effectiveScope,
+      effectiveLocation
+    );
+    if (postingAreaError) {
+      return res.status(403).json({ error: postingAreaError });
+    }
+
+    const limits = await getDisplayLimitsForLanguage(articleLanguage);
+    const titleForLimit =
+      body.title !== undefined ? body.title : existingNews.title;
+    const contentForLimit =
+      body.content !== undefined ? body.content : existingNews.content;
+
+    if (titleForLimit && stripTags(titleForLimit).length > limits.titleMax) {
+      return res
+        .status(400)
+        .json({ error: `Title cannot exceed ${limits.titleMax} characters` });
+    }
+    if (
+      contentForLimit &&
+      stripTags(contentForLimit).length > limits.contentMax
+    ) {
+      return res.status(400).json({
+        error: `Content cannot exceed ${limits.contentMax} characters`,
+      });
+    }
+
+    if (body.content) {
+      body.content = normalizeNewsContent(body.content);
+    }
+    if (body.title) {
+      body.title = normalizeNewsContent(body.title);
+    }
+
+    const previousMediaUrl = existingNews.mediaUrl;
+    const previousMediaType = existingNews.mediaType;
+    const previousThumbnailUrl = existingNews.thumbnailUrl;
+
+    // Build merged document in memory (do not save yet)
+    const merged = existingNews.toObject();
+    const applyKeys = [
+      'title',
+      'content',
+      'category',
+      'location',
+      'scope',
+      'language',
+      'sourceLink',
+      'readFullLink',
+      'ePaperLink',
+      'mediaUrl',
+      'mediaType',
+      'thumbnailUrl',
+      'imageUrl',
+      'imageUrls',
+      'videoUrl',
+    ];
+    for (const key of applyKeys) {
+      if (typeof body[key] !== 'undefined') {
+        merged[key] = body[key];
+      }
+    }
+
+    if (body.language !== undefined) {
+      merged.language = normalizeNewsLanguage(body.language);
+    }
+
+    if (body.mediaUrl) {
+      merged.mediaUrl = body.mediaUrl;
+      if (body.mediaType) merged.mediaType = body.mediaType;
+      if (body.thumbnailUrl) merged.thumbnailUrl = body.thumbnailUrl;
+      if (body.mediaType === 'image') {
+        merged.imageUrl = body.mediaUrl;
+      }
+    } else if (body.imageUrl) {
+      merged.mediaUrl = body.imageUrl;
+      merged.mediaType = 'image';
+      merged.imageUrl = body.imageUrl;
+      merged.thumbnailUrl = body.imageUrl;
+    }
+
+    const round =
+      Number(prevRevision.lastRevisionRound) ||
+      Number(prevRevision.revisionCount) ||
+      1;
+
+    const lastChangeSummary = buildChangeSummary(
+      prevRevision.revisionSnapshot,
+      merged,
+      round
+    );
+
+    const resubmittedAt = new Date();
+    const revisionStatus = {
+      needsRevision: false,
+      remarks: prevRevision.remarks || null,
+      sentBackBy: prevRevision.sentBackBy || null,
+      sentBackById: prevRevision.sentBackById || null,
+      sentBackByRole: prevRevision.sentBackByRole || null,
+      sentAt: prevRevision.sentAt || null,
+      revisionCount: Number(prevRevision.revisionCount) || 0,
+      lastRevisionRound: Number(prevRevision.lastRevisionRound) || 0,
+      lastResubmitRound: round,
+      resubmittedAt,
+      revisionSnapshot: prevRevision.revisionSnapshot || null,
+      lastChangeSummary,
+    };
+
+    const updatedHistory = Array.isArray(existingNews.actionHistory)
+      ? [...existingNews.actionHistory]
+      : [];
+    updatedHistory.push(
+      buildHistoryEntry(
+        'resubmitted',
+        req.admin,
+        `News resubmitted for review (round ${round})`,
+        {
+          round,
+          changedFields: lastChangeSummary.changedFields || [],
+          changeSummaryRef: 'revisionStatus.lastChangeSummary',
+        }
+      )
+    );
+
+    const setPayload = {
+      isActive: false,
+      revisionStatus,
+      actionHistory: updatedHistory,
+    };
+    for (const key of applyKeys) {
+      if (typeof merged[key] !== 'undefined') {
+        setPayload[key] = merged[key];
+      }
+    }
+
+    // Optional duplicate metadata before atomic write (does not touch revision lock)
+    const titleChanged = typeof body.title !== 'undefined';
+    const contentChanged = typeof body.content !== 'undefined';
+    const languageChanged = typeof body.language !== 'undefined';
+    const mediaChanged =
+      typeof body.mediaUrl !== 'undefined' ||
+      typeof body.imageUrls !== 'undefined' ||
+      typeof body.thumbnailUrl !== 'undefined' ||
+      typeof body.videoUrl !== 'undefined' ||
+      typeof body.imageUrl !== 'undefined';
+
+    let previousContentHash = existingNews.contentHash || null;
+    if (titleChanged || contentChanged || languageChanged || mediaChanged) {
+      const { contentHash, duplicateCheck } = await runDuplicateCheckGateway(
+        {
+          title: merged.title,
+          content: merged.content,
+          language: merged.language,
+          mediaUrl: merged.mediaUrl,
+          mediaType: merged.mediaType,
+          imageUrls: merged.imageUrls,
+          thumbnailUrl: merged.thumbnailUrl,
+          videoUrl: merged.videoUrl,
+        },
+        {
+          excludeId: existingNews._id,
+          includePendingCorpus: true,
+        }
+      );
+      setPayload.contentHash = contentHash;
+      setPayload.duplicateCheck = duplicateCheck;
+    }
+
+    // Atomic: Needs Revision + matching revisionCount (exclusive with concurrent send-back)
+    const expectedRevisionCount = Number(prevRevision.revisionCount) || 0;
+    const resubmitFilter = {
+      _id: id,
+      authorId: req.admin.id,
+      isActive: { $ne: true },
+      'rejectionStatus.isRejected': { $ne: true },
+      'revisionStatus.needsRevision': true,
+    };
+    if (expectedRevisionCount === 0) {
+      resubmitFilter.$and = [
+        {
+          $or: [
+            { 'revisionStatus.revisionCount': 0 },
+            { 'revisionStatus.revisionCount': { $exists: false } },
+          ],
+        },
+      ];
+    } else {
+      resubmitFilter['revisionStatus.revisionCount'] = expectedRevisionCount;
+    }
+
+    const savedNews = await News.findOneAndUpdate(
+      resubmitFilter,
+      { $set: setPayload },
+      { new: true }
+    );
+
+    if (!savedNews) {
+      return res.status(409).json({
+        error:
+          'News is not in Needs Revision or state changed. Refresh and try again.',
+      });
+    }
+
+    if (
+      body.mediaUrl &&
+      previousMediaUrl &&
+      body.mediaUrl !== previousMediaUrl
+    ) {
+      await deleteFromR2(previousMediaUrl);
+      if (
+        previousMediaType === 'video' &&
+        previousThumbnailUrl &&
+        previousThumbnailUrl !== previousMediaUrl
+      ) {
+        await deleteFromR2(previousThumbnailUrl);
+      }
+    }
+
+    if (titleChanged || contentChanged || languageChanged || mediaChanged) {
+      schedulePendingAfterUpdate({
+        news: savedNews,
+        previousContentHash,
+      });
+      if (mediaChanged) {
+        scheduleMediaFingerprint(savedNews);
+      }
+    }
+
+    await clearCache('cache:/api/public/news*');
+    await clearCache('cache:/api/public/locations*');
+
+    const {
+      emitWorkflowPair,
+    } = require('../services/realtime/workflowEmit');
+    const io = req.app.locals.io;
+    if (io) {
+      const editorPayload = {
+        id: savedNews._id,
+        authorId: savedNews.authorId || null,
+        status: 'resubmitted',
+        message: 'News submitted successfully. Waiting for review.',
+        revisionStatus: {
+          needsRevision: false,
+          revisionCount: savedNews.revisionStatus.revisionCount,
+          lastResubmitRound: round,
+          resubmittedAt: savedNews.revisionStatus.resubmittedAt,
+          changedFields: lastChangeSummary.changedFields || [],
+        },
+      };
+      emitWorkflowPair(io, savedNews.authorId, editorPayload, {
+        ...editorPayload,
+        message: 'Reporter has resubmitted the article.',
+        title: savedNews.title,
+        author: savedNews.author || null,
+        language: savedNews.language || null,
+        location: savedNews.location || null,
+        constituency: savedNews.authorConstituency || null,
+        changedFields: lastChangeSummary.changedFields || [],
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'News submitted successfully. Waiting for review.',
+      news: savedNews,
+    });
+  } catch (error) {
+    console.error('Error resubmitting news:', error);
+    return res.status(500).json({ error: 'Failed to resubmit news' });
   }
 }
 
@@ -1696,6 +2105,7 @@ module.exports = {
   createNews,
   toggleNewsStatus,
   updateNews,
+  resubmitNews,
   deleteNews,
   uploadMedia,
   processImage,

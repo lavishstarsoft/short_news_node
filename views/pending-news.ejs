@@ -171,7 +171,19 @@
                                                             <div class="badge-group">
                                                                 <span class="badge badge-category"><%= news.category || 'Uncategorized' %></span>
                                                                 <span class="badge pn-badge-lang"><%= pendingLangLabels[news.language || 'te'] || 'Telugu' %></span>
-                                                                <span class="badge badge-pending"><i class="fas fa-clock"></i> Pending</span>
+                                                                <% 
+                                                                    const rs = news.revisionStatus || {};
+                                                                    const needsRevision = rs.needsRevision === true;
+                                                                    const isResubmitted = !needsRevision && Number(rs.revisionCount) > 0 && !!rs.resubmittedAt;
+                                                                %>
+                                                                <% if (needsRevision) { %>
+                                                                    <span class="badge badge-needs-revision"><i class="fas fa-pen-to-square"></i> Needs Revision</span>
+                                                                <% } else { %>
+                                                                    <span class="badge badge-waiting-review"><i class="fas fa-clock"></i> Waiting for Review</span>
+                                                                <% } %>
+                                                                <% if (isResubmitted) { %>
+                                                                    <span class="badge badge-resubmitted"><i class="fas fa-rotate"></i> Resubmitted</span>
+                                                                <% } %>
                                                                 <% if (news.duplicateCheck && (news.duplicateCheck.isDuplicate || news.duplicateCheck.isSuspicious)) { %>
                                                                     <% const dc = news.duplicateCheck; %>
                                                                     <% const src = dc.matchSource || ''; %>
@@ -193,6 +205,56 @@
                                                                     <% } %>
                                                                 <% } %>
                                                             </div>
+
+                                                            <% if (needsRevision && rs.remarks) { %>
+                                                                <div class="pn-revision-remarks">
+                                                                    <strong><i class="fas fa-comment-dots"></i> Revision remarks</strong>
+                                                                    <p><%= rs.remarks %></p>
+                                                                    <% if (rs.sentBackBy) { %>
+                                                                        <small>By <%= rs.sentBackBy %><% if (rs.sentAt) { %> · <%= new Date(rs.sentAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) %><% } %></small>
+                                                                    <% } %>
+                                                                </div>
+                                                            <% } %>
+
+                                                            <% 
+                                                                const changedFields = (rs.lastChangeSummary && Array.isArray(rs.lastChangeSummary.changedFields))
+                                                                    ? rs.lastChangeSummary.changedFields
+                                                                    : [];
+                                                            %>
+                                                            <% if (isResubmitted && changedFields.length > 0) { %>
+                                                                <div class="pn-change-chips">
+                                                                    <span class="pn-change-chips-label">What changed</span>
+                                                                    <% changedFields.forEach(function(field) { %>
+                                                                        <span class="pn-change-chip"><%= field %></span>
+                                                                    <% }); %>
+                                                                </div>
+                                                            <% } else if (isResubmitted && changedFields.length === 0) { %>
+                                                                <div class="pn-change-chips">
+                                                                    <span class="pn-change-chip pn-change-chip--warn">No changes detected</span>
+                                                                </div>
+                                                            <% } %>
+
+                                                            <% 
+                                                                const revHistory = Array.isArray(news.actionHistory)
+                                                                    ? news.actionHistory.filter(function(h) {
+                                                                        return h && (h.action === 'needs_revision' || h.action === 'resubmitted');
+                                                                    }).slice(-4)
+                                                                    : [];
+                                                            %>
+                                                            <% if (revHistory.length > 0) { %>
+                                                                <div class="pn-revision-history">
+                                                                    <span class="pn-revision-history-label"><i class="fas fa-timeline"></i> Revision history</span>
+                                                                    <ul>
+                                                                        <% revHistory.forEach(function(h) { %>
+                                                                            <li>
+                                                                                <strong><%= h.action === 'needs_revision' ? 'Sent back' : 'Resubmitted' %></strong>
+                                                                                <% if (h.performedByName) { %> · <%= h.performedByName %><% } %>
+                                                                                <% if (h.details) { %><span class="pn-rev-detail"> — <%= h.details %></span><% } %>
+                                                                            </li>
+                                                                        <% }); %>
+                                                                    </ul>
+                                                                </div>
+                                                            <% } %>
 
                                                             <div class="news-card-meta">
                                                                 <div class="meta-item author-details-block" style="display:flex; flex-direction:column; gap:4px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 8px; width: 100%;">
@@ -235,8 +297,12 @@
                                                                 <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
                                                                     <button type="button" class="btn-duplicate" onclick="viewDuplicates('<%= news._id %>')"><i class="fas fa-clone"></i> Duplicates</button>
                                                                 <% } %>
+                                                                <% if (Number(rs.revisionCount) > 0 || rs.lastChangeSummary) { %>
+                                                                    <button type="button" class="btn-compare" onclick="openCompareVersions('<%= news._id %>')"><i class="fas fa-code-compare"></i> Compare Versions</button>
+                                                                <% } %>
                                                                 <% if (canApproveNews) { %>
                                                                     <button type="button" class="btn-approve" onclick='approveNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-check"></i> Approve</button>
+                                                                    <button type="button" class="btn-send-back" onclick='openSendBackModal("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-rotate-left"></i> Send Back for Edit</button>
                                                                     <button type="button" class="btn-reject" onclick='rejectNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-xmark"></i> Reject</button>
                                                                 <% } %>
                                                             </div>
@@ -334,6 +400,53 @@
             </div>
         </div>
 
+        <!-- Send Back for Edit Modal -->
+        <div class="modal fade pn-sendback-modal" id="sendBackModal" tabindex="-1" aria-labelledby="sendBackModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div>
+                            <h5 class="modal-title" id="sendBackModalLabel">Send back for edit</h5>
+                            <p id="sendBackNewsTitle" class="text-muted small mb-0 mt-1"></p>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="pn-sendback-help">Explain what the reporter must fix. Remarks are required and will be shown on their Needs Revision article.</p>
+                        <span class="pn-reject-label">Revision remarks <span class="text-danger">*</span></span>
+                        <textarea id="sendBackRemarks" class="form-control pn-reject-textarea" rows="5" maxlength="2000" placeholder="Example: Fix the headline spelling, update the location, and replace the unclear image."></textarea>
+                        <div class="pn-sendback-meta">
+                            <small id="sendBackCharCount">0 / 2000</small>
+                            <small class="text-muted">Minimum 5 characters</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-warning" id="confirmSendBackBtn" onclick="confirmSendBack()"><i class="fas fa-rotate-left"></i> Send Back for Edit</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compare Versions Modal -->
+        <div class="modal-backdrop pn-modal-backdrop" id="compareVersionsModal" aria-hidden="true">
+            <div class="modal-content pn-compare-modal" role="dialog" aria-labelledby="compareModalTitle">
+                <div class="modal-header pn-modal-header">
+                    <div>
+                        <h3 id="compareModalTitle">Compare versions</h3>
+                        <p id="compareModalSubtitle" class="pn-dup-modal-subtitle">Previous (at send-back) → Current → Highlighted changes</p>
+                    </div>
+                    <button type="button" class="modal-close pn-modal-close" onclick="closeCompareVersions()" aria-label="Close"><i class="fas fa-xmark"></i></button>
+                </div>
+                <div id="compareVersionsBody" class="pn-compare-modal-body">
+                    <div class="pn-dup-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Loading comparison…</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Duplicate Review Modal -->
         <div class="modal-backdrop pn-modal-backdrop" id="duplicateModal" aria-hidden="true">
             <div class="modal-content pn-dup-modal" role="dialog" aria-labelledby="dupModalTitle">
@@ -357,8 +470,10 @@
 
         <script>
             let pendingRejectNewsId = null;
+            let pendingSendBackNewsId = null;
             let newsDataCache = {};
             let duplicateDataCache = {};
+            let revisionDataCache = {};
             const TITLE_MAX_GLOBAL = <%= newsTitleMax %>;
             const CONTENT_MAX_GLOBAL = <%= newsContentMax %>;
             const DISPLAY_CONFIG_BY_LANGUAGE = <%- JSON.stringify(typeof displayConfigByLanguage !== 'undefined' ? displayConfigByLanguage : {}) %>;
@@ -459,7 +574,9 @@
                         mediaType: <%- JSON.stringify(news.mediaType || 'image') %>,
                         readFullLink: <%- JSON.stringify(news.readFullLink || '') %>,
                         ePaperLink: <%- JSON.stringify(news.ePaperLink || '') %>,
-                        publishedAt: <%- JSON.stringify(new Date(news.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })) %>
+                        publishedAt: <%- JSON.stringify(new Date(news.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })) %>,
+                        revisionStatus: <%- JSON.stringify(news.revisionStatus || null) %>,
+                        actionHistory: <%- JSON.stringify(Array.isArray(news.actionHistory) ? news.actionHistory.filter(h => h && (h.action === 'needs_revision' || h.action === 'resubmitted')) : []) %>
                     };
                     <% if (news.duplicateCheck && news.duplicateCheck.similarArticles) { %>
                         duplicateDataCache['<%= news._id %>'] = {
@@ -732,8 +849,16 @@
                         <button type="button" class="btn-approve" onclick="savePendingChanges('${newsId}', true)">
                             <i class="fas fa-check-double"></i> Save &amp; approve
                         </button>
+                        <button type="button" class="btn-send-back" onclick="openSendBackModal('${newsId}', \`${news.title.replace(/`/g, '\\`')}\`); closePreview();">
+                            <i class="fas fa-rotate-left"></i> Send Back for Edit
+                        </button>
                         <button type="button" class="btn-reject" onclick="rejectNews('${newsId}', \`${news.title.replace(/`/g, '\\`')}\`); closePreview();">
                             <i class="fas fa-xmark"></i> Reject
+                        </button>
+                        ` : ''}
+                        ${(news.revisionStatus && (Number(news.revisionStatus.revisionCount) > 0 || news.revisionStatus.lastChangeSummary)) ? `
+                        <button type="button" class="btn-compare" onclick="openCompareVersions('${newsId}'); closePreview();">
+                            <i class="fas fa-code-compare"></i> Compare Versions
                         </button>
                         ` : ''}
                     </div>
@@ -1130,6 +1255,333 @@
                     });
             }
 
+            function openSendBackModal(newsId, newsTitle) {
+                pendingSendBackNewsId = newsId;
+                document.getElementById('sendBackNewsTitle').textContent = `Sending back: "${newsTitle}"`;
+                const textarea = document.getElementById('sendBackRemarks');
+                textarea.value = '';
+                document.getElementById('sendBackCharCount').textContent = '0 / 2000';
+                const modal = new bootstrap.Modal(document.getElementById('sendBackModal'));
+                modal.show();
+                setTimeout(() => textarea.focus(), 300);
+            }
+
+            document.getElementById('sendBackRemarks')?.addEventListener('input', function () {
+                const len = (this.value || '').length;
+                document.getElementById('sendBackCharCount').textContent = `${len} / 2000`;
+            });
+
+            function confirmSendBack() {
+                if (!pendingSendBackNewsId) return;
+                const remarks = (document.getElementById('sendBackRemarks').value || '').trim();
+                if (remarks.length < 5) {
+                    alert('Please enter revision remarks (minimum 5 characters).');
+                    return;
+                }
+                if (remarks.length > 2000) {
+                    alert('Revision remarks cannot exceed 2000 characters.');
+                    return;
+                }
+
+                const btn = document.getElementById('confirmSendBackBtn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+                }
+
+                fetch(`/admin/api/news/${pendingSendBackNewsId}/send-back`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ remarks })
+                })
+                    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                    .then(({ ok, data }) => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-rotate-left"></i> Send Back for Edit';
+                        }
+                        if (!ok) {
+                            alert(data.error || 'Failed to send back');
+                            return;
+                        }
+                        const modalEl = document.getElementById('sendBackModal');
+                        const instance = bootstrap.Modal.getInstance(modalEl);
+                        if (instance) instance.hide();
+
+                        const newsId = pendingSendBackNewsId;
+                        const rs = (data.news && data.news.revisionStatus) || {
+                            needsRevision: true,
+                            remarks,
+                            revisionCount: 1,
+                            sentBackBy: 'Admin',
+                            sentAt: new Date().toISOString()
+                        };
+                        if (newsDataCache[newsId]) {
+                            newsDataCache[newsId].revisionStatus = rs;
+                        }
+                        applyRevisionUiToCard(newsId, rs, remarks);
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire('Sent back', 'Reporter can now edit and resubmit.', 'success');
+                        } else {
+                            alert('News sent back for revision.');
+                        }
+                        pendingSendBackNewsId = null;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-rotate-left"></i> Send Back for Edit';
+                        }
+                        alert('Failed to send news back for edit');
+                    });
+            }
+
+            function applyRevisionUiToCard(newsId, rs, remarksOverride) {
+                const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
+                if (!card) return;
+                const badgeGroup = card.querySelector('.badge-group');
+                if (badgeGroup) {
+                    badgeGroup.querySelectorAll('.badge-needs-revision, .badge-waiting-review, .badge-resubmitted').forEach(el => el.remove());
+                    const needsRevision = rs && rs.needsRevision === true;
+                    const isResubmitted = !needsRevision && Number(rs?.revisionCount) > 0 && !!rs?.resubmittedAt;
+                    if (needsRevision) {
+                        badgeGroup.insertAdjacentHTML('beforeend', '<span class="badge badge-needs-revision"><i class="fas fa-pen-to-square"></i> Needs Revision</span>');
+                    } else {
+                        badgeGroup.insertAdjacentHTML('beforeend', '<span class="badge badge-waiting-review"><i class="fas fa-clock"></i> Waiting for Review</span>');
+                    }
+                    if (isResubmitted) {
+                        badgeGroup.insertAdjacentHTML('beforeend', '<span class="badge badge-resubmitted"><i class="fas fa-rotate"></i> Resubmitted</span>');
+                    }
+                }
+
+                card.querySelectorAll('.pn-revision-remarks, .pn-change-chips').forEach(el => el.remove());
+                const content = card.querySelector('.news-card-content');
+                const meta = card.querySelector('.news-card-meta');
+                const remarks = remarksOverride || rs?.remarks;
+                if (content && meta && rs?.needsRevision && remarks) {
+                    const block = document.createElement('div');
+                    block.className = 'pn-revision-remarks';
+                    block.innerHTML = `<strong><i class="fas fa-comment-dots"></i> Revision remarks</strong><p>${escapeHtml(remarks)}</p>`;
+                    content.insertBefore(block, meta);
+                }
+
+                const actions = card.querySelector('.card-actions');
+                if (actions && Number(rs?.revisionCount) > 0 && !actions.querySelector('.btn-compare')) {
+                    const compareBtn = document.createElement('button');
+                    compareBtn.type = 'button';
+                    compareBtn.className = 'btn-compare';
+                    compareBtn.innerHTML = '<i class="fas fa-code-compare"></i> Compare Versions';
+                    compareBtn.onclick = () => openCompareVersions(newsId);
+                    const approveBtn = actions.querySelector('.btn-approve');
+                    if (approveBtn) actions.insertBefore(compareBtn, approveBtn);
+                    else actions.appendChild(compareBtn);
+                }
+            }
+
+            function mediaUrlsFromArticle(article) {
+                if (!article) return [];
+                if (Array.isArray(article.imageUrls) && article.imageUrls.length) {
+                    return article.imageUrls.filter(Boolean);
+                }
+                const u = article.mediaUrl || article.imageUrl || '';
+                return u ? [u] : [];
+            }
+
+            function renderCompareField(label, beforeVal, afterVal, changed) {
+                const changedClass = changed ? ' is-changed' : '';
+                return `
+                    <div class="pn-compare-field${changedClass}">
+                        <div class="pn-compare-field-label">${escapeHtml(label)}${changed ? ' <span class="pn-changed-tag">Changed</span>' : ''}</div>
+                        <div class="pn-compare-field-grid">
+                            <div class="pn-compare-col pn-compare-col--prev">
+                                <span class="pn-compare-col-label">Previous</span>
+                                <div class="pn-compare-col-body">${beforeVal || '<em>Empty</em>'}</div>
+                            </div>
+                            <div class="pn-compare-arrow"><i class="fas fa-arrow-down"></i></div>
+                            <div class="pn-compare-col pn-compare-col--curr">
+                                <span class="pn-compare-col-label">Current</span>
+                                <div class="pn-compare-col-body">${afterVal || '<em>Empty</em>'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function renderCompareVersions(data) {
+                const previous = data.previous || {};
+                const current = data.current || {};
+                const summary = data.lastChangeSummary || { changedFields: [], fields: {} };
+                const fields = summary.fields || {};
+                const changedSet = new Set(summary.changedFields || []);
+
+                const historyHtml = (data.history || []).length
+                    ? `<div class="pn-compare-history">
+                        <h4><i class="fas fa-timeline"></i> Revision history</h4>
+                        <ul>
+                            ${(data.history || []).map(h => {
+                                const label = h.action === 'needs_revision' ? 'Sent back'
+                                    : h.action === 'resubmitted' ? 'Resubmitted'
+                                    : escapeHtml(h.action || '');
+                                const when = h.performedAt
+                                    ? new Date(h.performedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+                                    : '';
+                                return `<li><strong>${label}</strong>${h.performedByName ? ' · ' + escapeHtml(h.performedByName) : ''}${when ? ' · ' + when : ''}${h.details ? '<div class="pn-rev-detail">' + escapeHtml(h.details) + '</div>' : ''}${h.metadata && h.metadata.remarks ? '<div class="pn-rev-detail">Remarks: ' + escapeHtml(h.metadata.remarks) + '</div>' : ''}</li>`;
+                            }).join('')}
+                        </ul>
+                       </div>`
+                    : '';
+
+                const chips = (summary.changedFields || []).length
+                    ? `<div class="pn-change-chips pn-change-chips--modal">${(summary.changedFields || []).map(f => `<span class="pn-change-chip">${escapeHtml(f)}</span>`).join('')}</div>`
+                    : `<div class="pn-change-chips pn-change-chips--modal"><span class="pn-change-chip pn-change-chip--warn">No changes detected</span></div>`;
+
+                const prevUrls = mediaUrlsFromArticle(previous);
+                const currUrls = mediaUrlsFromArticle(current);
+                const prevMediaHtml = prevUrls.length
+                    ? prevUrls.map(u => `<img src="${escapeHtml(u)}" alt="Previous media">`).join('')
+                    : '<em>No media</em>';
+                const currMediaHtml = currUrls.length
+                    ? currUrls.map(u => `<img src="${escapeHtml(u)}" alt="Current media">`).join('')
+                    : '<em>No media</em>';
+
+                const titleChanged = fields.title ? fields.title.changed : changedSet.has('title');
+                const contentChanged = fields.content ? fields.content.changed : changedSet.has('content');
+                const categoryChanged = fields.category ? fields.category.changed : changedSet.has('category');
+                const locationChanged = fields.location ? fields.location.changed : changedSet.has('location');
+                const imageChanged = fields.image ? fields.image.changed : changedSet.has('image');
+
+                return `
+                    <div class="pn-compare-layout">
+                        <div class="pn-compare-summary">
+                            <div><strong>Status:</strong> ${data.revisionStatus?.needsRevision ? 'Needs Revision' : 'Waiting for Review'}</div>
+                            ${data.revisionStatus?.remarks ? `<div class="pn-compare-remarks"><strong>Latest remarks:</strong> ${escapeHtml(data.revisionStatus.remarks)}</div>` : ''}
+                            <div><strong>Highlight changes</strong></div>
+                            ${chips}
+                        </div>
+                        ${historyHtml}
+                        ${renderCompareField('Title', renderRichContent(previous.title || ''), renderRichContent(current.title || ''), titleChanged)}
+                        ${renderCompareField('Content', renderRichContent(previous.content || ''), renderRichContent(current.content || ''), contentChanged)}
+                        ${renderCompareField('Category', escapeHtml(previous.category || ''), escapeHtml(current.category || ''), categoryChanged)}
+                        ${renderCompareField('Location', escapeHtml(previous.location || ''), escapeHtml(current.location || ''), locationChanged)}
+                        ${renderCompareField('Image / Media', `<div class="pn-compare-media">${prevMediaHtml}</div>`, `<div class="pn-compare-media">${currMediaHtml}</div>`, imageChanged)}
+                    </div>
+                `;
+            }
+
+            async function openCompareVersions(newsId) {
+                const modal = document.getElementById('compareVersionsModal');
+                const body = document.getElementById('compareVersionsBody');
+                if (!modal || !body) return;
+                body.innerHTML = '<div class="pn-dup-loading"><i class="fas fa-spinner fa-spin"></i><span>Loading comparison…</span></div>';
+                modal.classList.add('active');
+                modal.setAttribute('aria-hidden', 'false');
+                try {
+                    const response = await fetch(`/admin/api/news/${newsId}/revision-diff`);
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Failed to load comparison');
+                    if (!data.previous) {
+                        body.innerHTML = '<div class="pn-dup-empty"><i class="fas fa-info-circle"></i><p>No previous snapshot yet. Send the article back for edit first.</p></div>';
+                        return;
+                    }
+                    revisionDataCache[newsId] = data;
+                    body.innerHTML = renderCompareVersions(data);
+                } catch (err) {
+                    body.innerHTML = `<div class="pn-dup-empty pn-dup-empty--error"><i class="fas fa-triangle-exclamation"></i><p>${escapeHtml(err.message || 'Could not load comparison')}</p></div>`;
+                }
+            }
+
+            function closeCompareVersions() {
+                const modal = document.getElementById('compareVersionsModal');
+                if (!modal) return;
+                modal.classList.remove('active');
+                modal.setAttribute('aria-hidden', 'true');
+            }
+
+            document.getElementById('compareVersionsModal')?.addEventListener('click', function (e) {
+                if (e.target.id === 'compareVersionsModal') closeCompareVersions();
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeCompareVersions();
+            });
+
+            // Live sync when other admins/reporters change workflow status
+            // Toast for resubmit is global (admin-notifications.js) — this handler only updates the grid.
+            (function bindAdminWorkflowSocket() {
+                function removePendingCard(newsId) {
+                    const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
+                    if (card) card.remove();
+                    if (newsDataCache[newsId]) delete newsDataCache[newsId];
+                }
+
+                function handleAdminStatus(payload) {
+                    if (!payload || !payload.status) return;
+                    const newsId = (payload.id || '').toString();
+                    if (!newsId) return;
+
+                    if (payload.status === 'approved' || payload.status === 'rejected') {
+                        removePendingCard(newsId);
+                        return;
+                    }
+
+                    if (payload.status === 'needs_revision') {
+                        const rs = {
+                            needsRevision: true,
+                            remarks: payload.remarks || payload.revisionStatus?.remarks || '',
+                            revisionCount: payload.revisionStatus?.revisionCount || 1,
+                            sentBackBy: payload.revisionStatus?.sentBackBy || null,
+                            sentAt: payload.revisionStatus?.sentAt || new Date().toISOString(),
+                        };
+                        if (newsDataCache[newsId]) {
+                            newsDataCache[newsId].revisionStatus = {
+                                ...(newsDataCache[newsId].revisionStatus || {}),
+                                ...rs,
+                            };
+                        }
+                        applyRevisionUiToCard(newsId, rs, rs.remarks);
+                        return;
+                    }
+
+                    if (payload.status === 'resubmitted') {
+                        const rs = {
+                            needsRevision: false,
+                            revisionCount: payload.revisionStatus?.revisionCount || (newsDataCache[newsId]?.revisionStatus?.revisionCount || 1),
+                            resubmittedAt: payload.revisionStatus?.resubmittedAt || new Date().toISOString(),
+                            lastChangeSummary: {
+                                changedFields: payload.changedFields || payload.revisionStatus?.changedFields || []
+                            }
+                        };
+                        if (newsDataCache[newsId]) {
+                            newsDataCache[newsId].revisionStatus = {
+                                ...(newsDataCache[newsId].revisionStatus || {}),
+                                ...rs
+                            };
+                        }
+                        applyRevisionUiToCard(newsId, rs);
+                        const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
+                        if (card) {
+                            card.querySelectorAll('.pn-change-chips').forEach(el => el.remove());
+                            const chips = document.createElement('div');
+                            chips.className = 'pn-change-chips';
+                            const fields = payload.changedFields || payload.revisionStatus?.changedFields || [];
+                            if (fields.length) {
+                                chips.innerHTML = '<span class="pn-change-chips-label">What changed</span>' +
+                                    fields.map(f => `<span class="pn-change-chip">${escapeHtml(f)}</span>`).join('');
+                            } else {
+                                chips.innerHTML = '<span class="pn-change-chip pn-change-chip--warn">No changes detected</span>';
+                            }
+                            const meta = card.querySelector('.news-card-meta');
+                            if (meta) card.querySelector('.news-card-content')?.insertBefore(chips, meta);
+                        }
+                    }
+                }
+
+                document.addEventListener('story_status_updated_admin_received', function (e) {
+                    handleAdminStatus(e.detail);
+                });
+            })();
+
             // Close modal when clicking outside
             document.getElementById('previewModal').addEventListener('click', (e) => {
                 if (e.target.id === 'previewModal') closePreview();
@@ -1219,7 +1671,7 @@
                         <div class="badge-group">
                             <span class="badge badge-category">${escapeHtml(news.category || 'Uncategorized')}</span>
                             <span class="badge pn-badge-lang">${escapeHtml(getLanguageLabel(news.language))}</span>
-                            <span class="badge badge-pending"><i class="fas fa-clock"></i> Pending</span>
+                            <span class="badge badge-waiting-review"><i class="fas fa-clock"></i> Waiting for Review</span>
                         </div>
                         <div class="news-card-meta">
                             <div class="meta-item"><i class="fas fa-user"></i><span>${escapeHtml(news.author || 'Reporter')}</span></div>
@@ -1229,8 +1681,11 @@
                         <p class="pn-card-excerpt rich-text">${renderRichExcerpt(news.content, 120)}</p>
                         <div class="card-actions">
                             <button type="button" class="btn-preview" onclick="openPreview('${newsIdStr}')"><i class="fas fa-pen-to-square"></i> Preview</button>
+                            ${canApproveNewsJs ? `
                             <button type="button" class="btn-approve" onclick="approveNews('${newsIdStr}', '${titleStr}')"><i class="fas fa-check"></i> Approve</button>
+                            <button type="button" class="btn-send-back" onclick="openSendBackModal('${newsIdStr}', '${titleStr}')"><i class="fas fa-rotate-left"></i> Send Back for Edit</button>
                             <button type="button" class="btn-reject" onclick="rejectNews('${newsIdStr}', '${titleStr}')"><i class="fas fa-xmark"></i> Reject</button>
+                            ` : ''}
                         </div>
                     </div>
                 `;

@@ -40,6 +40,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const {
   socketAuthMiddleware,
+  joinWorkflowRooms,
   assertSocketUserId,
   resolveRegisterUserId,
 } = require('./middleware/socketAuth');
@@ -90,6 +91,44 @@ const io = socketIo(server, {
   }
 });
 
+// Optional Redis adapter for multi-instance Socket.IO (single-server still works without it)
+(async function attachSocketRedisAdapter() {
+  try {
+    const { createAdapter } = require('@socket.io/redis-adapter');
+    const { createClient } = require('redis');
+    const useLocal = process.env.REDIS_HOST && process.env.REDIS_HOST !== '';
+    const common = {
+      socket: {
+        reconnectStrategy: (retries) => Math.min(50 * Math.pow(2, retries), 3000),
+        connectTimeout: 8000,
+      },
+    };
+    const pubClient = useLocal
+      ? createClient({
+          ...common,
+          socket: { ...common.socket, host: process.env.REDIS_HOST, port: process.env.REDIS_PORT || 6379 },
+          password: process.env.REDIS_PASSWORD || undefined,
+        })
+      : process.env.REDIS_URL
+        ? createClient({ url: process.env.REDIS_URL, ...common })
+        : null;
+
+    if (!pubClient) {
+      console.log('Socket.IO: running without Redis adapter (single-process mode)');
+      return;
+    }
+
+    const subClient = pubClient.duplicate();
+    pubClient.on('error', (err) => console.warn('Socket Redis pub error:', err.message));
+    subClient.on('error', (err) => console.warn('Socket Redis sub error:', err.message));
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log('Socket.IO: Redis adapter enabled for horizontal scaling');
+  } catch (err) {
+    console.warn('Socket.IO: Redis adapter not attached, continuing single-process:', err.message);
+  }
+})();
+
 // Store connected clients
 const connectedClients = new Map();
 
@@ -97,7 +136,7 @@ io.use(socketAuthMiddleware);
 
 // WebSocket connection handling
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
+  joinWorkflowRooms(socket);
 
   let userId = null;
 

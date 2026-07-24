@@ -31,6 +31,33 @@ const typeDefs = gql`
     approvedAt: String
   }
 
+  type RevisionChangeSummary {
+    changedFields: [String!]
+    computedAt: String
+  }
+
+  type RevisionStatus {
+    needsRevision: Boolean!
+    remarks: String
+    sentBackBy: String
+    sentBackById: String
+    sentBackByRole: String
+    sentAt: String
+    revisionCount: Int
+    lastRevisionRound: Int
+    lastResubmitRound: Int
+    resubmittedAt: String
+    lastChangeSummary: RevisionChangeSummary
+  }
+
+  type NewsActionHistory {
+    action: String!
+    performedByName: String
+    performedByRole: String
+    details: String
+    performedAt: String
+  }
+
   type UserInteraction {
     id: ID
     userId: String!
@@ -92,6 +119,8 @@ const typeDefs = gql`
     updatedAt: String
     rejectionStatus: RejectionStatus
     approvalStatus: ApprovalStatus
+    revisionStatus: RevisionStatus
+    actionHistory: [NewsActionHistory!]
   }
 
   type Category {
@@ -243,7 +272,7 @@ const typeDefs = gql`
     # Existing extensions
     getLiveStreamStatus: LiveStreamStatus
     getEditorById(id: ID!): Editor
-    getNewsByEditor(editorId: ID!, limit: Int, includeUnpublished: Boolean): [News!]!
+    getNewsByEditor(editorId: ID!, limit: Int, offset: Int, includeUnpublished: Boolean): [News!]!
     getNewsById(id: ID!): News
     
     # Poll queries

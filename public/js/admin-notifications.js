@@ -8,8 +8,56 @@
     if (window.adminNotificationsInitialized) return;
     window.adminNotificationsInitialized = true;
 
-    // Initialize Socket.io connection
-    const socket = io();
+    // Initialize Socket.io connection (cookie JWT joins admin room server-side)
+    const socket = io({
+        withCredentials: true,
+        transports: ['websocket', 'polling'],
+    });
+
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    /** Same eligibility rules for new_news and resubmit toasts (subeditor scope). */
+    function isNewsVisibleToCurrentAdmin(news) {
+        if (!window.CURRENT_ADMIN || window.CURRENT_ADMIN.role !== 'subeditor') {
+            return true;
+        }
+        const admin = window.CURRENT_ADMIN;
+        const permissions = admin.permissions || {};
+
+        if (admin.workingLanguage && admin.workingLanguage !== 'all' && news.language && news.language !== admin.workingLanguage) {
+            return false;
+        }
+
+        if (permissions.approvalScope === 'geography') {
+            const states = permissions.managedStates || [];
+            const districts = permissions.managedDistricts || [];
+            const constituencies = permissions.managedConstituencies || [];
+            const legacyLocations = permissions.managedLocations || [];
+
+            let hasAccess = false;
+            if (news.state && states.includes(news.state)) hasAccess = true;
+            if (news.district && districts.includes(news.district)) hasAccess = true;
+            if (news.constituency && constituencies.includes(news.constituency)) hasAccess = true;
+            if (news.location && legacyLocations.includes(news.location)) hasAccess = true;
+
+            if (!hasAccess && (states.length > 0 || districts.length > 0 || constituencies.length > 0 || legacyLocations.length > 0)) {
+                return false;
+            }
+        } else if (permissions.approvalScope === 'reporters') {
+            const reporterIds = permissions.managedReporterIds || [];
+            if (reporterIds.length > 0 && news.authorId && !reporterIds.includes(news.authorId) && !reporterIds.includes(String(news.authorId))) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     // Notification sound element
     let notificationSound = null;
@@ -18,7 +66,6 @@
     document.addEventListener('DOMContentLoaded', function () {
         initializeNotificationSound();
         setupSocketListeners();
-        console.log('Global admin notifications initialized');
     });
 
     // Initialize notification sound
@@ -31,95 +78,70 @@
     function setupSocketListeners() {
         // Listen for new comment reports
         socket.on('new_comment_report', function (data) {
-            console.log('New comment report received:', data);
-
-            // Play notification sound
             playNotificationSound();
-
-            // Show toast notification
             showToastNotification(data);
-
-            // Dispatch event for page-specific handling
             document.dispatchEvent(new CustomEvent('new_comment_report_received', { detail: data }));
         });
 
         // Listen for new news reports
         socket.on('new_news_report', function (data) {
-            console.log('New news report received:', data);
             playNotificationSound();
             showToastNotification({
                 type: 'News Report',
                 reason: data.reason,
                 reportedBy: data.reportedBy
             });
-
-            // Dispatch event for page-specific handling (e.g., reports page table reload)
             document.dispatchEvent(new CustomEvent('new_news_report_received', { detail: data }));
         });
 
         // Listen for new pending news submissions
         socket.on('new_news', function (news) {
-            console.log('New pending news received:', news);
-
-            // Client-side filtering based on permissions
-            if (window.CURRENT_ADMIN && window.CURRENT_ADMIN.role === 'subeditor') {
-                const admin = window.CURRENT_ADMIN;
-                const permissions = admin.permissions || {};
-                
-                // 1. Check language match (if language filtering is enabled)
-                if (admin.workingLanguage && admin.workingLanguage !== 'all' && news.language && news.language !== admin.workingLanguage) {
-                    console.log('Ignoring news notification due to language mismatch');
-                    return;
-                }
-                
-                // 2. Check approval scope
-                if (permissions.approvalScope === 'geography') {
-                    const states = permissions.managedStates || [];
-                    const districts = permissions.managedDistricts || [];
-                    const constituencies = permissions.managedConstituencies || [];
-                    const legacyLocations = permissions.managedLocations || [];
-                    
-                    let hasAccess = false;
-                    if (news.state && states.includes(news.state)) hasAccess = true;
-                    if (news.district && districts.includes(news.district)) hasAccess = true;
-                    if (news.constituency && constituencies.includes(news.constituency)) hasAccess = true;
-                    if (news.location && legacyLocations.includes(news.location)) hasAccess = true;
-                    
-                    // If subeditor has assigned geographies but news doesn't match any of them
-                    if (!hasAccess && (states.length > 0 || districts.length > 0 || constituencies.length > 0 || legacyLocations.length > 0)) {
-                        console.log('Ignoring news notification due to geography mismatch');
-                        return;
-                    }
-                } else if (permissions.approvalScope === 'reporters') {
-                    const reporterIds = permissions.managedReporterIds || [];
-                    if (reporterIds.length > 0 && news.authorId && !reporterIds.includes(news.authorId)) {
-                        console.log('Ignoring news notification due to reporter mismatch');
-                        return;
-                    }
-                }
+            if (!isNewsVisibleToCurrentAdmin(news || {})) {
+                return;
             }
 
             playNotificationSound();
             
-            const title = `🗞️ New Pending News!`;
-            const content = `"${news.title}" submitted by ${news.author || 'Reporter'}. <br><a href="/admin/pending-news" class="text-white text-decoration-underline mt-1 d-inline-block">Click here to view</a>`;
+            const title = `New Pending Story`;
+            const safeTitle = escapeHtml(news.title || 'Untitled');
+            const safeAuthor = escapeHtml(news.author || 'Reporter');
+            const content = `"${safeTitle}" submitted by ${safeAuthor}. <br><a href="/admin/pending-news" class="text-white text-decoration-underline mt-1 d-inline-block">Click here to view</a>`;
             
-            // Show toast 
             if (typeof window.showToast === 'function') {
                 window.showToast(title, content, 'success');
             }
             
-            // Dispatch event for pending-news page to update the grid organically
             document.dispatchEvent(new CustomEvent('new_pending_news_received', { detail: news }));
+        });
+
+        // Workflow sync for all admin pages (resubmit / approve / reject / send-back)
+        socket.on('story_status_updated_admin', function (payload) {
+            if (!payload || !payload.status) return;
+
+            document.dispatchEvent(new CustomEvent('story_status_updated_admin_received', { detail: payload }));
+
+            // Toast only for reporter resubmit — same eligibility as new_news for subeditors
+            if (payload.status === 'resubmitted') {
+                if (!isNewsVisibleToCurrentAdmin(payload)) {
+                    return;
+                }
+                playNotificationSound();
+                const title = 'Reporter Resubmitted';
+                const safeTitle = escapeHtml(payload.title || 'Article');
+                const content = `"${safeTitle}" is waiting for review. <br><a href="/admin/pending-news" class="text-white text-decoration-underline mt-1 d-inline-block">Open pending news</a>`;
+                if (typeof window.showToast === 'function') {
+                    window.showToast(title, content, 'warning');
+                }
+            }
         });
 
         // Connection status
         socket.on('connect', function () {
-            console.log('Admin notification socket connected');
+            // no-op
         });
 
         socket.on('disconnect', function () {
-            console.log('Admin notification socket disconnected');
+            // no-op
         });
     }
 
@@ -127,8 +149,8 @@
     function playNotificationSound() {
         if (notificationSound) {
             notificationSound.currentTime = 0;
-            notificationSound.play().catch(function (error) {
-                console.log('Could not play notification sound:', error);
+            notificationSound.play().catch(function () {
+                // autoplay may be blocked — ignore
             });
         }
     }
@@ -218,5 +240,6 @@
 
     // Expose socket to global scope for page-specific use if needed
     window.adminNotificationSocket = socket;
+    document.dispatchEvent(new CustomEvent('admin_socket_ready'));
 
 })();

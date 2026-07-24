@@ -86,6 +86,8 @@ router.get('/api/pending-news/:id/duplicate-matches', adminController.requireAut
 router.put('/api/news/:id/update-pending', adminController.requireAuth, adminController.updatePendingNews);
 router.post('/api/news/:id/approve', adminController.requireAuth, adminController.approveNews);
 router.post('/api/news/:id/reject', adminController.requireAuth, adminController.rejectNews);
+router.post('/api/news/:id/send-back', adminController.requireAuth, adminController.sendBackForEdit);
+router.get('/api/news/:id/revision-diff', adminController.requireAuth, adminController.getNewsRevisionDiff);
 
 // Plagiarism & Duplicate Detection routes
 router.post('/api/check-duplicate', adminController.requireAuth, adminController.checkDuplicateArticles);

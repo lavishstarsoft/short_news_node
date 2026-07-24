@@ -85,11 +85,41 @@ const newsSchema = new mongoose.Schema({
     approvedAt: { type: Date } // When was it approved
   },
 
+  /**
+   * Needs Revision (Send Back for Edit).
+   * Separate from rejectionStatus — reject remains final.
+   */
+  revisionStatus: {
+    needsRevision: { type: Boolean, default: false },
+    remarks: { type: String },
+    sentBackBy: { type: String },
+    sentBackById: { type: String },
+    sentBackByRole: { type: String },
+    sentAt: { type: Date },
+    revisionCount: { type: Number, default: 0 },
+    lastRevisionRound: { type: Number, default: 0 },
+    lastResubmitRound: { type: Number, default: 0 },
+    resubmittedAt: { type: Date },
+    /** Frozen article fields at send-back time (before reporter edits). */
+    revisionSnapshot: { type: mongoose.Schema.Types.Mixed },
+    /** Structured diff computed on resubmit (before vs after). */
+    lastChangeSummary: { type: mongoose.Schema.Types.Mixed },
+  },
+
   // Timeline of editorial/admin actions for auditing
   actionHistory: [{
     action: {
       type: String,
-      enum: ['created', 'updated', 'status_toggled', 'approved', 'rejected', 'deleted'],
+      enum: [
+        'created',
+        'updated',
+        'status_toggled',
+        'approved',
+        'rejected',
+        'deleted',
+        'needs_revision',
+        'resubmitted',
+      ],
       required: true
     },
     performedById: { type: String },
@@ -155,6 +185,13 @@ newsSchema.pre('save', function (next) {
 // Compound indexes for fast queries
 newsSchema.index({ publishedAt: -1 }); // Default sorting for news list
 newsSchema.index({ isActive: 1, 'rejectionStatus.isRejected': 1, publishedAt: -1 }); // Pending news page
+newsSchema.index({
+  isActive: 1,
+  'rejectionStatus.isRejected': 1,
+  'revisionStatus.needsRevision': 1,
+  publishedAt: -1,
+}); // Pending + Needs Revision filters
+newsSchema.index({ authorId: 1, 'revisionStatus.needsRevision': 1, publishedAt: -1 });
 newsSchema.index({ isActive: 1, publishedAt: -1 }); // Published news (duplicate check, feeds)
 newsSchema.index({ language: 1, isActive: 1, publishedAt: -1 }); // Language-filtered feed
 newsSchema.index({ category: 1, isActive: 1, publishedAt: -1 }); // Category feed

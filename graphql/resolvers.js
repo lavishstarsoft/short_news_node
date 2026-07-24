@@ -61,7 +61,7 @@ function getAuthenticatedEditorId(req) {
     return String(decoded.id);
 }
 
-const ADMIN_ROLES = ['admin', 'superadmin', 'editor'];
+const ADMIN_ROLES = ['admin', 'superadmin', 'subeditor'];
 
 /**
  * Throws a GraphQL error unless the request carries a valid admin/editor JWT.
@@ -83,6 +83,61 @@ function resolveNewsIsActive(news) {
     if (news.isActive === true) return true;
     if (news.isActive === false) return false;
     return true;
+}
+
+function mapRevisionStatus(rs) {
+    if (!rs) return null;
+    const summary = rs.lastChangeSummary || null;
+    return {
+        needsRevision: rs.needsRevision === true,
+        remarks: rs.remarks || null,
+        sentBackBy: rs.sentBackBy || null,
+        sentBackById: rs.sentBackById || null,
+        sentBackByRole: rs.sentBackByRole || null,
+        sentAt: rs.sentAt ? new Date(rs.sentAt).toISOString() : null,
+        revisionCount: Number(rs.revisionCount) || 0,
+        lastRevisionRound: Number(rs.lastRevisionRound) || 0,
+        lastResubmitRound: Number(rs.lastResubmitRound) || 0,
+        resubmittedAt: rs.resubmittedAt ? new Date(rs.resubmittedAt).toISOString() : null,
+        lastChangeSummary: summary
+            ? {
+                changedFields: Array.isArray(summary.changedFields)
+                    ? summary.changedFields
+                    : [],
+                computedAt: summary.computedAt
+                    ? new Date(summary.computedAt).toISOString()
+                    : null,
+            }
+            : null,
+    };
+}
+
+function mapRevisionActionHistory(history) {
+    if (!Array.isArray(history)) return [];
+    return history
+        .filter(
+            (entry) =>
+                entry &&
+                (entry.action === 'needs_revision' || entry.action === 'resubmitted')
+        )
+        .map((entry) => ({
+            action: entry.action,
+            performedByName: entry.performedByName || null,
+            performedByRole: entry.performedByRole || null,
+            details: entry.details || null,
+            performedAt: entry.performedAt
+                ? new Date(entry.performedAt).toISOString()
+                : null,
+        }));
+}
+
+/** True if the GraphQL selection set requests a top-level field. */
+function selectionRequestsField(info, fieldName) {
+    const selections = info?.fieldNodes?.[0]?.selectionSet?.selections;
+    if (!Array.isArray(selections)) return true;
+    return selections.some(
+        (s) => s.kind === 'Field' && s.name && s.name.value === fieldName
+    );
 }
 
 /**
@@ -481,8 +536,9 @@ const resolvers = {
 
         // Get news posted by a specific editor
         // Public/user app: published only (no auth token)
-        // Reporter own profile: all statuses when JWT matches editorId OR includeUnpublished=true
-        getNewsByEditor: async (_, { editorId, limit, includeUnpublished }, context) => {
+        // Reporter own profile: all statuses when JWT matches editorId
+        // Staff (admin/superadmin/subeditor): may view any editor's unpublished
+        getNewsByEditor: async (_, { editorId, limit, offset, includeUnpublished }, context, info) => {
             try {
                 const News = require('../models/News');
 
@@ -492,11 +548,14 @@ const resolvers = {
                 const isOwnProfile = Boolean(
                     authenticatedEditorId && authenticatedEditorId === normalizedEditorId
                 );
-                const isAdmin = ADMIN_ROLES.includes(decoded?.role);
-                // SECURITY: unpublished/rejected news is only visible to the owning
-                // editor or an admin — never via a client-supplied flag alone.
+                const isStaff = Boolean(
+                    decoded?.role && ADMIN_ROLES.includes(decoded.role)
+                );
+                // SECURITY: unpublished only when caller is owner/staff AND explicitly asks.
+                // Analytics uses includeUnpublished: false → published-only.
+                const canRequestUnpublished = isOwnProfile || isStaff;
                 const showUnpublished =
-                    isOwnProfile || isAdmin || (includeUnpublished === true && (isOwnProfile || isAdmin));
+                    canRequestUnpublished && includeUnpublished === true;
 
                 const filter = { authorId: normalizedEditorId };
 
@@ -505,18 +564,31 @@ const resolvers = {
                     filter['rejectionStatus.isRejected'] = { $ne: true };
                 }
 
-                let query = News.find(filter).sort({ publishedAt: -1 }).lean();
+                const wantHistory = selectionRequestsField(info, 'actionHistory');
+                const wantContent = selectionRequestsField(info, 'content');
 
-                if (limit) {
-                    query = query.limit(limit);
-                }
+                // Default 50, max 100
+                const pageSize = Math.min(Math.max(Number(limit) || 50, 1), 100);
+                const skip = Math.max(Number(offset) || 0, 0);
+
+                // Exclude heavy fields from list payloads
+                const exclude = ['-revisionStatus.revisionSnapshot'];
+                if (!wantHistory) exclude.push('-actionHistory');
+                if (!wantContent) exclude.push('-content');
+
+                let query = News.find(filter)
+                    .select(exclude.join(' '))
+                    .sort({ publishedAt: -1 })
+                    .skip(skip)
+                    .limit(pageSize)
+                    .lean();
 
                 const newsList = await query;
 
                 return newsList.map(news => ({
                     id: news._id.toString(),
                     title: news.title,
-                    content: news.content,
+                    content: wantContent ? (news.content || '') : '',
                     category: news.category,
                     location: news.location,
                     imageUrl: getAbsoluteUrl(news.mediaUrl || news.imageUrl) || '/images/placeholder.png',
@@ -548,7 +620,11 @@ const resolvers = {
                         approvedBy: news.approvalStatus.approvedBy,
                         approvedByRole: news.approvalStatus.approvedByRole,
                         approvedAt: news.approvalStatus.approvedAt ? news.approvalStatus.approvedAt.toISOString() : null
-                    } : null
+                    } : null,
+                    revisionStatus: mapRevisionStatus(news.revisionStatus),
+                    actionHistory: wantHistory
+                        ? mapRevisionActionHistory(news.actionHistory)
+                        : [],
                 }));
             } catch (error) {
                 console.error('Error fetching news by editor:', error);
@@ -557,11 +633,32 @@ const resolvers = {
         },
 
         // Get single news by ID
-        getNewsById: async (_, { id }) => {
+        // Published: public. Drafts / rejected / revision data: owner or staff only.
+        getNewsById: async (_, { id }, context) => {
             try {
                 const News = require('../models/News');
                 const news = await News.findById(id);
                 if (!news) return null;
+
+                const isPublished =
+                    news.isActive === true &&
+                    !(news.rejectionStatus && news.rejectionStatus.isRejected);
+
+                const decoded = decodeAuthToken(context?.req);
+                const authenticatedId = decoded?.id ? String(decoded.id) : null;
+                const isOwner =
+                    Boolean(authenticatedId) &&
+                    String(news.authorId) === authenticatedId;
+                const isStaff = Boolean(
+                    decoded?.role && ADMIN_ROLES.includes(decoded.role)
+                );
+                const canSeePrivate = isOwner || isStaff;
+
+                if (!isPublished && !canSeePrivate) {
+                    return null;
+                }
+
+                const includeWorkflow = canSeePrivate;
 
                 return {
                     id: news._id.toString(),
@@ -586,20 +683,45 @@ const resolvers = {
                     shortId: news.shortId || (news._id.toString().length > 6 ? news._id.toString().substring(news._id.toString().length - 6) : news._id.toString()),
                     userInteractions: news.userInteractions,
                     comments: news.userInteractions?.comments?.length || 0,
-                    rejectionStatus: news.rejectionStatus ? {
-                        isRejected: news.rejectionStatus.isRejected || false,
-                        reason: news.rejectionStatus.reason,
-                        feedback: news.rejectionStatus.feedback,
-                        rejectedBy: news.rejectionStatus.rejectedBy,
-                        rejectedByRole: news.rejectionStatus.rejectedByRole,
-                        rejectedAt: news.rejectionStatus.rejectedAt ? news.rejectionStatus.rejectedAt.toISOString() : null
-                    } : null,
-                    approvalStatus: news.approvalStatus ? {
-                        isApproved: news.approvalStatus.isApproved || false,
-                        approvedBy: news.approvalStatus.approvedBy,
-                        approvedByRole: news.approvalStatus.approvedByRole,
-                        approvedAt: news.approvalStatus.approvedAt ? news.approvalStatus.approvedAt.toISOString() : null
-                    } : null
+                    rejectionStatus:
+                        includeWorkflow && news.rejectionStatus
+                            ? {
+                                  isRejected: news.rejectionStatus.isRejected || false,
+                                  reason: news.rejectionStatus.reason,
+                                  feedback: news.rejectionStatus.feedback,
+                                  rejectedBy: news.rejectionStatus.rejectedBy,
+                                  rejectedByRole: news.rejectionStatus.rejectedByRole,
+                                  rejectedAt: news.rejectionStatus.rejectedAt
+                                      ? news.rejectionStatus.rejectedAt.toISOString()
+                                      : null,
+                              }
+                            : null,
+                    approvalStatus:
+                        includeWorkflow && news.approvalStatus
+                            ? {
+                                  isApproved: news.approvalStatus.isApproved || false,
+                                  approvedBy: news.approvalStatus.approvedBy,
+                                  approvedByRole: news.approvalStatus.approvedByRole,
+                                  approvedAt: news.approvalStatus.approvedAt
+                                      ? news.approvalStatus.approvedAt.toISOString()
+                                      : null,
+                              }
+                            : news.approvalStatus && isPublished
+                              ? {
+                                    isApproved: news.approvalStatus.isApproved || false,
+                                    approvedBy: news.approvalStatus.approvedBy,
+                                    approvedByRole: news.approvalStatus.approvedByRole,
+                                    approvedAt: news.approvalStatus.approvedAt
+                                        ? news.approvalStatus.approvedAt.toISOString()
+                                        : null,
+                                }
+                              : null,
+                    revisionStatus: includeWorkflow
+                        ? mapRevisionStatus(news.revisionStatus)
+                        : null,
+                    actionHistory: includeWorkflow
+                        ? mapRevisionActionHistory(news.actionHistory)
+                        : [],
                 };
             } catch (error) {
                 console.error('Error fetching news by ID:', error);
@@ -1695,9 +1817,19 @@ const resolvers = {
 
         // Update Editor Profile (name, displayRole, location, profileImage)
         updateEditorProfile: async (_, { editorId, name, displayRole, location, profileImage }, context) => {
-            // Editors may update their own profile; admins may update anyone.
-            const auth = requireAdminContext(context);
-            if (auth.role === 'editor' && String(auth.id) !== String(editorId)) {
+            // Reporters (editor) may update ONLY their own profile.
+            // Staff (admin/superadmin/subeditor) may update any profile.
+            // Do not use ADMIN_ROLES-only gate — that would block reporters.
+            const auth = decodeAuthToken(context?.req);
+            if (!auth?.id) {
+                throw new Error('Authentication required');
+            }
+            const isStaff = Boolean(auth.role && ADMIN_ROLES.includes(auth.role));
+            const isReporter = auth.role === 'editor';
+            if (!isStaff && !isReporter) {
+                throw new Error('Not authorized');
+            }
+            if (isReporter && String(auth.id) !== String(editorId)) {
                 throw new Error('Not authorized to update another editor');
             }
             try {

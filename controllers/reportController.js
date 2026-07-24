@@ -49,7 +49,7 @@ exports.createReport = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error submitting report',
-      error: error.message
+      error: 'Request failed'
     });
   }
 };
@@ -125,7 +125,7 @@ exports.getAllReports = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching reports',
-      error: error.message
+      error: 'Request failed'
     });
   }
 };
@@ -197,7 +197,7 @@ exports.getReportsByStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching reports',
-      error: error.message
+      error: 'Request failed'
     });
   }
 };
@@ -240,7 +240,7 @@ exports.updateReportStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error updating report status',
-      error: error.message
+      error: 'Request failed'
     });
   }
 };
@@ -267,7 +267,7 @@ exports.deleteReport = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting report',
-      error: error.message
+      error: 'Request failed'
     });
   }
 };
@@ -298,7 +298,7 @@ exports.getReportStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching report statistics',
-      error: error.message
+      error: 'Request failed'
     });
   }
 };
@@ -338,7 +338,7 @@ exports.getAllCommentReports = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching comment reports',
-      error: error.message
+      error: 'Request failed'
     });
   }
 };
@@ -380,7 +380,7 @@ exports.updateCommentReportStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error updating status',
-      error: error.message
+      error: 'Request failed'
     });
   }
 };
@@ -407,7 +407,7 @@ exports.deleteCommentReport = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting report',
-      error: error.message
+      error: 'Request failed'
     });
   }
 };
@@ -480,7 +480,7 @@ exports.deleteCommentContent = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting comment',
-      error: error.message
+      error: 'Request failed'
     });
   }
 };

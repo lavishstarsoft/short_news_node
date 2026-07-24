@@ -7,56 +7,6 @@ const { checkLanguageMismatch } = require('../middleware/languageCheck');
 // Import Cloudinary upload middleware
 const { uploadMedia, uploadAdMedia } = require('../middleware/upload');
 
-// Test routes
-router.get('/test-public', (req, res) => {
-  res.send('Public test route working');
-});
-
-router.get('/test-view', (req, res) => {
-  res.render('test');
-});
-
-// Test route for debugging toggle functionality
-router.get('/test-toggle/:id', async (req, res) => {
-  try {
-    console.log('Test toggle called with ID:', req.params.id);
-    console.log('Admin:', req.admin);
-
-    // Check if using MongoDB or in-memory storage
-    const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
-    console.log('Using MongoDB:', isConnectedToMongoDB);
-
-    if (isConnectedToMongoDB) {
-      const News = require('../models/News');
-      const news = await News.findById(req.params.id);
-      console.log('News found in MongoDB:', news);
-      if (news) {
-        const updatedNews = await News.findByIdAndUpdate(
-          req.params.id,
-          { isActive: !news.isActive },
-          { new: true }
-        );
-        res.json({ message: 'Toggle successful', news: updatedNews });
-      } else {
-        res.status(404).json({ error: 'News not found' });
-      }
-    } else {
-      const newsData = req.app.locals.newsData;
-      const newsIndex = newsData.findIndex(news => news._id === req.params.id);
-      console.log('News index in in-memory storage:', newsIndex);
-      if (newsIndex !== -1) {
-        newsData[newsIndex].isActive = !newsData[newsIndex].isActive;
-        res.json({ message: 'Toggle successful', news: newsData[newsIndex] });
-      } else {
-        res.status(404).json({ error: 'News not found' });
-      }
-    }
-  } catch (error) {
-    console.error('Test toggle error:', error);
-    res.status(500).json({ error: 'Error toggling news status: ' + error.message });
-  }
-});
-
 // API routes - Apply auth middleware only to routes that need it
 router.get('/api/news', requireAuth, newsController.getAllNews);
 router.get('/api/news/:id', requireAuth, newsController.getNewsById);
@@ -69,6 +19,7 @@ router.put('/api/news/:id/dislikes', requireAuth, newsController.updateDislikeCo
 router.put('/api/news/:id/comments/:commentId', requireAuth, newsController.updateNewsComment);
 router.delete('/api/news/:id/comments/:commentId', requireAuth, newsController.deleteNewsComment);
 router.put('/api/news/:id', requireAuth, checkLanguageMismatch, newsController.updateNews);
+router.post('/api/news/:id/resubmit', requireAuth, checkLanguageMismatch, newsController.resubmitNews);
 router.delete('/api/news/:id', requireAuth, newsController.deleteNews);
 
 // Image moderation route

@@ -1,4 +1,9 @@
+'use strict';
+
+const jwt = require('jsonwebtoken');
+const { getJwtSecret } = require('../config/secrets');
 const { verifyGoogleIdToken, REQUIRE_MOBILE_AUTH } = require('./mobileAuth');
+const { ROOM } = require('../services/realtime/workflowEmit');
 
 function extractSocketToken(socket) {
   const authToken = socket.handshake?.auth?.token;
@@ -11,18 +16,52 @@ function extractSocketToken(socket) {
     return header.slice(7).trim();
   }
 
+  // Admin dashboard: same-origin cookie
+  const cookieHeader = socket.handshake?.headers?.cookie || '';
+  const match = cookieHeader.match(/(?:^|;\s*)token=([^;]+)/);
+  if (match && match[1]) {
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return match[1];
+    }
+  }
+
   return null;
 }
 
+function tryVerifyStaffJwt(token) {
+  try {
+    const decoded = jwt.verify(token, getJwtSecret());
+    if (!decoded?.id) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Socket.IO connection middleware — verifies Google ID token from the
- * handshake (auth.token or Authorization header), same as REST mobileAuth.
+ * Socket.IO connection middleware.
+ * Supports:
+ *  - Admin/Reporter JWT (cookie or auth.token)
+ *  - Google ID token (consumer / mobile)
  */
 async function socketAuthMiddleware(socket, next) {
   const token = extractSocketToken(socket);
+  socket.verifiedUserId = null;
+  socket.staff = null;
 
   if (!token) {
-    socket.verifiedUserId = null;
+    return next();
+  }
+
+  const staff = tryVerifyStaffJwt(token);
+  if (staff) {
+    socket.staff = {
+      id: String(staff.id),
+      role: staff.role || 'editor',
+      permissions: staff.permissions || {},
+    };
     return next();
   }
 
@@ -37,17 +76,30 @@ async function socketAuthMiddleware(socket, next) {
     if (REQUIRE_MOBILE_AUTH) {
       return next(new Error('Invalid authentication token'));
     }
-    console.warn(
-      `[socketAuth] Invalid token ignored (legacy mode): ${error.message}`
-    );
     socket.verifiedUserId = null;
     return next();
   }
 }
 
-/**
- * Validates a client-supplied userId against the verified socket identity.
- */
+function joinWorkflowRooms(socket) {
+  if (socket.staff?.id) {
+    const role = socket.staff.role;
+    if (role === 'editor') {
+      socket.join(ROOM.reporter(socket.staff.id));
+    } else if (
+      role === 'admin' ||
+      role === 'superadmin' ||
+      role === 'subeditor'
+    ) {
+      socket.join(ROOM.admin);
+    }
+  }
+
+  if (socket.verifiedUserId) {
+    socket.join(ROOM.consumers);
+  }
+}
+
 function assertSocketUserId(socket, claimedUserId) {
   if (!claimedUserId || typeof claimedUserId !== 'string') {
     return false;
@@ -57,6 +109,10 @@ function assertSocketUserId(socket, claimedUserId) {
     return socket.verifiedUserId === claimedUserId;
   }
 
+  if (socket.staff?.id) {
+    return socket.staff.id === claimedUserId;
+  }
+
   if (REQUIRE_MOBILE_AUTH) {
     return claimedUserId === 'anonymous_user';
   }
@@ -64,10 +120,6 @@ function assertSocketUserId(socket, claimedUserId) {
   return true;
 }
 
-/**
- * Resolves the user id stored for this socket on `register`.
- * Verified tokens always win over client-supplied ids.
- */
 function resolveRegisterUserId(socket, registeredUserId) {
   const requested =
     typeof registeredUserId === 'string' && registeredUserId.trim()
@@ -84,6 +136,10 @@ function resolveRegisterUserId(socket, registeredUserId) {
     return { ok: true, userId: socket.verifiedUserId };
   }
 
+  if (socket.staff?.id) {
+    return { ok: true, userId: socket.staff.id };
+  }
+
   if (REQUIRE_MOBILE_AUTH && requested !== 'anonymous_user') {
     return { ok: false, error: 'Authentication required to register userId' };
   }
@@ -93,6 +149,7 @@ function resolveRegisterUserId(socket, registeredUserId) {
 
 module.exports = {
   socketAuthMiddleware,
+  joinWorkflowRooms,
   assertSocketUserId,
   resolveRegisterUserId,
 };

@@ -2815,11 +2815,11 @@ async function sendNotification(req, res) {
       timestamp: new Date()
     };
 
-    // Emit to all connected clients
+    // Emit to all connected clients (manual admin push — use admin_notification only)
     io.emit('admin_notification', notificationData);
 
-    // 🚀 MANUAL NEWS NOTIFICATION: If newsId provided, also emit new_news for instant app updates
-    // Telugu: newsId ఉంటే app లో instant notification కోసం new_news event కూడా పంపుతాము
+    // If newsId provided, emit news_published for consumer app refresh — NOT new_news
+    // (new_news is reserved for reporter pending submissions → admin pending toast)
     if (newsId) {
       try {
         const newsDetails = linkedNewsItem || await News.findById(newsId).lean();
@@ -2835,20 +2835,16 @@ async function sendNotification(req, res) {
             mediaType: newsDetails.mediaType,
             mediaUrl: newsDetails.mediaUrl,
             thumbnailUrl: newsDetails.thumbnailUrl,
-            imageUrl: newsDetails.imageUrl || newsDetails.mediaUrl // Backward compatibility
+            imageUrl: newsDetails.imageUrl || newsDetails.mediaUrl
           };
 
-          // Emit new_news event for instant app notification
-          io.emit('new_news', newsNotificationData);
-          console.log('📱 MANUAL: Sent new_news WebSocket event for instant app notification');
-          console.log('🎯 News Title:', newsDetails.title);
+          const { emitPublished } = require('../services/realtime/workflowEmit');
+          emitPublished(io, newsNotificationData);
         }
       } catch (newsError) {
         console.error('⚠️ Error fetching news details for WebSocket:', newsError);
       }
     }
-
-    console.log('Sent admin notification to all clients:', notificationData);
 
     // Send OneSignal notification
     try {
@@ -2920,7 +2916,7 @@ async function sendNotification(req, res) {
     });
   } catch (error) {
     console.error('Error sending notification:', error);
-    res.status(500).json({ error: 'Error sending notification: ' + error.message });
+    res.status(500).json({ error: 'Error sending notification' });
   }
 }
 
@@ -3007,7 +3003,7 @@ async function getNotificationStats(req, res) {
     });
   } catch (error) {
     console.error('Error fetching notification stats:', error);
-    res.status(500).json({ error: 'Error fetching notification stats: ' + error.message });
+    res.status(500).json({ error: 'Error fetching notification stats' });
   }
 }
 
@@ -3026,7 +3022,7 @@ async function getNotificationById(req, res) {
     res.json(notification);
   } catch (error) {
     console.error('Error fetching notification:', error);
-    res.status(500).json({ error: 'Error fetching notification: ' + error.message });
+    res.status(500).json({ error: 'Error fetching notification' });
   }
 }
 
@@ -3084,7 +3080,7 @@ async function getNotificationHistory(req, res) {
     });
   } catch (error) {
     console.error('Error fetching notification history:', error);
-    res.status(500).json({ error: 'Error fetching notification history: ' + error.message });
+    res.status(500).json({ error: 'Error fetching notification history' });
   }
 }
 
@@ -3105,7 +3101,7 @@ async function getRecentNotifications(req, res) {
     });
   } catch (error) {
     console.error('Error fetching recent notifications:', error);
-    res.status(500).json({ error: 'Error fetching recent notifications: ' + error.message });
+    res.status(500).json({ error: 'Error fetching recent notifications' });
   }
 }
 
@@ -3138,7 +3134,7 @@ async function markNotificationOpened(req, res) {
     }
   } catch (error) {
     console.error('Error marking notification as opened:', error);
-    res.status(500).json({ error: 'Error marking notification as opened: ' + error.message });
+    res.status(500).json({ error: 'Error marking notification as opened' });
   }
 }
 
@@ -3172,7 +3168,7 @@ async function markNotificationReceived(req, res) {
     }
   } catch (error) {
     console.error('Error marking notification as received:', error);
-    res.status(500).json({ error: 'Error marking notification as received: ' + error.message });
+    res.status(500).json({ error: 'Error marking notification as received' });
   }
 }
 
@@ -3273,7 +3269,7 @@ async function renderNotificationsPage(req, res) {
     });
   } catch (error) {
     console.error('Error rendering notifications page:', error);
-    res.status(500).json({ error: 'Error rendering notifications page: ' + error.message });
+    res.status(500).json({ error: 'Error rendering notifications page' });
   }
 }
 
@@ -3285,14 +3281,23 @@ async function renderOneSignalAnalyticsPage(req, res) {
     });
   } catch (error) {
     console.error('Error rendering OneSignal analytics page:', error);
-    res.status(500).json({ error: 'Error rendering OneSignal analytics page: ' + error.message });
+    res.status(500).json({ error: 'Error rendering OneSignal analytics page' });
   }
 }
 
 // Authentication middleware
+
+/** Reporter-allowed paths when dashboard access is revoked (exact prefix match; no substring). */
+function isReporterAllowedPath(originalUrl) {
+  const path = String(originalUrl || '').split('?')[0];
+  if (path === '/news/api/news' || path.startsWith('/news/api/news/')) return true;
+  if (path === '/news/upload-media' || path.startsWith('/news/upload-media/')) return true;
+  // Reporter wallet/profile APIs under /admin (must not match /admin/api/news or reporter-applications)
+  if (path.startsWith('/admin/api/reporter/')) return true;
+  return false;
+}
+
 const requireAuth = (req, res, next) => {
-  console.log('requireAuth called for path:', req.path); // Debug log
-  console.log('Auth Header:', req.headers.authorization); // Debug log
   let token = req.cookies?.token;
 
   // Check Authorization header if cookie is missing
@@ -3306,10 +3311,7 @@ const requireAuth = (req, res, next) => {
     (req.headers.accept && req.headers.accept.includes('application/json')) ||
     (req.headers['content-type'] && req.headers['content-type'].includes('application/json'));
 
-  console.log('Is API request:', isApiRequest); // Debug log
-
   if (!token) {
-    console.log('No token found'); // Debug log
     if (isApiRequest) {
       return res.status(401).json({ error: 'Authentication required' });
     }
@@ -3333,10 +3335,7 @@ const requireAuth = (req, res, next) => {
             const hasDashboardAccess = latestAdmin.role === 'superadmin' || latestAdmin.role === 'admin' || 
                 (latestAdmin.role === 'subeditor' && latestAdmin.permissions?.canAccessAdminDashboard);
             
-            // Allow reporter app APIs (paths include mount point /news) + wallet APIs
-            const isReporterAppApi = req.originalUrl.includes('/upload-media') ||
-                                     req.originalUrl.includes('/api/news') ||
-                                     req.originalUrl.includes('/api/reporter/');
+            const isReporterAppApi = isReporterAllowedPath(req.originalUrl);
 
             if (!hasDashboardAccess && !isReporterAppApi) {
                 res.clearCookie('token');
@@ -3349,10 +3348,12 @@ const requireAuth = (req, res, next) => {
             req.admin = decoded;
             res.locals.admin = decoded;
             next();
-        }).catch(err => {
-            req.admin = decoded;
-            res.locals.admin = decoded;
-            next();
+        }).catch(() => {
+            res.clearCookie('token');
+            if (isApiRequest) {
+              return res.status(401).json({ error: 'Authentication failed' });
+            }
+            return res.redirect('/login');
         });
     } else {
         req.admin = decoded;
@@ -3360,7 +3361,6 @@ const requireAuth = (req, res, next) => {
         next();
     }
   } catch (error) {
-    console.log('Token verification failed:', error.message); // Debug log
     if (isApiRequest) {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
@@ -3473,7 +3473,7 @@ async function deleteNotification(req, res) {
     res.json({ message: 'Notification deleted successfully' });
   } catch (error) {
     console.error('Error deleting notification:', error);
-    res.status(500).json({ error: 'Error deleting notification: ' + error.message });
+    res.status(500).json({ error: 'Error deleting notification' });
   }
 }
 
@@ -3492,7 +3492,7 @@ async function deleteAllNotifications(req, res) {
     });
   } catch (error) {
     console.error('Error deleting all notifications:', error);
-    res.status(500).json({ error: 'Error deleting all notifications: ' + error.message });
+    res.status(500).json({ error: 'Error deleting all notifications' });
   }
 }
 
@@ -3521,7 +3521,7 @@ async function getOneSignalAnalytics(req, res) {
     });
   } catch (error) {
     console.error('Error fetching OneSignal analytics:', error);
-    res.status(500).json({ error: 'Error fetching OneSignal analytics: ' + error.message });
+    res.status(500).json({ error: 'Error fetching OneSignal analytics' });
   }
 }
 
@@ -3760,7 +3760,7 @@ async function renderR2UsagePage(req, res) {
 
   } catch (error) {
     console.error('R2 Usage render error:', error);
-    res.status(500).send('Error loading R2 usage dashboard: ' + error.message);
+    res.status(500).send('Error loading R2 usage dashboard');
   }
 }
 
@@ -3894,8 +3894,9 @@ async function renderPendingNewsPage(req, res) {
     query = await buildPendingNewsFilterForSubEditor(Admin, adminDoc, query);
 
     // Fetch pending news with only needed fields (uses compound index)
+    // revisionStatus included for Needs Revision / Resubmitted badges (snapshot loaded via revision-diff API)
     const pendingNews = await News.find(query)
-      .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl imageUrls readFullLink ePaperLink views duplicateCheck')
+      .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl imageUrls readFullLink ePaperLink views duplicateCheck revisionStatus actionHistory')
       .sort({ publishedAt: -1 })
       .limit(100)
       .lean();
@@ -3905,11 +3906,20 @@ async function renderPendingNewsPage(req, res) {
     const authorMap = {};
     authors.forEach(a => authorMap[a._id.toString()] = a);
 
-    const pendingNewsWithDefaults = pendingNews.map(article => ({
-      ...article,
-      authorDetails: article.authorId ? authorMap[article.authorId.toString()] : null,
-      duplicateCheck: normalizeDuplicateCheck(article.duplicateCheck)
-    }));
+    const pendingNewsWithDefaults = pendingNews.map(article => {
+      let revisionStatus = article.revisionStatus || null;
+      if (revisionStatus && revisionStatus.revisionSnapshot) {
+        // Keep list payload light — full snapshot via /revision-diff
+        const { revisionSnapshot, ...rest } = revisionStatus;
+        revisionStatus = rest;
+      }
+      return {
+        ...article,
+        revisionStatus,
+        authorDetails: article.authorId ? authorMap[article.authorId.toString()] : null,
+        duplicateCheck: normalizeDuplicateCheck(article.duplicateCheck),
+      };
+    });
 
     const { getDisplayConfigMap } = require('../services/languageRegistry');
 
@@ -4104,6 +4114,33 @@ async function updatePendingNews(req, res) {
       return res.status(400).json({ error: 'Invalid news ID' });
     }
 
+    const adminId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
+    if (!adminId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const admin = await Admin.findById(adminId).select('username role permissions displayRole').lean();
+    if (!admin) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (
+      admin.role !== 'superadmin' &&
+      admin.role !== 'admin' &&
+      admin.role !== 'subeditor'
+    ) {
+      return res.status(403).json({
+        error: 'Only admins and authorized subeditors can update pending news.',
+      });
+    }
+    if (
+      admin.role === 'subeditor' &&
+      (!admin.permissions || !admin.permissions.canApproveNews)
+    ) {
+      return res.status(403).json({
+        error: 'You do not have permission to update pending news.',
+      });
+    }
+
     const existingNews = await News.findById(id).lean();
     if (!existingNews) {
       return res.status(404).json({ error: 'News not found' });
@@ -4115,6 +4152,12 @@ async function updatePendingNews(req, res) {
 
     if (existingNews.rejectionStatus?.isRejected) {
       return res.status(400).json({ error: 'Rejected news cannot be edited from pending page' });
+    }
+
+    if (existingNews.revisionStatus?.needsRevision === true) {
+      return res.status(409).json({
+        error: 'News is in Needs Revision. Wait for reporter resubmit or refresh.',
+      });
     }
 
     const normalizedTitle = normalizeNewsContent(title || '');
@@ -4154,16 +4197,15 @@ async function updatePendingNews(req, res) {
       }
     });
 
-    const adminId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
-    const adminName = req.admin?.username || req.admin?.name || 'Editor';
+    const adminName = admin.username || req.admin?.username || req.admin?.name || 'Editor';
 
     let adminRole = 'Editor';
-    if (req.admin?.role === 'superadmin' || req.admin?.role === 'admin') {
+    if (admin.role === 'superadmin' || admin.role === 'admin') {
       adminRole = 'Admin';
-    } else if (req.admin?.role === 'subeditor' || req.admin?.role === 'sub_editor') {
+    } else if (admin.role === 'subeditor' || admin.role === 'sub_editor') {
       adminRole = 'Sub Editor';
-    } else if (req.admin?.role === 'editor') {
-      adminRole = req.admin?.displayRole || 'Reporter';
+    } else if (admin.role === 'editor') {
+      adminRole = admin.displayRole || 'Reporter';
     }
 
     const actionHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
@@ -4180,14 +4222,25 @@ async function updatePendingNews(req, res) {
       )
     );
 
-    const updatedNews = await News.findByIdAndUpdate(
-      id,
+    const updatedNews = await News.findOneAndUpdate(
+      {
+        _id: id,
+        isActive: { $ne: true },
+        'rejectionStatus.isRejected': { $ne: true },
+        'revisionStatus.needsRevision': { $ne: true },
+      },
       {
         ...updatePayload,
         actionHistory
       },
       { new: true }
     ).lean();
+
+    if (!updatedNews) {
+      return res.status(409).json({
+        error: 'News state changed. Refresh and try again.',
+      });
+    }
 
     if (changedFields.includes('title') || changedFields.includes('content')) {
       await applyPendingDuplicateCheckViaAi(id);
@@ -4223,27 +4276,44 @@ async function approveNews(req, res) {
 
     if (adminId) {
       const admin = await Admin.findById(adminId).select('username role permissions').lean();
-      if (admin) {
-        if (admin.role === 'subeditor' && (!admin.permissions || !admin.permissions.canApproveNews)) {
-          return res.status(403).json({ error: 'You do not have permission to approve news' });
-        }
-        adminName = admin.username;
-        // Format role for display
-        if (admin.role === 'superadmin' || admin.role === 'admin') {
-          adminRole = 'Admin';
-        } else if (admin.role === 'subeditor' || admin.role === 'sub_editor') {
-          adminRole = 'Sub Editor';
-        } else if (admin.role === 'reporter') {
-          adminRole = 'Reporter';
-        } else {
-          adminRole = admin.role ? admin.role.charAt(0).toUpperCase() + admin.role.slice(1) : 'Editor';
-        }
+      if (!admin) {
+        return res.status(401).json({ error: 'Unauthorized' });
       }
+      if (
+        admin.role !== 'superadmin' &&
+        admin.role !== 'admin' &&
+        admin.role !== 'subeditor'
+      ) {
+        return res.status(403).json({
+          error: 'Only admins and authorized subeditors can approve news.',
+        });
+      }
+      if (admin.role === 'subeditor' && (!admin.permissions || !admin.permissions.canApproveNews)) {
+        return res.status(403).json({ error: 'You do not have permission to approve news' });
+      }
+      adminName = admin.username;
+      // Format role for display
+      if (admin.role === 'superadmin' || admin.role === 'admin') {
+        adminRole = 'Admin';
+      } else if (admin.role === 'subeditor' || admin.role === 'sub_editor') {
+        adminRole = 'Sub Editor';
+      } else {
+        adminRole = admin.role ? admin.role.charAt(0).toUpperCase() + admin.role.slice(1) : 'Editor';
+      }
+    } else {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const existingNews = await News.findById(id).lean();
     if (!existingNews) {
       return res.status(404).json({ error: 'News not found' });
+    }
+
+    if (existingNews.isActive === true) {
+      return res.status(400).json({ error: 'News is already published.' });
+    }
+    if (existingNews.rejectionStatus?.isRejected) {
+      return res.status(400).json({ error: 'Rejected news cannot be approved.' });
     }
 
     // Language Mismatch Check
@@ -4302,25 +4372,33 @@ async function approveNews(req, res) {
       )
     );
 
-    // Update news to active with approval details
-    const updatedNews = await News.findByIdAndUpdate(
-      id,
+    // Atomic approve: only if still pending (not published / not rejected)
+    const updatedNews = await News.findOneAndUpdate(
+      {
+        _id: id,
+        isActive: { $ne: true },
+        'rejectionStatus.isRejected': { $ne: true },
+      },
       {
         isActive: true,
-        publishedAt: new Date(), // 🔥 Refresh timestamp to current time on approval so it becomes "latest"
+        publishedAt: new Date(), // Refresh timestamp on approval so it becomes "latest"
         approvalStatus: {
           isApproved: true,
           approvedBy: adminName,
           approvedByRole: adminRole,
           approvedAt: new Date()
         },
+        // Clear open revision lock if any (reject remains separate)
+        'revisionStatus.needsRevision': false,
         actionHistory
       },
       { new: true }
     );
 
     if (!updatedNews) {
-      return res.status(404).json({ error: 'News not found' });
+      return res.status(409).json({
+        error: 'News state changed. Refresh and try again.',
+      });
     }
 
     // 🔄 IMPORTANT: Clear cache FIRST, THEN emit WebSocket
@@ -4352,19 +4430,27 @@ async function approveNews(req, res) {
         isApproved: true
       };
 
-      io.emit('news_published', notificationData);
-      console.log('🐦 X-STYLE: Sent in-app notification to all connected clients');
-      console.log('📰 News Title:', updatedNews.title);
-
-      // 🔥 Send real-time updates to reporter dashboard
-      io.emit('story_status_updated_editor', {
-        id: updatedNews._id,
-        status: 'approved',
-        approvalStatus: updatedNews.approvalStatus
-      });
-      console.log('📝 Sent story_status_updated_editor (approved) to reporters');
-    } else {
-      console.log('⚠️ WebSocket io not available for in-app notifications');
+      const {
+        emitPublished,
+        emitWorkflowPair,
+      } = require('../services/realtime/workflowEmit');
+      emitPublished(io, notificationData);
+      emitWorkflowPair(
+        io,
+        updatedNews.authorId,
+        {
+          id: updatedNews._id,
+          authorId: updatedNews.authorId,
+          status: 'approved',
+          approvalStatus: updatedNews.approvalStatus,
+        },
+        {
+          id: updatedNews._id,
+          authorId: updatedNews.authorId,
+          status: 'approved',
+          title: updatedNews.title,
+        }
+      );
     }
 
     if (existingNews.authorId) {
@@ -4409,22 +4495,31 @@ async function rejectNews(req, res) {
 
     if (adminId) {
       const admin = await Admin.findById(adminId).select('username role permissions').lean();
-      if (admin) {
-        if (admin.role === 'subeditor' && (!admin.permissions || !admin.permissions.canApproveNews)) {
-          return res.status(403).json({ error: 'You do not have permission to reject news.' });
-        }
-        adminName = admin.username;
-        // Format role for display
-        if (admin.role === 'superadmin' || admin.role === 'admin') {
-          adminRole = 'Admin';
-        } else if (admin.role === 'subeditor' || admin.role === 'sub_editor') {
-          adminRole = 'Sub Editor';
-        } else if (admin.role === 'reporter') {
-          adminRole = 'Reporter';
-        } else {
-          adminRole = admin.role ? admin.role.charAt(0).toUpperCase() + admin.role.slice(1) : 'Editor';
-        }
+      if (!admin) {
+        return res.status(401).json({ error: 'Unauthorized' });
       }
+      if (
+        admin.role !== 'superadmin' &&
+        admin.role !== 'admin' &&
+        admin.role !== 'subeditor'
+      ) {
+        return res.status(403).json({
+          error: 'Only admins and authorized subeditors can reject news.',
+        });
+      }
+      if (admin.role === 'subeditor' && (!admin.permissions || !admin.permissions.canApproveNews)) {
+        return res.status(403).json({ error: 'You do not have permission to reject news.' });
+      }
+      adminName = admin.username;
+      if (admin.role === 'superadmin' || admin.role === 'admin') {
+        adminRole = 'Admin';
+      } else if (admin.role === 'subeditor' || admin.role === 'sub_editor') {
+        adminRole = 'Sub Editor';
+      } else {
+        adminRole = admin.role ? admin.role.charAt(0).toUpperCase() + admin.role.slice(1) : 'Editor';
+      }
+    } else {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const existingNews = await News.findById(id).lean();
@@ -4449,11 +4544,15 @@ async function rejectNews(req, res) {
       )
     );
 
-    // Mark article as rejected instead of deleting
-    const rejectedNews = await News.findByIdAndUpdate(
-      id,
+    // Atomic reject: only while still pending / not already rejected
+    const rejectedNews = await News.findOneAndUpdate(
       {
-        isActive: false, // Keep as inactive
+        _id: id,
+        isActive: { $ne: true },
+        'rejectionStatus.isRejected': { $ne: true },
+      },
+      {
+        isActive: false,
         rejectionStatus: {
           isRejected: true,
           reason: reason || 'Not Specified',
@@ -4462,24 +4561,37 @@ async function rejectNews(req, res) {
           rejectedByRole: adminRole,
           rejectedAt: new Date()
         },
+        'revisionStatus.needsRevision': false,
         actionHistory
       },
       { new: true }
     );
 
     if (!rejectedNews) {
-      return res.status(404).json({ error: 'News not found' });
+      return res.status(409).json({
+        error: 'News state changed. Refresh and try again.',
+      });
     }
 
-    // 🔥 Send real-time updates to reporter dashboard
     const io = req.app.locals.io;
     if (io) {
-      io.emit('story_status_updated_editor', {
-        id: rejectedNews._id,
-        status: 'rejected',
-        rejectionStatus: rejectedNews.rejectionStatus
-      });
-      console.log('📝 Sent story_status_updated_editor (rejected) to reporters');
+      const { emitWorkflowPair } = require('../services/realtime/workflowEmit');
+      emitWorkflowPair(
+        io,
+        rejectedNews.authorId,
+        {
+          id: rejectedNews._id,
+          authorId: rejectedNews.authorId,
+          status: 'rejected',
+          rejectionStatus: rejectedNews.rejectionStatus,
+        },
+        {
+          id: rejectedNews._id,
+          authorId: rejectedNews.authorId,
+          status: 'rejected',
+          title: rejectedNews.title,
+        }
+      );
     }
 
     res.json({
@@ -4491,6 +4603,329 @@ async function rejectNews(req, res) {
   } catch (error) {
     console.error('Error rejecting news:', error);
     res.status(500).json({ error: 'Failed to reject news' });
+  }
+}
+
+/**
+ * Send pending news back for revision (Needs Revision).
+ * Does NOT set rejectionStatus. Keeps isActive false.
+ */
+async function sendBackForEdit(req, res) {
+  try {
+    const { id } = req.params;
+    const remarks = typeof req.body?.remarks === 'string' ? req.body.remarks.trim() : '';
+
+    if (!remarks || remarks.length < 5) {
+      return res.status(400).json({
+        error: 'Revision remarks are required (minimum 5 characters).',
+      });
+    }
+    if (remarks.length > 2000) {
+      return res.status(400).json({
+        error: 'Revision remarks cannot exceed 2000 characters.',
+      });
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid news ID' });
+    }
+
+    const adminId =
+      req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
+    let adminName = 'Editor';
+    let adminRole = 'Editor';
+    let adminRoleRaw = req.admin?.role || '';
+
+    if (adminId) {
+      const admin = await Admin.findById(adminId)
+        .select('username role permissions')
+        .lean();
+      if (!admin) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      if (
+        admin.role === 'subeditor' &&
+        (!admin.permissions || !admin.permissions.canApproveNews)
+      ) {
+        return res
+          .status(403)
+          .json({ error: 'You do not have permission to send news back for edit.' });
+      }
+      if (
+        admin.role !== 'superadmin' &&
+        admin.role !== 'admin' &&
+        admin.role !== 'subeditor'
+      ) {
+        return res
+          .status(403)
+          .json({ error: 'Only admins and authorized subeditors can send news back.' });
+      }
+      adminName = admin.username;
+      adminRoleRaw = admin.role;
+      if (admin.role === 'superadmin' || admin.role === 'admin') {
+        adminRole = 'Admin';
+      } else if (admin.role === 'subeditor' || admin.role === 'sub_editor') {
+        adminRole = 'Sub Editor';
+      } else {
+        adminRole = admin.role
+          ? admin.role.charAt(0).toUpperCase() + admin.role.slice(1)
+          : 'Editor';
+      }
+    } else {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const existingNews = await News.findById(id);
+    if (!existingNews) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    if (existingNews.isActive === true) {
+      return res.status(400).json({
+        error: 'Published news cannot be sent back for revision.',
+      });
+    }
+    if (existingNews.rejectionStatus && existingNews.rejectionStatus.isRejected) {
+      return res.status(400).json({
+        error: 'Rejected news cannot be sent back for revision. Reject is final.',
+      });
+    }
+
+    const {
+      captureRevisionSnapshot,
+    } = require('../services/newsRevision/revisionHelpers');
+
+    const prev = existingNews.revisionStatus || {};
+    const nextCount = (Number(prev.revisionCount) || 0) + 1;
+    const snapshot = captureRevisionSnapshot(existingNews, nextCount);
+    const sentAt = new Date();
+
+    const actionHistory = Array.isArray(existingNews.actionHistory)
+      ? [...existingNews.actionHistory]
+      : [];
+    actionHistory.push(
+      buildAdminNewsHistory(
+        'needs_revision',
+        adminId,
+        adminName,
+        adminRole,
+        `Sent back for revision (round ${nextCount})`,
+        {
+          round: nextCount,
+          remarks,
+          role: adminRoleRaw,
+        }
+      )
+    );
+
+    const revisionStatus = {
+      needsRevision: true,
+      remarks,
+      sentBackBy: adminName,
+      sentBackById: String(adminId),
+      sentBackByRole: adminRole,
+      sentAt,
+      revisionCount: nextCount,
+      lastRevisionRound: nextCount,
+      lastResubmitRound: Number(prev.lastResubmitRound) || 0,
+      resubmittedAt: prev.resubmittedAt || null,
+      revisionSnapshot: snapshot,
+      lastChangeSummary: prev.lastChangeSummary || null,
+    };
+
+    // Atomic send-back: exclusive with concurrent resubmit (fingerprint needsRevision + revisionCount)
+    const prevNeedsRevision = prev.needsRevision === true;
+    const prevCount = Number(prev.revisionCount) || 0;
+    const sendBackFilter = {
+      _id: id,
+      isActive: { $ne: true },
+      'rejectionStatus.isRejected': { $ne: true },
+    };
+    if (prevNeedsRevision) {
+      sendBackFilter['revisionStatus.needsRevision'] = true;
+      sendBackFilter['revisionStatus.revisionCount'] = prevCount;
+    } else {
+      sendBackFilter['revisionStatus.needsRevision'] = { $ne: true };
+      // First-time / waiting: count 0 or field absent (legacy docs)
+      sendBackFilter.$and = [
+        {
+          $or: [
+            { 'revisionStatus.revisionCount': prevCount },
+            { 'revisionStatus.revisionCount': { $exists: false } },
+            { revisionStatus: { $exists: false } },
+          ],
+        },
+      ];
+    }
+
+    const savedNews = await News.findOneAndUpdate(
+      sendBackFilter,
+      {
+        $set: {
+          isActive: false,
+          revisionStatus,
+          actionHistory,
+        },
+      },
+      { new: true }
+    );
+
+    if (!savedNews) {
+      return res.status(409).json({
+        error: 'News state changed. Refresh and try again.',
+      });
+    }
+
+    const io = req.app.locals.io;
+    if (io) {
+      const { emitWorkflowPair } = require('../services/realtime/workflowEmit');
+      emitWorkflowPair(
+        io,
+        savedNews.authorId,
+        {
+          id: savedNews._id,
+          authorId: savedNews.authorId,
+          status: 'needs_revision',
+          message: 'Your news requires revision.',
+          revisionStatus: {
+            needsRevision: true,
+            remarks,
+            revisionCount: nextCount,
+            lastRevisionRound: nextCount,
+            sentBackBy: adminName,
+            sentBackByRole: adminRole,
+            sentAt,
+          },
+        },
+        {
+          id: savedNews._id,
+          authorId: savedNews.authorId,
+          status: 'needs_revision',
+          message: 'Article sent back for revision.',
+          title: savedNews.title,
+          remarks,
+          revisionStatus: {
+            needsRevision: true,
+            remarks,
+            revisionCount: nextCount,
+            lastRevisionRound: nextCount,
+            sentBackBy: adminName,
+            sentBackByRole: adminRole,
+            sentAt,
+          },
+        }
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: 'News sent back for revision.',
+      news: savedNews,
+    });
+  } catch (error) {
+    console.error('Error sending news back for edit:', error);
+    return res.status(500).json({ error: 'Failed to send news back for edit' });
+  }
+}
+
+/**
+ * Compare Versions payload for admin pending review.
+ * Returns frozen revisionSnapshot (Previous) + current fields + lastChangeSummary + revision history.
+ */
+async function getNewsRevisionDiff(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid news ID' });
+    }
+
+    const adminId =
+      req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
+    if (!adminId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const admin = await Admin.findById(adminId).select('role permissions').lean();
+    if (!admin) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (
+      admin.role !== 'superadmin' &&
+      admin.role !== 'admin' &&
+      !(admin.role === 'subeditor' && admin.permissions?.canApproveNews)
+    ) {
+      return res.status(403).json({
+        error: 'You do not have permission to view revision comparison.',
+      });
+    }
+
+    const news = await News.findById(id)
+      .select(
+        'title content category location language scope mediaUrl mediaType thumbnailUrl imageUrl imageUrls videoUrl sourceLink readFullLink ePaperLink revisionStatus actionHistory isActive rejectionStatus author authorId'
+      )
+      .lean();
+
+    if (!news) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    const rs = news.revisionStatus || {};
+    const snapshot = rs.revisionSnapshot || null;
+    let lastChangeSummary = rs.lastChangeSummary || null;
+
+    // If summary missing but snapshot exists, compute on the fly for admin UI
+    if (!lastChangeSummary && snapshot) {
+      const { buildChangeSummary } = require('../services/newsRevision/revisionHelpers');
+      lastChangeSummary = buildChangeSummary(
+        snapshot,
+        news,
+        Number(rs.lastResubmitRound) || Number(rs.lastRevisionRound) || 1
+      );
+    }
+
+    const history = Array.isArray(news.actionHistory)
+      ? news.actionHistory.filter((entry) =>
+          ['needs_revision', 'resubmitted', 'approved', 'rejected', 'created'].includes(
+            entry && entry.action
+          )
+        )
+      : [];
+
+    return res.json({
+      success: true,
+      newsId: news._id,
+      revisionStatus: {
+        needsRevision: rs.needsRevision === true,
+        remarks: rs.remarks || null,
+        sentBackBy: rs.sentBackBy || null,
+        sentBackByRole: rs.sentBackByRole || null,
+        sentAt: rs.sentAt || null,
+        revisionCount: Number(rs.revisionCount) || 0,
+        lastRevisionRound: Number(rs.lastRevisionRound) || 0,
+        lastResubmitRound: Number(rs.lastResubmitRound) || 0,
+        resubmittedAt: rs.resubmittedAt || null,
+      },
+      previous: snapshot,
+      current: {
+        title: news.title || '',
+        content: news.content || '',
+        category: news.category || '',
+        location: news.location || '',
+        language: news.language || '',
+        scope: news.scope || '',
+        mediaUrl: news.mediaUrl || '',
+        mediaType: news.mediaType || '',
+        thumbnailUrl: news.thumbnailUrl || '',
+        imageUrl: news.imageUrl || '',
+        imageUrls: Array.isArray(news.imageUrls) ? news.imageUrls : [],
+        videoUrl: news.videoUrl || '',
+        sourceLink: news.sourceLink || '',
+      },
+      lastChangeSummary,
+      history,
+    });
+  } catch (error) {
+    console.error('Error loading revision diff:', error);
+    return res.status(500).json({ error: 'Failed to load revision comparison' });
   }
 }
 
@@ -9051,6 +9486,8 @@ module.exports = {
   updatePendingNews,
   approveNews,
   rejectNews,
+  sendBackForEdit,
+  getNewsRevisionDiff,
   checkDuplicateArticles,
   renderPlagiarismReportPage,
   getDuplicateDetails,
