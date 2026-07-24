@@ -2,6 +2,8 @@
 <html lang="en">
 <%- include('partials/header', { title: title }) %>
 <link rel="stylesheet" href="/css/ai-insights.css">
+<link rel="stylesheet" href="/css/ai-insights-compare.css">
+<script src="/js/ai-insights-compare.js?v=2" defer></script>
 <body>
 <%- include('partials/top-nav', {
   pageTitle: 'Group #' + group.groupNumber,
@@ -61,8 +63,15 @@
               <span class="ai-badge ai-badge-score"><%= s.similarityPercent %>%</span>
               <div><strong><%= s.headline %></strong></div>
               <div class="ai-meta">Reporter: <%= s.reporterName || '—' %> · Sub Editor: <%= s.subEditorName || '—' %></div>
-              <% if (s.newsId) { %>
-                <div class="mt-1"><a href="/edit-news/<%= s.newsId %>" target="_blank">Open article</a></div>
+              <% if (s.newsId && group.original && group.original.newsId) { %>
+                <div class="mt-1">
+                  <button
+                    type="button"
+                    class="ai-btn ai-btn-primary"
+                    onclick="AiInsightsCompare.open('<%= group.id %>', '<%= group.original.newsId %>', '<%= s.newsId %>')"
+                  >Compare with original</button>
+                  <a class="ai-btn ai-btn-ghost" href="/edit-news/<%= s.newsId %>" target="_blank" rel="noopener">Open article</a>
+                </div>
               <% } %>
             </div>
           </div>
@@ -79,13 +88,21 @@
               Sub Editor: <%= group.original.subEditorName || '—' %><br>
               Published: <%= group.original.publishedDate %> · <%= group.original.publishedTime %><br>
               <% if (group.original.newsId) { %>
-                <a href="/edit-news/<%= group.original.newsId %>" target="_blank">Open original</a>
+                <a href="/edit-news/<%= group.original.newsId %>" target="_blank" rel="noopener">Open original</a>
               <% } %>
             </div>
           </div>
         <% } %>
         <% (group.similars || []).forEach(function(s) { %>
-          <div class="ai-member similar mb-3">
+          <div
+            class="ai-member similar mb-3"
+            role="button"
+            tabindex="0"
+            data-compare-group="<%= group.id %>"
+            data-compare-original="<%= group.original && group.original.newsId %>"
+            data-compare-duplicate="<%= s.newsId %>"
+            title="Click to compare with original"
+          >
             <span class="ai-badge ai-badge-similar">❌ SIMILAR</span>
             <span class="ai-badge ai-badge-score"><%= s.similarityPercent %>%</span>
             <h4><%= s.headline %></h4>
@@ -95,6 +112,7 @@
               Published: <%= s.publishedDate %> · <%= s.publishedTime %><br>
               Time difference: <%= s.timeDiffLabel %> (<%= s.timeDiffHuman %>)
             </div>
+            <div class="ai-compare-hint">Click to compare side-by-side →</div>
           </div>
         <% }) %>
       </div>
@@ -116,6 +134,25 @@
       alert('Could not update status');
     }
   }
+
+  function openRowCompare(el) {
+    if (!window.AiInsightsCompare || !el) return;
+    const groupId = el.getAttribute('data-compare-group');
+    const originalId = el.getAttribute('data-compare-original');
+    const duplicateId = el.getAttribute('data-compare-duplicate');
+    if (!groupId || !originalId || !duplicateId) return;
+    window.AiInsightsCompare.open(groupId, originalId, duplicateId);
+  }
+
+  document.querySelectorAll('[data-compare-duplicate]').forEach(function (el) {
+    el.addEventListener('click', function () { openRowCompare(el); });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openRowCompare(el);
+      }
+    });
+  });
 </script>
 
 <%- include('partials/footer') %>

@@ -453,7 +453,7 @@
                 <div class="modal-header pn-modal-header pn-dup-modal-header">
                     <div>
                         <h3 id="dupModalTitle">Duplicate review</h3>
-                        <p id="dupModalSubtitle" class="pn-dup-modal-subtitle">Compare this pending submission with matched published articles.</p>
+                        <p id="dupModalSubtitle" class="pn-dup-modal-subtitle">Left = this pending submission (not published). Right = matched news. Use the list to open every match.</p>
                     </div>
                     <button type="button" class="modal-close pn-modal-close" onclick="closeDuplicateModal()" aria-label="Close"><i class="fas fa-xmark"></i></button>
                 </div>
@@ -1790,6 +1790,39 @@
                 return renderRichContent(text);
             }
 
+            function resolveDupMediaUrl(item) {
+                if (!item) return '';
+                if (item.mediaUrl) return item.mediaUrl;
+                if (item.imageUrl) return item.imageUrl;
+                if (item.thumbnailUrl) return item.thumbnailUrl;
+                if (Array.isArray(item.imageUrls) && item.imageUrls.length) return item.imageUrls[0];
+                return '';
+            }
+
+            function getPublishStatusMeta(item, fallbackPending) {
+                const status = (item && item.publishStatus) ||
+                    (item && item.isRejected ? 'rejected' :
+                        (item && item.isActive === true ? 'published' :
+                            (fallbackPending ? 'not_published' : 'unknown')));
+                if (status === 'published') {
+                    return { key: 'published', label: 'Published', className: 'pn-dup-status--published' };
+                }
+                if (status === 'rejected') {
+                    return { key: 'rejected', label: 'Rejected', className: 'pn-dup-status--rejected' };
+                }
+                if (status === 'not_published') {
+                    return { key: 'not_published', label: 'Not published', className: 'pn-dup-status--pending' };
+                }
+                return { key: 'unknown', label: 'Status unknown', className: 'pn-dup-status--unknown' };
+            }
+
+            function renderDupMediaBlock(url, altText) {
+                if (!url) {
+                    return '<div class="pn-dup-match-media pn-dup-match-media--empty"><i class="fas fa-image"></i><span>No image</span></div>';
+                }
+                return `<div class="pn-dup-match-media"><img src="${escapeHtml(url)}" alt="${escapeHtml(altText || 'Article media')}" loading="lazy"></div>`;
+            }
+
             function renderDuplicateComparison(pending, matches, selectedIndex) {
                 const selected = matches[selectedIndex] || matches[0];
                 const breakdown = getSimilarityBreakdown(selected);
@@ -1805,8 +1838,11 @@
                     (breakdown.title || 0) === 0 &&
                     (breakdown.content || 0) === 0 &&
                     (breakdown.keywords || 0) === 0;
-                const matchStatusLabel =
-                    selected.isActive === true ? 'Published match' : 'Matched article';
+
+                const pendingStatus = getPublishStatusMeta(pending, true);
+                const matchStatus = getPublishStatusMeta(selected, false);
+                const pendingMediaUrl = resolveDupMediaUrl(pending);
+                const matchMediaUrl = resolveDupMediaUrl(selected);
 
                 const matchListHtml = matches.map(function(match, idx) {
                     const score = getOverallSimilarity(match);
@@ -1815,6 +1851,7 @@
                     const title = match.articleTitle || 'Untitled article';
                     const author = match.author || 'Unknown author';
                     const category = match.category || 'Uncategorized';
+                    const status = getPublishStatusMeta(match, false);
                     return `
                         <button type="button" class="pn-dup-match-item${isActive}" onclick="selectDuplicateMatch(${idx})">
                             <div class="pn-dup-match-item-top">
@@ -1824,6 +1861,7 @@
                             </div>
                             <div class="pn-dup-match-title rich-text">${renderRichContent(title)}</div>
                             <div class="pn-dup-match-meta">
+                                <span class="pn-dup-status-badge ${status.className}">${escapeHtml(status.label)}</span>
                                 <span><i class="fas fa-user"></i> ${escapeHtml(author)}</span>
                                 <span><i class="fas fa-tag"></i> ${escapeHtml(category)}</span>
                             </div>
@@ -1843,10 +1881,6 @@
                        ${renderSimilarityBar('Content', breakdown.content)}
                        ${renderSimilarityBar('Keywords', breakdown.keywords)}`;
 
-                const matchMediaHtml = selected.mediaUrl || selected.thumbnailUrl
-                    ? `<div class="pn-dup-match-media"><img src="${escapeHtml(selected.mediaUrl || selected.thumbnailUrl)}" alt="Matched media" loading="lazy"></div>`
-                    : '';
-
                 const matchBodyHtml = selected.content
                     ? renderNewsText(selected.content)
                     : (isImageMatch
@@ -1856,7 +1890,10 @@
                 return `
                     <div class="pn-dup-summary">
                         <div class="pn-dup-summary-card">
-                            <div class="pn-dup-summary-label">Pending submission</div>
+                            <div class="pn-dup-summary-label">
+                                This submission
+                                <span class="pn-dup-status-badge ${pendingStatus.className}">${escapeHtml(pendingStatus.label)}</span>
+                            </div>
                             <div class="pn-dup-summary-title rich-text">${renderNewsText(pending.title)}</div>
                             <div class="pn-dup-summary-meta">
                                 <span><i class="fas fa-user"></i> ${escapeHtml(pending.author || 'Reporter')}</span>
@@ -1864,7 +1901,11 @@
                             </div>
                         </div>
                         <div class="pn-dup-summary-card pn-dup-summary-card--match">
-                            <div class="pn-dup-summary-label">Selected match ${matchSourceChip(selected)} <span class="pn-dup-tier-badge ${tier.className}">${tier.label}</span></div>
+                            <div class="pn-dup-summary-label">
+                                Selected match ${matchSourceChip(selected)}
+                                <span class="pn-dup-status-badge ${matchStatus.className}">${escapeHtml(matchStatus.label)}</span>
+                                <span class="pn-dup-tier-badge ${tier.className}">${tier.label}</span>
+                            </div>
                             <div class="pn-dup-summary-title rich-text">${renderNewsText(selected.articleTitle || 'Untitled article')}</div>
                             <div class="pn-dup-summary-meta">
                                 <span><i class="fas fa-user"></i> ${escapeHtml(selected.author || 'Unknown author')}</span>
@@ -1876,10 +1917,12 @@
                     <div class="pn-dup-layout">
                         <aside class="pn-dup-match-list">
                             <div class="pn-dup-match-list-head">
-                                <span>Matched articles</span>
+                                <span>All matched news</span>
                                 <span class="pn-dup-match-count">${matches.length}</span>
                             </div>
-                            ${matchListHtml}
+                            <div class="pn-dup-match-list-scroll">
+                                ${matchListHtml}
+                            </div>
                         </aside>
 
                         <section class="pn-dup-compare-panel">
@@ -1894,17 +1937,20 @@
                             <div class="pn-dup-side-by-side">
                                 <article class="pn-dup-article pn-dup-article--pending">
                                     <header>
-                                        <span class="pn-dup-article-label">Pending</span>
+                                        <span class="pn-dup-article-label">Left · This submission</span>
+                                        <span class="pn-dup-status-badge ${pendingStatus.className}">${escapeHtml(pendingStatus.label)}</span>
                                         <h4 class="rich-text">${renderNewsText(pending.title)}</h4>
                                     </header>
+                                    ${renderDupMediaBlock(pendingMediaUrl, 'Pending article image')}
                                     <div class="pn-dup-article-body rich-text">${renderNewsText(pending.content)}</div>
                                 </article>
                                 <article class="pn-dup-article pn-dup-article--published">
                                     <header>
-                                        <span class="pn-dup-article-label">${escapeHtml(matchStatusLabel)}</span>
+                                        <span class="pn-dup-article-label">Right · Matched news</span>
+                                        <span class="pn-dup-status-badge ${matchStatus.className}">${escapeHtml(matchStatus.label)}</span>
                                         <h4 class="rich-text">${renderNewsText(selected.articleTitle || 'Untitled article')}</h4>
                                     </header>
-                                    ${matchMediaHtml}
+                                    ${renderDupMediaBlock(matchMediaUrl, 'Matched article image')}
                                     <div class="pn-dup-article-body rich-text">${matchBodyHtml}</div>
                                 </article>
                             </div>

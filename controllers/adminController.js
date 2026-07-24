@@ -4018,7 +4018,7 @@ async function getPendingNewsDuplicateMatches(req, res) {
     }
 
     const pendingArticle = await News.findById(id)
-      .select('_id title content author category location language publishedAt isActive rejectionStatus mediaUrl mediaType imageUrls thumbnailUrl videoUrl')
+      .select('_id title content author category location language publishedAt isActive rejectionStatus mediaUrl mediaType imageUrl imageUrls thumbnailUrl videoUrl')
       .lean();
 
     if (!pendingArticle) {
@@ -4075,6 +4075,13 @@ async function getPendingNewsDuplicateMatches(req, res) {
       duplicateCheck
     });
 
+    const pendingMedia =
+      pendingArticle.mediaUrl ||
+      pendingArticle.imageUrl ||
+      pendingArticle.thumbnailUrl ||
+      (Array.isArray(pendingArticle.imageUrls) && pendingArticle.imageUrls[0]) ||
+      null;
+
     res.json({
       success: true,
       pendingArticle: {
@@ -4086,8 +4093,14 @@ async function getPendingNewsDuplicateMatches(req, res) {
         location: pendingArticle.location,
         language: pendingArticle.language,
         publishedAt: pendingArticle.publishedAt,
-        mediaUrl: pendingArticle.mediaUrl || pendingArticle.thumbnailUrl || null,
-        mediaType: pendingArticle.mediaType || null
+        mediaUrl: pendingMedia,
+        thumbnailUrl: pendingArticle.thumbnailUrl || pendingMedia,
+        imageUrls: Array.isArray(pendingArticle.imageUrls)
+          ? pendingArticle.imageUrls.filter(Boolean)
+          : [],
+        mediaType: pendingArticle.mediaType || null,
+        isActive: false,
+        publishStatus: 'not_published',
       },
       duplicateCheck
     });

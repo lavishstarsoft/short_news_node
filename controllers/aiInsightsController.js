@@ -218,6 +218,68 @@ async function apiTriggerScan(req, res) {
   }
 }
 
+/**
+ * GET /admin/api/ai-insights/groups/:id/compare?left=&right=
+ * Full article compare — does not run duplicate detection.
+ */
+async function apiCompare(req, res) {
+  try {
+    if (!req.admin || req.admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Super admin only' });
+    }
+    const result = await dashboard.getComparePair(
+      req.params.id,
+      req.query.left,
+      req.query.right
+    );
+    if (!result.ok) {
+      const map = {
+        missing_params: 400,
+        group_not_found: 404,
+        ids_not_in_group: 400,
+        article_not_found: 404,
+      };
+      return res.status(map[result.error] || 400).json({
+        success: false,
+        error: result.error || 'compare_failed',
+      });
+    }
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('[AI Insights] compare error', error);
+    return res.status(500).json({ error: 'Failed to load comparison' });
+  }
+}
+
+/**
+ * POST /admin/api/ai-insights/translate
+ * Body: { texts: string[], targetLang: 'en'|'hi'|'te', sourceLang?: string }
+ * UI-only; does not mutate articles.
+ */
+async function apiTranslate(req, res) {
+  try {
+    if (!req.admin || req.admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Super admin only' });
+    }
+    const { texts, targetLang, sourceLang } = req.body || {};
+    if (!Array.isArray(texts) || !targetLang) {
+      return res.status(400).json({ error: 'texts and targetLang are required' });
+    }
+    if (texts.length > 20) {
+      return res.status(400).json({ error: 'Too many texts' });
+    }
+    const { translateTexts, ALLOWED } = require('../services/aiInsights/translateService');
+    if (!ALLOWED.has(String(targetLang).toLowerCase())) {
+      return res.status(400).json({ error: 'Unsupported language' });
+    }
+    const translations = await translateTexts(texts, targetLang, sourceLang || 'auto');
+    return res.json({ success: true, translations, targetLang });
+  } catch (error) {
+    console.error('[AI Insights] translate error', error);
+    return res.status(500).json({ error: 'Translation failed' });
+  }
+}
+
 module.exports = {
   requireInsightsSuperAdmin,
   renderDuplicateInsightsPage,
@@ -229,4 +291,6 @@ module.exports = {
   apiCharts,
   apiUpdateGroupStatus,
   apiTriggerScan,
+  apiCompare,
+  apiTranslate,
 };

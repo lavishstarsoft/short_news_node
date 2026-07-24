@@ -313,7 +313,7 @@ function mapAiResponseToDuplicateCheck(aiData, candidates = []) {
     matchSource: reason.matchSource,
     reasonLabel: reason.reasonLabel,
     reasonMessage: reason.reasonMessage,
-    similarArticles: similarArticles.slice(0, 5),
+    similarArticles: similarArticles.slice(0, 20),
   };
 }
 

@@ -140,6 +140,16 @@ router.post(
   adminController.requireAuth,
   aiInsightsController.apiTriggerScan
 );
+router.get(
+  '/api/ai-insights/groups/:id/compare',
+  adminController.requireAuth,
+  aiInsightsController.apiCompare
+);
+router.post(
+  '/api/ai-insights/translate',
+  adminController.requireAuth,
+  aiInsightsController.apiTranslate
+);
 
 // Rejected News route
 router.get('/rejected-news', adminController.requireAuth, adminController.renderRejectedNewsPage);

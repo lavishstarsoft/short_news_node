@@ -78,7 +78,7 @@ function buildDuplicateCheckResult(duplicateResults, exactMatch = null) {
 
   const topMatches = duplicateResults
     .filter(result => result.similarity.overall >= MIN_MATCH_SCORE)
-    .slice(0, 5)
+    .slice(0, 20)
     .map((result) => ({
       ...result,
       matchSource: result.matchSource || 'content',

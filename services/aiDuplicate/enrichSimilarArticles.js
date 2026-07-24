@@ -41,7 +41,7 @@ async function enrichSimilarArticlesFromDb(similarArticles, deps = {}) {
 
   const docs = await News.find({ _id: { $in: ids } })
     .select(
-      '_id title content author category location publishedAt isActive mediaUrl mediaType thumbnailUrl language'
+      '_id title content author category location publishedAt isActive mediaUrl mediaType thumbnailUrl imageUrl imageUrls language rejectionStatus'
     )
     .lean();
   const byId = new Map(docs.map((d) => [String(d._id), d]));
@@ -57,6 +57,19 @@ async function enrichSimilarArticlesFromDb(similarArticles, deps = {}) {
     }
     const needsTitle = !row.articleTitle || !String(row.articleTitle).trim();
     const needsContent = !row.content || !String(row.content).trim();
+    const isRejected = doc.rejectionStatus?.isRejected === true;
+    const publishStatus = doc.isActive === true && !isRejected
+      ? 'published'
+      : isRejected
+        ? 'rejected'
+        : 'not_published';
+    const media =
+      row.mediaUrl ||
+      doc.mediaUrl ||
+      doc.imageUrl ||
+      (Array.isArray(doc.imageUrls) && doc.imageUrls[0]) ||
+      doc.thumbnailUrl ||
+      null;
     return {
       ...row,
       articleId: String(doc._id),
@@ -67,10 +80,13 @@ async function enrichSimilarArticlesFromDb(similarArticles, deps = {}) {
       location: row.location || doc.location || null,
       publishedAt: row.publishedAt || doc.publishedAt || null,
       isActive: typeof row.isActive === 'boolean' ? row.isActive : doc.isActive === true,
+      isRejected,
+      publishStatus,
       language: row.language || doc.language || null,
-      mediaUrl: row.mediaUrl || doc.mediaUrl || doc.thumbnailUrl || null,
+      mediaUrl: media,
       mediaType: row.mediaType || doc.mediaType || null,
-      thumbnailUrl: row.thumbnailUrl || doc.thumbnailUrl || doc.mediaUrl || null,
+      thumbnailUrl: row.thumbnailUrl || doc.thumbnailUrl || media || null,
+      imageUrls: Array.isArray(doc.imageUrls) ? doc.imageUrls.filter(Boolean) : [],
     };
   });
 }

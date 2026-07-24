@@ -329,6 +329,136 @@ function createDashboardService(deps = {}) {
     return { ok: true, group: updated };
   }
 
+  function serializeArticle(doc, memberMeta = null) {
+    if (!doc) return null;
+    const imageUrls = Array.isArray(doc.imageUrls)
+      ? doc.imageUrls.filter(Boolean)
+      : [];
+    const status = doc.rejectionStatus?.isRejected
+      ? 'Rejected'
+      : doc.isActive
+        ? 'Published'
+        : 'Pending';
+    const dup = doc.duplicateCheck || {};
+    return {
+      id: String(doc._id),
+      title: doc.title || '',
+      content: doc.content || '',
+      reporter: (memberMeta && memberMeta.reporterName) || doc.author || '—',
+      reporterId: (memberMeta && memberMeta.reporterId) || doc.authorId || null,
+      subEditor: (memberMeta && memberMeta.subEditorName) || null,
+      language: doc.language || (memberMeta && memberMeta.language) || null,
+      category: doc.category || null,
+      location: doc.location || null,
+      scope: doc.scope || null,
+      state: null,
+      district: doc.scope === 'district' ? doc.location || null : null,
+      constituency: doc.authorConstituency || null,
+      createdAt: doc.createdAt || doc.publishedAt || null,
+      updatedAt: doc.updatedAt || null,
+      publishedAt: doc.publishedAt || null,
+      status,
+      isActive: doc.isActive !== false,
+      similarityPercent:
+        memberMeta && memberMeta.similarityPercent != null
+          ? memberMeta.similarityPercent
+          : memberMeta && memberMeta.role === C.MEMBER_ROLE.ORIGINAL
+            ? 100
+            : null,
+      role: (memberMeta && memberMeta.role) || null,
+      timeDiffLabel: (memberMeta && memberMeta.timeDiffLabel) || null,
+      timeDiffHuman: (memberMeta && memberMeta.timeDiffHuman) || null,
+      featuredImage: doc.mediaUrl || doc.imageUrl || doc.thumbnailUrl || imageUrls[0] || null,
+      mediaType: doc.mediaType || (doc.videoUrl ? 'video' : 'image'),
+      mediaUrl: doc.mediaUrl || null,
+      thumbnailUrl: doc.thumbnailUrl || null,
+      videoUrl: doc.videoUrl || null,
+      imageUrls,
+      aiMetadata: {
+        duplicateScore: dup.score != null ? dup.score : null,
+        isDuplicate: dup.isDuplicate === true,
+        isSuspicious: dup.isSuspicious === true,
+        matchSource: dup.matchSource || null,
+        reasonLabel: dup.reasonLabel || null,
+        reasonMessage: dup.reasonMessage || null,
+        checkedAt: dup.checkedAt || null,
+        contentHash: doc.contentHash || null,
+        mediaFingerprintStatus:
+          (doc.mediaFingerprint && doc.mediaFingerprint.status) || null,
+      },
+    };
+  }
+
+  /**
+   * Side-by-side compare payload for Insights UI.
+   * Reads stored group similarity + live News docs. Does NOT run FAISS/matching.
+   */
+  async function getComparePair(groupId, leftId, rightId) {
+    if (!groupId || !leftId || !rightId) {
+      return { ok: false, error: 'missing_params' };
+    }
+    const g = await AiDuplicateGroup.findById(groupId).lean();
+    if (!g) return { ok: false, error: 'group_not_found' };
+
+    const members = (g.members || []).map(decorateMember);
+    const memberIds = new Set(members.map((m) => String(m.newsId)));
+    const leftKey = String(leftId);
+    const rightKey = String(rightId);
+    if (!memberIds.has(leftKey) || !memberIds.has(rightKey)) {
+      return { ok: false, error: 'ids_not_in_group' };
+    }
+
+    const leftMeta = members.find((m) => String(m.newsId) === leftKey) || null;
+    const rightMeta = members.find((m) => String(m.newsId) === rightKey) || null;
+
+    const docs = await News.find({ _id: { $in: [leftKey, rightKey] } })
+      .select(
+        'title content author authorId category location scope language publishedAt createdAt updatedAt isActive mediaUrl mediaType thumbnailUrl imageUrl imageUrls videoUrl authorConstituency contentHash duplicateCheck mediaFingerprint rejectionStatus'
+      )
+      .lean();
+
+    const byId = new Map(docs.map((d) => [String(d._id), d]));
+    const leftDoc = byId.get(leftKey);
+    const rightDoc = byId.get(rightKey);
+    if (!leftDoc || !rightDoc) {
+      return { ok: false, error: 'article_not_found' };
+    }
+
+    const originalMeta =
+      members.find((m) => m.role === C.MEMBER_ROLE.ORIGINAL) || leftMeta;
+    const originalId = originalMeta ? String(originalMeta.newsId) : leftKey;
+    const duplicateMeta =
+      members.find(
+        (m) =>
+          m.role === C.MEMBER_ROLE.SIMILAR &&
+          (String(m.newsId) === leftKey || String(m.newsId) === rightKey)
+      ) || rightMeta;
+    const duplicateId = duplicateMeta ? String(duplicateMeta.newsId) : rightKey;
+
+    const pairSimilarity =
+      duplicateMeta?.similarityPercent != null
+        ? duplicateMeta.similarityPercent
+        : g.highestSimilarityPercent || null;
+
+    return {
+      ok: true,
+      group: {
+        id: String(g._id),
+        groupNumber: g.groupNumber,
+        language: g.language,
+        status: g.status,
+        highestSimilarityPercent: g.highestSimilarityPercent,
+        averageSimilarityPercent: g.averageSimilarityPercent,
+        advisoryNote: g.advisoryNote || C.ADVISORY_DISCLAIMER,
+      },
+      pairSimilarityPercent: pairSimilarity,
+      original: serializeArticle(byId.get(originalId), originalMeta),
+      duplicate: serializeArticle(byId.get(duplicateId), duplicateMeta),
+      left: serializeArticle(leftDoc, leftMeta),
+      right: serializeArticle(rightDoc, rightMeta),
+    };
+  }
+
   return {
     getOverviewCards,
     getTrendSeries,
@@ -337,6 +467,7 @@ function createDashboardService(deps = {}) {
     listGroups,
     getGroupDetail,
     updateGroupStatus,
+    getComparePair,
   };
 }
 

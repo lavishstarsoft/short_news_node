@@ -2,7 +2,9 @@
 <html lang="en">
 <%- include('partials/header', { title: title }) %>
 <link rel="stylesheet" href="/css/ai-insights.css">
+<link rel="stylesheet" href="/css/ai-insights-compare.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="/js/ai-insights-compare.js?v=2" defer></script>
 <body>
 <%- include('partials/top-nav', { pageTitle: 'AI Insights', backButton: true, backUrl: '/' }) %>
 <div class="container-fluid">
@@ -168,7 +170,15 @@
               <% } %>
               <div>
                 <% (g.similarsPreview || []).forEach(function(s) { %>
-                  <div class="ai-member similar mb-2">
+                  <div
+                    class="ai-member similar mb-2"
+                    role="button"
+                    tabindex="0"
+                    data-compare-group="<%= g.id %>"
+                    data-compare-original="<%= g.original && g.original.newsId %>"
+                    data-compare-duplicate="<%= s.newsId %>"
+                    title="Click to compare with original"
+                  >
                     <span class="ai-badge ai-badge-similar">❌ SIMILAR</span>
                     <span class="ai-badge ai-badge-score"><%= s.similarityPercent %>%</span>
                     <h4><%= s.headline %></h4>
@@ -178,6 +188,7 @@
                       <%= s.publishedDate %> · <%= s.publishedTime %><br>
                       Difference: <%= s.timeDiffLabel %> (<%= s.timeDiffHuman %>)
                     </div>
+                    <div class="ai-compare-hint">Click to compare side-by-side →</div>
                   </div>
                 <% }) %>
               </div>
@@ -272,6 +283,25 @@
       btn.disabled = false;
       btn.textContent = 'Run AI Scan';
     }
+  });
+
+  function openRowCompare(el) {
+    if (!window.AiInsightsCompare || !el) return;
+    const groupId = el.getAttribute('data-compare-group');
+    const originalId = el.getAttribute('data-compare-original');
+    const duplicateId = el.getAttribute('data-compare-duplicate');
+    if (!groupId || !originalId || !duplicateId) return;
+    window.AiInsightsCompare.open(groupId, originalId, duplicateId);
+  }
+
+  document.querySelectorAll('[data-compare-duplicate]').forEach(function (el) {
+    el.addEventListener('click', function () { openRowCompare(el); });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openRowCompare(el);
+      }
+    });
   });
 </script>
 
