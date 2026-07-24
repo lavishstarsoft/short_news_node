@@ -265,6 +265,9 @@ function createDashboardService(deps = {}) {
         original: original ? decorateMember(original) : null,
         similarsPreview: similars.slice(0, 3).map(decorateMember),
         advisoryNote: g.advisoryNote || C.ADVISORY_DISCLAIMER,
+        statusChangedAt: g.statusChangedAt || null,
+        statusChangedBy: g.statusChangedBy || null,
+        statusChangeReason: g.statusChangeReason || null,
       };
     });
 
@@ -290,6 +293,9 @@ function createDashboardService(deps = {}) {
       lastPublishedAt: g.lastPublishedAt,
       spanLabel: formatTimeDiffHuman(g.spanMs || 0),
       advisoryNote: g.advisoryNote || C.ADVISORY_DISCLAIMER,
+      statusChangedAt: g.statusChangedAt || null,
+      statusChangedBy: g.statusChangedBy || null,
+      statusChangeReason: g.statusChangeReason || null,
       original,
       similars,
       members,
@@ -315,18 +321,56 @@ function createDashboardService(deps = {}) {
     };
   }
 
-  async function updateGroupStatus(groupId, status) {
-    const allowed = Object.values(C.GROUP_STATUS);
+  async function updateGroupStatus(groupId, status, actor = null) {
+    const allowed = [
+      C.GROUP_STATUS.OPEN,
+      C.GROUP_STATUS.IGNORED,
+      C.GROUP_STATUS.ARCHIVED,
+      C.GROUP_STATUS.REVIEWED,
+    ];
     if (!allowed.includes(status)) {
       return { ok: false, error: 'invalid_status' };
     }
+    const reason =
+      status === C.GROUP_STATUS.IGNORED
+        ? 'ignored'
+        : status === C.GROUP_STATUS.ARCHIVED
+          ? 'archived'
+          : status === C.GROUP_STATUS.OPEN
+            ? 'restored'
+            : 'reviewed';
     const updated = await AiDuplicateGroup.findByIdAndUpdate(
       groupId,
-      { $set: { status } },
+      {
+        $set: {
+          status,
+          statusChangedBy: actor || null,
+          statusChangedAt: new Date(),
+          statusChangeReason: reason,
+        },
+      },
       { new: true }
     ).lean();
     if (!updated) return { ok: false, error: 'not_found' };
     return { ok: true, group: updated };
+  }
+
+  async function countGroupsByStatus() {
+    const rows = await AiDuplicateGroup.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+    const counts = {
+      open: 0,
+      ignored: 0,
+      archived: 0,
+      reviewed: 0,
+    };
+    for (const row of rows) {
+      if (row && row._id && Object.prototype.hasOwnProperty.call(counts, row._id)) {
+        counts[row._id] = row.count;
+      }
+    }
+    return counts;
   }
 
   function serializeArticle(doc, memberMeta = null) {
@@ -467,6 +511,7 @@ function createDashboardService(deps = {}) {
     listGroups,
     getGroupDetail,
     updateGroupStatus,
+    countGroupsByStatus,
     getComparePair,
   };
 }

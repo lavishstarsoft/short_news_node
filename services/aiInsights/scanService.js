@@ -18,6 +18,7 @@ const {
 } = require('./groupBuilder');
 const { enrichNewsActors } = require('./enrichment');
 const C = require('./constants');
+const { filterDraftsAgainstDismissed } = require('./groupStatusLogic');
 
 function createScanService(deps = {}) {
   const News = deps.News || require('../../models/News');
@@ -152,13 +153,21 @@ function createScanService(deps = {}) {
   }
 
   async function persistGroups(drafts, scanRunId, config) {
-    // Replace open groups for this scan (keep ignored/archived)
+    // Replace open/reviewed groups for this scan (keep ignored/archived).
     await AiDuplicateGroup.deleteMany({
       status: { $in: [C.GROUP_STATUS.OPEN, C.GROUP_STATUS.REVIEWED] },
     });
 
+    const dismissed = await AiDuplicateGroup.find({
+      status: { $in: [C.GROUP_STATUS.IGNORED, C.GROUP_STATUS.ARCHIVED] },
+    })
+      .select('memberNewsIds members status')
+      .lean();
+
+    const { kept, suppressed } = filterDraftsAgainstDismissed(drafts || [], dismissed);
+
     let groupNumber = await nextGroupNumber();
-    const docs = drafts.map((draft) => {
+    const docs = kept.map((draft) => {
       const doc = {
         ...draft,
         groupNumber: groupNumber++,
@@ -172,7 +181,7 @@ function createScanService(deps = {}) {
     if (docs.length) {
       await AiDuplicateGroup.insertMany(docs, { ordered: false });
     }
-    return docs.length;
+    return { groupsCreated: docs.length, groupsSuppressed: suppressed };
   }
 
   async function upsertDailyMetrics(coverage, openStats) {
@@ -313,7 +322,9 @@ function createScanService(deps = {}) {
       else if (cosineUsed) method = 'windowed_cosine';
       else method = 'none';
 
-      const groupsCreated = await persistGroups(allDrafts, scan._id, config);
+      const persistResult = await persistGroups(allDrafts, scan._id, config);
+      const groupsCreated = persistResult.groupsCreated || 0;
+      const groupsSuppressed = persistResult.groupsSuppressed || 0;
       const openStats = await summarizeOpenGroups();
       await upsertDailyMetrics(coverage, openStats);
 
@@ -333,6 +344,7 @@ function createScanService(deps = {}) {
 
       log.info?.('[AI Insights] scan completed', {
         groupsCreated,
+        groupsSuppressed,
         articlesScanned,
         edgesFound,
         method,
@@ -343,6 +355,7 @@ function createScanService(deps = {}) {
         ok: true,
         scanRunId: scan._id,
         groupsCreated,
+        groupsSuppressed,
         articlesScanned,
         edgesFound,
         method,

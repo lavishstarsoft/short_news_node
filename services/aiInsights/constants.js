@@ -28,6 +28,21 @@ module.exports = {
     ARCHIVED: 'archived',
   },
 
+  /**
+   * Ignore = false positive / not a concern.
+   * Archive = reviewed & filed.
+   * Both hide from Open and suppress identical/subset clusters on future scans.
+   * A NEW article joining the cluster (superset) resurfaces as Open.
+   */
+  GROUP_STATUS_HELP: {
+    ignored:
+      'Ignore means this similarity is not a concern. It leaves the Open queue and will not reappear on future scans unless a new article joins the same cluster.',
+    archived:
+      'Archive means this case is closed for records. It leaves the Open queue and will not reappear on future scans unless a new article joins the same cluster.',
+    restore:
+      'Restore moves the group back to the Open review queue.',
+  },
+
   MEMBER_ROLE: {
     ORIGINAL: 'original',
     SIMILAR: 'similar',

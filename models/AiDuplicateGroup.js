@@ -41,6 +41,11 @@ const aiDuplicateGroupSchema = new mongoose.Schema(
       default: C.GROUP_STATUS.OPEN,
       index: true,
     },
+    /** Who last set ignore/archive/restore (admin username or id). */
+    statusChangedBy: { type: String, default: null },
+    statusChangedAt: { type: Date, default: null },
+    /** ignored | archived | restored | null */
+    statusChangeReason: { type: String, default: null },
     originalNewsId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'News',

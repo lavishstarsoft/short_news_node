@@ -22,8 +22,13 @@
         </div>
         <div class="ai-toolbar">
           <a class="ai-btn ai-btn-ghost" href="/admin/ai-insights/duplicate-news">Back to list</a>
-          <button type="button" class="ai-btn ai-btn-ghost" onclick="setStatus('ignored')">Ignore</button>
-          <button type="button" class="ai-btn ai-btn-ghost" onclick="setStatus('archived')">Archive</button>
+          <% if (group.status === 'open' || group.status === 'reviewed') { %>
+            <button type="button" class="ai-btn ai-btn-ghost" onclick="setStatus('ignored')">Ignore</button>
+            <button type="button" class="ai-btn ai-btn-ghost" onclick="setStatus('archived')">Archive</button>
+          <% } else { %>
+            <span class="ai-badge ai-badge-score"><%= group.status %></span>
+            <button type="button" class="ai-btn ai-btn-primary" onclick="setStatus('open')">Restore to Open</button>
+          <% } %>
         </div>
       </div>
 
@@ -122,6 +127,12 @@
 </div>
 <script>
   async function setStatus(status) {
+    const messages = {
+      ignored: 'Ignore this group?\n\nNot a concern. Hidden from Open and blocked on future scans unless a new article joins.\nDoes NOT delete/unpublish news.',
+      archived: 'Archive this group?\n\nClosed for records. Hidden from Open and blocked on future scans unless a new article joins.\nDoes NOT delete/unpublish news.',
+      open: 'Restore this group to the Open review queue?'
+    };
+    if (!window.confirm(messages[status] || 'Update status?')) return;
     try {
       const res = await fetch('/admin/api/ai-insights/groups/<%= group.id %>/status', {
         method: 'POST',
@@ -129,7 +140,11 @@
         body: JSON.stringify({ status })
       });
       if (!res.ok) throw new Error('fail');
-      window.location.href = '/admin/ai-insights/duplicate-news';
+      const next =
+        status === 'open'
+          ? '/admin/ai-insights/duplicate-news?status=open'
+          : '/admin/ai-insights/duplicate-news?status=' + encodeURIComponent(status);
+      window.location.href = next;
     } catch (e) {
       alert('Could not update status');
     }

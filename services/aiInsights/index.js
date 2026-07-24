@@ -12,6 +12,7 @@ const {
 const { buildWindowedEdges, clusterFromEdges, buildGroupDraft } = require('./groupBuilder');
 const { cosineSimilarity, scoreToPercent } = require('./cosine');
 const { createUnionFind } = require('./unionFind');
+const groupStatusLogic = require('./groupStatusLogic');
 
 module.exports = {
   constants: C,
@@ -27,4 +28,5 @@ module.exports = {
   cosineSimilarity,
   scoreToPercent,
   createUnionFind,
+  ...groupStatusLogic,
 };

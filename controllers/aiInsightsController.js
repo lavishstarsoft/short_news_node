@@ -33,6 +33,10 @@ async function renderDuplicateInsightsPage(req, res) {
     }
 
     const enabled = isAiInsightsEnabled();
+    const requestedStatus = String(req.query.status || 'open').toLowerCase();
+    const allowedStatus = new Set(['open', 'ignored', 'archived']);
+    const listStatus = allowedStatus.has(requestedStatus) ? requestedStatus : 'open';
+
     let overview = {
       cards: {
         totalLiveNews: 0,
@@ -54,17 +58,18 @@ async function renderDuplicateInsightsPage(req, res) {
     let trend = { labels: [], groupCounts: [] };
     let distribution = { '85-90': 0, '90-95': 0, '95-100': 0, other: 0 };
     let groupsPayload = { total: 0, page: 1, limit: 20, groups: [] };
+    let statusCounts = { open: 0, ignored: 0, archived: 0, reviewed: 0 };
 
     if (enabled) {
-      [overview, people, trend, distribution, groupsPayload] = await Promise.all([
+      [overview, people, trend, distribution, groupsPayload, statusCounts] = await Promise.all([
         dashboard.getOverviewCards(),
         dashboard.getPeopleAnalytics(),
         dashboard.getTrendSeries(14),
         dashboard.getSimilarityDistribution(),
-        dashboard.listGroups({ page: 1, limit: 20 }),
+        dashboard.listGroups({ page: 1, limit: 20, status: listStatus }),
+        dashboard.countGroupsByStatus(),
       ]);
     } else {
-      // Still show coverage so ops know embeddings status
       try {
         overview = await dashboard.getOverviewCards();
         overview.featureEnabled = false;
@@ -82,6 +87,9 @@ async function renderDuplicateInsightsPage(req, res) {
       distribution,
       groupsPayload,
       featureEnabled: enabled,
+      listStatus,
+      statusCounts,
+      statusHelp: require('../services/aiInsights/constants').GROUP_STATUS_HELP,
     });
   } catch (error) {
     console.error('[AI Insights] render page error', error);
@@ -187,11 +195,12 @@ async function apiUpdateGroupStatus(req, res) {
       return res.status(403).json({ error: 'Super admin only' });
     }
     const status = req.body?.status;
-    const result = await dashboard.updateGroupStatus(req.params.id, status);
+    const actor = req.admin.username || req.admin.id || 'superadmin';
+    const result = await dashboard.updateGroupStatus(req.params.id, status, actor);
     if (!result.ok) {
       return res.status(400).json({ error: result.error || 'update_failed' });
     }
-    res.json({ success: true });
+    res.json({ success: true, status: result.group && result.group.status });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update status' });
   }

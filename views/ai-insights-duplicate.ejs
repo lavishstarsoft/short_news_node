@@ -135,11 +135,35 @@
       </div>
 
       <div class="ai-panel">
-        <h3>Duplicate Groups (Live)</h3>
+        <div class="ai-status-tabs">
+          <a class="ai-status-tab <%= listStatus === 'open' ? 'is-active' : '' %>" href="/admin/ai-insights/duplicate-news?status=open">
+            Open <span class="ai-tab-count"><%= (statusCounts && statusCounts.open) || 0 %></span>
+          </a>
+          <a class="ai-status-tab <%= listStatus === 'ignored' ? 'is-active' : '' %>" href="/admin/ai-insights/duplicate-news?status=ignored">
+            Ignored <span class="ai-tab-count"><%= (statusCounts && statusCounts.ignored) || 0 %></span>
+          </a>
+          <a class="ai-status-tab <%= listStatus === 'archived' ? 'is-active' : '' %>" href="/admin/ai-insights/duplicate-news?status=archived">
+            Archived <span class="ai-tab-count"><%= (statusCounts && statusCounts.archived) || 0 %></span>
+          </a>
+        </div>
+        <p class="ai-status-help">
+          <% if (listStatus === 'ignored') { %>
+            <%= (statusHelp && statusHelp.ignored) || 'Ignored groups are hidden from Open and suppressed on future scans unless a new article joins.' %>
+          <% } else if (listStatus === 'archived') { %>
+            <%= (statusHelp && statusHelp.archived) || 'Archived groups are closed for records and suppressed on future scans unless a new article joins.' %>
+          <% } else { %>
+            Open queue for review. Ignore = not a concern. Archive = closed for records. Neither deletes or unpublishes news.
+          <% } %>
+        </p>
+        <h3>Duplicate Groups (<%= listStatus %>)</h3>
         <% const groups = (groupsPayload && groupsPayload.groups) || []; %>
         <% if (!groups.length) { %>
           <div class="ai-empty">
-            No groups yet. Ensure live news have READY embeddings, then run an AI Scan.
+            <% if (listStatus === 'open') { %>
+              No open groups. Ensure live news have READY embeddings, then run an AI Scan.
+            <% } else { %>
+              No <%= listStatus %> groups yet.
+            <% } %>
           </div>
         <% } %>
         <% groups.forEach(function(g) { %>
@@ -149,11 +173,18 @@
                 <strong>Group #<%= g.groupNumber %></strong>
                 <span class="ai-badge ai-badge-score ms-2"><%= g.highestSimilarityPercent %>% max</span>
                 <span class="ai-meta ms-2"><%= g.similarCount %> similar · span <%= g.spanLabel %></span>
+                <% if (g.statusChangedBy) { %>
+                  <span class="ai-meta ms-2">by <%= g.statusChangedBy %></span>
+                <% } %>
               </div>
-              <div>
+              <div class="ai-group-actions">
                 <a class="ai-btn ai-btn-ghost" href="/admin/ai-insights/duplicate-news/groups/<%= g.id %>">Open</a>
-                <button type="button" class="ai-btn ai-btn-ghost" onclick="setGroupStatus('<%= g.id %>', 'ignored')">Ignore</button>
-                <button type="button" class="ai-btn ai-btn-ghost" onclick="setGroupStatus('<%= g.id %>', 'archived')">Archive</button>
+                <% if (listStatus === 'open') { %>
+                  <button type="button" class="ai-btn ai-btn-ghost" onclick="setGroupStatus('<%= g.id %>', 'ignored')">Ignore</button>
+                  <button type="button" class="ai-btn ai-btn-ghost" onclick="setGroupStatus('<%= g.id %>', 'archived')">Archive</button>
+                <% } else { %>
+                  <button type="button" class="ai-btn ai-btn-primary" onclick="setGroupStatus('<%= g.id %>', 'open')">Restore to Open</button>
+                <% } %>
               </div>
             </div>
             <div class="ai-group-body">
@@ -251,6 +282,12 @@
   })();
 
   async function setGroupStatus(id, status) {
+    const messages = {
+      ignored: 'Ignore this group?\n\nMeaning: not a concern (false positive).\n• Leaves the Open queue\n• Will NOT come back on future AI scans\n• Unless a NEW article joins this cluster\n• Does NOT delete or unpublish any news',
+      archived: 'Archive this group?\n\nMeaning: reviewed and closed for records.\n• Leaves the Open queue\n• Will NOT come back on future AI scans\n• Unless a NEW article joins this cluster\n• Does NOT delete or unpublish any news',
+      open: 'Restore this group to the Open review queue?'
+    };
+    if (!window.confirm(messages[status] || 'Update group status?')) return;
     try {
       const res = await fetch('/admin/api/ai-insights/groups/' + id + '/status', {
         method: 'POST',
@@ -258,7 +295,11 @@
         body: JSON.stringify({ status })
       });
       if (!res.ok) throw new Error('Update failed');
-      location.reload();
+      const next =
+        status === 'open'
+          ? '/admin/ai-insights/duplicate-news?status=open'
+          : '/admin/ai-insights/duplicate-news?status=' + encodeURIComponent(status);
+      window.location.href = next;
     } catch (e) {
       alert('Could not update group status');
     }
@@ -274,7 +315,7 @@
       if (!res.ok || !data.success) {
         alert(data.reason === 'already_running' ? 'A scan is already running.' : (data.error || data.reason || 'Scan failed'));
       } else {
-        alert('Scan completed. Groups: ' + (data.groupsCreated || 0) + ' · method: ' + (data.method || '—'));
+        alert('Scan completed. Groups: ' + (data.groupsCreated || 0) + (data.groupsSuppressed ? (' · suppressed: ' + data.groupsSuppressed) : '') + ' · method: ' + (data.method || '—'));
         location.reload();
       }
     } catch (e) {
