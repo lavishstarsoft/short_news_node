@@ -273,11 +273,38 @@ const typeDefs = gql`
     getLiveStreamStatus: LiveStreamStatus
     getEditorById(id: ID!): Editor
     getNewsByEditor(editorId: ID!, limit: Int, offset: Int, includeUnpublished: Boolean): [News!]!
+    """
+    Authoritative dashboard counts from MongoDB aggregation.
+    Must match Admin Editors Published definition (isActive == true).
+    Never derived from paginated news lists.
+    """
+    getEditorDashboardStats(editorId: ID!): EditorDashboardStats!
+    """
+    Period news + rejected counts for reporter home Activity card.
+    range: today | yesterday | 7d | custom (custom needs from/to YYYY-MM-DD, IST).
+    """
+    getEditorPeriodStats(editorId: ID!, range: String!, from: String, to: String): EditorPeriodStats!
     getNewsById(id: ID!): News
     
     # Poll queries
     getAllPolls(userId: String, language: String): [Poll!]!
     getPollById(id: ID!, userId: String): Poll
+  }
+
+  type EditorDashboardStats {
+    totalStories: Int!
+    published: Int!
+    waitingForReview: Int!
+    needsRevision: Int!
+    rejected: Int!
+    totalViews: Int!
+  }
+
+  type EditorPeriodStats {
+    newsCount: Int!
+    rejectedCount: Int!
+    label: String!
+    range: String!
   }
 
   type RegistrationField {

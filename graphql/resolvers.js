@@ -632,6 +632,203 @@ const resolvers = {
             }
         },
 
+        /**
+         * Dashboard stats for one editor/reporter — full Mongo aggregation.
+         * Published uses the same definition as Admin Editors page: isActive === true.
+         * Auth: own profile or staff only.
+         */
+        getEditorDashboardStats: async (_, { editorId }, context) => {
+            try {
+                const News = require('../models/News');
+                const normalizedEditorId = String(editorId);
+                const decoded = decodeAuthToken(context?.req);
+                const authenticatedEditorId = decoded?.id ? String(decoded.id) : null;
+                const isOwnProfile = Boolean(
+                    authenticatedEditorId && authenticatedEditorId === normalizedEditorId
+                );
+                const isStaff = Boolean(
+                    decoded?.role && ADMIN_ROLES.includes(decoded.role)
+                );
+                if (!isOwnProfile && !isStaff) {
+                    throw new Error('Not authorized to view dashboard stats');
+                }
+
+                const rows = await News.aggregate([
+                    { $match: { authorId: normalizedEditorId } },
+                    {
+                        $group: {
+                            _id: null,
+                            totalStories: { $sum: 1 },
+                            published: {
+                                $sum: {
+                                    $cond: [{ $eq: ['$isActive', true] }, 1, 0],
+                                },
+                            },
+                            rejected: {
+                                $sum: {
+                                    $cond: [
+                                        {
+                                            $and: [
+                                                { $eq: ['$rejectionStatus.isRejected', true] },
+                                                { $ne: ['$isActive', true] },
+                                            ],
+                                        },
+                                        1,
+                                        0,
+                                    ],
+                                },
+                            },
+                            needsRevision: {
+                                $sum: {
+                                    $cond: [
+                                        {
+                                            $and: [
+                                                { $eq: ['$revisionStatus.needsRevision', true] },
+                                                { $ne: ['$isActive', true] },
+                                                { $ne: ['$rejectionStatus.isRejected', true] },
+                                            ],
+                                        },
+                                        1,
+                                        0,
+                                    ],
+                                },
+                            },
+                            waitingForReview: {
+                                $sum: {
+                                    $cond: [
+                                        {
+                                            $and: [
+                                                { $ne: ['$isActive', true] },
+                                                { $ne: ['$rejectionStatus.isRejected', true] },
+                                                { $ne: ['$revisionStatus.needsRevision', true] },
+                                            ],
+                                        },
+                                        1,
+                                        0,
+                                    ],
+                                },
+                            },
+                            totalViews: { $sum: { $ifNull: ['$views', 0] } },
+                        },
+                    },
+                ]);
+
+                const stats = rows[0] || {};
+                return {
+                    totalStories: stats.totalStories || 0,
+                    published: stats.published || 0,
+                    waitingForReview: stats.waitingForReview || 0,
+                    needsRevision: stats.needsRevision || 0,
+                    rejected: stats.rejected || 0,
+                    totalViews: stats.totalViews || 0,
+                };
+            } catch (error) {
+                console.error('Error fetching editor dashboard stats:', error);
+                throw error;
+            }
+        },
+
+        /**
+         * Period activity for reporter home — news + rejected by publishedAt (IST ranges).
+         */
+        getEditorPeriodStats: async (_, { editorId, range, from: fromStr, to: toStr }, context) => {
+            try {
+                const News = require('../models/News');
+                const normalizedEditorId = String(editorId);
+                const decoded = decodeAuthToken(context?.req);
+                const authenticatedEditorId = decoded?.id ? String(decoded.id) : null;
+                const isOwnProfile = Boolean(
+                    authenticatedEditorId && authenticatedEditorId === normalizedEditorId
+                );
+                const isStaff = Boolean(
+                    decoded?.role && ADMIN_ROLES.includes(decoded.role)
+                );
+                if (!isOwnProfile && !isStaff) {
+                    throw new Error('Not authorized to view period stats');
+                }
+
+                const istDayStart = (base = new Date(), offsetDays = 0) => {
+                    const d = new Date(base);
+                    d.setDate(d.getDate() - offsetDays);
+                    const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+                    return new Date(`${ymd}T00:00:00.000+05:30`);
+                };
+
+                const now = new Date();
+                const todayStart = istDayStart(now);
+                const requested = String(range || 'today');
+                let from;
+                let to;
+                let label;
+
+                switch (requested) {
+                    case 'today':
+                        from = todayStart;
+                        to = now;
+                        label = 'Today';
+                        break;
+                    case 'yesterday':
+                        from = istDayStart(now, 1);
+                        to = new Date(todayStart.getTime() - 1);
+                        label = 'Yesterday';
+                        break;
+                    case '7d':
+                        from = istDayStart(now, 6);
+                        to = now;
+                        label = 'Last 7 Days';
+                        break;
+                    case 'custom': {
+                        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fromStr || '')) ||
+                            !/^\d{4}-\d{2}-\d{2}$/.test(String(toStr || ''))) {
+                            throw new Error('Custom range needs from & to dates (YYYY-MM-DD)');
+                        }
+                        from = new Date(`${fromStr}T00:00:00.000+05:30`);
+                        to = new Date(`${toStr}T23:59:59.999+05:30`);
+                        if (isNaN(from) || isNaN(to) || from > to) {
+                            throw new Error('Invalid custom date range');
+                        }
+                        if ((to - from) / 86400000 > 366) {
+                            throw new Error('Custom range cannot exceed 1 year');
+                        }
+                        label = `${fromStr} → ${toStr}`;
+                        break;
+                    }
+                    default:
+                        throw new Error('range must be today, yesterday, 7d, or custom');
+                }
+
+                const [row] = await News.aggregate([
+                    {
+                        $match: {
+                            authorId: normalizedEditorId,
+                            publishedAt: { $gte: from, $lte: to },
+                        },
+                    },
+                    {
+                        $group: {
+                            _id: null,
+                            newsCount: { $sum: 1 },
+                            rejectedCount: {
+                                $sum: {
+                                    $cond: [{ $eq: ['$rejectionStatus.isRejected', true] }, 1, 0],
+                                },
+                            },
+                        },
+                    },
+                ]);
+
+                return {
+                    newsCount: row?.newsCount || 0,
+                    rejectedCount: row?.rejectedCount || 0,
+                    label,
+                    range: requested,
+                };
+            } catch (error) {
+                console.error('Error fetching editor period stats:', error);
+                throw error;
+            }
+        },
+
         // Get single news by ID
         // Published: public. Drafts / rejected / revision data: owner or staff only.
         getNewsById: async (_, { id }, context) => {

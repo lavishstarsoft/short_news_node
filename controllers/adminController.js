@@ -5662,6 +5662,64 @@ const deleteUserById = async (req, res) => {
   }
 };
 
+/**
+ * Reporter home — period news / reject counts.
+ * Ranges: today | yesterday | 7d | custom (from/to YYYY-MM-DD, IST).
+ * News model has no createdAt — filter by publishedAt (same as daily-stats).
+ */
+async function getReporterPeriodStats(req, res) {
+  try {
+    const reporterId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
+    if (!reporterId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const requested = String(req.query.range || 'today');
+    const allowed = new Set(['today', 'yesterday', '7d', 'custom']);
+    if (!allowed.has(requested)) {
+      return res.status(400).json({ error: 'range must be today, yesterday, 7d, or custom' });
+    }
+
+    const rangeInfo = resolveAnalyticsDateRange({
+      range: requested,
+      from: req.query.from,
+      to: req.query.to,
+    });
+    if (rangeInfo.error) return res.status(400).json({ error: rangeInfo.error });
+
+    const { from, to, label } = rangeInfo;
+    const [row] = await News.aggregate([
+      {
+        $match: {
+          authorId: String(reporterId),
+          publishedAt: { $gte: from, $lte: to },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          newsCount: { $sum: 1 },
+          rejectedCount: {
+            $sum: {
+              $cond: [{ $eq: ['$rejectionStatus.isRejected', true] }, 1, 0],
+            },
+          },
+        },
+      },
+    ]);
+
+    return res.json({
+      range: requested,
+      label,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      newsCount: row?.newsCount || 0,
+      rejectedCount: row?.rejectedCount || 0,
+    });
+  } catch (error) {
+    console.error('Error fetching reporter period stats:', error);
+    return res.status(500).json({ error: 'Failed to fetch period stats' });
+  }
+}
+
 // Get reporter daily stats for UI dashboard
 async function getReporterDailyStats(req, res) {
   try {
@@ -9627,6 +9685,7 @@ module.exports = {
   renderReferralsPage,
   updateReferralStatus,
   getReporterDailyStats,
+  getReporterPeriodStats,
   renderReporterWalletPage,
   renderWalletSettingsPage,
   getWalletSettings,

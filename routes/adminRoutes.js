@@ -189,6 +189,7 @@ router.post('/security/block', adminController.requireAdmin, securityController.
 router.post('/security/clear', adminController.requireAdmin, securityController.clearDeviceLogs);
 // Reporter Wallet / Stats API
 router.get('/api/reporter/daily-stats', adminController.requireAuth, adminController.getReporterDailyStats);
+router.get('/api/reporter/period-stats', adminController.requireAuth, adminController.getReporterPeriodStats);
 router.get('/api/reporter/wallet/summary', adminController.requireAuth, adminController.getReporterWalletSummary);
 router.get('/api/reporter/wallet/transactions', adminController.requireAuth, adminController.getReporterWalletTransactions);
 router.get('/api/reporter/wallet/withdrawals', adminController.requireAuth, adminController.getReporterWithdrawals);
