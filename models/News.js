@@ -37,6 +37,8 @@ const newsSchema = new mongoose.Schema({
   authorConstituency: { type: String }, // Denormalized for performance
   shortId: { type: String, unique: true }, // Short ID for Fact Check (cbnys.co/XXXXXX)
   contentHash: { type: String, index: true }, // Hash for duplicate detection
+  /** Client-supplied key to prevent double-create from retries / double-tap (reporter app). */
+  clientIdempotencyKey: { type: String },
   /** Background media fingerprints for ANN / perceptual duplicate (Node-owned). */
   mediaFingerprint: {
     status: { type: String, enum: ['pending', 'ready', 'failed'], default: undefined },
@@ -198,5 +200,15 @@ newsSchema.index({ category: 1, isActive: 1, publishedAt: -1 }); // Category fee
 newsSchema.index({ location: 1, isActive: 1, publishedAt: -1 }); // Location feed
 newsSchema.index({ scope: 1, location: 1, language: 1, isActive: 1, publishedAt: -1 }); // Smart feed
 newsSchema.index({ authorId: 1, publishedAt: -1 }); // Reporter's own news list
+// One create per reporter + Idempotency-Key (partial so older docs without key are fine)
+newsSchema.index(
+  { authorId: 1, clientIdempotencyKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      clientIdempotencyKey: { $exists: true, $type: 'string', $gt: '' },
+    },
+  }
+);
 
 module.exports = mongoose.model('News', newsSchema);

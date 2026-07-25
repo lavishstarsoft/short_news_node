@@ -331,7 +331,7 @@ app.use(cors({
     return callback(null, false);
   },
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-app-source']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-app-source', 'Idempotency-Key', 'X-Idempotency-Key']
 }));
 
 // Rate limiting to blunt brute-force / scraping / abuse.

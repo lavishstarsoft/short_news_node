@@ -789,6 +789,21 @@ async function createNews(req, res) {
     const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage allowedLanguages role');
     const articleLanguage = normalizeNewsLanguage(req.body.language || authorDetails?.workingLanguage);
 
+    // Replay protection — same Idempotency-Key returns the first saved article (no second insert)
+    const rawIdempotencyKey = String(
+      req.get('Idempotency-Key') || req.get('X-Idempotency-Key') || req.body?.clientIdempotencyKey || ''
+    ).trim();
+    const idempotencyKey = rawIdempotencyKey.slice(0, 128);
+    if (idempotencyKey) {
+      const existingByKey = await News.findOne({
+        authorId: String(req.admin.id),
+        clientIdempotencyKey: idempotencyKey,
+      });
+      if (existingByKey) {
+        return res.status(200).json(existingByKey);
+      }
+    }
+
     if (authorDetails && authorDetails.role !== 'admin' && authorDetails.role !== 'superadmin') {
       if (!isLanguageAllowedForEditor(authorDetails, articleLanguage)) {
         return res.status(403).json({ error: 'You are not allowed to post news in this language.' });
@@ -863,6 +878,11 @@ async function createNews(req, res) {
     const precomputedDuplicatePayload = newsData.precomputedDuplicate;
     delete newsData.precomputedDuplicate;
     delete newsData.ignoreLanguageWarning;
+    delete newsData.clientIdempotencyKey;
+
+    if (idempotencyKey) {
+      newsData.clientIdempotencyKey = idempotencyKey;
+    }
 
     // Handle media fields for backward compatibility
     if (req.body.mediaUrl) {
@@ -927,7 +947,21 @@ async function createNews(req, res) {
     news.contentHash = contentHash;
     news.duplicateCheck = duplicateCheck;
 
-    await news.save();
+    try {
+      await news.save();
+    } catch (saveError) {
+      // Parallel double-submit race: unique index won — return the winner
+      if (saveError && saveError.code === 11000 && idempotencyKey) {
+        const raced = await News.findOne({
+          authorId: String(req.admin.id),
+          clientIdempotencyKey: idempotencyKey,
+        });
+        if (raced) {
+          return res.status(200).json(raced);
+        }
+      }
+      throw saveError;
+    }
 
     // Phase-4.2 — fire-and-forget PENDING vector (worker embeds async). Never blocks publish.
     schedulePendingAfterCreate(news);
