@@ -5,6 +5,7 @@
     }) %>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
     <link rel="stylesheet" href="/css/add-news.css">
+    <link rel="stylesheet" href="/css/duplicate-review-modals.css">
     </head>
 
     <body>
@@ -247,49 +248,12 @@
                 </div>
             </div>
 
-            <!-- Sub Editor / Super Admin Duplicate Warning Modal (create/publish only) -->
-            <div class="modal fade" id="duplicatePublishWarningModal" tabindex="-1" aria-labelledby="duplicatePublishWarningTitle" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-                <div class="modal-dialog modal-dialog-centered modal-lg">
-                    <div class="modal-content an-dup-modal">
-                        <div class="modal-body an-dup-modal-body">
-                            <div class="an-dup-icon" aria-hidden="true">⚠️</div>
-                            <h4 id="duplicatePublishWarningTitle" class="an-dup-title">Duplicate / Similar News Detected</h4>
-                            <p class="an-dup-lead" id="dupWarnLead">This news looks very similar to an existing article.</p>
-                            <div class="an-dup-reason" id="dupWarnReasonBox" hidden>
-                                <span class="an-dup-reason-label">Match reason</span>
-                                <span class="an-dup-reason-value" id="dupWarnReason">Content</span>
-                                <p class="an-dup-reason-msg" id="dupWarnReasonMsg"></p>
-                            </div>
-                            <div class="an-dup-stats">
-                                <div class="an-dup-stat">
-                                    <span class="an-dup-stat-label">Duplicate Score</span>
-                                    <span class="an-dup-stat-value" id="dupWarnScore">0%</span>
-                                </div>
-                                <div class="an-dup-stat">
-                                    <span class="an-dup-stat-label">Matched News</span>
-                                    <span class="an-dup-stat-value" id="dupWarnCount">0</span>
-                                </div>
-                                <div class="an-dup-stat">
-                                    <span class="an-dup-stat-label">Type</span>
-                                    <span class="an-dup-stat-value" id="dupWarnType">Similar</span>
-                                </div>
-                            </div>
-                            <div class="an-dup-matches-wrap">
-                                <div class="an-dup-matches-label">Matched news titles</div>
-                                <ul class="an-dup-matches" id="dupWarnMatches"></ul>
-                            </div>
-                            <div class="an-dup-actions">
-                                <button type="button" class="btn an-dup-btn-cancel" id="dupWarnCancelBtn">Cancel</button>
-                                <button type="button" class="btn an-dup-btn-publish" id="dupWarnPublishAnywayBtn">Publish Anyway</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- Duplicate review modals are created by /js/duplicate-review-modals.js -->
 
             <%- include('partials/footer') %>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
                 <script src="/js/rich-text.js"></script>
+                <script src="/js/duplicate-review-modals.js?v=1"></script>
                 <script>
                     const pageSource = '<%= typeof source !== "undefined" ? source : "" %>';
                     const DISPLAY_CONFIG_BY_LANGUAGE = <%- JSON.stringify(typeof displayConfigByLanguage !== 'undefined' ? displayConfigByLanguage : {}) %>;
@@ -305,7 +269,6 @@
                     }
                     let duplicateGatePassed = false;
                     let cachedPrecomputedDuplicate = null;
-                    let duplicateModalInstance = null;
 
                     function getSaveButtonIds() {
                         return ['saveNewsButton', 'saveNewsButtonMobile', 'saveNewsButtonDesktop', 'saveNewsBtn'];
@@ -344,66 +307,53 @@
                         cachedPrecomputedDuplicate = null;
                     }
 
+                    function getDuplicateDraftSnapshot() {
+                        const titleEl = document.getElementById('title');
+                        const contentEl = document.getElementById('content');
+                        const languageEl = document.getElementById('language');
+                        const categoryEl = document.getElementById('category');
+                        const locationEl = document.getElementById('location');
+                        const mediaUrlEl = document.getElementById('mediaUrl');
+                        const mediaTypeEl = document.getElementById('mediaType');
+                        const thumbnailUrlEl = document.getElementById('thumbnailUrl');
+                        const videoUrlEl = document.getElementById('videoUrl');
+                        let imageUrls = [];
+                        try {
+                            const raw = document.getElementById('imageUrls');
+                            if (raw && raw.value) imageUrls = JSON.parse(raw.value);
+                        } catch (_) {}
+                        return {
+                            title: titleEl ? titleEl.value : '',
+                            content: contentEl ? contentEl.value : '',
+                            language: languageEl ? languageEl.value : '',
+                            category: categoryEl ? categoryEl.value : '',
+                            location: locationEl ? locationEl.value : '',
+                            author: '<%= (admin && (admin.username || admin.name)) || "You" %>',
+                            reporter: '<%= (admin && (admin.username || admin.name)) || "You" %>',
+                            mediaUrl: mediaUrlEl ? mediaUrlEl.value : '',
+                            mediaType: mediaTypeEl ? mediaTypeEl.value : 'image',
+                            thumbnailUrl: thumbnailUrlEl ? thumbnailUrlEl.value : '',
+                            videoUrl: videoUrlEl ? videoUrlEl.value : '',
+                            imageUrls: Array.isArray(imageUrls) ? imageUrls : [],
+                        };
+                    }
+
                     function showDuplicatePublishWarning(checkData) {
-                        const dc = checkData.duplicateCheck || {};
-                        const score = typeof checkData.score === 'number' ? checkData.score : (dc.score || 0);
-                        const matchCount = typeof checkData.matchCount === 'number'
-                            ? checkData.matchCount
-                            : (dc.matchCount || (checkData.similarArticles || []).length || 0);
-                        const isDup = checkData.hasDuplicate === true || dc.isDuplicate === true;
-                        const matches = checkData.similarArticles || dc.similarArticles || [];
-                        const src = dc.matchSource || '';
-                        const reasonLabel = dc.reasonLabel || (src === 'image' ? 'Image' : src === 'both' ? 'Image + Content' : 'Content');
-                        const reasonMsg = dc.reasonMessage || (
-                            src === 'image'
-                                ? 'Same or very similar image detected (title/content may be different).'
-                                : src === 'both'
-                                    ? 'Same/similar image and similar text content were both detected.'
-                                    : 'Similar title or text content detected.'
-                        );
-
-                        document.getElementById('dupWarnScore').textContent = score + '%';
-                        document.getElementById('dupWarnCount').textContent = String(matchCount);
-                        document.getElementById('dupWarnType').textContent = isDup
-                            ? ('Duplicate · ' + reasonLabel)
-                            : ('Similar · ' + reasonLabel);
-
-                        const lead = document.getElementById('dupWarnLead');
-                        if (lead) {
-                            lead.textContent = reasonMsg;
+                        if (!window.DuplicateReviewUI) {
+                            alert('Duplicate warning UI failed to load. Please refresh and try again.');
+                            setSaveButtonsEnabled(true);
+                            return;
                         }
-                        const reasonBox = document.getElementById('dupWarnReasonBox');
-                        const reasonEl = document.getElementById('dupWarnReason');
-                        const reasonMsgEl = document.getElementById('dupWarnReasonMsg');
-                        if (reasonBox && reasonEl && reasonMsgEl) {
-                            reasonEl.textContent = reasonLabel;
-                            reasonMsgEl.textContent = reasonMsg;
-                            reasonBox.hidden = false;
-                            reasonBox.className = 'an-dup-reason an-dup-reason--' + (src || 'content');
-                        }
-
-                        const list = document.getElementById('dupWarnMatches');
-                        if (!matches.length) {
-                            list.innerHTML = '<li class="an-dup-match-empty">No title details available.</li>';
-                        } else {
-                            list.innerHTML = matches.slice(0, 8).map(function (m) {
-                                const title = escapeHtmlDup(m.articleTitle || m.title || 'Untitled');
-                                const sim = getOverallSimilarity(m);
-                                const mSrc = m.matchSource || (m.matchType && /url|bytes|phash|dhash|openclip|ann|media|image/i.test(m.matchType) ? 'image' : 'content');
-                                const mLabel = mSrc === 'image' ? 'Image' : mSrc === 'both' ? 'Image+Content' : 'Content';
-                                return '<li><span class="an-dup-match-score">' + sim + '%</span><span class="an-dup-match-source an-dup-match-source--' + mSrc + '">' + mLabel + '</span><span class="an-dup-match-title">' + title + '</span></li>';
-                            }).join('');
-                        }
-
-                        const modalEl = document.getElementById('duplicatePublishWarningModal');
-                        duplicateModalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
-                        duplicateModalInstance.show();
+                        window.DuplicateReviewUI.showWarning(checkData, {
+                            getDraftSnapshot: getDuplicateDraftSnapshot,
+                            onIgnoreWarning: confirmDuplicatePublishAnyway,
+                            onContinueEditing: cancelDuplicatePublish,
+                            onCancelSubmission: cancelDuplicatePublish,
+                        });
                     }
 
                     function closeDuplicatePublishWarning() {
-                        const modalEl = document.getElementById('duplicatePublishWarningModal');
-                        const instance = duplicateModalInstance || bootstrap.Modal.getInstance(modalEl);
-                        if (instance) instance.hide();
+                        if (window.DuplicateReviewUI) window.DuplicateReviewUI.closeAll();
                     }
 
                     function getDisplayConfigForLanguage(code) {
@@ -777,15 +727,6 @@
                             const btn = document.getElementById(id);
                             if (btn) btn.addEventListener('click', (e) => saveNews(false));
                         });
-
-                        const dupCancelBtn = document.getElementById('dupWarnCancelBtn');
-                        if (dupCancelBtn) {
-                            dupCancelBtn.addEventListener('click', cancelDuplicatePublish);
-                        }
-                        const dupPublishAnywayBtn = document.getElementById('dupWarnPublishAnywayBtn');
-                        if (dupPublishAnywayBtn) {
-                            dupPublishAnywayBtn.addEventListener('click', confirmDuplicatePublishAnyway);
-                        }
 
                         const languageSelect = document.getElementById('language');
                         if (languageSelect) {

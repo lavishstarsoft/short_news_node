@@ -91,6 +91,16 @@ router.get('/api/news/:id/revision-diff', adminController.requireAuth, adminCont
 
 // Plagiarism & Duplicate Detection routes
 router.post('/api/check-duplicate', adminController.requireAuth, adminController.checkDuplicateArticles);
+router.get(
+  '/api/duplicate-reference/:id',
+  adminController.requireAuth,
+  adminController.getDuplicateReferenceArticle
+);
+router.post(
+  '/api/duplicate-review/translate',
+  adminController.requireAuth,
+  adminController.translateForDuplicateReview
+);
 router.get('/plagiarism-report', adminController.requireAuth, adminController.renderPlagiarismReportPage);
 router.get('/api/duplicate-details/:id', adminController.requireAuth, adminController.getDuplicateDetails);
 

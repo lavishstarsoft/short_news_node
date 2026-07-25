@@ -5006,6 +5006,112 @@ async function checkDuplicateArticles(req, res) {
   }
 }
 
+/**
+ * Lazy-load a reference article for duplicate review comparison.
+ * Does not run detection. Auth: admin / superadmin / subeditor / editor.
+ */
+async function getDuplicateReferenceArticle(req, res) {
+  try {
+    const role = req.admin && req.admin.role;
+    const allowed = ['admin', 'superadmin', 'subeditor', 'editor'];
+    if (!req.admin || !allowed.includes(role)) {
+      return res.status(403).json({ success: false, error: 'Not authorized' });
+    }
+
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid news ID' });
+    }
+
+    const doc = await News.findById(id)
+      .select(
+        'title content author authorId category location scope language publishedAt createdAt updatedAt isActive mediaUrl mediaType imageUrl imageUrls thumbnailUrl videoUrl rejectionStatus'
+      )
+      .lean();
+
+    if (!doc) {
+      return res.status(404).json({ success: false, error: 'Article not found' });
+    }
+
+    const isRejected = doc.rejectionStatus?.isRejected === true;
+    const publishStatus =
+      doc.isActive === true && !isRejected
+        ? 'published'
+        : isRejected
+          ? 'rejected'
+          : 'not_published';
+    const mediaUrl =
+      doc.mediaUrl ||
+      doc.imageUrl ||
+      (Array.isArray(doc.imageUrls) && doc.imageUrls[0]) ||
+      doc.thumbnailUrl ||
+      null;
+
+    return res.json({
+      success: true,
+      article: {
+        id: String(doc._id),
+        title: doc.title || '',
+        content: doc.content || '',
+        author: doc.author || '—',
+        category: doc.category || null,
+        location: doc.location || null,
+        scope: doc.scope || null,
+        state: doc.scope === 'state' ? doc.location || null : null,
+        district: doc.scope === 'district' ? doc.location || null : null,
+        language: doc.language || null,
+        publishedAt: doc.publishedAt || null,
+        createdAt: doc.createdAt || null,
+        updatedAt: doc.updatedAt || null,
+        isActive: doc.isActive === true,
+        isRejected,
+        publishStatus,
+        mediaUrl,
+        mediaType: doc.mediaType || (doc.videoUrl ? 'video' : 'image'),
+        thumbnailUrl: doc.thumbnailUrl || mediaUrl,
+        imageUrls: Array.isArray(doc.imageUrls) ? doc.imageUrls.filter(Boolean) : [],
+        videoUrl: doc.videoUrl || null,
+      },
+    });
+  } catch (error) {
+    console.error('Error loading duplicate reference article:', error);
+    return res.status(500).json({ success: false, error: 'Failed to load reference article' });
+  }
+}
+
+/**
+ * UI-only translation for duplicate review compare modal.
+ * Never mutates stored news. Auth: admin / superadmin / subeditor / editor.
+ */
+async function translateForDuplicateReview(req, res) {
+  try {
+    const role = req.admin && req.admin.role;
+    const allowed = ['admin', 'superadmin', 'subeditor', 'editor'];
+    if (!req.admin || !allowed.includes(role)) {
+      return res.status(403).json({ success: false, error: 'Not authorized' });
+    }
+
+    const { texts, targetLang, sourceLang } = req.body || {};
+    if (!Array.isArray(texts) || !targetLang) {
+      return res.status(400).json({ success: false, error: 'texts and targetLang are required' });
+    }
+    if (texts.length > 20) {
+      return res.status(400).json({ success: false, error: 'Too many texts' });
+    }
+
+    const { translateTexts, ALLOWED } = require('../services/aiInsights/translateService');
+    if (!ALLOWED.has(String(targetLang).toLowerCase())) {
+      return res.status(400).json({ success: false, error: 'Unsupported language' });
+    }
+
+    const translations = await translateTexts(texts, targetLang, sourceLang || 'auto');
+    return res.json({ success: true, translations, targetLang });
+  } catch (error) {
+    console.error('Error translating for duplicate review:', error);
+    return res.status(500).json({ success: false, error: 'Translation failed' });
+  }
+}
+
 // Render plagiarism report page
 async function renderPlagiarismReportPage(req, res) {
   try {
@@ -9502,6 +9608,8 @@ module.exports = {
   sendBackForEdit,
   getNewsRevisionDiff,
   checkDuplicateArticles,
+  getDuplicateReferenceArticle,
+  translateForDuplicateReview,
   renderPlagiarismReportPage,
   getDuplicateDetails,
   renderRejectedNewsPage,
