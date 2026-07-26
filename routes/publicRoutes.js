@@ -863,6 +863,8 @@ router.get('/api/public/news-display-config', cacheMiddleware(300), async (req, 
   try {
     await languageRegistry.refreshCache();
     const map = languageRegistry.getDisplayConfigMap();
+    // Authoring clients (reporter portal) send X-Bypass-Cache; still set no-store for browsers.
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
     res.json(
       Object.entries(map).map(([code, config]) => ({
         code,
