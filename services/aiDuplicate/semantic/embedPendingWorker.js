@@ -303,6 +303,12 @@ function createEmbedPendingWorker(deps = {}) {
       const errorCode = embedResult.error || 'embed_failed';
 
       if (attempts >= config.maxAttempts) {
+        log.warn('Embed worker FAILED after retries', {
+          newsId: String(newsId),
+          attempts,
+          error: errorCode,
+          latencyMs,
+        });
         await persistence.persistEmbedFailure({
           newsId,
           contentHash: newsHash || contentHash,
@@ -311,12 +317,6 @@ function createEmbedPendingWorker(deps = {}) {
           error: `${errorCode}; attempts=${attempts}`,
         });
         metrics.recordFailure(errorCode, latencyMs);
-        log.warn('Embed worker FAILED after retries', {
-          newsId: String(newsId),
-          attempts,
-          error: errorCode,
-          latencyMs,
-        });
         return { outcome: 'failed', attempts, error: errorCode };
       }
 

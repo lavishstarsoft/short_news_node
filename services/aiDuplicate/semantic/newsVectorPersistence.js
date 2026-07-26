@@ -151,7 +151,7 @@ function createNewsVectorPersistence(deps = {}) {
       {
         $set: {
           language: (input.language || 'te').toLowerCase(),
-          contentHash: contentHash || undefined,
+          contentHash: contentHash || 'unknown',
           modelId: input.modelId || C.DEFAULT_MODEL_ID,
           dimensions: C.EMBEDDING_DIMENSIONS,
           status: STATUS.FAILED,
@@ -161,7 +161,6 @@ function createNewsVectorPersistence(deps = {}) {
         },
         $setOnInsert: {
           modality: C.MODALITY_TEXT,
-          contentHash: contentHash || 'unknown',
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
