@@ -81,6 +81,7 @@ router.get('/r2-usage', adminController.requireAuth, adminController.renderR2Usa
 
 // Pending News Review route (for editors to approve/reject news)
 router.get('/pending-news', adminController.requireAuth, adminController.renderPendingNewsPage);
+router.get('/my-ai-queue', adminController.requireAuth, adminController.renderMyAiQueuePage);
 router.get('/api/pending-news/duplicate-check', adminController.requireAuth, adminController.getPendingNewsDuplicateCheck);
 router.get('/api/pending-news/:id/duplicate-matches', adminController.requireAuth, adminController.getPendingNewsDuplicateMatches);
 router.put('/api/news/:id/update-pending', adminController.requireAuth, adminController.updatePendingNews);

@@ -1,4 +1,4 @@
-<article class="news-card" data-id="<%= news._id %>" data-title="<%= stripRichTags(news.title).toLowerCase() %>" data-author="<%= news.author.toLowerCase() %>" data-category="<%= (news.category || '').toLowerCase() %>" data-location="<%= (news.location || '').toLowerCase() %>" data-language="<%= (news.language || 'te').toLowerCase() %>" data-date="<%= new Date(news.publishedAt).getTime() %>">
+<article id="article-<%= news._id %>" class="news-card" data-id="<%= news._id %>" data-title="<%= stripRichTags(news.title).toLowerCase() %>" data-author="<%= news.author.toLowerCase() %>" data-category="<%= (news.category || '').toLowerCase() %>" data-location="<%= (news.location || '').toLowerCase() %>" data-language="<%= (news.language || 'te').toLowerCase() %>" data-date="<%= new Date(news.publishedAt).getTime() %>">
     <% if (news.mediaUrl) { %>
         <div class="news-card-image<%= news.mediaType === 'video' ? ' pn-card-media--video' : '' %>">
             <% if (news.mediaType === 'video') { %>

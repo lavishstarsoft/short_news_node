@@ -161,6 +161,20 @@ function scheduleAiVerification(news, io) {
     .then(async () => {
       const result = await verifyArticle(news);
 
+      // Notify the specific Sub Editor who owns this article about the AI result
+      if (io) {
+        try {
+          io.to(`reporter:${news.authorId}`).emit('ai_status_updated', {
+            id: news._id,
+            title: news.title,
+            status: result.outcome, // 'verified', 'review_required', 'failed'
+            timestamp: Date.now()
+          });
+        } catch (_) {
+          /* ignore emit error */
+        }
+      }
+
       // Emit existing news_published event on auto-publish
       if (result.outcome === 'verified' && io) {
         try {

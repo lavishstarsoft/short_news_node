@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<%- include('partials/header', { title: 'Pending News Review' }) %>
+<%- include('partials/header', { title: 'My AI Queue' }) %>
     <link rel="stylesheet" href="/css/editors-directory.css">
     <link rel="stylesheet" href="/css/news-directory.css">
     <link rel="stylesheet" href="/css/pending-news.css">
 
     <body>
 
-        <%- include('partials/top-nav', { pageTitle: 'Pending News Review', backButton: true, backUrl: '/' }) %>
+        <%- include('partials/top-nav', { pageTitle: 'My AI Queue', backButton: true, backUrl: '/' }) %>
 
             <div class="container-fluid">
                 <div class="row">
@@ -18,8 +18,8 @@
                         <!-- Main Content -->
                         <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
                             <% 
-                                const pendingNews = typeof teamPendingNews !== 'undefined' ? teamPendingNews : [];
                                 const pendingLangLabels = typeof newsLanguageLabels !== 'undefined' ? newsLanguageLabels : { te: 'Telugu', en: 'English', hi: 'Hindi', ta: 'Tamil' };
+                                const pendingNews = typeof myPendingNews !== 'undefined' ? myPendingNews : [];
                                 const pnTotal = pendingNews.length;
                                 let pnWithMedia = 0;
                                 const pnAuthors = new Set();
@@ -37,7 +37,7 @@
                             <div class="pn-page content-area mt-4">
                                 <div class="team-page-header">
                                     <div>
-                                        <h1 class="team-page-title">Pending News Review</h1>
+                                        <h1 class="team-page-title">My AI Queue</h1>
                                         <p class="team-page-subtitle">Review, edit, and approve reporter submissions before they go live.</p>
                                     </div>
                                 </div>
@@ -153,11 +153,11 @@
                                             const canApproveNews = admin.role === 'superadmin' || admin.role === 'admin' || (admin.role === 'subeditor' && admin.permissions && admin.permissions.canApproveNews);
                                         %>
                                         <% if (pendingNews.length > 0) { %>
-                                            <div class="news-grid" id="newsGrid_team">
+                                            <div class="news-grid" id="newsGrid_ai">
                                                 <% pendingNews.forEach((news) => { %>
                                                     <%- include('partials/pending-news-card', { 
                                                         news: news, 
-                                                        isAIQueue: false, 
+                                                        isAIQueue: true, 
                                                         pendingLangLabels: pendingLangLabels, 
                                                         showFullDetails: showFullDetails, 
                                                         canApproveNews: canApproveNews 
@@ -168,7 +168,7 @@
                                             <div class="empty-state pn-empty">
                                                 <div class="empty-state-icon pn-empty-icon"><i class="fas fa-circle-check"></i></div>
                                                 <h3>All caught up</h3>
-                                                <p>No pending submissions waiting for review.</p>
+                                                <p>Your AI queue is empty.</p>
                                             </div>
                                         <% } %>
                                     </div>
@@ -2088,3 +2088,23 @@
         <%- include('partials/image-moderator') %>
     </body>
 </html>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.location.hash && window.location.hash.startsWith('#article-')) {
+        setTimeout(() => {
+            const el = document.querySelector(window.location.hash);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'box-shadow 0.5s ease-in-out, transform 0.5s ease-in-out';
+                el.style.boxShadow = '0 0 0 4px #3b82f6, 0 10px 15px -3px rgba(0, 0, 0, 0.1)';
+                el.style.transform = 'scale(1.02)';
+                
+                setTimeout(() => {
+                    el.style.boxShadow = '';
+                    el.style.transform = '';
+                }, 3000);
+            }
+        }, 500);
+    }
+});
+</script>

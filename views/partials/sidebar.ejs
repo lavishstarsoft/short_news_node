@@ -206,7 +206,15 @@
                         <% if (canView('pendingNews')) { %>
                         <li class="nav-item">
                             <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'pending-news' ? 'active' : '' %>" href="/admin/pending-news">
-                                Pending News <span class="badge bg-warning rounded-pill">Review</span>
+                                <span><i class="fas fa-clock-rotate-left"></i> Pending News</span>
+                                <span class="badge text-bg-warning rounded-pill" id="pendingNewsCount">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                </span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'my-ai-queue' ? 'active' : '' %>" href="/admin/my-ai-queue">
+                                <span><i class="fas fa-robot"></i> My AI Queue</span>
                             </a>
                         </li>
                         <% } %>
