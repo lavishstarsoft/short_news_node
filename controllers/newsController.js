@@ -927,27 +927,10 @@ async function createNews(req, res) {
       contentHash = String(precomputed.contentHash);
       duplicateCheck = normalizeDuplicateCheck(precomputed.duplicateCheck);
     } else {
-      try {
-        const result = await runDuplicateCheckGateway(
-          {
-            title: news.title,
-            content: news.content,
-            language: news.language,
-            mediaUrl: news.mediaUrl,
-            mediaType: news.mediaType,
-            imageUrls: news.imageUrls,
-            thumbnailUrl: news.thumbnailUrl,
-            videoUrl: news.videoUrl
-          },
-          { includePendingCorpus: true }
-        );
-        contentHash = result.contentHash;
-        duplicateCheck = result.duplicateCheck;
-      } catch (gateErr) {
-        console.warn('Duplicate check in createNews failed/timed out, using local hash fallback:', gateErr.message);
-        contentHash = generateContentHash(news.title, news.content);
-        duplicateCheck = normalizeDuplicateCheck(null);
-      }
+      // Non-blocking fallback: Do not block HTTP publish response on outbound AI HTTP calls.
+      // Background workers (schedulePendingAfterCreate & scheduleMediaFingerprint) compute AI vectors & hashes asynchronously.
+      contentHash = expectedHash;
+      duplicateCheck = normalizeDuplicateCheck(null);
     }
 
     news.contentHash = contentHash;
