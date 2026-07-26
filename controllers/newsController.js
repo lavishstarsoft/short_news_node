@@ -42,6 +42,9 @@ const {
 const {
   scheduleMediaFingerprint,
 } = require('../services/aiDuplicate/scheduleMediaFingerprint');
+const {
+  scheduleAiVerification,
+} = require('../services/aiDuplicate/scheduleAiVerification');
 const { generateContentHash } = require('../utils/similarityDetector');
 const { normalizeDuplicateCheck } = require('../services/duplicateCheckService');
 
@@ -865,17 +868,26 @@ async function createNews(req, res) {
     // Reporter (editor role) → isActive: false → goes to Pending News (needs admin approval)
     // Admin / Sub-Editor / SuperAdmin → isActive: true → directly published to News List
 
-    // ✅ Direct Publish Roles: admin, superadmin, subeditor
-    const directPublishRoles = ['admin', 'superadmin', 'subeditor'];
+    // Role-based isActive:
+    // Admin / SuperAdmin → isActive: true → directly published (no AI gate)
+    // Sub-Editor → isActive: false, aiStatus: 'processing' → AI verifies async → auto-publish
+    // Reporter (editor role) → isActive: false → Pending News (human approval)
+
+    const directPublishRoles = ['admin', 'superadmin'];
+    const aiGateRoles = ['subeditor'];
 
     if (directPublishRoles.includes(req.admin.role)) {
       newsData.isActive = true;   // → Direct Publish (No Pending)
+      newsData.aiStatus = 'none';
+    } else if (aiGateRoles.includes(req.admin.role)) {
+      newsData.isActive = false;  // → Pending until AI verifies
+      newsData.aiStatus = 'processing';
     } else {
       newsData.isActive = false;  // → Pending News (Reporter/Editor approval needed)
+      newsData.aiStatus = 'none';
     }
 
-    // Client-only field for duplicate reuse — never persist on News
-    const precomputedDuplicatePayload = newsData.precomputedDuplicate;
+    // Client-only fields — never persist on News
     delete newsData.precomputedDuplicate;
     delete newsData.ignoreLanguageWarning;
     delete newsData.clientIdempotencyKey;
@@ -907,31 +919,9 @@ async function createNews(req, res) {
 
     const news = new News(newsData);
 
-    // Optional reuse: Sub Editor publish gate already ran the same gateway via
-    // POST /admin/api/check-duplicate. When contentHash still matches, skip a
-    // second identical check. Reporter path never sends precomputedDuplicate.
-    let contentHash;
-    let duplicateCheck;
-    const precomputed = precomputedDuplicatePayload;
-    const expectedHash = generateContentHash(news.title, news.content);
-    const canReusePrecomputed =
-      directPublishRoles.includes(req.admin.role) &&
-      precomputed &&
-      typeof precomputed === 'object' &&
-      precomputed.contentHash &&
-      String(precomputed.contentHash) === String(expectedHash) &&
-      precomputed.duplicateCheck &&
-      typeof precomputed.duplicateCheck === 'object';
-
-    if (canReusePrecomputed) {
-      contentHash = String(precomputed.contentHash);
-      duplicateCheck = normalizeDuplicateCheck(precomputed.duplicateCheck);
-    } else {
-      // Non-blocking fallback: Do not block HTTP publish response on outbound AI HTTP calls.
-      // Background workers (schedulePendingAfterCreate & scheduleMediaFingerprint) compute AI vectors & hashes asynchronously.
-      contentHash = expectedHash;
-      duplicateCheck = normalizeDuplicateCheck(null);
-    }
+    // Local content hash — AI duplicate check runs asynchronously after save.
+    const contentHash = generateContentHash(news.title, news.content);
+    const duplicateCheck = normalizeDuplicateCheck(null);
 
     news.contentHash = contentHash;
     news.duplicateCheck = duplicateCheck;
@@ -957,6 +947,12 @@ async function createNews(req, res) {
     // Media pHash/dHash/OpenCLIP + FAISS index (async). Detect reuses caches.
     scheduleMediaFingerprint(news);
 
+    // Sub Editor async AI verification — auto-publishes on clean, flags on duplicate.
+    if (aiGateRoles.includes(req.admin.role)) {
+      const io = req.app.locals.io;
+      scheduleAiVerification(news, io);
+    }
+
     // Send WebSocket notifications based on role
     const io = req.app.locals.io;
     const connectedClients = req.app.locals.connectedClients;
@@ -981,10 +977,10 @@ async function createNews(req, res) {
         constituency: news.authorConstituency || authorDetails?.constituency || null,
       };
 
-      // ✅ Direct Publish Roles: admin, superadmin, subeditor
-      const directPublishRoles = ['admin', 'superadmin', 'subeditor'];
+      // ✅ Direct Publish Roles: admin, superadmin (subeditor now goes through AI gate)
+      const directPublishRolesWs = ['admin', 'superadmin'];
 
-      if (directPublishRoles.includes(req.admin.role)) {
+      if (directPublishRolesWs.includes(req.admin.role)) {
         const { emitPublished } = require('../services/realtime/workflowEmit');
         emitPublished(io, notificationData);
       } else {

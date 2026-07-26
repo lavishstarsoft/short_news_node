@@ -3879,37 +3879,62 @@ async function renderPendingNewsPage(req, res) {
       selectedLanguage = req.query.language || '';
     }
 
-    const baseQuery = {
+    const baseTeamQuery = {
       isActive: false,
+      aiStatus: 'none',
+      authorId: { $ne: String(req.admin.id) },
       $or: [
         { 'rejectionStatus.isRejected': { $ne: true } },
         { rejectionStatus: { $exists: false } }
       ]
     };
 
-    let query = selectedLanguage
-      ? { $and: [baseQuery, buildNewsLanguageFilter(selectedLanguage)] }
-      : baseQuery;
+    let teamQuery = selectedLanguage
+      ? { $and: [baseTeamQuery, buildNewsLanguageFilter(selectedLanguage)] }
+      : baseTeamQuery;
 
-    query = await buildPendingNewsFilterForSubEditor(Admin, adminDoc, query);
+    teamQuery = await buildPendingNewsFilterForSubEditor(Admin, adminDoc, teamQuery);
 
-    // Fetch pending news with only needed fields (uses compound index)
-    // revisionStatus included for Needs Revision / Resubmitted badges (snapshot loaded via revision-diff API)
-    const pendingNews = await News.find(query)
-      .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl imageUrls readFullLink ePaperLink views duplicateCheck revisionStatus actionHistory')
+    const teamPendingNewsRaw = await News.find(teamQuery)
+      .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl imageUrls readFullLink ePaperLink views duplicateCheck revisionStatus actionHistory aiStatus')
       .sort({ publishedAt: -1 })
       .limit(100)
       .lean();
 
-    const authorIds = [...new Set(pendingNews.map(n => n.authorId).filter(Boolean))];
+    const myPendingQuery = {
+      isActive: false,
+      authorId: String(req.admin.id),
+      aiStatus: { $in: ['processing', 'review_required', 'failed'] },
+      $or: [
+        { 'rejectionStatus.isRejected': { $ne: true } },
+        { rejectionStatus: { $exists: false } }
+      ]
+    };
+
+    const myPendingNewsRaw = await News.find(myPendingQuery)
+      .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl imageUrls readFullLink ePaperLink views duplicateCheck revisionStatus actionHistory aiStatus')
+      .lean();
+
+    // Sort My AI Queue by priority, then newest first
+    const priorityMap = { 'review_required': 1, 'failed': 2, 'processing': 3 };
+    myPendingNewsRaw.sort((a, b) => {
+      const pA = priorityMap[a.aiStatus] || 99;
+      const pB = priorityMap[b.aiStatus] || 99;
+      if (pA !== pB) return pA - pB;
+      const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+      const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    const allNews = [...teamPendingNewsRaw, ...myPendingNewsRaw];
+    const authorIds = [...new Set(allNews.map(n => n.authorId).filter(Boolean))];
     const authors = await Admin.find({ _id: { $in: authorIds } }).select('name email mobileNumber constituency').lean();
     const authorMap = {};
     authors.forEach(a => authorMap[a._id.toString()] = a);
 
-    const pendingNewsWithDefaults = pendingNews.map(article => {
+    const mapNewsWithDefaults = (newsArray) => newsArray.map(article => {
       let revisionStatus = article.revisionStatus || null;
       if (revisionStatus && revisionStatus.revisionSnapshot) {
-        // Keep list payload light — full snapshot via /revision-diff
         const { revisionSnapshot, ...rest } = revisionStatus;
         revisionStatus = rest;
       }
@@ -3924,7 +3949,8 @@ async function renderPendingNewsPage(req, res) {
     const { getDisplayConfigMap } = require('../services/languageRegistry');
 
     res.render('pending-news', {
-      pendingNews: pendingNewsWithDefaults || [],
+      teamPendingNews: mapNewsWithDefaults(teamPendingNewsRaw),
+      myPendingNews: mapNewsWithDefaults(myPendingNewsRaw),
       title: 'Pending News Review',
       selectedLanguage,
       admin: req.admin,
@@ -4394,6 +4420,7 @@ async function approveNews(req, res) {
       },
       {
         isActive: true,
+        aiStatus: 'verified',
         publishedAt: new Date(), // Refresh timestamp on approval so it becomes "latest"
         approvalStatus: {
           isApproved: true,

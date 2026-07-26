@@ -1,0 +1,170 @@
+<article class="news-card" data-id="<%= news._id %>" data-title="<%= stripRichTags(news.title).toLowerCase() %>" data-author="<%= news.author.toLowerCase() %>" data-category="<%= (news.category || '').toLowerCase() %>" data-location="<%= (news.location || '').toLowerCase() %>" data-language="<%= (news.language || 'te').toLowerCase() %>" data-date="<%= new Date(news.publishedAt).getTime() %>">
+    <% if (news.mediaUrl) { %>
+        <div class="news-card-image<%= news.mediaType === 'video' ? ' pn-card-media--video' : '' %>">
+            <% if (news.mediaType === 'video') { %>
+                <video controls><source src="<%= news.mediaUrl %>" type="video/mp4"></video>
+            <% } else { %>
+                <img src="<%= news.mediaUrl %>" alt="<%= news.title %>">
+            <% } %>
+        </div>
+    <% } %>
+
+    <div class="news-card-content">
+        <h3 class="news-card-title rich-text"><%- renderRichText(news.title) %></h3>
+
+        <div class="badge-group">
+            <span class="badge badge-category"><%= news.category || 'Uncategorized' %></span>
+            <span class="badge pn-badge-lang"><%= pendingLangLabels[news.language || 'te'] || 'Telugu' %></span>
+            
+            <% if (isAIQueue && news.aiStatus) { %>
+                <% if (news.aiStatus === 'processing') { %>
+                    <span class="badge" style="background: #fbbf24; color: #000;"><i class="fas fa-hourglass-half"></i> ⏳ AI Checking</span>
+                <% } else if (news.aiStatus === 'review_required') { %>
+                    <span class="badge" style="background: #ef4444; color: #fff;"><i class="fas fa-exclamation-triangle"></i> ⚠ Review Required</span>
+                <% } else if (news.aiStatus === 'failed') { %>
+                    <span class="badge" style="background: #374151; color: #fff;"><i class="fas fa-times-circle"></i> ❌ AI Failed</span>
+                <% } %>
+            <% } %>
+
+            <% 
+                const rs = news.revisionStatus || {};
+                const needsRevision = rs.needsRevision === true;
+                const isResubmitted = !needsRevision && Number(rs.revisionCount) > 0 && !!rs.resubmittedAt;
+            %>
+            <% if (needsRevision) { %>
+                <span class="badge badge-needs-revision"><i class="fas fa-pen-to-square"></i> Needs Revision</span>
+            <% } else { %>
+                <span class="badge badge-waiting-review"><i class="fas fa-clock"></i> Waiting for Review</span>
+            <% } %>
+            <% if (isResubmitted) { %>
+                <span class="badge badge-resubmitted"><i class="fas fa-rotate"></i> Resubmitted</span>
+            <% } %>
+            <% if (news.duplicateCheck && (news.duplicateCheck.isDuplicate || news.duplicateCheck.isSuspicious)) { %>
+                <% const dc = news.duplicateCheck; %>
+                <% const src = dc.matchSource || ''; %>
+                <% const reasonTitle = dc.reasonMessage || (src === 'image' ? 'Image match' : src === 'both' ? 'Image + content match' : 'Content match'); %>
+                <% if (dc.isDuplicate) { %>
+                    <span class="badge badge-duplicate<%= src === 'image' ? ' badge-dup-image' : src === 'both' ? ' badge-dup-both' : ' badge-dup-content' %>" title="<%= reasonTitle %> — <%= dc.score %>%">
+                        <% if (src === 'image') { %><i class="fas fa-image"></i> Duplicate · Image (<%= dc.score %>%)
+                        <% } else if (src === 'both') { %><i class="fas fa-clone"></i> Duplicate · Image+Content (<%= dc.score %>%)
+                        <% } else { %><i class="fas fa-align-left"></i> Duplicate · Content (<%= dc.score %>%)
+                        <% } %>
+                    </span>
+                <% } else if (dc.isSuspicious) { %>
+                    <span class="badge badge-suspicious<%= src === 'image' ? ' badge-dup-image' : src === 'both' ? ' badge-dup-both' : ' badge-dup-content' %>" title="<%= reasonTitle %> — <%= dc.score %>%">
+                        <% if (src === 'image') { %><i class="fas fa-image"></i> Similar · Image (<%= dc.score %>%)
+                        <% } else if (src === 'both') { %><i class="fas fa-magnifying-glass"></i> Similar · Image+Content (<%= dc.score %>%)
+                        <% } else { %><i class="fas fa-align-left"></i> Similar · Content (<%= dc.score %>%)
+                        <% } %>
+                    </span>
+                <% } %>
+            <% } %>
+        </div>
+
+        <% if (needsRevision && rs.remarks) { %>
+            <div class="pn-revision-remarks">
+                <strong><i class="fas fa-comment-dots"></i> Revision remarks</strong>
+                <p><%= rs.remarks %></p>
+                <% if (rs.sentBackBy) { %>
+                    <small>By <%= rs.sentBackBy %><% if (rs.sentAt) { %> · <%= new Date(rs.sentAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) %><% } %></small>
+                <% } %>
+            </div>
+        <% } %>
+
+        <% 
+            const changedFields = (rs.lastChangeSummary && Array.isArray(rs.lastChangeSummary.changedFields))
+                ? rs.lastChangeSummary.changedFields
+                : [];
+        %>
+        <% if (isResubmitted && changedFields.length > 0) { %>
+            <div class="pn-change-chips">
+                <span class="pn-change-chips-label">What changed</span>
+                <% changedFields.forEach(function(field) { %>
+                    <span class="pn-change-chip"><%= field %></span>
+                <% }); %>
+            </div>
+        <% } else if (isResubmitted && changedFields.length === 0) { %>
+            <div class="pn-change-chips">
+                <span class="pn-change-chip pn-change-chip--warn">No changes detected</span>
+            </div>
+        <% } %>
+
+        <% 
+            const revHistory = Array.isArray(news.actionHistory)
+                ? news.actionHistory.filter(function(h) {
+                    return h && (h.action === 'needs_revision' || h.action === 'resubmitted');
+                }).slice(-4)
+                : [];
+        %>
+        <% if (revHistory.length > 0) { %>
+            <div class="pn-revision-history">
+                <span class="pn-revision-history-label"><i class="fas fa-timeline"></i> Revision history</span>
+                <ul>
+                    <% revHistory.forEach(function(h) { %>
+                        <li>
+                            <strong><%= h.action === 'needs_revision' ? 'Sent back' : 'Resubmitted' %></strong>
+                            <% if (h.performedByName) { %> · <%= h.performedByName %><% } %>
+                            <% if (h.details) { %><span class="pn-rev-detail"> — <%= h.details %></span><% } %>
+                        </li>
+                    <% }); %>
+                </ul>
+            </div>
+        <% } %>
+
+        <div class="news-card-meta">
+            <div class="meta-item author-details-block" style="display:flex; flex-direction:column; gap:4px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 8px; width: 100%;">
+                <% if (news.authorDetails && showFullDetails) { %>
+                    <div style="font-weight: 600; color: #1e293b;"><i class="fas fa-user-circle" style="color:#3b82f6;"></i> <%= news.authorDetails.name || 'N/A' %></div>
+                    <div style="font-size: 0.85rem; color: #64748b;"><i class="fas fa-envelope"></i> <%= news.authorDetails.email || news.author || 'N/A' %></div>
+                    <% if (news.authorDetails.mobileNumber) { %>
+                        <div style="font-size: 0.85rem; color: #64748b;"><i class="fas fa-phone-alt"></i> <%= news.authorDetails.mobileNumber %></div>
+                    <% } %>
+                    <% if (news.authorDetails.constituency) { %>
+                        <div style="font-size: 0.85rem; color: #64748b;"><i class="fas fa-map-marker-alt"></i> <%= news.authorDetails.constituency %></div>
+                    <% } %>
+                <% } else { %>
+                    <div style="font-weight: 600; color: #1e293b;"><i class="fas fa-user-circle"></i> <%= news.author %></div>
+                <% } %>
+            </div>
+            <div class="meta-item"><i class="fas fa-map-marker-alt"></i><span><%= news.location || 'N/A' %></span></div>
+            <div class="meta-item"><i class="fas fa-calendar"></i><span><%= new Date(news.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) %></span></div>
+        </div>
+
+        <p class="pn-card-excerpt rich-text"><%- renderRichTextExcerpt(news.content, 120) %></p>
+
+        <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
+            <div class="duplicate-warning">
+                <strong><i class="fas fa-triangle-exclamation"></i> <%= news.duplicateCheck.matchCount %> similar article<%= news.duplicateCheck.matchCount > 1 ? 's' : '' %> found</strong>
+                <br>Highest match: <%= news.duplicateCheck.score %>% similarity
+                <% if (news.duplicateCheck.reasonLabel || news.duplicateCheck.reasonMessage) { %>
+                    <br><span class="dup-reason-line">
+                        <strong>Reason:</strong>
+                        <%= news.duplicateCheck.reasonLabel || '' %><% if (news.duplicateCheck.reasonLabel) { %> — <% } %>
+                        <%= news.duplicateCheck.reasonMessage || '' %>
+                    </span>
+                <% } %>
+            </div>
+        <% } %>
+
+        <div class="card-actions">
+            <button type="button" class="btn-preview" onclick="openPreview('<%= news._id %>')"><i class="fas fa-pen-to-square"></i> Preview</button>
+            <button type="button" class="btn-preview" onclick="window.location.href='/edit-news/<%= news._id %>?source=pending'" style="background-color: #3b82f6; color: white;"><i class="fas fa-pen"></i> Edit</button>
+            
+            <% if (isAIQueue && news.aiStatus === 'review_required') { %>
+                <button type="button" class="btn-approve" onclick='approveNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-check"></i> Publish Anyway</button>
+            <% } else if (!isAIQueue) { %>
+                <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
+                    <button type="button" class="btn-duplicate" onclick="viewDuplicates('<%= news._id %>')"><i class="fas fa-clone"></i> Duplicates</button>
+                <% } %>
+                <% if (Number(rs.revisionCount) > 0 || rs.lastChangeSummary) { %>
+                    <button type="button" class="btn-compare" onclick="openCompareVersions('<%= news._id %>')"><i class="fas fa-code-compare"></i> Compare Versions</button>
+                <% } %>
+                <% if (canApproveNews) { %>
+                    <button type="button" class="btn-approve" onclick='approveNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-check"></i> Approve</button>
+                    <button type="button" class="btn-send-back" onclick='openSendBackModal("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-rotate-left"></i> Send Back for Edit</button>
+                    <button type="button" class="btn-reject" onclick='rejectNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-xmark"></i> Reject</button>
+                <% } %>
+            <% } %>
+        </div>
+    </div>
+</article>

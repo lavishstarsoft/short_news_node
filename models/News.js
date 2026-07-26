@@ -69,6 +69,14 @@ const newsSchema = new mongoose.Schema({
     similarArticles: { type: mongoose.Schema.Types.Mixed, default: [] }
   },
 
+  // AI verification workflow status (Sub Editor async publish gate)
+  aiStatus: {
+    type: String,
+    enum: ['none', 'processing', 'verified', 'review_required', 'failed'],
+    default: 'none',
+  },
+  aiVerifiedAt: { type: Date },
+
   // Rejection Details
   rejectionStatus: {
     isRejected: { type: Boolean, default: false },
@@ -200,6 +208,7 @@ newsSchema.index({ category: 1, isActive: 1, publishedAt: -1 }); // Category fee
 newsSchema.index({ location: 1, isActive: 1, publishedAt: -1 }); // Location feed
 newsSchema.index({ scope: 1, location: 1, language: 1, isActive: 1, publishedAt: -1 }); // Smart feed
 newsSchema.index({ authorId: 1, publishedAt: -1 }); // Reporter's own news list
+newsSchema.index({ aiStatus: 1, isActive: 1, publishedAt: -1 }); // AI verification queue
 // One create per reporter + Idempotency-Key (partial so older docs without key are fine)
 newsSchema.index(
   { authorId: 1, clientIdempotencyKey: 1 },
