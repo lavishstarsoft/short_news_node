@@ -508,48 +508,52 @@
 
                             if (needsDuplicateGate && !duplicateGatePassed) {
                                 showLoader('Checking for duplicates...');
-                                const checkRes = await fetch('/admin/api/check-duplicate', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        title,
-                                        content,
-                                        language,
-                                        mediaUrl,
-                                        mediaType,
-                                        imageUrls: newsData.imageUrls || [],
-                                        thumbnailUrl,
-                                        videoUrl: newsData.videoUrl || ''
-                                    })
-                                });
+                                let checkRes = null;
+                                try {
+                                    checkRes = await fetch('/admin/api/check-duplicate', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            title,
+                                            content,
+                                            language,
+                                            mediaUrl,
+                                            mediaType,
+                                            imageUrls: newsData.imageUrls || [],
+                                            thumbnailUrl,
+                                            videoUrl: newsData.videoUrl || ''
+                                        })
+                                    });
+                                } catch (fetchErr) {
+                                    console.warn('Duplicate check network error:', fetchErr);
+                                }
                                 hideLoader();
 
-                                if (!checkRes.ok) {
-                                    showFeedback('Duplicate check failed. Please try again.', 'error');
-                                    setSaveButtonsEnabled(true);
-                                    return;
+                                if (!checkRes || !checkRes.ok) {
+                                    console.warn('Duplicate check endpoint unavailable or timed out:', checkRes ? checkRes.status : 'network_error');
+                                    showFeedback('Duplicate verification is temporarily unavailable. Continuing with news submission.', 'warning');
+                                } else {
+                                    const checkData = await checkRes.json();
+                                    cachedPrecomputedDuplicate = {
+                                        contentHash: checkData.contentHash,
+                                        duplicateCheck: checkData.duplicateCheck
+                                    };
+
+                                    const needsWarning =
+                                        checkData.hasDuplicate === true ||
+                                        checkData.isSuspicious === true ||
+                                        (checkData.duplicateCheck &&
+                                            (checkData.duplicateCheck.isDuplicate ||
+                                                checkData.duplicateCheck.isSuspicious));
+
+                                    if (needsWarning) {
+                                        showDuplicatePublishWarning(checkData);
+                                        // Keep buttons disabled while modal is open; Cancel re-enables.
+                                        return;
+                                    }
+
+                                    duplicateGatePassed = true;
                                 }
-
-                                const checkData = await checkRes.json();
-                                cachedPrecomputedDuplicate = {
-                                    contentHash: checkData.contentHash,
-                                    duplicateCheck: checkData.duplicateCheck
-                                };
-
-                                const needsWarning =
-                                    checkData.hasDuplicate === true ||
-                                    checkData.isSuspicious === true ||
-                                    (checkData.duplicateCheck &&
-                                        (checkData.duplicateCheck.isDuplicate ||
-                                            checkData.duplicateCheck.isSuspicious));
-
-                                if (needsWarning) {
-                                    showDuplicatePublishWarning(checkData);
-                                    // Keep buttons disabled while modal is open; Cancel re-enables.
-                                    return;
-                                }
-
-                                duplicateGatePassed = true;
                             }
 
                             if (
