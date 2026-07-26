@@ -927,21 +927,27 @@ async function createNews(req, res) {
       contentHash = String(precomputed.contentHash);
       duplicateCheck = normalizeDuplicateCheck(precomputed.duplicateCheck);
     } else {
-      const result = await runDuplicateCheckGateway(
-        {
-          title: news.title,
-          content: news.content,
-          language: news.language,
-          mediaUrl: news.mediaUrl,
-          mediaType: news.mediaType,
-          imageUrls: news.imageUrls,
-          thumbnailUrl: news.thumbnailUrl,
-          videoUrl: news.videoUrl
-        },
-        { includePendingCorpus: true }
-      );
-      contentHash = result.contentHash;
-      duplicateCheck = result.duplicateCheck;
+      try {
+        const result = await runDuplicateCheckGateway(
+          {
+            title: news.title,
+            content: news.content,
+            language: news.language,
+            mediaUrl: news.mediaUrl,
+            mediaType: news.mediaType,
+            imageUrls: news.imageUrls,
+            thumbnailUrl: news.thumbnailUrl,
+            videoUrl: news.videoUrl
+          },
+          { includePendingCorpus: true }
+        );
+        contentHash = result.contentHash;
+        duplicateCheck = result.duplicateCheck;
+      } catch (gateErr) {
+        console.warn('Duplicate check in createNews failed/timed out, using local hash fallback:', gateErr.message);
+        contentHash = generateContentHash(news.title, news.content);
+        duplicateCheck = normalizeDuplicateCheck(null);
+      }
     }
 
     news.contentHash = contentHash;
@@ -1176,22 +1182,31 @@ async function updateNews(req, res) {
 
     if (titleChanged || contentChanged || languageChanged || mediaChanged) {
       const previousContentHash = existingNews.contentHash || null;
-      const { contentHash, duplicateCheck } = await runDuplicateCheckGateway(
-        {
-          title: news.title,
-          content: news.content,
-          language: news.language,
-          mediaUrl: news.mediaUrl,
-          mediaType: news.mediaType,
-          imageUrls: news.imageUrls,
-          thumbnailUrl: news.thumbnailUrl,
-          videoUrl: news.videoUrl
-        },
-        {
-          excludeId: news._id,
-          includePendingCorpus: true
-        }
-      );
+      let contentHash = generateContentHash(news.title, news.content);
+      let duplicateCheck = existingNews.duplicateCheck || null;
+
+      try {
+        const result = await runDuplicateCheckGateway(
+          {
+            title: news.title,
+            content: news.content,
+            language: news.language,
+            mediaUrl: news.mediaUrl,
+            mediaType: news.mediaType,
+            imageUrls: news.imageUrls,
+            thumbnailUrl: news.thumbnailUrl,
+            videoUrl: news.videoUrl
+          },
+          {
+            excludeId: news._id,
+            includePendingCorpus: true
+          }
+        );
+        contentHash = result.contentHash || contentHash;
+        duplicateCheck = result.duplicateCheck || duplicateCheck;
+      } catch (gateErr) {
+        console.warn('Duplicate check in updateNews failed/timed out, using local hash fallback:', gateErr.message);
+      }
 
       news.contentHash = contentHash;
       news.duplicateCheck = duplicateCheck;
@@ -2003,22 +2018,31 @@ async function resubmitNews(req, res) {
 
     let previousContentHash = existingNews.contentHash || null;
     if (titleChanged || contentChanged || languageChanged || mediaChanged) {
-      const { contentHash, duplicateCheck } = await runDuplicateCheckGateway(
-        {
-          title: merged.title,
-          content: merged.content,
-          language: merged.language,
-          mediaUrl: merged.mediaUrl,
-          mediaType: merged.mediaType,
-          imageUrls: merged.imageUrls,
-          thumbnailUrl: merged.thumbnailUrl,
-          videoUrl: merged.videoUrl,
-        },
-        {
-          excludeId: existingNews._id,
-          includePendingCorpus: true,
-        }
-      );
+      let contentHash = generateContentHash(merged.title, merged.content);
+      let duplicateCheck = existingNews.duplicateCheck || null;
+
+      try {
+        const result = await runDuplicateCheckGateway(
+          {
+            title: merged.title,
+            content: merged.content,
+            language: merged.language,
+            mediaUrl: merged.mediaUrl,
+            mediaType: merged.mediaType,
+            imageUrls: merged.imageUrls,
+            thumbnailUrl: merged.thumbnailUrl,
+            videoUrl: merged.videoUrl,
+          },
+          {
+            excludeId: existingNews._id,
+            includePendingCorpus: true,
+          }
+        );
+        contentHash = result.contentHash || contentHash;
+        duplicateCheck = result.duplicateCheck || duplicateCheck;
+      } catch (gateErr) {
+        console.warn('Duplicate check in updateNewsInline failed/timed out, using local hash fallback:', gateErr.message);
+      }
       setPayload.contentHash = contentHash;
       setPayload.duplicateCheck = duplicateCheck;
     }

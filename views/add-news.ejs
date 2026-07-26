@@ -658,9 +658,12 @@
                                 const errorText = await response.text();
                                 try {
                                     const error = JSON.parse(errorText);
-                                    showFeedback('Error saving news: ' + error.error, 'error');
+                                    showFeedback('Error saving news: ' + (error.error || error.message || 'Failed to save'), 'error');
                                 } catch (e) {
-                                    showFeedback('Error saving news: ' + errorText, 'error');
+                                    const cleanMsg = errorText.includes('<html') || errorText.includes('504')
+                                        ? 'Server timeout occurred (504). Please try updating again.'
+                                        : 'Error saving news: ' + errorText;
+                                    showFeedback(cleanMsg, 'error');
                                 }
                                 if (roleNeedsDuplicateGate() && !newsId) {
                                     duplicateGatePassed = false;
