@@ -132,7 +132,42 @@
 
         <p class="pn-card-excerpt rich-text"><%- renderRichTextExcerpt(news.content, 120) %></p>
 
-        <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
+        <% if (isAIQueue && news.aiStatus === 'review_required') { %>
+            <% 
+               const dc = news.duplicateCheck || {};
+               const topMatch = (dc.similarArticles && dc.similarArticles.length > 0) ? dc.similarArticles[0] : null;
+            %>
+            <div class="duplicate-warning" style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                <strong style="color: #b91c1c;"><i class="fas fa-exclamation-triangle"></i> AI detected a possible duplicate.</strong>
+                <div style="margin-top: 8px; font-size: 0.9rem; color: #450a0a;">
+                    <div><strong>Similarity Score:</strong> <%= dc.score %>%</div>
+                    <div><strong>Reason:</strong> <%= dc.reasonLabel || 'Match found' %> - <%= dc.reasonMessage || '' %></div>
+                    <% if (topMatch) { %>
+                        <hr style="margin: 8px 0; border-color: #fca5a5;">
+                        <div><strong>Matched Article:</strong> <%= topMatch.articleTitle %></div>
+                        <div><strong>Matched Date:</strong> <%= topMatch.publishedAt ? new Date(topMatch.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A' %></div>
+                        <div><strong>Matched Category:</strong> <%= topMatch.category || 'N/A' %></div>
+                        <% if (topMatch.author) { %>
+                            <div><strong>Matched Author:</strong> <%= topMatch.author %></div>
+                        <% } %>
+                    <% } %>
+                </div>
+            </div>
+        <% } else if (isAIQueue && news.aiStatus === 'processing') { %>
+            <div class="duplicate-warning" style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                <strong style="color: #1d4ed8;"><i class="fas fa-hourglass-half"></i> AI Verification in Progress.</strong>
+                <div style="margin-top: 4px; font-size: 0.9rem; color: #1e3a8a;">
+                    Please wait. The AI is checking this article.
+                </div>
+            </div>
+        <% } else if (isAIQueue && news.aiStatus === 'failed') { %>
+            <div class="duplicate-warning" style="background-color: #f3f4f6; border-left: 4px solid #4b5563; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                <strong style="color: #374151;"><i class="fas fa-times-circle"></i> AI verification failed.</strong>
+                <div style="margin-top: 4px; font-size: 0.9rem; color: #1f2937;">
+                    Retry by editing and saving the article.
+                </div>
+            </div>
+        <% } else if (!isAIQueue && news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
             <div class="duplicate-warning">
                 <strong><i class="fas fa-triangle-exclamation"></i> <%= news.duplicateCheck.matchCount %> similar article<%= news.duplicateCheck.matchCount > 1 ? 's' : '' %> found</strong>
                 <br>Highest match: <%= news.duplicateCheck.score %>% similarity
@@ -147,10 +182,13 @@
         <% } %>
 
         <div class="card-actions">
-            <button type="button" class="btn-preview" onclick="openPreview('<%= news._id %>')"><i class="fas fa-pen-to-square"></i> Preview</button>
-            <button type="button" class="btn-preview" onclick="window.location.href='/edit-news/<%= news._id %>?source=pending'" style="background-color: #3b82f6; color: white;"><i class="fas fa-pen"></i> Edit</button>
+            <% if (!isAIQueue) { %>
+                <button type="button" class="btn-preview" onclick="openPreview('<%= news._id %>')"><i class="fas fa-pen-to-square"></i> Preview</button>
+            <% } %>
+            <button type="button" class="btn-preview" onclick="window.location.href='/edit-news/<%= news._id %>?source=pending'" style="background-color: #3b82f6; color: white;"><i class="fas fa-pen"></i> Edit <%= isAIQueue ? 'Article' : '' %></button>
             
             <% if (isAIQueue && news.aiStatus === 'review_required') { %>
+                <button type="button" class="btn-compare" onclick="openCompareArticlesModal('<%= news._id %>')" style="background-color: #f59e0b; color: white;"><i class="fas fa-code-compare"></i> Compare Articles</button>
                 <button type="button" class="btn-approve" onclick='approveNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-check"></i> Publish Anyway</button>
             <% } else if (!isAIQueue) { %>
                 <% if (news.duplicateCheck && news.duplicateCheck.matchCount > 0) { %>
