@@ -285,7 +285,7 @@
             });
             notif.onclick = function () {
                 window.focus();
-                window.location.href = '/admin/my-ai-queue#article-' + payload.id;
+                window.open('/admin/my-ai-queue#article-' + payload.id, '_blank');
             };
         }
 
@@ -303,7 +303,7 @@
                     borderRadius: '8px'
                 },
                 onClick: function() {
-                    window.location.href = '/admin/my-ai-queue#article-' + payload.id;
+                    window.open('/admin/my-ai-queue#article-' + payload.id, '_blank');
                 }
             }).showToast();
         }

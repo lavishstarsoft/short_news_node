@@ -182,7 +182,7 @@
             <!-- News & Content Group -->
             <% 
                 const showNewsGroup = canView('addNews') || canView('newsList') || canView('pendingNews') || canView('rejectedNews') || canView('plagiarismReport');
-                const newsGroupActive = ['add-news', 'news-list', 'pending-news', 'rejected-news', 'plagiarism-report'].includes(activePage);
+                const newsGroupActive = ['add-news', 'news-list', 'pending-news', 'my-ai-queue', 'rejected-news', 'plagiarism-report'].includes(activePage);
             %>
             <% if (showNewsGroup) { %>
             <li class="nav-item">
