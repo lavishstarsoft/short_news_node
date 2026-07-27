@@ -4128,7 +4128,7 @@ async function getPendingNewsDuplicateMatches(req, res) {
     }
 
     const pendingArticle = await News.findById(id)
-      .select('_id title content author category location language publishedAt isActive rejectionStatus mediaUrl mediaType imageUrl imageUrls thumbnailUrl videoUrl')
+      .select('_id title content author category location language publishedAt isActive rejectionStatus mediaUrl mediaType imageUrl imageUrls thumbnailUrl videoUrl duplicateCheck mediaFingerprint')
       .lean();
 
     if (!pendingArticle) {
@@ -4145,29 +4145,38 @@ async function getPendingNewsDuplicateMatches(req, res) {
 
     const pendingLang = (pendingArticle.language || 'te').toLowerCase();
 
-    const { contentHash, duplicateCheck: storedCheck } = await runDuplicateCheckGateway(
-      {
-        title: pendingArticle.title,
-        content: pendingArticle.content,
-        language: pendingLang,
-        mediaUrl: pendingArticle.mediaUrl || '',
-        mediaType: pendingArticle.mediaType || '',
-        imageUrls: Array.isArray(pendingArticle.imageUrls)
-          ? pendingArticle.imageUrls
-          : [],
-        thumbnailUrl: pendingArticle.thumbnailUrl || '',
-        videoUrl: pendingArticle.videoUrl || ''
-      },
-      {
-        excludeId: pendingArticle._id,
-        includePendingCorpus: true
-      }
-    );
-
-    await News.findByIdAndUpdate(pendingArticle._id, {
-      duplicateCheck: storedCheck,
-      contentHash
-    });
+    // Fast open: reuse the duplicate result already stored on the article and only
+    // re-run the (expensive) duplicate algorithm when a genuine recheck is due
+    // (never checked, or media fingerprint became ready after the last check).
+    // Same freshness rule the pending list uses — algorithm/thresholds unchanged.
+    let storedCheck;
+    if (pendingNeedsAiRecheck(pendingArticle)) {
+      const gatewayResult = await runDuplicateCheckGateway(
+        {
+          title: pendingArticle.title,
+          content: pendingArticle.content,
+          language: pendingLang,
+          mediaUrl: pendingArticle.mediaUrl || '',
+          mediaType: pendingArticle.mediaType || '',
+          imageUrls: Array.isArray(pendingArticle.imageUrls)
+            ? pendingArticle.imageUrls
+            : [],
+          thumbnailUrl: pendingArticle.thumbnailUrl || '',
+          videoUrl: pendingArticle.videoUrl || ''
+        },
+        {
+          excludeId: pendingArticle._id,
+          includePendingCorpus: true
+        }
+      );
+      storedCheck = gatewayResult.duplicateCheck;
+      await News.findByIdAndUpdate(pendingArticle._id, {
+        duplicateCheck: storedCheck,
+        contentHash: gatewayResult.contentHash
+      });
+    } else {
+      storedCheck = pendingArticle.duplicateCheck || {};
+    }
 
     const { enrichSimilarArticlesFromDb } = require('../services/aiDuplicate/enrichSimilarArticles');
     const enrichedMatches = await enrichSimilarArticlesFromDb(

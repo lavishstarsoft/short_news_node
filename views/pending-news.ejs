@@ -1398,6 +1398,53 @@
                     if (newsDataCache[newsId]) delete newsDataCache[newsId];
                 }
 
+                // Apply a completed AI duplicate result to a single existing card
+                // (badge + warning + Duplicates button). Never rebuilds the list.
+                function applyDuplicateResultToCard(newsId, dc) {
+                    if (!dc) return;
+                    const flagged = dc.isDuplicate === true || dc.isSuspicious === true;
+                    if (!flagged) return;
+
+                    duplicateDataCache[newsId] = {
+                        isDuplicate: dc.isDuplicate,
+                        isSuspicious: dc.isSuspicious,
+                        score: dc.score,
+                        matchCount: dc.matchCount,
+                        similarArticles: dc.similarArticles || []
+                    };
+
+                    const card = document.querySelector('.news-card[data-id="' + newsId + '"]');
+                    if (!card) return;
+                    // Already showing duplicate UI — nothing to do (avoids duplicates).
+                    if (card.querySelector('.btn-duplicate') || card.querySelector('.duplicate-warning')) return;
+
+                    const reason = formatDupReason(dc);
+                    const badgeGroup = card.querySelector('.badge-group');
+                    if (badgeGroup && !badgeGroup.querySelector('.badge-duplicate, .badge-suspicious')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge ' + (dc.isDuplicate ? 'badge-duplicate ' : 'badge-suspicious ') + reason.badgeClass;
+                        badge.title = reason.message + ' — ' + dc.score + '%';
+                        badge.innerHTML = '<i class="fas fa-clone"></i> ' + (dc.isDuplicate ? 'Duplicate' : 'Similar') + ' · ' + reason.label + ' (' + dc.score + '%)';
+                        badgeGroup.appendChild(badge);
+                    }
+
+                    const cardContent = card.querySelector('.news-card-content');
+                    const cardActions = card.querySelector('.card-actions');
+                    if (cardContent && cardActions) {
+                        const warningDiv = document.createElement('div');
+                        warningDiv.className = 'duplicate-warning';
+                        warningDiv.innerHTML = buildDuplicateWarningHtml(dc, newsId, true);
+                        cardContent.insertBefore(warningDiv, cardActions);
+
+                        const dupBtn = document.createElement('button');
+                        dupBtn.type = 'button';
+                        dupBtn.className = 'btn-duplicate';
+                        dupBtn.onclick = function () { viewDuplicates(newsId); };
+                        dupBtn.innerHTML = '<i class="fas fa-clone"></i> Duplicates';
+                        cardActions.insertBefore(dupBtn, cardActions.firstChild);
+                    }
+                }
+
                 function handleAdminStatus(payload) {
                     if (!payload || !payload.status) return;
                     const newsId = (payload.id || '').toString();
@@ -1405,6 +1452,11 @@
 
                     if (payload.status === 'approved' || payload.status === 'rejected') {
                         removePendingCard(newsId);
+                        return;
+                    }
+
+                    if (payload.status === 'review_required') {
+                        applyDuplicateResultToCard(newsId, payload.duplicateCheck);
                         return;
                     }
 

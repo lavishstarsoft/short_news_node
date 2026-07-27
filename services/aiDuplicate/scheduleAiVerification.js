@@ -184,6 +184,27 @@ function scheduleAiVerification(news, io) {
           }
 
           io.to(`reporter:${news.authorId}`).emit('ai_status_updated', payload);
+
+          // Also notify admin dashboards (Pending News) via the existing workflow
+          // channel so the specific card shows the duplicate result without a refresh.
+          if (result.outcome === 'review_required' && result.duplicateCheck) {
+            const dc = result.duplicateCheck;
+            const { emitWorkflowToAdmins } = require('../realtime/workflowEmit');
+            emitWorkflowToAdmins(io, {
+              id: news._id,
+              status: 'review_required',
+              duplicateCheck: {
+                isDuplicate: dc.isDuplicate,
+                isSuspicious: dc.isSuspicious,
+                score: dc.score,
+                matchCount: dc.matchCount,
+                matchSource: dc.matchSource,
+                reasonLabel: dc.reasonLabel,
+                reasonMessage: dc.reasonMessage,
+                similarArticles: dc.similarArticles || []
+              }
+            });
+          }
         } catch (_) {
           /* ignore emit error */
         }
