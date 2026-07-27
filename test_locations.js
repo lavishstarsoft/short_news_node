@@ -1,11 +1,17 @@
-const mongoose = require('mongoose');
 require('dotenv').config();
+const mongoose = require('mongoose');
 const Location = require('./models/Location');
 
-async function test() {
-  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/shortnews');
-  const up = await Location.findOne({ type: 'state', name: 'Uttar Pradesh' }).lean();
-  console.log(up);
-  mongoose.disconnect();
+const mongoUri = process.env.MONGODB_URI;
+
+async function testLocations() {
+  await mongoose.connect(mongoUri);
+  try {
+    const hierarchy = await Location.getHierarchy();
+    console.log("Hierarchy length:", hierarchy.length);
+  } catch (err) {
+    console.error("Error reading hierarchy:", err);
+  }
+  process.exit(0);
 }
-test();
+testLocations();
