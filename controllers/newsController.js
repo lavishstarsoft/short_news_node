@@ -34,6 +34,7 @@ const oneSignalService = require('../services/oneSignalService');
 
 // Import cache middleware for cache invalidation
 const { clearCache } = require('../middleware/cache');
+const { redisClient, isRedisAvailable } = require('../config/redis');
 const { runDuplicateCheckGateway } = require('../services/aiDuplicate/runDuplicateCheckGateway');
 const {
   schedulePendingAfterCreate,
@@ -144,19 +145,80 @@ async function renderDashboard(req, res) {
         }
       }
 
-      // Fetch news
-      newsList = await News.find(newsQuery).sort({ publishedAt: -1 }).limit(20);
-      totalNewsCount = await News.countDocuments(newsQuery);
-      activeNewsCount = await News.countDocuments({ ...newsQuery, isActive: true });
-      inactiveNewsCount = await News.countDocuments({ ...newsQuery, isActive: false });
-      pendingNewsCount = await News.countDocuments({
-        ...newsQuery,
-        isActive: false,
-        'rejectionStatus.isRejected': { $ne: true }
-      });
+      // Date boundary for "today" (computed once, used by the today-count query below).
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-      const categories = await Category.find({ type: { $in: ['news', null] } });
-      const locations = await Location.find();
+      const todaysMatch = req.admin.role === 'editor'
+        ? { authorId: req.admin.id, publishedAt: { $gte: today } }
+        : { publishedAt: { $gte: today } };
+
+      const viewsMatch = req.admin.role === 'editor'
+        ? { authorId: req.admin.id }
+        : {};
+
+      // P3: total views is an unbounded sum over the (possibly whole) collection.
+      // Serve it from a short-lived cache and only run the aggregation on a miss.
+      const viewsCacheKey = req.admin.role === 'editor'
+        ? `cache:dash:views:e:${req.admin.id}`
+        : 'cache:dash:views:all';
+      const computeTotalViews = async () => {
+        if (isRedisAvailable()) {
+          try {
+            const cached = await redisClient.get(viewsCacheKey);
+            if (cached !== null && cached !== undefined) return Number(cached);
+          } catch (e) { /* fall through to compute */ }
+        }
+        const viewsAgg = await News.aggregate([
+          { $match: viewsMatch },
+          { $group: { _id: null, total: { $sum: { $ifNull: ['$views', 0] } } } }
+        ]);
+        const total = viewsAgg[0]?.total || 0;
+        if (isRedisAvailable()) {
+          redisClient.setEx(viewsCacheKey, 60, String(total)).catch(() => { /* non-fatal */ });
+        }
+        return total;
+      };
+
+      // P1: run every independent read concurrently instead of in a waterfall.
+      // P2: fold the four status counts (total/active/inactive/pending) into one
+      //     aggregation pass instead of four separate countDocuments calls.
+      // P6: fetch the news list as lean plain objects.
+      const [statusCounts, fetchedNews, categories, locations, todaysCount, totalViews] = await Promise.all([
+        News.aggregate([
+          { $match: newsQuery },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              active: { $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] } },
+              inactive: { $sum: { $cond: [{ $eq: ['$isActive', false] }, 1, 0] } },
+              pending: {
+                $sum: {
+                  $cond: [
+                    { $and: [{ $eq: ['$isActive', false] }, { $ne: ['$rejectionStatus.isRejected', true] }] },
+                    1,
+                    0
+                  ]
+                }
+              }
+            }
+          }
+        ]),
+        News.find(newsQuery).sort({ publishedAt: -1 }).limit(20).lean(),
+        Category.find({ type: { $in: ['news', null] } }),
+        Location.find(),
+        News.countDocuments(todaysMatch),
+        computeTotalViews()
+      ]);
+
+      newsList = fetchedNews;
+      const counts = statusCounts[0] || {};
+      totalNewsCount = counts.total || 0;
+      activeNewsCount = counts.active || 0;
+      inactiveNewsCount = counts.inactive || 0;
+      pendingNewsCount = counts.pending || 0;
+      todaysNewsCount = todaysCount;
 
       // Get all locations to create a map of name to code
       const locationMap = {};
@@ -173,41 +235,15 @@ async function renderDashboard(req, res) {
         authorSystemRoleMap[author._id.toString()] = author.role || 'editor';
       });
 
-      // Add location codes to news items
+      // Add location codes to news items (news items are already lean plain objects)
       const newsListWithCodes = newsList.map(news => {
         return {
-          ...news.toObject(),
+          ...news,
           locationCode: news.location ? locationMap[news.location] : null,
           authorRole: authorRoleMap[news.authorId] || 'Reporter',
           authorSystemRole: authorSystemRoleMap[news.authorId] || 'editor'
         };
       });
-
-      // Calculate today's news count
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      if (req.admin.role === 'editor') {
-        // Editors only see their own today's news count
-        todaysNewsCount = await News.countDocuments({
-          authorId: req.admin.id,
-          publishedAt: { $gte: today }
-        });
-      } else {
-        // Admins and superadmins see all today's news count
-        todaysNewsCount = await News.countDocuments({
-          publishedAt: { $gte: today }
-        });
-      }
-
-      const viewsMatch = req.admin.role === 'editor'
-        ? { authorId: req.admin.id }
-        : {};
-      const viewsAgg = await News.aggregate([
-        { $match: viewsMatch },
-        { $group: { _id: null, total: { $sum: { $ifNull: ['$views', 0] } } } }
-      ]);
-      const totalViews = viewsAgg[0]?.total || 0;
 
       res.render('index', {
         newsList: newsListWithCodes,
@@ -408,18 +444,21 @@ async function renderNewsListPage(req, res) {
           : { $and: [query, languageFilter] };
       }
 
-      // Get total count for pagination
-      const totalNews = await News.countDocuments(query);
+      // P1: count, page fetch and locations are independent — run them concurrently.
+      // P6: fetch the page of news as lean plain objects.
+      const [totalNews, fetchedNews, fetchedLocations] = await Promise.all([
+        News.countDocuments(query),
+        News.find(query)
+          .sort({ publishedAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        Location.find()
+      ]);
+
       const totalPages = Math.ceil(totalNews / limit);
-
-      // Fetch only the news for current page with pagination
-      newsList = await News.find(query)
-        .sort({ publishedAt: -1 })
-        .skip(skip)
-        .limit(limit);
-
-      // Get all locations for the filter dropdown
-      locations = await Location.find();
+      newsList = fetchedNews;
+      locations = fetchedLocations;
 
       // Get all locations to create a map of name to code
       const locationMap = {};
@@ -438,10 +477,10 @@ async function renderNewsListPage(req, res) {
         authorDetailsMap[author._id.toString()] = author;
       });
 
-      // Add location codes to news items
+      // Add location codes to news items (news items are already lean plain objects)
       const newsListWithCodes = newsList.map(news => {
         return {
-          ...news.toObject(),
+          ...news,
           locationCode: news.location ? locationMap[news.location] : null,
           authorRole: authorRoleMap[news.authorId] || 'Reporter',
           authorSystemRole: authorSystemRoleMap[news.authorId] || 'editor',

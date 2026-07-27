@@ -103,6 +103,7 @@ function pendingNeedsAiRecheck(article) {
 
 // Import cache clearing functionality
 const { clearCache } = require('../middleware/cache');
+const { redisClient, isRedisAvailable } = require('../config/redis');
 const { invalidateCache } = require('../graphql/cache');
 
 // Helper to strip color tags [c=#RRGGBB]...[/c] for length validation
@@ -1532,15 +1533,36 @@ async function renderEditorsPage(req, res) {
       return res.status(403).send('Access denied. Admins only.');
     }
 
-    // Get all editors and subeditors
-    const editors = await Admin.find({ role: { $in: ['editor', 'subeditor'] } }).sort({ createdAt: -1 });
+    // Get all editors and subeditors.
+    // P6: .lean() returns plain objects (no Mongoose hydration) — lighter to build/serialize.
+    // P5: never load password / loginHistory / payoutMethods — the editors page (and the
+    // client-side editorsData JSON) does not use them, and they must not reach the browser.
+    const editors = await Admin.find({ role: { $in: ['editor', 'subeditor'] } })
+      .select('-password -loginHistory -payoutMethods')
+      .sort({ createdAt: -1 })
+      .lean();
 
     const editorIds = editors.map(editor => editor._id.toString());
 
-    const statsByEditor = {};
-    const latestRejectByEditor = {};
+    let statsByEditor = {};
+    let latestRejectByEditor = {};
 
-    if (editorIds.length > 0) {
+    // P3: cache the expensive per-editor analytics aggregations (all-time lifecycle,
+    // 6-month trend, latest rejection) for a short TTL. These are directory analytics,
+    // not real-time workflow state, so brief staleness is acceptable.
+    const editorsStatsCacheKey = 'cache:editors:stats:v1';
+    let editorsStatsCached = null;
+    if (isRedisAvailable()) {
+      try {
+        const cachedRaw = await redisClient.get(editorsStatsCacheKey);
+        if (cachedRaw) editorsStatsCached = JSON.parse(cachedRaw);
+      } catch (e) { /* fall through to compute */ }
+    }
+
+    if (editorsStatsCached) {
+      statsByEditor = editorsStatsCached.statsByEditor || {};
+      latestRejectByEditor = editorsStatsCached.latestRejectByEditor || {};
+    } else if (editorIds.length > 0) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -1656,10 +1678,18 @@ async function renderEditorsPage(req, res) {
           rejectedAt: item.rejectedAt || null
         };
       });
+
+      // Store freshly computed analytics for the next 60s (best-effort).
+      if (isRedisAvailable()) {
+        redisClient
+          .setEx(editorsStatsCacheKey, 60, JSON.stringify({ statsByEditor, latestRejectByEditor }))
+          .catch(() => { /* non-fatal */ });
+      }
     }
 
     const editorsWithStats = editors.map(editor => {
-      const editorObj = editor.toObject();
+      // P6: `editor` is already a plain lean object (no .toObject() needed).
+      const editorObj = editor;
       return {
         ...editorObj,
         newsStats: statsByEditor[editor._id.toString()] || {

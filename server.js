@@ -446,7 +446,14 @@ app.get(['/.well-known/apple-app-site-association', '/apple-app-site-association
   return res.status(200).send(JSON.stringify(data));
 });
 
-app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
+// P9: give static assets (CSS/JS/images) a browser cache lifetime so repeat
+// visits don't re-download them. Set STATIC_MAX_AGE=0 to disable if needed.
+app.use(express.static(path.join(__dirname, 'public'), {
+  dotfiles: 'allow',
+  maxAge: process.env.STATIC_MAX_AGE || '7d',
+  etag: true,
+  lastModified: true,
+}));
 
 // Mobile user authentication via verified Google ID token.
 // SECURITY: The previous implementation treated `userToken === userId` as
@@ -464,6 +471,11 @@ app.locals.googleAuthClient = client;
 // Set EJS as templating engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+// P8: cache compiled EJS templates so they are not recompiled on every request.
+// Express only enables this automatically when NODE_ENV=production; enable it
+// explicitly here so it also applies when running under other NODE_ENV values.
+// Set VIEW_CACHE=false to disable (e.g. while editing templates locally).
+app.set('view cache', process.env.VIEW_CACHE !== 'false');
 
 const { renderRichText, renderRichTextExcerpt, stripRichTags } = require('./utils/richTextRenderer');
 const {
