@@ -1,0 +1,111 @@
+            function closeCompareArticlesModal() {
+                const modal = document.getElementById('compareArticlesModal');
+                if (modal) modal.style.display = 'none';
+            }
+
+            function openCompareArticlesModal(newsId) {
+                const news = newsDataCache[newsId];
+                const dupData = duplicateDataCache[newsId];
+                if (!news || !dupData || !dupData.similarArticles || !dupData.similarArticles.length) {
+                    alert('Comparison data is not available.');
+                    return;
+                }
+
+                const topMatch = dupData.similarArticles[0];
+                
+                const currentMedia = news.mediaUrl || (news.imageUrls && news.imageUrls[0]) || '';
+                const matchedMedia = topMatch.mediaUrl || topMatch.thumbnailUrl || (topMatch.imageUrls && topMatch.imageUrls[0]) || '';
+                const sameImage = (currentMedia && matchedMedia && currentMedia === matchedMedia) 
+                    ? '<span class="badge" style="background: #22c55e; color: white; margin-left: 10px;">Same Image</span>' 
+                    : (currentMedia && matchedMedia ? '<span class="badge" style="background: #ef4444; color: white; margin-left: 10px;">Different Image</span>' : '');
+
+                const highlightDiff = (text1, text2) => {
+                    const t1 = stripRichTags(text1 || '').trim();
+                    const t2 = stripRichTags(text2 || '').trim();
+                    if (t1 === t2) return `<span style="color: #475569;">${escapeHtml(t1)}</span>`;
+                    
+                    const words1 = t1.split(/\s+/);
+                    const words2 = new Set(t2.split(/\s+/));
+                    
+                    return words1.map(w => {
+                        if (words2.has(w)) return escapeHtml(w);
+                        return `<span style="background-color: #fef08a; padding: 0 2px; border-radius: 2px; color: #854d0e; font-weight: 600;">${escapeHtml(w)}</span>`;
+                    }).join(' ');
+                };
+
+                const bodyHtml = `
+                    <div style="display: flex; gap: 20px;">
+                        <!-- LEFT: Current Article -->
+                        <div style="flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 2px solid #bfdbfe;">
+                            <h4 style="color: #3b82f6; border-bottom: 2px solid #bfdbfe; padding-bottom: 10px; margin-bottom: 15px;">Current Article (Pending)</h4>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <strong style="color: #64748b;">Title</strong>
+                                <div style="margin-top: 5px; font-size: 1.1rem; font-weight: 600;">${highlightDiff(news.title, topMatch.articleTitle)}</div>
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <strong style="color: #64748b;">Image / Media</strong> ${sameImage}
+                                <div style="margin-top: 8px;">
+                                    ${currentMedia ? `<img src="${escapeHtml(currentMedia)}" style="max-width: 100%; max-height: 200px; height: auto; border-radius: 6px; object-fit: cover;">` : '<em>No media</em>'}
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <strong style="color: #64748b;">Content</strong>
+                                <div style="margin-top: 5px; color: #334155; line-height: 1.6; white-space: pre-wrap;">${highlightDiff(news.content, topMatch.content)}</div>
+                            </div>
+                            
+                            <div style="display: flex; gap: 20px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 0.9rem;">
+                                <div><strong style="color: #64748b;">Category:</strong> ${escapeHtml(news.category || 'N/A')}</div>
+                                <div><strong style="color: #64748b;">Date:</strong> ${escapeHtml(news.publishedAt || 'N/A')}</div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT: Matched Article -->
+                        <div style="flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 2px solid #fecaca;">
+                            <h4 style="color: #ef4444; border-bottom: 2px solid #fecaca; padding-bottom: 10px; margin-bottom: 15px;">Matched Article (Published)</h4>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <strong style="color: #64748b;">Title</strong>
+                                <div style="margin-top: 5px; font-size: 1.1rem; font-weight: 600;">${highlightDiff(topMatch.articleTitle, news.title)}</div>
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <strong style="color: #64748b;">Image / Media</strong> ${sameImage}
+                                <div style="margin-top: 8px;">
+                                    ${matchedMedia ? `<img src="${escapeHtml(matchedMedia)}" style="max-width: 100%; max-height: 200px; height: auto; border-radius: 6px; object-fit: cover;">` : '<em>No media</em>'}
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <strong style="color: #64748b;">Content</strong>
+                                <div style="margin-top: 5px; color: #334155; line-height: 1.6; white-space: pre-wrap;">${highlightDiff(topMatch.content, news.content)}</div>
+                            </div>
+                            
+                            <div style="display: flex; gap: 20px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 0.9rem;">
+                                <div><strong style="color: #64748b;">Category:</strong> ${escapeHtml(topMatch.category || 'N/A')}</div>
+                                <div><strong style="color: #64748b;">Date:</strong> ${topMatch.publishedAt ? escapeHtml(new Date(topMatch.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', year: 'numeric' })) : 'N/A'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                const modal = document.getElementById('compareArticlesModal');
+                const body = document.getElementById('compareArticlesBody');
+                body.innerHTML = bodyHtml;
+                modal.style.display = 'block';
+            }
+
+            // --- REAL-TIME DOM UPDATE (SPA) ---
+            function handleAiStatusUpdate(e) {
+                const payload = e.detail;
+                updateArticleCard(payload.id, payload);
+            }
+            
+            document.removeEventListener('ai_status_updated_received', handleAiStatusUpdate);
+            document.addEventListener('ai_status_updated_received', handleAiStatusUpdate);
+
+            function updateArticleCard(articleId, payload) {
+                const card = document.querySelector(`.news-card[data-id="${articleId}"]`);
+                if (!card) return;

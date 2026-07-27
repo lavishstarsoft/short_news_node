@@ -859,7 +859,6 @@
                         const currentRole = '<%= adminRole %>';
                         
                         if (currentRole === 'Sub Editor') {
-                            Swal.fire({
                             Swal.fire('Published!', 'News verified and published successfully.', 'success');
                             const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
                             if (card) {
@@ -1828,90 +1827,6 @@
             });
 
             // ⚡ LAZY DUPLICATE CHECK: Runs in background after page loads
-            document.addEventListener('DOMContentLoaded', async function() {
-                try {
-                    const response = await fetch('/admin/api/pending-news/duplicate-check', {
-                        cache: 'no-store',
-                        headers: { 'Cache-Control': 'no-cache' }
-                    });
-                    if (!response.ok) return;
-                    const data = await response.json();
-                    if (!data.success || !data.results) return;
-
-                    data.results.forEach(function(result) {
-                        const dc = result.duplicateCheck;
-                        if (!dc) return;
-                        const flagged = dc.isDuplicate === true || dc.isSuspicious === true;
-                        if (!flagged && (!dc.matchCount || dc.matchCount === 0)) return;
-
-                        duplicateDataCache[result.newsId] = {
-                            isDuplicate: dc.isDuplicate,
-                            isSuspicious: dc.isSuspicious,
-                            score: dc.score,
-                            matchCount: dc.matchCount,
-                            similarArticles: dc.similarArticles || []
-                        };
-
-                        const card = document.querySelector('.news-card[data-id="' + result.newsId + '"]');
-                        if (!card) return;
-
-                        // Server already rendered duplicate UI — only refresh cache, don't duplicate buttons/badges.
-                        if (card.querySelector('.btn-duplicate') || card.querySelector('.duplicate-warning')) {
-                            return;
-                        }
-
-                        const badgeGroup = card.querySelector('.badge-group');
-                        if (badgeGroup && !badgeGroup.querySelector('.badge-duplicate, .badge-suspicious')) {
-                            const reason = formatDupReason(dc);
-                            if (dc.isDuplicate) {
-                                const badge = document.createElement('span');
-                                badge.className = 'badge badge-duplicate ' + reason.badgeClass;
-                                badge.title = reason.message + ' — ' + dc.score + '%';
-                                if (reason.source === 'image') {
-                                    badge.innerHTML = '<i class="fas fa-image"></i> Duplicate · Image (' + dc.score + '%)';
-                                } else if (reason.source === 'both') {
-                                    badge.innerHTML = '<i class="fas fa-clone"></i> Duplicate · Image+Content (' + dc.score + '%)';
-                                } else {
-                                    badge.innerHTML = '<i class="fas fa-align-left"></i> Duplicate · Content (' + dc.score + '%)';
-                                }
-                                badgeGroup.appendChild(badge);
-                            } else if (dc.isSuspicious) {
-                                const badge = document.createElement('span');
-                                badge.className = 'badge badge-suspicious ' + reason.badgeClass;
-                                badge.title = reason.message + ' — ' + dc.score + '%';
-                                if (reason.source === 'image') {
-                                    badge.innerHTML = '<i class="fas fa-image"></i> Similar · Image (' + dc.score + '%)';
-                                } else if (reason.source === 'both') {
-                                    badge.innerHTML = '<i class="fas fa-magnifying-glass"></i> Similar · Image+Content (' + dc.score + '%)';
-                                } else {
-                                    badge.innerHTML = '<i class="fas fa-align-left"></i> Similar · Content (' + dc.score + '%)';
-                                }
-                                badgeGroup.appendChild(badge);
-                            }
-                        }
-
-                        const cardContent = card.querySelector('.news-card-content');
-                        const cardActions = card.querySelector('.card-actions');
-                        if (cardContent && cardActions && !card.querySelector('.duplicate-warning')) {
-                            const warningDiv = document.createElement('div');
-                            warningDiv.className = 'duplicate-warning';
-                            warningDiv.innerHTML = buildDuplicateWarningHtml(dc, result.newsId, true);
-                            cardContent.insertBefore(warningDiv, cardActions);
-
-                            const dupBtn = document.createElement('button');
-                            dupBtn.type = 'button';
-                            dupBtn.className = 'btn-duplicate';
-                            dupBtn.onclick = function() { viewDuplicates(result.newsId); };
-                            dupBtn.innerHTML = '<i class="fas fa-clone"></i> Duplicates';
-                            cardActions.insertBefore(dupBtn, cardActions.firstChild);
-                        }
-                    });
-
-                    // Lazy duplicate check completed
-                } catch (err) {
-                    // Duplicate check failed (non-critical)
-                }
-            });
             function closeCompareArticlesModal() {
                 const modal = document.getElementById('compareArticlesModal');
                 if (modal) modal.style.display = 'none';
@@ -2010,6 +1925,91 @@
                 body.innerHTML = bodyHtml;
                 modal.style.display = 'block';
             }
+
+            document.addEventListener('DOMContentLoaded', async function() {
+                try {
+                    const response = await fetch('/admin/api/pending-news/duplicate-check', {
+                        cache: 'no-store',
+                        headers: { 'Cache-Control': 'no-cache' }
+                    });
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    if (!data.success || !data.results) return;
+
+                    data.results.forEach(function(result) {
+                        const dc = result.duplicateCheck;
+                        if (!dc) return;
+                        const flagged = dc.isDuplicate === true || dc.isSuspicious === true;
+                        if (!flagged && (!dc.matchCount || dc.matchCount === 0)) return;
+
+                        duplicateDataCache[result.newsId] = {
+                            isDuplicate: dc.isDuplicate,
+                            isSuspicious: dc.isSuspicious,
+                            score: dc.score,
+                            matchCount: dc.matchCount,
+                            similarArticles: dc.similarArticles || []
+                        };
+
+                        const card = document.querySelector('.news-card[data-id="' + result.newsId + '"]');
+                        if (!card) return;
+
+                        // Server already rendered duplicate UI — only refresh cache, don't duplicate buttons/badges.
+                        if (card.querySelector('.btn-duplicate') || card.querySelector('.duplicate-warning')) {
+                            return;
+                        }
+
+                        const badgeGroup = card.querySelector('.badge-group');
+                        if (badgeGroup && !badgeGroup.querySelector('.badge-duplicate, .badge-suspicious')) {
+                            const reason = formatDupReason(dc);
+                            if (dc.isDuplicate) {
+                                const badge = document.createElement('span');
+                                badge.className = 'badge badge-duplicate ' + reason.badgeClass;
+                                badge.title = reason.message + ' — ' + dc.score + '%';
+                                if (reason.source === 'image') {
+                                    badge.innerHTML = '<i class="fas fa-image"></i> Duplicate · Image (' + dc.score + '%)';
+                                } else if (reason.source === 'both') {
+                                    badge.innerHTML = '<i class="fas fa-clone"></i> Duplicate · Image+Content (' + dc.score + '%)';
+                                } else {
+                                    badge.innerHTML = '<i class="fas fa-align-left"></i> Duplicate · Content (' + dc.score + '%)';
+                                }
+                                badgeGroup.appendChild(badge);
+                            } else if (dc.isSuspicious) {
+                                const badge = document.createElement('span');
+                                badge.className = 'badge badge-suspicious ' + reason.badgeClass;
+                                badge.title = reason.message + ' — ' + dc.score + '%';
+                                if (reason.source === 'image') {
+                                    badge.innerHTML = '<i class="fas fa-image"></i> Similar · Image (' + dc.score + '%)';
+                                } else if (reason.source === 'both') {
+                                    badge.innerHTML = '<i class="fas fa-magnifying-glass"></i> Similar · Image+Content (' + dc.score + '%)';
+                                } else {
+                                    badge.innerHTML = '<i class="fas fa-align-left"></i> Similar · Content (' + dc.score + '%)';
+                                }
+                                badgeGroup.appendChild(badge);
+                            }
+                        }
+
+                        const cardContent = card.querySelector('.news-card-content');
+                        const cardActions = card.querySelector('.card-actions');
+                        if (cardContent && cardActions && !card.querySelector('.duplicate-warning')) {
+                            const warningDiv = document.createElement('div');
+                            warningDiv.className = 'duplicate-warning';
+                            warningDiv.innerHTML = buildDuplicateWarningHtml(dc, result.newsId, true);
+                            cardContent.insertBefore(warningDiv, cardActions);
+
+                            const dupBtn = document.createElement('button');
+                            dupBtn.type = 'button';
+                            dupBtn.className = 'btn-duplicate';
+                            dupBtn.onclick = function() { viewDuplicates(result.newsId); };
+                            dupBtn.innerHTML = '<i class="fas fa-clone"></i> Duplicates';
+                            cardActions.insertBefore(dupBtn, cardActions.firstChild);
+                        }
+                    });
+
+                    // Lazy duplicate check completed
+                } catch (err) {
+                    // Duplicate check failed (non-critical)
+                }
+            });
 
             // --- REAL-TIME DOM UPDATE (SPA) ---
             function handleAiStatusUpdate(e) {
@@ -2144,7 +2144,7 @@
                             <button class="pn-action-btn pn-btn-primary" onclick="window.location.href='/admin/add-news?edit=${articleId}'">
                                 <i class="fas fa-edit"></i> Edit
                             </button>
-                            <button class="pn-action-btn pn-btn-success" onclick="executeApproval('${articleId}')" style="background-color: #f59e0b;">
+                            <button class="pn-action-btn pn-btn-success" onclick="approveNews('${articleId}', '${escapeHtml(payload.title || '').replace(/'/g, "\\'")}')" style="background-color: #f59e0b;">
                                 <i class="fas fa-check-double"></i> Publish Anyway
                             </button>
                         `;
