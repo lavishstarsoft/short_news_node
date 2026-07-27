@@ -789,7 +789,7 @@ async function validatePostingArea(reqAdmin, scope, location) {
 // Create new news (include author information)
 async function createNews(req, res) {
   try {
-    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage allowedLanguages role');
+    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage allowedLanguages role permissions');
     const articleLanguage = normalizeNewsLanguage(req.body.language || authorDetails?.workingLanguage);
 
     // Replay protection — same Idempotency-Key returns the first saved article (no second insert)
@@ -876,12 +876,22 @@ async function createNews(req, res) {
     const directPublishRoles = ['admin', 'superadmin'];
     const aiGateRoles = ['subeditor'];
 
+    // Super admin can disable the News AI check per sub-editor (permissions.aiCheckEnabled).
+    // When disabled, this sub-editor's news skips the AI gate and publishes directly.
+    // Default (undefined) = enabled, preserving existing behaviour.
+    const aiCheckEnabled = authorDetails?.permissions?.aiCheckEnabled !== false;
+    const useAiGate = aiGateRoles.includes(req.admin.role) && aiCheckEnabled;
+
     if (directPublishRoles.includes(req.admin.role)) {
       newsData.isActive = true;   // → Direct Publish (No Pending)
       newsData.aiStatus = 'none';
-    } else if (aiGateRoles.includes(req.admin.role)) {
+    } else if (useAiGate) {
       newsData.isActive = false;  // → Pending until AI verifies
       newsData.aiStatus = 'processing';
+    } else if (aiGateRoles.includes(req.admin.role)) {
+      // Sub-editor with AI check turned OFF by super admin → publish directly (no AI gate).
+      newsData.isActive = true;
+      newsData.aiStatus = 'none';
     } else {
       newsData.isActive = false;  // → Pending News (Reporter/Editor approval needed)
       newsData.aiStatus = 'none';
@@ -948,7 +958,8 @@ async function createNews(req, res) {
     scheduleMediaFingerprint(news);
 
     // Sub Editor async AI verification — auto-publishes on clean, flags on duplicate.
-    if (aiGateRoles.includes(req.admin.role)) {
+    // Skipped when super admin has disabled the AI check for this sub-editor.
+    if (useAiGate) {
       const io = req.app.locals.io;
       scheduleAiVerification(news, io);
     }
@@ -977,10 +988,14 @@ async function createNews(req, res) {
         constituency: news.authorConstituency || authorDetails?.constituency || null,
       };
 
-      // ✅ Direct Publish Roles: admin, superadmin (subeditor now goes through AI gate)
+      // ✅ Direct Publish Roles: admin, superadmin (subeditor normally goes through AI gate).
+      // A sub-editor with the AI check disabled also publishes directly, so emit "published".
       const directPublishRolesWs = ['admin', 'superadmin'];
+      const isDirectPublish =
+        directPublishRolesWs.includes(req.admin.role) ||
+        (aiGateRoles.includes(req.admin.role) && !useAiGate);
 
-      if (directPublishRolesWs.includes(req.admin.role)) {
+      if (isDirectPublish) {
         const { emitPublished } = require('../services/realtime/workflowEmit');
         emitPublished(io, notificationData);
       } else {

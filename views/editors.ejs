@@ -747,6 +747,11 @@
                                                 <label for="editRequiresSourceLink"><strong>Must add source link</strong></label>
                                                 <div class="hint">Force this sub-editor to include a source URL when posting news</div>
                                             </div>
+                                            <div class="editor-perm-card">
+                                                <input type="checkbox" id="editAiCheckEnabled" class="form-check-input me-2">
+                                                <label for="editAiCheckEnabled"><strong>News AI check</strong></label>
+                                                <div class="hint">When ON, this sub-editor's news is verified by the AI duplicate check before auto-publishing. Turn OFF to publish their news directly without the AI check.</div>
+                                            </div>
                                         </div>
 
                                         <div id="editSidebarAccessWrapper" style="margin-top:16px">
@@ -1749,6 +1754,8 @@
                         document.getElementById('editCanSendNotifications').checked = permissions.canSendNotifications === true;
                         document.getElementById('editCanEditNews').checked = permissions.canEditNews === true;
                         document.getElementById('editRequiresSourceLink').checked = permissions.requiresSourceLink === true;
+                        // Default ON: only unchecked when super admin explicitly disabled it.
+                        document.getElementById('editAiCheckEnabled').checked = permissions.aiCheckEnabled !== false;
 
                         const sidebarPerms = permissions.sidebar || {};
                         document.querySelectorAll('#editEditorModal .sidebar-menu-cb').forEach(cb => {
@@ -1820,6 +1827,7 @@
                             canSendNotifications: document.getElementById('editCanSendNotifications').checked,
                             canEditNews: document.getElementById('editCanEditNews').checked,
                             requiresSourceLink: document.getElementById('editRequiresSourceLink').checked,
+                            aiCheckEnabled: document.getElementById('editAiCheckEnabled').checked,
                             approvalScope: document.getElementById('editApprovalScope').value,
                             sidebar: sidebarData,
                             walletConfig: {

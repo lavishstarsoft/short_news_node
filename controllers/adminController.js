@@ -2306,6 +2306,11 @@ async function updateEditor(req, res) {
       if (!editor.permissions) editor.permissions = {};
       editor.permissions.requiresSourceLink = req.body.requiresSourceLink === 'true' || req.body.requiresSourceLink === true;
     }
+    // Sub-editor News AI check toggle. OFF → this sub-editor's news publishes directly (no AI gate).
+    if (req.body.aiCheckEnabled !== undefined) {
+      if (!editor.permissions) editor.permissions = {};
+      editor.permissions.aiCheckEnabled = req.body.aiCheckEnabled === 'true' || req.body.aiCheckEnabled === true;
+    }
     
     if (sidebar !== undefined) {
       if (!editor.permissions) editor.permissions = {};

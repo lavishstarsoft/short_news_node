@@ -175,6 +175,12 @@ const adminSchema = new mongoose.Schema({
     canEditNews: { type: Boolean, default: false },
     canSendNotifications: { type: Boolean, default: false },
     requiresSourceLink: { type: Boolean, default: false },
+    /**
+     * Sub-editor News AI duplicate check.
+     * true (default): posted news goes through async AI verification before auto-publish.
+     * false: super admin disabled AI for this sub-editor → news is published directly (no AI gate).
+     */
+    aiCheckEnabled: { type: Boolean, default: true },
     approvalScope: { 
       type: String, 
       enum: ['all', 'locations', 'geography', 'reporters'],
