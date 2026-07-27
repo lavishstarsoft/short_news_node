@@ -1472,6 +1472,13 @@
             // Listen for global custom event to update grid dynamically
             document.addEventListener('new_pending_news_received', function (e) {
                 const news = e.detail;
+                
+                // 🔒 IN MY AI QUEUE: Only show news if I am the author
+                const currentUserId = '<%= admin._id || admin.id %>';
+                if (news.authorId && String(news.authorId) !== String(currentUserId)) {
+                    return;
+                }
+
                 const activeGrid = document.getElementById('newsGrid');
                 const tableWrapper = document.querySelector('.table-wrapper');
                 
