@@ -4234,18 +4234,19 @@ async function updatePendingNews(req, res) {
         error: 'Only admins and authorized subeditors can update pending news.',
       });
     }
+    const existingNews = await News.findById(id).lean();
+    if (!existingNews) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
     if (
       admin.role === 'subeditor' &&
-      (!admin.permissions || !admin.permissions.canApproveNews)
+      (!admin.permissions || !admin.permissions.canApproveNews) &&
+      existingNews.authorId !== adminId.toString()
     ) {
       return res.status(403).json({
         error: 'You do not have permission to update pending news.',
       });
-    }
-
-    const existingNews = await News.findById(id).lean();
-    if (!existingNews) {
-      return res.status(404).json({ error: 'News not found' });
     }
 
     if (existingNews.isActive) {
@@ -4375,9 +4376,10 @@ async function approveNews(req, res) {
     const adminId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
     let adminName = 'Editor';
     let adminRole = 'Editor';
+    let admin;
 
     if (adminId) {
-      const admin = await Admin.findById(adminId).select('username role permissions').lean();
+      admin = await Admin.findById(adminId).select('username role permissions').lean();
       if (!admin) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
@@ -4389,9 +4391,6 @@ async function approveNews(req, res) {
         return res.status(403).json({
           error: 'Only admins and authorized subeditors can approve news.',
         });
-      }
-      if (admin.role === 'subeditor' && (!admin.permissions || !admin.permissions.canApproveNews)) {
-        return res.status(403).json({ error: 'You do not have permission to approve news' });
       }
       adminName = admin.username;
       // Format role for display
@@ -4409,6 +4408,10 @@ async function approveNews(req, res) {
     const existingNews = await News.findById(id).lean();
     if (!existingNews) {
       return res.status(404).json({ error: 'News not found' });
+    }
+
+    if (admin.role === 'subeditor' && (!admin.permissions || !admin.permissions.canApproveNews) && existingNews.authorId !== adminId.toString()) {
+      return res.status(403).json({ error: 'You do not have permission to approve news' });
     }
 
     if (existingNews.isActive === true) {
@@ -4595,9 +4598,10 @@ async function rejectNews(req, res) {
     const adminId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
     let adminName = 'Editor';
     let adminRole = 'Editor';
+    let admin;
 
     if (adminId) {
-      const admin = await Admin.findById(adminId).select('username role permissions').lean();
+      admin = await Admin.findById(adminId).select('username role permissions').lean();
       if (!admin) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
@@ -4610,10 +4614,6 @@ async function rejectNews(req, res) {
           error: 'Only admins and authorized subeditors can reject news.',
         });
       }
-      if (admin.role === 'subeditor' && (!admin.permissions || !admin.permissions.canApproveNews)) {
-        return res.status(403).json({ error: 'You do not have permission to reject news.' });
-      }
-      adminName = admin.username;
       if (admin.role === 'superadmin' || admin.role === 'admin') {
         adminRole = 'Admin';
       } else if (admin.role === 'subeditor' || admin.role === 'sub_editor') {
@@ -4628,6 +4628,10 @@ async function rejectNews(req, res) {
     const existingNews = await News.findById(id).lean();
     if (!existingNews) {
       return res.status(404).json({ error: 'News not found' });
+    }
+
+    if (admin.role === 'subeditor' && (!admin.permissions || !admin.permissions.canApproveNews) && existingNews.authorId !== adminId.toString()) {
+      return res.status(403).json({ error: 'You do not have permission to reject news.' });
     }
 
     const actionHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
@@ -4737,21 +4741,14 @@ async function sendBackForEdit(req, res) {
     let adminName = 'Editor';
     let adminRole = 'Editor';
     let adminRoleRaw = req.admin?.role || '';
+    let admin;
 
     if (adminId) {
-      const admin = await Admin.findById(adminId)
+      admin = await Admin.findById(adminId)
         .select('username role permissions')
         .lean();
       if (!admin) {
         return res.status(401).json({ error: 'Unauthorized' });
-      }
-      if (
-        admin.role === 'subeditor' &&
-        (!admin.permissions || !admin.permissions.canApproveNews)
-      ) {
-        return res
-          .status(403)
-          .json({ error: 'You do not have permission to send news back for edit.' });
       }
       if (
         admin.role !== 'superadmin' &&
@@ -4780,6 +4777,16 @@ async function sendBackForEdit(req, res) {
     const existingNews = await News.findById(id);
     if (!existingNews) {
       return res.status(404).json({ error: 'News not found' });
+    }
+
+    if (
+      admin.role === 'subeditor' &&
+      (!admin.permissions || !admin.permissions.canApproveNews) &&
+      existingNews.authorId !== adminId.toString()
+    ) {
+      return res
+        .status(403)
+        .json({ error: 'You do not have permission to send news back for edit.' });
     }
 
     if (existingNews.isActive === true) {

@@ -960,27 +960,43 @@
                     if (!data) return; // Handled by language warning
 
                     if (data.success) {
-                        Swal.fire({
-                            title: 'News Approved!',
-                            text: 'Do you want to send a Push Notification? (OneSignal)',
-                            icon: 'success',
-                            showCancelButton: true,
-                            confirmButtonColor: '#28a745',
-                            cancelButtonColor: '#6c757d',
-                            confirmButtonText: 'Yes, Send Push',
-                            cancelButtonText: 'No, Just Publish'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                sendPushNotificationForNews(newsId, newsTitle, data.news);
-                            } else {
-                                Swal.fire('Published!', 'News published without push notification.', 'success');
-                            }
-                            
+                        const currentRole = '<%= adminRole %>';
+                        
+                        if (currentRole === 'Sub Editor') {
+                            Swal.fire({
+                                title: 'Published!',
+                                text: 'News published successfully.',
+                                icon: 'success',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
                             const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
                             if (card) card.remove();
                             closePreview();
                             updatePendingEmptyState();
-                        });
+                        } else {
+                            Swal.fire({
+                                title: 'News Approved!',
+                                text: 'Do you want to send a Push Notification? (OneSignal)',
+                                icon: 'success',
+                                showCancelButton: true,
+                                confirmButtonColor: '#28a745',
+                                cancelButtonColor: '#6c757d',
+                                confirmButtonText: 'Yes, Send Push',
+                                cancelButtonText: 'No, Just Publish'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    sendPushNotificationForNews(newsId, newsTitle, data.news);
+                                } else {
+                                    Swal.fire('Published!', 'News published without push notification.', 'success');
+                                }
+                                
+                                const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
+                                if (card) card.remove();
+                                closePreview();
+                                updatePendingEmptyState();
+                            });
+                        }
                     } else {
                         Swal.fire('Error', data.error, 'error');
                     }
