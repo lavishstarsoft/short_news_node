@@ -1072,15 +1072,21 @@
                             const resp = await fetch('/api/public/location-hierarchy');
                             _allHierarchy = await resp.json();
 
-                            const currentScope = '<%= typeof news !== "undefined" && news.scope ? news.scope : "state" %>';
+                            const isEditMode = <%= typeof news !== "undefined" ? "true" : "false" %>;
+                            const newsScopeVal = '<%= typeof news !== "undefined" && news.scope ? news.scope : "" %>';
                             const currentLocation = '<%= typeof news !== "undefined" && news.location ? news.location : "" %>';
-                            document.getElementById('newsScope').value = currentScope;
+                            
+                            if (isEditMode && newsScopeVal) {
+                                document.getElementById('newsScope').value = newsScopeVal;
+                            }
+                            
                             rebuildStateOptions();
                             const stateSelect = document.getElementById('locationState');
+                            const currentScope = document.getElementById('newsScope').value;
 
-                            if (currentScope === 'state' && currentLocation) {
+                            if (isEditMode && currentScope === 'state' && currentLocation) {
                                 stateSelect.value = currentLocation;
-                            } else if (currentScope === 'district' && currentLocation) {
+                            } else if (isEditMode && currentScope === 'district' && currentLocation) {
                                 // Location district aa, constituency aa — rendu check cheyali
                                 let parentState = null, parentDistrict = null, isConstituency = false;
                                 _allHierarchy.forEach(s => {
