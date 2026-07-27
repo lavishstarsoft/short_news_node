@@ -16,7 +16,7 @@ installConsoleBridge();
   if (missing.length > 0) {
     const message = `Missing required environment variables: ${missing.join(', ')}`;
     if (IS_PRODUCTION) {
-      console.error(`FATAL: ${message}. Refusing to start in production.`);
+      logger.error(`FATAL: ${message}. Refusing to start in production.`);
       process.exit(1);
     } else {
       console.warn(`WARNING: ${message}. Using local development fallbacks.`);
@@ -114,7 +114,7 @@ const io = socketIo(server, {
         : null;
 
     if (!pubClient) {
-      console.log('Socket.IO: running without Redis adapter (single-process mode)');
+      logger.info('Socket.IO: running without Redis adapter (single-process mode)');
       return;
     }
 
@@ -123,7 +123,7 @@ const io = socketIo(server, {
     subClient.on('error', (err) => console.warn('Socket Redis sub error:', err.message));
     await Promise.all([pubClient.connect(), subClient.connect()]);
     io.adapter(createAdapter(pubClient, subClient));
-    console.log('Socket.IO: Redis adapter enabled for horizontal scaling');
+    logger.info('Socket.IO: Redis adapter enabled for horizontal scaling');
   } catch (err) {
     console.warn('Socket.IO: Redis adapter not attached, continuing single-process:', err.message);
   }
@@ -150,7 +150,7 @@ io.on('connection', (socket) => {
 
     userId = result.userId;
     connectedClients.set(userId, socket.id);
-    console.log(`User ${userId} registered with socket ${socket.id}`);
+    logger.info(`User ${userId} registered with socket ${socket.id}`);
   });
 
   // Handle news received acknowledgment
@@ -159,7 +159,7 @@ io.on('connection', (socket) => {
       console.warn('[socket] news_received rejected: userId mismatch or unauthenticated');
       return;
     }
-    console.log('News received acknowledgment:', data);
+    logger.info('News received acknowledgment:', data);
     try {
       if (mongoose.connection.readyState === 1) { // Check if MongoDB is connected
         // Find notifications related to this news item
@@ -170,12 +170,12 @@ io.on('connection', (socket) => {
             recipient.received = true;
             recipient.receivedAt = new Date(data.timestamp);
             await notification.save();
-            console.log(`Marked notification ${notification._id} as received for user ${data.userId}`);
+            logger.info(`Marked notification ${notification._id} as received for user ${data.userId}`);
           }
         }
       }
     } catch (error) {
-      console.error('Error marking news as received:', error);
+      logger.error('Error marking news as received:', error);
     }
   });
 
@@ -185,7 +185,7 @@ io.on('connection', (socket) => {
       console.warn('[socket] notification_received rejected: userId mismatch or unauthenticated');
       return;
     }
-    console.log('Notification received acknowledgment:', data);
+    logger.info('Notification received acknowledgment:', data);
     try {
       if (mongoose.connection.readyState === 1) { // Check if MongoDB is connected
         const notification = await Notification.findById(data.notificationId);
@@ -195,12 +195,12 @@ io.on('connection', (socket) => {
             recipient.received = true;
             recipient.receivedAt = new Date(data.timestamp);
             await notification.save();
-            console.log(`Marked notification ${notification._id} as received for user ${data.userId}`);
+            logger.info(`Marked notification ${notification._id} as received for user ${data.userId}`);
           }
         }
       }
     } catch (error) {
-      console.error('Error marking notification as received:', error);
+      logger.error('Error marking notification as received:', error);
     }
   });
 
@@ -210,7 +210,7 @@ io.on('connection', (socket) => {
       console.warn('[socket] notification_opened rejected: userId mismatch or unauthenticated');
       return;
     }
-    console.log('Notification opened acknowledgment:', data);
+    logger.info('Notification opened acknowledgment:', data);
     try {
       if (mongoose.connection.readyState === 1) { // Check if MongoDB is connected
         const notification = await Notification.findById(data.notificationId);
@@ -220,12 +220,12 @@ io.on('connection', (socket) => {
             recipient.opened = true;
             recipient.openedAt = new Date(data.timestamp);
             await notification.save();
-            console.log(`Marked notification ${notification._id} as opened for user ${data.userId}`);
+            logger.info(`Marked notification ${notification._id} as opened for user ${data.userId}`);
           }
         }
       }
     } catch (error) {
-      console.error('Error marking notification as opened:', error);
+      logger.error('Error marking notification as opened:', error);
     }
   });
 
@@ -235,11 +235,11 @@ io.on('connection', (socket) => {
     for (let [storedUserId, socketId] of connectedClients.entries()) {
       if (socketId === socket.id) {
         connectedClients.delete(storedUserId);
-        console.log(`User ${storedUserId} disconnected`);
+        logger.info(`User ${storedUserId} disconnected`);
         break;
       }
     }
-    console.log('Client disconnected:', socket.id);
+    logger.info('Client disconnected:', socket.id);
   });
 });
 
@@ -278,6 +278,8 @@ const newsController = require('./controllers/newsController');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const pinoHttp = require('pino-http');
+const mongoSanitize = require('express-mongo-sanitize');
+const hpp = require('hpp');
 
 // Structured per-request logging (method, url, status, latency, request id).
 app.use(pinoHttp({
@@ -369,7 +371,14 @@ app.use(['/login', '/admin/login', '/api/admin/login'], authLimiter);
 
 // Handle JSON and URL-encoded data with large limits
 app.use(express.json({ limit: '10mb' })); // Increase payload limit
-app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Increase payload limit
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Data sanitization against NoSQL query injection
+app.use(mongoSanitize());
+
+// Prevent HTTP Parameter Pollution
+app.use(hpp());
+
 app.use(cookieParser()); // Add cookie parser middleware
 
 // 🚀 Explicit route for Android Digital Asset Links (MUST be an Array)
@@ -382,7 +391,7 @@ app.get(['/.well-known/assetlinks.json', '/assetlinks.json'], (req, res) => {
       const fileContent = fs.readFileSync(filePath, 'utf8');
       data = JSON.parse(fileContent);
     } catch (e) {
-      console.error('Error parsing assetlinks.json:', e);
+      logger.error('Error parsing assetlinks.json:', e);
     }
   }
 
@@ -415,7 +424,7 @@ app.get(['/.well-known/apple-app-site-association', '/apple-app-site-association
       const fileContent = fs.readFileSync(filePath, 'utf8');
       data = JSON.parse(fileContent);
     } catch (e) {
-      console.error('Error parsing AASA file:', e);
+      logger.error('Error parsing AASA file:', e);
     }
   }
 
@@ -652,19 +661,19 @@ app.locals.adminData = adminData;
 
 // Attempt to connect to MongoDB
 const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/short_news';
-console.log('Attempting to connect to MongoDB...');
+logger.info('Attempting to connect to MongoDB...');
 
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
   .then(() => {
-    console.log('Connected to MongoDB successfully');
+    logger.info('Connected to MongoDB successfully');
     isConnectedToMongoDB = true;
     app.locals.isConnectedToMongoDB = true; // Update the app locals
 
     // Create default admin after MongoDB connection is established
-    console.log('MongoDB is connected, creating default admin...');
+    logger.info('MongoDB is connected, creating default admin...');
     return createDefaultAdmin()
       .then(() => languageRegistry.seedDefaultLanguages())
       .then(() => languageRegistry.syncReporterDefaultLanguages())
@@ -677,8 +686,8 @@ mongoose.connect(mongoUri, {
       });
   })
   .catch((err) => {
-    console.log('Failed to connect to MongoDB, using in-memory storage instead');
-    console.log('MongoDB Error:', err.message);
+    logger.info('Failed to connect to MongoDB, using in-memory storage instead');
+    logger.info('MongoDB Error:', err.message);
     isConnectedToMongoDB = false;
     app.locals.isConnectedToMongoDB = false; // Update the app locals
   })
@@ -691,12 +700,12 @@ mongoose.connect(mongoUri, {
 const createDefaultAdmin = async () => {
   try {
     if (!isConnectedToMongoDB) {
-      console.log('MongoDB not connected, skipping default admin creation');
+      logger.info('MongoDB not connected, skipping default admin creation');
       return;
     }
 
     const adminCount = await Admin.countDocuments();
-    console.log(`Found ${adminCount} admin users in database`);
+    logger.info(`Found ${adminCount} admin users in database`);
 
     if (adminCount === 0) {
       // Only seed an initial admin from environment-provided credentials.
@@ -721,15 +730,15 @@ const createDefaultAdmin = async () => {
         role: 'superadmin'
       });
       await defaultAdmin.save();
-      console.log(`Default super admin created from env (username: ${seedUsername}).`);
+      logger.info(`Default super admin created from env (username: ${seedUsername}).`);
     } else {
-      console.log('Admin users already exist, skipping default admin creation');
+      logger.info('Admin users already exist, skipping default admin creation');
       // Let's log the existing admins for debugging
       const admins = await Admin.find({}, 'username email role');
-      console.log('Existing admins:', admins);
+      logger.info('Existing admins:', admins);
     }
   } catch (error) {
-    console.error('Error creating default admin:', error);
+    logger.error('Error creating default admin:', error);
   }
 };
 
@@ -778,42 +787,42 @@ const startServer = async () => {
       },
     });
 
-    console.log(`GraphQL endpoint available at http://localhost:${PORT}${apolloServer.graphqlPath}`);
+    logger.info(`GraphQL endpoint available at http://localhost:${PORT}${apolloServer.graphqlPath}`);
 
     // Log Redis status
-    console.log('\n=== Redis Cache Status ===');
+    logger.info('\n=== Redis Cache Status ===');
     if (isRedisAvailable()) {
-      console.log('✅ Redis cache is ENABLED and ready');
+      logger.info('✅ Redis cache is ENABLED and ready');
       try {
         const stats = await getCacheStats();
-        console.log(`📊 Cache Statistics: Hits: ${stats.hits}, Misses: ${stats.misses}, Hit Rate: ${stats.hitRate}`);
-        console.log(`🔑 Total Cached Keys: ${stats.totalKeys}`);
-        console.log(`💾 ${stats.memoryInfo}`);
+        logger.info(`📊 Cache Statistics: Hits: ${stats.hits}, Misses: ${stats.misses}, Hit Rate: ${stats.hitRate}`);
+        logger.info(`🔑 Total Cached Keys: ${stats.totalKeys}`);
+        logger.info(`💾 ${stats.memoryInfo}`);
       } catch (error) {
-        console.log('⚠️  Could not retrieve cache statistics');
+        logger.info('⚠️  Could not retrieve cache statistics');
       }
     } else {
-      console.log('⚠️  Redis cache is DISABLED - running without cache');
-      console.log('💡 To enable Redis: Ensure Redis server is running on localhost:6379');
+      logger.info('⚠️  Redis cache is DISABLED - running without cache');
+      logger.info('💡 To enable Redis: Ensure Redis server is running on localhost:6379');
     }
-    console.log('===========================\n');
+    logger.info('===========================\n');
 
     // Start the HTTP server
     server.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server is running on 0.0.0.0:${PORT}`);
-      console.log(`Visit http://localhost:${PORT} to view the dashboard`);
-      console.log(`Network access: http://0.0.0.0:${PORT}`);
-      console.log(`GraphQL Playground: http://localhost:${PORT}${apolloServer.graphqlPath}`);
+      logger.info(`Server is running on 0.0.0.0:${PORT}`);
+      logger.info(`Visit http://localhost:${PORT} to view the dashboard`);
+      logger.info(`Network access: http://0.0.0.0:${PORT}`);
+      logger.info(`GraphQL Playground: http://localhost:${PORT}${apolloServer.graphqlPath}`);
       if (isRedisAvailable()) {
-        console.log(`Cache Management: http://localhost:${PORT}/cache/management`);
+        logger.info(`Cache Management: http://localhost:${PORT}/cache/management`);
       }
     });
   } catch (error) {
-    console.error('Error starting server:', error);
+    logger.error('Error starting server:', error);
     // Fallback: start server without GraphQL if there's an error
     server.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server is running on 0.0.0.0:${PORT} (GraphQL disabled due to error)`);
-      console.log(`Visit http://localhost:${PORT} to view the dashboard`);
+      logger.info(`Server is running on 0.0.0.0:${PORT} (GraphQL disabled due to error)`);
+      logger.info(`Visit http://localhost:${PORT} to view the dashboard`);
     });
   }
 };
@@ -875,7 +884,7 @@ app.get('/delete-account', (req, res) => {
 app.post('/delete-account', (req, res) => {
   // In a real scenario, you'd log this or send an email to admins.
   // For Play Store compliance, accepting the request and showing success is usually enough.
-  console.log(`Account deletion requested for email: ${req.body.email}`);
+  logger.info(`Account deletion requested for email: ${req.body.email}`);
   res.render('delete-account', { success: true });
 });
 
@@ -906,36 +915,9 @@ app.use('/intelligent-ads', intelligentAdRoutes); // Add this line for intellige
 app.use('/cache', cacheRoutes); // Cache management routes
 app.use('/', appSettingsRoutes); // Ensure it catches /api/admin/app-settings and /api/public/app-settings
 app.use('/', referralRoutes); // Referral System routes
+app.use('/health', require('./routes/health')); // Health check route
 
-// Log all registered routes for debugging
-console.log('Registered routes:');
-app._router.stack.forEach((r) => {
-  if (r.route && r.route.path) {
-    console.log(r.route.path, Object.keys(r.route.methods));
-  } else if (r.name === 'router' && r.handle && r.handle.stack) {
-    // Log routes within router middleware
-    r.handle.stack.forEach((subRoute) => {
-      if (subRoute.route && subRoute.route.path) {
-        console.log(r.regexp.source + subRoute.route.path, Object.keys(subRoute.route.methods));
-      }
-    });
-  }
-});
-
-// Add specific logging for news routes
-console.log('\nNews routes:');
-app._router.stack.forEach((r) => {
-  if (r.route && r.route.path && r.route.path.includes('/api/news')) {
-    console.log(r.route.path, Object.keys(r.route.methods));
-  } else if (r.name === 'router' && r.handle && r.handle.stack) {
-    // Log routes within router middleware
-    r.handle.stack.forEach((subRoute) => {
-      if (subRoute.route && subRoute.route.path && subRoute.route.path.includes('/api/news')) {
-        console.log(r.regexp.source + subRoute.route.path, Object.keys(subRoute.route.methods));
-      }
-    });
-  }
-});
+// (Removed route logging for production)
 
 // Start the Referral Cron Job
 const { startReferralCron } = require('./services/referralCron');
@@ -957,16 +939,7 @@ maybeStartInsightsScanWorker();
 const { recoverStuckVerifications } = require('./services/aiDuplicate/scheduleAiVerification');
 recoverStuckVerifications(io);
 
-// Log middleware stack for debugging
-console.log('\nMiddleware stack:');
-app._router.stack.forEach((r, i) => {
-  if (r.name) {
-    console.log(`${i}: ${r.name}`);
-  }
-  if (r.handle && r.handle.name) {
-    console.log(`${i}: ${r.handle.name}`);
-  }
-});
+// (Removed middleware logging for production)
 
 // Start server
 // Moved to startServer function above

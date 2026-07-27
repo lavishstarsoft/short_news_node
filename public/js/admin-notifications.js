@@ -308,10 +308,8 @@
             }).showToast();
         }
         
-        // If we are currently ON the AI queue page, we should update the UI or reload
-        if (window.location.pathname.includes('my-ai-queue')) {
-             setTimeout(() => window.location.reload(), 1500);
-        }
+        // Dispatch custom event for real-time DOM update
+        document.dispatchEvent(new CustomEvent('ai_status_updated_received', { detail: payload }));
     });
 
 })();

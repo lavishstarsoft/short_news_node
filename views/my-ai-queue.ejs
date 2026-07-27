@@ -81,60 +81,6 @@
                                             <input type="text" id="searchInput" class="news-search-input" placeholder="Search by title or reporter..." oninput="filterNews()">
                                         </div>
                                     </div>
-
-                                    <div class="news-filters-facets">
-                                        <div class="news-facet">
-                                            <label class="news-facet-label" for="categoryFilter"><i class="fas fa-folder"></i> Category</label>
-                                            <div class="news-facet-select-wrap">
-                                                <select id="categoryFilter" class="news-facet-select" onchange="filterNews()">
-                                                    <option value="">All categories</option>
-                                                    <% pnCategories.forEach(function(cat) { %>
-                                                        <option value="<%= cat %>"><%= cat %></option>
-                                                    <% }); %>
-                                                </select>
-                                                <i class="fas fa-chevron-down news-facet-chevron"></i>
-                                            </div>
-                                        </div>
-
-                                        <div class="news-facet">
-                                            <label class="news-facet-label" for="locationFilter"><i class="fas fa-map-marker-alt"></i> Location</label>
-                                            <div class="news-facet-select-wrap">
-                                                <select id="locationFilter" class="news-facet-select" onchange="filterNews()">
-                                                    <option value="">All locations</option>
-                                                    <% pnLocations.forEach(function(loc) { %>
-                                                        <option value="<%= loc %>"><%= loc %></option>
-                                                    <% }); %>
-                                                </select>
-                                                <i class="fas fa-chevron-down news-facet-chevron"></i>
-                                            </div>
-                                        </div>
-
-                                        <div class="news-facet">
-                                            <label class="news-facet-label" for="languageFilter"><i class="fas fa-language"></i> Language</label>
-                                            <div class="news-facet-select-wrap<%= currentLang ? ' is-active' : '' %>">
-                                                <select id="languageFilter" class="news-facet-select" onchange="applyLanguageFilter()">
-                                                    <option value="">All languages</option>
-                                                    <% Object.keys(pendingLangLabels).forEach(function(code) { %>
-                                                        <option value="<%= code %>" <%= currentLang === code ? 'selected' : '' %>><%= pendingLangLabels[code] %></option>
-                                                    <% }); %>
-                                                </select>
-                                                <i class="fas fa-chevron-down news-facet-chevron"></i>
-                                            </div>
-                                        </div>
-
-                                        <div class="news-facet">
-                                            <label class="news-facet-label" for="dateFilter"><i class="fas fa-calendar-alt"></i> Submitted</label>
-                                            <div class="news-facet-select-wrap">
-                                                <select id="dateFilter" class="news-facet-select" onchange="filterNews()">
-                                                    <option value="">All time</option>
-                                                    <option value="today">Today</option>
-                                                    <option value="week">This week</option>
-                                                    <option value="month">This month</option>
-                                                </select>
-                                                <i class="fas fa-chevron-down news-facet-chevron"></i>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
 
                                 <div class="pn-toolbar">
@@ -459,11 +405,6 @@
 
             function filterNews() {
                 const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-                const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
-                const locationFilter = document.getElementById('locationFilter').value.toLowerCase();
-                const languageFilterEl = document.getElementById('languageFilter');
-                const languageFilter = languageFilterEl ? languageFilterEl.value.toLowerCase() : '';
-                const dateFilter = document.getElementById('dateFilter').value;
 
                 const cards = document.querySelectorAll('.news-card');
                 let visibleCount = 0;
@@ -471,48 +412,11 @@
                 cards.forEach(card => {
                     const title = card.dataset.title;
                     const author = card.dataset.author;
-                    const category = card.dataset.category;
-                    const location = card.dataset.location;
-                    const language = card.dataset.language || 'te';
-                    const cardDate = parseInt(card.dataset.date);
 
                     // Search filter
                     const matchesSearch = !searchTerm || title.includes(searchTerm) || author.includes(searchTerm);
 
-                    // Category filter
-                    const matchesCategory = !categoryFilter || category === categoryFilter;
-
-                    // Location filter
-                    const matchesLocation = !locationFilter || location === locationFilter;
-
-                    // Language filter (client-side within loaded results)
-                    const matchesLanguage = !languageFilter || language === languageFilter;
-
-                    // Date filter
-                    let matchesDate = true;
-                    if (dateFilter) {
-                        const now = new Date();
-                        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                        const cardDateObj = new Date(cardDate);
-
-                        switch(dateFilter) {
-                            case 'today':
-                                matchesDate = cardDateObj >= today;
-                                break;
-                            case 'week':
-                                const weekAgo = new Date(today);
-                                weekAgo.setDate(weekAgo.getDate() - 7);
-                                matchesDate = cardDateObj >= weekAgo;
-                                break;
-                            case 'month':
-                                const monthAgo = new Date(today);
-                                monthAgo.setMonth(monthAgo.getMonth() - 1);
-                                matchesDate = cardDateObj >= monthAgo;
-                                break;
-                        }
-                    }
-
-                    if (matchesSearch && matchesCategory && matchesLocation && matchesLanguage && matchesDate) {
+                    if (matchesSearch) {
                         card.style.display = '';
                         visibleCount++;
                     } else {
@@ -524,16 +428,8 @@
                 document.getElementById('pendingCount').textContent = visibleCount;
             }
 
-            function applyLanguageFilter() {
-                const languageFilter = document.getElementById('languageFilter');
-                const selected = languageFilter ? languageFilter.value : '';
-                const params = new URLSearchParams(window.location.search);
-                params.set('language', selected || 'all');
-                window.location.search = params.toString();
-            }
-
             function resetFilters() {
-                window.location.href = `${window.location.pathname}?language=all`;
+                window.location.href = window.location.pathname;
             }
 
             function sortNews(type) {
@@ -964,16 +860,20 @@
                         
                         if (currentRole === 'Sub Editor') {
                             Swal.fire({
-                                title: 'Published!',
-                                text: 'News published successfully.',
-                                icon: 'success',
-                                timer: 2000,
-                                showConfirmButton: false
-                            });
+                            Swal.fire('Published!', 'News verified and published successfully.', 'success');
                             const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
-                            if (card) card.remove();
+                            if (card) {
+                                card.style.transition = 'opacity 0.5s ease';
+                                card.style.opacity = '0';
+                                setTimeout(() => {
+                                    card.remove();
+                                    delete newsDataCache[newsId];
+                                    delete duplicateDataCache[newsId];
+                                    updatePendingEmptyState();
+                                }, 500);
+                            }
                             closePreview();
-                            updatePendingEmptyState();
+                            return;
                         } else {
                             Swal.fire({
                                 title: 'News Approved!',
@@ -993,6 +893,8 @@
                                 
                                 const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
                                 if (card) card.remove();
+                                delete newsDataCache[newsId];
+                                delete duplicateDataCache[newsId];
                                 closePreview();
                                 updatePendingEmptyState();
                             });
@@ -1030,7 +932,7 @@
                     return res.json();
                 })
                 .then(result => {
-                    console.log('🔔 Push notification sent:', result);
+                    // Push notification sent successfully
                     alert('✅ Push Notification sent successfully!');
                 })
                 .catch(err => {
@@ -1099,6 +1001,8 @@
                             // Instead of reloading, remove card from DOM
                             const card = document.querySelector(`.news-card[data-id="${pendingRejectNewsId}"]`);
                             if (card) card.remove();
+                            delete newsDataCache[pendingRejectNewsId];
+                            delete duplicateDataCache[pendingRejectNewsId];
                             
                             // Hide bootstrap modal
                             const modalEl = document.getElementById('rejectModal');
@@ -1492,7 +1396,7 @@
                 // 🔒 DUPLICATE CHECK: Skip if this news card already exists in the grid
                 const existingCard = document.querySelector(`.news-card[data-id="${newsIdStr}"]`);
                 if (existingCard) {
-                    console.log('⚠️ Duplicate news skipped:', newsIdStr, news.title);
+                    // Duplicate news skipped
                     return;
                 }
 
@@ -2003,9 +1907,9 @@
                         }
                     });
 
-                    console.log('✅ Lazy duplicate check completed:', data.results.length, 'articles checked');
+                    // Lazy duplicate check completed
                 } catch (err) {
-                    console.log('⚠️ Duplicate check failed (non-critical):', err.message || err);
+                    // Duplicate check failed (non-critical)
                 }
             });
             function closeCompareArticlesModal() {
@@ -2105,6 +2009,185 @@
                 const body = document.getElementById('compareArticlesBody');
                 body.innerHTML = bodyHtml;
                 modal.style.display = 'block';
+            }
+
+            // --- REAL-TIME DOM UPDATE (SPA) ---
+            function handleAiStatusUpdate(e) {
+                const payload = e.detail;
+                updateArticleCard(payload.id, payload);
+            }
+            
+            document.removeEventListener('ai_status_updated_received', handleAiStatusUpdate);
+            document.addEventListener('ai_status_updated_received', handleAiStatusUpdate);
+
+            function updateArticleCard(articleId, payload) {
+                const card = document.querySelector(`.news-card[data-id="${articleId}"]`);
+                if (!card) return;
+
+                // Case 2: Verified (Fade out and remove)
+                if (payload.status === 'verified') {
+                    card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('AI Queue', 'Article verified and published.', 'success');
+                    }
+                    setTimeout(() => {
+                        card.remove();
+                        // Cache cleanup
+                        delete newsDataCache[articleId];
+                        delete duplicateDataCache[articleId];
+                        
+                        if (typeof updatePendingEmptyState === 'function') {
+                            updatePendingEmptyState();
+                        } else {
+                            filterNews();
+                        }
+                    }, 500);
+                    return;
+                }
+
+                // Case 3: Failed
+                if (payload.status === 'failed') {
+                    const statusBadge = card.querySelector('.pn-status-badge');
+                    if (statusBadge) {
+                        statusBadge.className = 'pn-status-badge pn-status-rejected';
+                        statusBadge.innerHTML = '<i class="fas fa-exclamation-circle"></i> AI Failed';
+                    }
+                    
+                    const spinnerDiv = card.querySelector('.pn-processing-spinner');
+                    if (spinnerDiv) spinnerDiv.style.display = 'none';
+                    
+                    const actionsDiv = card.querySelector('.pn-card-actions');
+                    if (actionsDiv) {
+                        actionsDiv.innerHTML = `
+                            <button class="pn-action-btn pn-btn-primary" onclick="window.location.href='/admin/add-news?edit=${articleId}'">
+                                <i class="fas fa-edit"></i> Edit / Retry
+                            </button>
+                        `;
+                    }
+                    return;
+                }
+
+                // Case 1: Review Required
+                if (payload.status === 'review_required') {
+                    // Update Cache for compare modal
+                    if (payload.duplicateSummary) {
+                        duplicateDataCache[articleId] = {
+                            isDuplicate: true,
+                            score: payload.duplicateSummary.similarity,
+                            reasonLabel: payload.duplicateSummary.reasonLabel,
+                            reasonMessage: payload.duplicateSummary.reasonMessage,
+                            similarArticles: payload.duplicateSummary.similarArticles
+                        };
+                    }
+
+                    // Update Status Badge
+                    const statusBadge = card.querySelector('.pn-status-badge');
+                    if (statusBadge) {
+                        statusBadge.className = 'pn-status-badge pn-status-review';
+                        statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Review Required';
+                    }
+
+                    // Remove processing spinner
+                    const spinnerDiv = card.querySelector('.pn-processing-spinner');
+                    if (spinnerDiv) spinnerDiv.style.display = 'none';
+
+                    // Inject duplicate banner if not exists
+                    let dupBanner = card.querySelector('.pn-dup-banner');
+                    if (!dupBanner && duplicateDataCache[articleId]) {
+                        const dc = duplicateDataCache[articleId];
+                        const tier = getSimilarityTier(dc.score);
+                        const topMatch = dc.similarArticles[0] || {};
+                        const matchDateStr = topMatch.publishedAt ? new Date(topMatch.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+                        const scoreBreakdown = getDetailedScores(topMatch);
+
+                        dupBanner = document.createElement('div');
+                        dupBanner.className = 'pn-dup-banner';
+                        dupBanner.innerHTML = `
+                            <div class="pn-dup-header">
+                                <i class="fas fa-exclamation-triangle" style="color: #eab308; margin-right: 8px;"></i>
+                                <span style="font-weight: 600; color: #854d0e;">AI detected a possible duplicate.</span>
+                            </div>
+                            <div class="pn-dup-body">
+                                <div class="pn-dup-score-circle ${tier.className}">
+                                    <span class="pn-dup-score-value">${Math.round(dc.score)}%</span>
+                                    <span class="pn-dup-score-text">${tier.label}</span>
+                                </div>
+                                <div class="pn-dup-details">
+                                    <div class="pn-dup-reason"><strong>Reason:</strong> ${escapeHtml(dc.reasonLabel || dc.reasonMessage || 'Similar content')}</div>
+                                    <div class="pn-dup-match-title"><strong>Matched:</strong> <a href="${topMatch.readFullLink || '#'}" target="_blank">${escapeHtml(topMatch.articleTitle || 'Unknown Article')}</a></div>
+                                    <div class="pn-dup-match-meta">
+                                        <span><i class="fas fa-calendar-alt"></i> ${matchDateStr}</span>
+                                        <span><i class="fas fa-folder"></i> ${escapeHtml(topMatch.category || 'N/A')}</span>
+                                        ${topMatch.authorName ? `<span><i class="fas fa-user"></i> ${escapeHtml(topMatch.authorName)}</span>` : ''}
+                                    </div>
+                                    <div class="pn-dup-breakdown">
+                                        ${renderSimilarityBar('Overall', scoreBreakdown.overall)}
+                                        ${renderSimilarityBar('Title', scoreBreakdown.title)}
+                                        ${renderSimilarityBar('Content', scoreBreakdown.content)}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        const contentDiv = card.querySelector('.pn-card-content');
+                        if (contentDiv) contentDiv.appendChild(dupBanner);
+                    }
+
+                    // Update Actions
+                    const actionsDiv = card.querySelector('.pn-card-actions');
+                    if (actionsDiv) {
+                        actionsDiv.innerHTML = `
+                            <button class="pn-action-btn pn-btn-secondary" onclick="openCompareArticlesModal('${articleId}')" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+                                <i class="fas fa-columns"></i> Compare
+                            </button>
+                            <button class="pn-action-btn pn-btn-primary" onclick="window.location.href='/admin/add-news?edit=${articleId}'">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="pn-action-btn pn-btn-success" onclick="executeApproval('${articleId}')" style="background-color: #f59e0b;">
+                                <i class="fas fa-check-double"></i> Publish Anyway
+                            </button>
+                        `;
+                    }
+                }
+                
+                // Case 4: Processing (e.g. resubmitted)
+                if (payload.status === 'processing') {
+                    // Update Status Badge
+                    const statusBadge = card.querySelector('.pn-status-badge');
+                    if (statusBadge) {
+                        statusBadge.className = 'pn-status-badge pn-status-pending';
+                        statusBadge.innerHTML = '<i class="fas fa-clock"></i> AI Processing';
+                    }
+
+                    // Remove duplicate banner
+                    const dupBanner = card.querySelector('.pn-dup-banner');
+                    if (dupBanner) dupBanner.remove();
+
+                    // Restore processing spinner
+                    let spinnerDiv = card.querySelector('.pn-processing-spinner');
+                    if (!spinnerDiv) {
+                        spinnerDiv = document.createElement('div');
+                        spinnerDiv.className = 'pn-processing-spinner';
+                        spinnerDiv.innerHTML = `
+                            <i class="fas fa-robot fa-spin"></i>
+                            <div class="pn-processing-text">
+                                <strong>AI is checking this article</strong>
+                                <span>Verifying facts and duplicates...</span>
+                            </div>
+                        `;
+                        const contentDiv = card.querySelector('.pn-card-content');
+                        if (contentDiv) contentDiv.appendChild(spinnerDiv);
+                    } else {
+                        spinnerDiv.style.display = 'flex';
+                    }
+
+                    // Disable actions
+                    const actionsDiv = card.querySelector('.pn-card-actions');
+                    if (actionsDiv) {
+                        actionsDiv.innerHTML = '';
+                    }
+                }
             }
         </script>
         

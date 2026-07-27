@@ -3948,18 +3948,8 @@ async function renderMyAiQueuePage(req, res) {
   try {
     const adminDoc = await Admin.findById(req.admin.id).select('role workingLanguage permissions').lean();
     
-    let selectedLanguage = '';
-    const languageParamProvided = Object.prototype.hasOwnProperty.call(req.query, 'language');
-
-    if (!languageParamProvided) {
-      if (adminDoc?.role === 'subeditor' && adminDoc?.workingLanguage) {
-        selectedLanguage = adminDoc.workingLanguage;
-      }
-    } else if (req.query.language === 'all') {
-      selectedLanguage = '';
-    } else {
-      selectedLanguage = req.query.language || '';
-    }
+    // Always ignore language filter for My AI Queue
+    const selectedLanguage = '';
 
     const myPendingQuery = {
       isActive: false,
@@ -3970,10 +3960,6 @@ async function renderMyAiQueuePage(req, res) {
         { rejectionStatus: { $exists: false } }
       ]
     };
-
-    if (selectedLanguage) {
-      myPendingQuery.$and = [buildNewsLanguageFilter(selectedLanguage)];
-    }
 
     const myPendingNewsRaw = await News.find(myPendingQuery)
       .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl imageUrls readFullLink ePaperLink views duplicateCheck revisionStatus actionHistory aiStatus')

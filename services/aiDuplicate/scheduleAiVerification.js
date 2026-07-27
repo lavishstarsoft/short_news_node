@@ -16,6 +16,9 @@
 const { runDuplicateCheckGateway } = require('./runDuplicateCheckGateway');
 const { normalizeDuplicateCheck } = require('../duplicateCheckService');
 const { clearCache } = require('../../middleware/cache');
+const { createAiLogger } = require('./logger');
+
+const logger = createAiLogger({ isEnabled: () => true });
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 2000;
@@ -76,14 +79,12 @@ async function verifyArticle(news) {
           }
         );
         if (updateRes.matchedCount === 0) {
-          console.log(`[AI-Verify] discarded stale result (hash changed) newsId=${news._id}`);
+        logger.info(`discarded stale result (hash changed) newsId=${news._id}`);
           return { outcome: 'skipped_hash_mismatch' };
         }
 
-        console.log(
-          `[AI-Verify] review_required newsId=${news._id} score=${duplicateCheck.score}`
-        );
-        return { outcome: 'review_required', score: duplicateCheck.score };
+        logger.info(`review_required newsId=${news._id} score=${duplicateCheck.score}`);
+        return { outcome: 'review_required', score: duplicateCheck.score, duplicateCheck: duplicateCheck };
       }
 
       // Clean — auto-publish
@@ -113,11 +114,11 @@ async function verifyArticle(news) {
       }
 
       if (updateRes.matchedCount === 0) {
-        console.log(`[AI-Verify] discarded stale result (hash changed) newsId=${news._id}`);
+        logger.info(`discarded stale result (hash changed) newsId=${news._id}`);
         return { outcome: 'skipped_hash_mismatch' };
       }
 
-      console.log(`[AI-Verify] verified newsId=${news._id} → Active`);
+      logger.info(`verified newsId=${news._id} → Active`);
       return { outcome: 'verified' };
     } catch (err) {
       lastError = err;
@@ -164,12 +165,25 @@ function scheduleAiVerification(news, io) {
       // Notify the specific Sub Editor who owns this article about the AI result
       if (io) {
         try {
-          io.to(`reporter:${news.authorId}`).emit('ai_status_updated', {
+          const payload = {
             id: news._id,
             title: news.title,
             status: result.outcome, // 'verified', 'review_required', 'failed'
             timestamp: Date.now()
-          });
+          };
+
+          if (result.outcome === 'review_required' && result.duplicateCheck) {
+            const dc = result.duplicateCheck;
+            const topMatch = (dc.similarArticles && dc.similarArticles.length > 0) ? dc.similarArticles[0] : {};
+            payload.duplicateSummary = {
+              similarity: dc.score,
+              reasonLabel: dc.reasonLabel,
+              reasonMessage: dc.reasonMessage,
+              similarArticles: dc.similarArticles || []
+            };
+          }
+
+          io.to(`reporter:${news.authorId}`).emit('ai_status_updated', payload);
         } catch (_) {
           /* ignore emit error */
         }
@@ -222,7 +236,7 @@ function recoverStuckVerifications(io) {
       }).lean();
 
       if (stuckArticles.length > 0) {
-        console.log(`[AI-Verify] Recovering ${stuckArticles.length} stuck articles from previous session...`);
+        logger.info(`Recovering ${stuckArticles.length} stuck articles from previous session...`);
         for (const article of stuckArticles) {
           scheduleAiVerification(article, io);
         }
