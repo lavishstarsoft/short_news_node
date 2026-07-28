@@ -28,7 +28,7 @@
     top: 0;
     left: 0;
     bottom: 0;
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 /* Adjust main content when sidebar is fixed */
@@ -51,18 +51,18 @@
 }
 
 /* Sidebar Scrollbar */
-#sidebar.sidebar::-webkit-scrollbar {
-    width: 4px;
+#sidebar #sidebarAccordion::-webkit-scrollbar {
+    width: 2px;
 }
-#sidebar.sidebar::-webkit-scrollbar-track {
+#sidebar #sidebarAccordion::-webkit-scrollbar-track {
     background: transparent;
 }
-#sidebar.sidebar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
+#sidebar #sidebarAccordion::-webkit-scrollbar-thumb {
+    background: #f97316; /* Tailwind orange-500 */
     border-radius: 4px;
 }
-#sidebar.sidebar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.15);
+#sidebar #sidebarAccordion::-webkit-scrollbar-thumb:hover {
+    background: #ea580c; /* Tailwind orange-600 */
 }
 
 /* Header Area */
@@ -339,7 +339,7 @@
 
 /* Footer */
 #sidebar .sidebar-footer {
-    padding: 20px 20px 24px;
+    padding: 10px 16px 12px;
     margin-top: auto;
 }
 #sidebar .copyright-badge {
