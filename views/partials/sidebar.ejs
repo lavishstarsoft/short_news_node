@@ -1,142 +1,16 @@
-<style>
-/* Custom Accordion Sidebar Styles */
-.sidebar {
-    /* Assuming standard bootstrap bg is used, let's just style the nav */
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-.sidebar-header h4 {
-    letter-spacing: 1px;
-}
-
-.nav-section-title {
-    color: #6c757d; /* Muted gray */
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding: 1rem 1.5rem 0.5rem;
-    margin-top: 0.5rem;
-}
-
-/* Accordion Parent Link */
-.nav-link.has-submenu {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    border-radius: 8px;
-    margin: 2px 10px;
-    padding: 10px 15px;
-    transition: all 0.2s ease;
-}
-
-.nav-link.has-submenu .nav-text {
-    flex-grow: 1;
-}
-
-.nav-link.has-submenu .toggle-icon {
-    font-size: 0.8rem;
-    transition: transform 0.3s ease;
-    opacity: 0.7;
-}
-
-.nav-link.has-submenu[aria-expanded="true"] .toggle-icon {
-    transform: rotate(180deg);
-}
-.nav-link.has-submenu[aria-expanded="true"] {
-    background: rgba(255,255,255,0.05);
-}
-
-/* Submenu container (Accordion body) */
-.submenu-collapse {
-    position: relative;
-    margin-bottom: 5px;
-}
-
-/* Remove the global vertical line */
-.submenu-collapse::before {
-    display: none;
-}
-
-/* Submenu Items */
-.submenu-collapse .nav-item {
-    position: relative;
-}
-
-/* Vertical Hierarchical Line on Each Item */
-.submenu-collapse .nav-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 27px; /* Align with the center of the parent icon */
-    width: 1px;
-    background: rgba(255, 255, 255, 0.15);
-}
-
-/* Stop the vertical line exactly halfway down the last item to form the "L" shape */
-.submenu-collapse .nav-item:last-child::before {
-    bottom: 50%;
-}
-
-.submenu-collapse .nav-link {
-    padding: 8px 15px 8px 45px;
-    font-size: 0.85rem;
-    margin: 2px 10px;
-    border-radius: 6px;
-    color: rgba(255,255,255,0.7);
-    transition: all 0.2s;
-}
-
-.submenu-collapse .nav-link:hover {
-    color: #fff;
-    background: rgba(255,255,255,0.05);
-}
-
-.submenu-collapse .nav-link.active {
-    color: #fff;
-    background: rgba(13, 110, 253, 0.2);
-    font-weight: 600;
-}
-
-/* Horizontal branch line for submenu items */
-.submenu-collapse .nav-link::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 27px;
-    width: 12px;
-    height: 1px;
-    background: rgba(255, 255, 255, 0.15);
-}
-
-.submenu-collapse .nav-link.active::before,
-.submenu-collapse .nav-link:hover::before {
-    background: rgba(255, 255, 255, 0.5);
-}
-
-/* Standard Nav Item (No Submenu) */
-.nav-item-standalone .nav-link {
-    margin: 2px 10px;
-    border-radius: 8px;
-    padding: 10px 15px;
-}
-</style>
-
 <div class="col-md-3 col-lg-2 d-md-block sidebar" id="sidebar">
     <div class="position-sticky pt-3 pb-5">
         <div class="sidebar-header text-center py-3 mb-2">
-            <h4 class="mb-0 text-white fw-bold">Short News</h4>
-            <p class="small mb-0 text-white-50">Admin Dashboard</p>
+            <h4 class="mb-0 fw-bold">Short News</h4>
+            <p class="small mb-0" style="color: var(--text-secondary);">Admin Dashboard</p>
             <% if (typeof admin !=='undefined' && admin) { %>
-                <div class="d-flex align-items-center justify-content-center mt-3 p-2 mx-3 rounded" style="background: rgba(0,0,0,0.2);">
-                    <i class="fas fa-user-circle fa-2x text-white me-2"></i>
-                    <div class="text-white text-start">
+                <div class="sidebar-profile-card d-flex align-items-center justify-content-center mt-3 p-2 mx-3 rounded">
+                    <i class="fas fa-user-circle fa-2x me-2" style="color: var(--text-muted);"></i>
+                    <div class="text-start">
                         <div class="fw-bold lh-1 mb-1">
                             <%= admin.username %>
                         </div>
-                        <div class="small text-white-50 lh-1">
+                        <div class="small lh-1" style="color: var(--text-secondary);">
                             <%= admin.role.toUpperCase() %>
                         </div>
                     </div>
@@ -186,7 +60,7 @@
             %>
             <% if (showNewsGroup) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= newsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseNews" role="button" aria-expanded="<%= newsGroupActive ? 'true' : 'false' %>" aria-controls="collapseNews">
+                <a class="nav-link has-submenu <%= newsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseNews" role="button" aria-expanded="<%= newsGroupActive ? 'true' : 'false' %>" aria-controls="collapseNews">
                     <i class="fas fa-newspaper me-3 w-20px text-center"></i>
                     <span class="nav-text">News & Content</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
@@ -238,7 +112,7 @@
             %>
             <% if (isSuperAdminOnly) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= aiInsightsActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseAiInsights" role="button" aria-expanded="<%= aiInsightsActive ? 'true' : 'false' %>" aria-controls="collapseAiInsights">
+                <a class="nav-link has-submenu <%= aiInsightsActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseAiInsights" role="button" aria-expanded="<%= aiInsightsActive ? 'true' : 'false' %>" aria-controls="collapseAiInsights">
                     <i class="fas fa-brain me-3 w-20px text-center"></i>
                     <span class="nav-text">AI Insights</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
@@ -262,7 +136,7 @@
             %>
             <% if (showMediaGroup) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= mediaGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseMedia" role="button" aria-expanded="<%= mediaGroupActive ? 'true' : 'false' %>" aria-controls="collapseMedia">
+                <a class="nav-link has-submenu <%= mediaGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseMedia" role="button" aria-expanded="<%= mediaGroupActive ? 'true' : 'false' %>" aria-controls="collapseMedia">
                     <i class="fas fa-photo-video me-3 w-20px text-center"></i>
                     <span class="nav-text">Media & Media</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
@@ -301,7 +175,7 @@
             %>
             <% if (showCatsGroup) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= catsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseCats" role="button" aria-expanded="<%= catsGroupActive ? 'true' : 'false' %>" aria-controls="collapseCats">
+                <a class="nav-link has-submenu <%= catsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseCats" role="button" aria-expanded="<%= catsGroupActive ? 'true' : 'false' %>" aria-controls="collapseCats">
                     <i class="fas fa-tags me-3 w-20px text-center"></i>
                     <span class="nav-text">Categories & Regions</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
@@ -346,7 +220,7 @@
             %>
             <% if (showTeamGroup) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= teamGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseTeam" role="button" aria-expanded="<%= teamGroupActive ? 'true' : 'false' %>" aria-controls="collapseTeam">
+                <a class="nav-link has-submenu <%= teamGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseTeam" role="button" aria-expanded="<%= teamGroupActive ? 'true' : 'false' %>" aria-controls="collapseTeam">
                     <i class="fas fa-user-tie me-3 w-20px text-center"></i>
                     <span class="nav-text">Team & Staff</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
@@ -377,7 +251,7 @@
             %>
             <% if (showReportersGroup) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= reportersGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseReporters" role="button" aria-expanded="<%= reportersGroupActive ? 'true' : 'false' %>" aria-controls="collapseReporters">
+                <a class="nav-link has-submenu <%= reportersGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseReporters" role="button" aria-expanded="<%= reportersGroupActive ? 'true' : 'false' %>" aria-controls="collapseReporters">
                     <i class="fas fa-id-badge me-3 w-20px text-center"></i>
                     <span class="nav-text">Reporters</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
@@ -428,7 +302,7 @@
             %>
             <% if (showUsersGroup) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= usersGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseUsers" role="button" aria-expanded="<%= usersGroupActive ? 'true' : 'false' %>" aria-controls="collapseUsers">
+                <a class="nav-link has-submenu <%= usersGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseUsers" role="button" aria-expanded="<%= usersGroupActive ? 'true' : 'false' %>" aria-controls="collapseUsers">
                     <i class="fas fa-users me-3 w-20px text-center"></i>
                     <span class="nav-text">App Users</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
@@ -456,7 +330,7 @@
             %>
             <% if (showAdsGroup) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= adsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseAds" role="button" aria-expanded="<%= adsGroupActive ? 'true' : 'false' %>" aria-controls="collapseAds">
+                <a class="nav-link has-submenu <%= adsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseAds" role="button" aria-expanded="<%= adsGroupActive ? 'true' : 'false' %>" aria-controls="collapseAds">
                     <i class="fas fa-ad me-3 w-20px text-center"></i>
                     <span class="nav-text">Advertisements</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
@@ -487,7 +361,7 @@
             %>
             <% if (showAnalyticsGroup) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= analyticsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseAnalytics" role="button" aria-expanded="<%= analyticsGroupActive ? 'true' : 'false' %>" aria-controls="collapseAnalytics">
+                <a class="nav-link has-submenu <%= analyticsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseAnalytics" role="button" aria-expanded="<%= analyticsGroupActive ? 'true' : 'false' %>" aria-controls="collapseAnalytics">
                     <i class="fas fa-chart-line me-3 w-20px text-center"></i>
                     <span class="nav-text">Analytics & Reports</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
@@ -520,7 +394,7 @@
             %>
             <% if (showSystemGroup) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= systemGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseSystem" role="button" aria-expanded="<%= systemGroupActive ? 'true' : 'false' %>" aria-controls="collapseSystem">
+                <a class="nav-link has-submenu <%= systemGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseSystem" role="button" aria-expanded="<%= systemGroupActive ? 'true' : 'false' %>" aria-controls="collapseSystem">
                     <i class="fas fa-cogs me-3 w-20px text-center"></i>
                     <span class="nav-text">System & Security</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
@@ -557,7 +431,7 @@
             <% const financeActive = ['wallet-settings', 'my-wallet', 'withdrawals-queue', 'wallet-transactions', 'audit-logs', 'monthly-report'].includes(activePage); %>
             <% if (isAdmin || isReporter) { %>
             <li class="nav-item">
-                <a class="nav-link has-submenu text-white <%= financeActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseFinance" role="button" aria-expanded="<%= financeActive ? 'true' : 'false' %>" aria-controls="collapseFinance">
+                <a class="nav-link has-submenu <%= financeActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseFinance" role="button" aria-expanded="<%= financeActive ? 'true' : 'false' %>" aria-controls="collapseFinance">
                     <i class="fas fa-money-check-alt me-3 w-20px text-center"></i>
                     <span class="nav-text">Financial & Wallet</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
@@ -612,7 +486,7 @@
         </ul>
         
         <div class="sidebar-footer text-center py-4 mt-3 border-top border-secondary">
-            <small class="text-white-50">© 2025 Short News</small>
+            <small style="color: var(--text-muted);">© 2025 Short News</small>
         </div>
     </div>
 </div>

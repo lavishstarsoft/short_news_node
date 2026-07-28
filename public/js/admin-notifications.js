@@ -114,6 +114,12 @@
             document.dispatchEvent(new CustomEvent('new_pending_news_received', { detail: news }));
         });
 
+        // AI duplicate result for the submitter (feeds the friendly AI Assistant UI).
+        // Emitted to the reporter's own room by scheduleAiVerification; bridged to a DOM event.
+        socket.on('ai_status_updated', function (data) {
+            document.dispatchEvent(new CustomEvent('ai_status_updated_received', { detail: data }));
+        });
+
         // Workflow sync for all admin pages (resubmit / approve / reject / send-back)
         socket.on('story_status_updated_admin', function (payload) {
             if (!payload || !payload.status) return;

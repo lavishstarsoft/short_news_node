@@ -2,8 +2,6 @@ const crypto = require('crypto');
 const Admin = require('../models/Admin');
 const AdminWalletTransaction = require('../models/AdminWalletTransaction');
 const mongoose = require('mongoose');
-const News = require('../models/News');
-const AppSettings = require('../models/AppSettings');
 
 /**
  * Creates a secure wallet transaction for an Admin (Reporter)
@@ -129,53 +127,36 @@ function resolveWalletConfig(admin, settings) {
 }
 
 /**
- * Checks today's approved news count for a reporter.
- * If they hit the target, credits the daily max reward.
+ * Credits a reporter's daily reward for the SUBMISSION day of an approved article.
+ *
+ * The reward day and the approved-count come from the single shared
+ * evaluateDailyReward() helper, which derives the day from the immutable News
+ * ObjectId timestamp (Asia/Kolkata) and uses approval only as the eligibility
+ * filter. Idempotent via the per-day referenceId.
+ *
+ * @param {string|ObjectId} reporterId       The reporter (Admin) id.
+ * @param {Date} [submissionDate]            A moment inside the article's submission day
+ *                                           (e.g. approvedArticle._id.getTimestamp()).
+ *                                           Defaults to now when omitted.
  */
-async function checkAndCreditWallet(reporterId) {
+async function checkAndCreditWallet(reporterId, submissionDate) {
   try {
-    const admin = await Admin.findById(reporterId);
-    // Reporters app users are stored as editor/subeditor (not a 'reporter' role)
-    if (!admin || !['editor', 'subeditor'].includes(admin.role)) return;
+    // Lazy require avoids a load-time cycle with dailyRewardService.
+    const { evaluateDailyReward } = require('./dailyRewardService');
+    const reward = await evaluateDailyReward(reporterId, submissionDate);
 
-    const settings = await AppSettings.findOne({ key: 'update_flags' });
-    const { enabled, targetNews, maxReward } = resolveWalletConfig(admin, settings);
+    // Reporters app users are stored as editor/subeditor (not a 'reporter' role).
+    if (!reward.found || !reward.admin || !['editor', 'subeditor'].includes(reward.admin.role)) return;
+    if (!reward.enabled || !reward.eligible || reward.alreadyCredited) return;
 
-    // Wallet OFF unna reporter ki daily reward credit avvadu
-    if (!enabled) return;
-
-    // Get today's start and end date (server local; IST hosts use IST)
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
-
-    // Count approved news for today
-    const approvedCount = await News.countDocuments({
-      authorId: reporterId,
-      isActive: true,
-      'approvalStatus.isApproved': true,
-      'approvalStatus.approvedAt': { $gte: startOfDay, $lte: endOfDay }
+    await processWalletTransaction({
+      adminId: reporterId,
+      amount: reward.maxReward,
+      type: 'credit',
+      description: `Daily Reward for ${reward.targetNews} Approved News`,
+      referenceId: reward.referenceId,
     });
-
-    if (approvedCount >= targetNews) {
-      // Hit the daily target — credit once per day
-      const dateString = startOfDay.toISOString().split('T')[0];
-      const referenceId = `reward_${reporterId}_${dateString}`;
-
-      // Check if already credited
-      const existingTx = await AdminWalletTransaction.findOne({ referenceId });
-      if (!existingTx) {
-        await processWalletTransaction({
-          adminId: reporterId,
-          amount: maxReward,
-          type: 'credit',
-          description: `Daily Reward for ${targetNews} Approved News`,
-          referenceId: referenceId
-        });
-        console.log(`✅ Credited ₹${maxReward} to reporter ${reporterId} for reaching daily target.`);
-      }
-    }
+    console.log(`✅ Credited ₹${reward.maxReward} to reporter ${reporterId} for submission day ${reward.dateKey}.`);
   } catch (error) {
     console.error('Error in checkAndCreditWallet:', error);
   }

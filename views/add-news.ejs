@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/css/duplicate-review-modals.css">
     </head>
 
-    <body>
+    <body class="theme-v2">
         <%- include('partials/top-nav', { pageTitle: typeof news !=='undefined' ? 'Edit News' : 'Add News' , backButton:
             true, backUrl: '/' , actions: [ { id: 'saveNewsButtonDesktop' , icon: 'fas fa-save' , text: (typeof news
             !=='undefined' ? 'Update News' : 'Save News' ), class: 'btn-primary' } ] }) %>

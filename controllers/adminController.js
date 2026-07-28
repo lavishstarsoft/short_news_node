@@ -4591,7 +4591,9 @@ async function approveNews(req, res) {
 
     if (existingNews.authorId) {
        const { checkAndCreditWallet } = require('../utils/walletHelpers');
-       checkAndCreditWallet(existingNews.authorId).catch(err => console.error(err));
+       // Reward belongs to the reporter's SUBMISSION day (immutable _id creation time,
+       // Asia/Kolkata) — never the approval day. Re-evaluate THIS article's submission day.
+       checkAndCreditWallet(existingNews.authorId, existingNews._id.getTimestamp()).catch(err => console.error(err));
     }
 
     res.json({
@@ -5853,73 +5855,47 @@ async function getReporterDailyStats(req, res) {
     const reporterId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
     if (!reporterId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const admin = await Admin.findById(reporterId);
-    if (!admin) return res.status(404).json({ error: 'Admin not found' });
+    const { evaluateDailyReward } = require('../utils/dailyRewardService');
+    const { objectIdRangeForIstDay } = require('../utils/indianDateTime');
 
-    const { AppSettings } = require('../models/AppSettings');
-    const settings = await require('../models/AppSettings').findOne({ key: 'update_flags' });
-    const { resolveWalletConfig } = require('../utils/walletHelpers');
-    const walletCfg = resolveWalletConfig(admin, settings);
+    // Today's reward state (Asia/Kolkata) from the single shared helper.
+    const now = new Date();
+    const reward = await evaluateDailyReward(reporterId, now);
 
-    // Wallet OFF: app lo wallet/earnings sections hide cheyadaniki flag matrame pampistham
-    if (!walletCfg.enabled) {
-      return res.json({ walletEnabled: false });
-    }
+    if (!reward.found) return res.status(404).json({ error: 'Admin not found' });
+    // Wallet OFF: app hides wallet/earnings sections via this flag.
+    if (!reward.enabled) return res.json({ walletEnabled: false });
 
-    const maxReward = walletCfg.maxReward;
-    const targetNews = walletCfg.targetNews;
-    const amountPerNews = maxReward / targetNews;
-
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
-
+    // Today's submissions bucketed by the immutable submission day (_id creation time,
+    // Asia/Kolkata) — consistent with the reward's approved-count.
     const newsToday = await News.find({
-      authorId: reporterId,
-      publishedAt: { $gte: startOfDay, $lte: endOfDay }
+      authorId: String(reporterId),
+      _id: objectIdRangeForIstDay(now)
     }).lean();
-
-    const approvedToday = await News.countDocuments({
-      authorId: reporterId,
-      isActive: true,
-      'approvalStatus.isApproved': true,
-      'approvalStatus.approvedAt': { $gte: startOfDay, $lte: endOfDay }
-    });
 
     let pendingCount = 0;
     let rejectedCount = 0;
-
     newsToday.forEach(n => {
-      if (!n.isActive && !n.rejectionStatus?.isRejected) {
-        pendingCount++;
-      }
-      if (n.rejectionStatus?.isRejected) {
-        rejectedCount++;
-      }
+      if (!n.isActive && !n.rejectionStatus?.isRejected) pendingCount++;
+      if (n.rejectionStatus?.isRejected) rejectedCount++;
     });
 
-    const isTargetReached = approvedToday >= targetNews;
-    const remainingForReward = Math.max(0, targetNews - approvedToday);
-    
-    const dateString = startOfDay.toISOString().split('T')[0];
-    const referenceId = `reward_${reporterId}_${dateString}`;
-    const AdminWalletTransaction = require('../models/AdminWalletTransaction');
-    const rewardGiven = await AdminWalletTransaction.exists({ referenceId });
+    const remainingForReward = Math.max(0, reward.targetNews - reward.approvedCount);
+    const settings = await require('../models/AppSettings').findOne({ key: 'update_flags' });
 
     res.json({
       walletEnabled: true,
-      approvedCount: approvedToday,
+      approvedCount: reward.approvedCount,
       rejectedCount,
       pendingCount,
       totalSubmittedToday: newsToday.length,
-      targetNews,
-      maxReward,
-      amountPerNews,
+      targetNews: reward.targetNews,
+      maxReward: reward.maxReward,
+      amountPerNews: reward.amountPerNews,
       remainingForReward,
-      isTargetReached,
-      rewardGiven: !!rewardGiven,
-      walletBalance: admin.walletBalance || 0,
+      isTargetReached: reward.eligible,
+      rewardGiven: reward.alreadyCredited,
+      walletBalance: reward.admin.walletBalance || 0,
       minWithdrawalAmount: settings?.minWithdrawalAmount || 500,
       maxWithdrawalAmount: settings?.maxWithdrawalAmount || 5000
     });

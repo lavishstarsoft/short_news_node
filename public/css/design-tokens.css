@@ -1,0 +1,151 @@
+/* ==========================================================================
+   Design Tokens (Variables) - Premium Enterprise Aesthetic
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    /* --------------------------------------
+       COLOR PALETTE - Linear/Stripe Inspired
+       -------------------------------------- */
+    /* Neutrals: Extremely clean, very slightly cool to pair with Indigo */
+    --slate-50:  #FAFAFA; /* App Canvas */
+    --slate-100: #F3F4F6; /* Hover / Secondary Surface */
+    --slate-200: #E5E7EB; /* Subtle Borders */
+    --slate-300: #D1D5DB; /* Strong Borders */
+    --slate-400: #9CA3AF; /* Muted Icons */
+    --slate-500: #6B7280; /* Secondary Text */
+    --slate-600: #4B5563;
+    --slate-700: #374151;
+    --slate-800: #1F2937;
+    --slate-900: #111827; /* Primary Text */
+
+    /* Indigo: Trust, Professionalism, Action */
+    --indigo-50:  #EEF2FF;
+    --indigo-100: #E0E7FF;
+    --indigo-500: #6366F1;
+    --indigo-600: #4F46E5;
+    --indigo-700: #4338CA;
+    --indigo-900: #312E81;
+
+    /* Purple: AI & Automation */
+    --purple-50:  #FAF5FF;
+    --purple-100: #F3E8FF;
+    --purple-500: #A855F7;
+    --purple-600: #9333EA;
+    --purple-700: #7E22CE;
+
+    /* Semantic */
+    --emerald-500: #10B981;
+    --amber-500: #F59E0B;
+    --rose-500: #EF4444;
+
+    /* --------------------------------------
+       SEMANTIC TOKENS
+       -------------------------------------- */
+    --bg-canvas: var(--slate-100);
+    --bg-surface: #FFFFFF;
+    --bg-sidebar: #0f172a; /* Slate 900 for a rich dark sidebar */
+    --bg-header: #0f172a; /* Slate 900 for a rich dark header */
+    
+    --text-primary: var(--slate-900);
+    --text-secondary: var(--slate-500);
+    --text-muted: var(--slate-400);
+
+    --border-subtle: rgba(17, 24, 39, 0.08); /* 8% black for ultra-premium subtle lines */
+    --border-strong: rgba(17, 24, 39, 0.15);
+
+    --color-primary: var(--indigo-600);
+    --color-primary-hover: var(--indigo-700);
+    
+    --color-ai: var(--purple-600);
+
+    /* --------------------------------------
+       TYPOGRAPHY
+       -------------------------------------- */
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    
+    /* --------------------------------------
+       SPACING & SIZING
+       -------------------------------------- */
+    --sidebar-width: 250px; /* Slightly narrower, more focused */
+    --header-height: 56px;  /* Slimmer, maximizing vertical canvas */
+
+    --radius-sm: 4px;
+    --radius-md: 6px; /* Linear style tighter radii */
+    --radius-lg: 10px;
+    --radius-full: 9999px;
+
+    /* --------------------------------------
+       ELEVATION (Ultra-smooth Shadows)
+       -------------------------------------- */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(0, 0, 0, 0.02);
+    --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.03), 0 12px 24px rgba(0, 0, 0, 0.06);
+    --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.08); /* Modals, Dropdowns */
+
+    /* --------------------------------------
+       v2 THEME TOKENS — additive only.
+       These are NEW variable names; no existing token value is changed, so
+       nothing renders differently until a page opts in via `body.theme-v2`.
+       -------------------------------------- */
+    /* Type scale (Inter, tabular numerals for data) */
+    --fs-xs: 11px;
+    --fs-sm: 12px;
+    --fs-base: 13px;
+    --fs-md: 14px;
+    --fs-lg: 16px;
+    --fs-xl: 20px;
+    --fs-2xl: 24px;
+    --fs-3xl: 30px;
+    --lh-tight: 1.25;
+    --lh-normal: 1.5;
+    --fw-regular: 400;
+    --fw-medium: 500;
+    --fw-semibold: 600;
+    --tracking-tight: -0.011em;
+    --tracking-wide: 0.04em;
+
+    /* Spacing — 4px baseline grid */
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 20px;
+    --sp-6: 24px;
+    --sp-8: 32px;
+    --sp-10: 40px;
+
+    /* Semantic role tokens (surfaces + text) */
+    --role-success: var(--emerald-500);
+    --role-success-bg: #ECFDF5;
+    --role-warning: var(--amber-500);
+    --role-warning-bg: #FFFBEB;
+    --role-danger: var(--rose-500);
+    --role-danger-bg: #FEF2F2;
+    --role-info: var(--indigo-600);
+    --role-info-bg: var(--indigo-50);
+    --role-ai: var(--purple-600);
+    --role-ai-bg: var(--purple-50);
+    --role-ai-border: #E9D5FF;
+
+    /* Focus ring + motion */
+    --focus-ring: 0 0 0 3px rgba(79, 70, 229, 0.30);
+    --focus-ring-ai: 0 0 0 3px rgba(147, 51, 234, 0.28);
+    --dur-fast: 120ms;
+    --dur-base: 160ms;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* Extra elevation stop */
+    --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.03);
+}
+
+/* Global Reset Overrides */
+body {
+    font-family: var(--font-sans);
+    background-color: var(--bg-canvas) !important;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale; /* Crisper text on mac */
+    letter-spacing: -0.01em; /* Tighter default tracking */
+}

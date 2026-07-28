@@ -1,0 +1,227 @@
+<!-- AI Assistant (friendly duplicate-review UX). Self-contained: bell + AI badge + slide-up card + panel.
+     Driven only by the existing Socket.IO event `ai_status_updated` (dispatched by admin-notifications.js).
+     No backend/polling: pending state persists per-session via sessionStorage and reconciles on live events. -->
+<style>
+  #aia-root{position:fixed;z-index:2000;font-family:inherit}
+  #aia-bellwrap{position:fixed;top:12px;right:16px;z-index:2001;display:flex;align-items:center;gap:8px}
+  #aia-badge{display:none;align-items:center;gap:6px;background:#FEF3C7;color:#92400E;font-size:12px;font-weight:500;padding:3px 10px;border-radius:999px;border:0.5px solid #FDE68A}
+  #aia-bell{position:relative;width:36px;height:36px;border-radius:50%;background:#fff;border:0.5px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,.08);cursor:pointer;color:#374151;display:flex;align-items:center;justify-content:center}
+  #aia-bell:hover{background:#f9fafb}
+  #aia-count{display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;background:#ef4444;color:#fff;font-size:10px;font-weight:600;border-radius:999px;align-items:center;justify-content:center}
+  #aia-count.aia-pop{animation:aia-pop .15s ease}
+  @keyframes aia-pop{0%{transform:scale(1)}50%{transform:scale(1.28)}100%{transform:scale(1)}}
+  #aia-panel{display:none;position:fixed;top:56px;right:16px;width:260px;max-width:calc(100vw - 32px);background:#fff;border:0.5px solid #e5e7eb;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.14);padding:12px;z-index:2001}
+  #aia-panel h6{font-size:13px;font-weight:500;margin:0 0 8px;color:#111827}
+  .aia-row{display:flex;align-items:center;gap:8px;border:0.5px solid #eef0f2;border-radius:8px;padding:7px 9px;font-size:12px;color:#374151}
+  .aia-row-t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .aia-row-s{color:#ef4444;font-weight:500}
+  .aia-row-a{color:#2563eb;cursor:pointer;font-weight:500}
+  #aia-card{position:fixed;right:20px;bottom:20px;width:340px;max-width:calc(100vw - 32px);background:#fff;border:0.5px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 34px rgba(0,0,0,.16);padding:14px;z-index:2002;transform:translateY(140%);opacity:0;transition:transform .26s cubic-bezier(.22,1,.36,1),opacity .26s ease;will-change:transform,opacity}
+  #aia-card.aia-show{transform:translateY(0);opacity:1}
+  #aia-card.aia-hide{transform:translateY(14px);opacity:0;transition:transform .18s ease-in,opacity .18s ease-in}
+  #aia-card .aia-head{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+  #aia-avatar{width:30px;height:30px;border-radius:50%;background:#EDE9FE;color:#6D28D9;display:flex;align-items:center;justify-content:center;font-size:15px}
+  #aia-card .aia-title{font-weight:500;font-size:14px;color:#111827}
+  #aia-close{margin-left:auto;background:none;border:none;cursor:pointer;color:#9ca3af;font-size:15px}
+  #aia-msg{font-size:13px;color:#4b5563;line-height:1.55;margin-bottom:10px}
+  #aia-chip{font-size:12px;color:#111827;background:#f8fafc;border:0.5px solid #eef0f2;border-radius:8px;padding:8px 10px;margin-bottom:12px}
+  #aia-chip .s{color:#ef4444;font-weight:500}
+  #aia-actions{display:flex;gap:8px}
+  .aia-btn{border:0.5px solid #d1d5db;border-radius:8px;font-size:13px;padding:8px 12px;cursor:pointer;background:#fff;color:#374151}
+  .aia-btn:hover{background:#f9fafb}
+  .aia-primary{flex:1;background:#2563eb;color:#fff;border:none}
+  .aia-primary:hover{background:#1d4ed8}
+  @media (max-width:640px){
+    #aia-card{left:12px;right:12px;bottom:12px;width:auto}
+    #aia-panel{left:12px;right:12px;width:auto}
+  }
+  @media (prefers-reduced-motion:reduce){
+    #aia-card{transition:opacity .2s ease;transform:none}
+    #aia-card.aia-show{transform:none}
+  }
+</style>
+
+<div id="aia-bellwrap">
+  <span id="aia-badge" aria-live="polite"><i class="fas fa-robot" aria-hidden="true"></i><span id="aia-badge-text">AI</span></span>
+  <button id="aia-bell" aria-label="AI reviews">
+    <i class="fas fa-bell" aria-hidden="true"></i>
+    <span id="aia-count" aria-live="polite">0</span>
+  </button>
+</div>
+
+<div id="aia-panel" role="dialog" aria-label="AI reviews">
+  <h6>AI reviews</h6>
+  <div id="aia-list"></div>
+</div>
+
+<div id="aia-card" role="dialog" aria-label="AI assistant">
+  <div class="aia-head">
+    <span id="aia-avatar"><i class="fas fa-robot" aria-hidden="true"></i></span>
+    <span class="aia-title">AI assistant</span>
+    <button id="aia-close" aria-label="Close">&times;</button>
+  </div>
+  <div id="aia-msg">Hi &#128075; I found a similar article — quick look before it goes live?</div>
+  <div id="aia-chip"><span id="aia-chip-title">&ldquo;&hellip;&rdquo;</span> &middot; <span class="s" id="aia-chip-score">&mdash;</span></div>
+  <div id="aia-actions">
+    <button class="aia-btn aia-primary" id="aia-review">Review now</button>
+    <button class="aia-btn" id="aia-later">Remind me later</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  if (window.__AIA_INIT) return; window.__AIA_INIT = true;
+
+  // Config (client-only; no backend).
+  var REMIND_MS = 10 * 60 * 1000;      // re-remind interval for "Later"
+  var IDLE_MS   = 1200;                // quiet time before we consider the user idle
+  var STORE_KEY = 'aia_pending_v1';
+
+  var els = {
+    bellwrap: document.getElementById('aia-bellwrap'),
+    badge: document.getElementById('aia-badge'),
+    badgeText: document.getElementById('aia-badge-text'),
+    count: document.getElementById('aia-count'),
+    bell: document.getElementById('aia-bell'),
+    panel: document.getElementById('aia-panel'),
+    list: document.getElementById('aia-list'),
+    card: document.getElementById('aia-card'),
+    msg: document.getElementById('aia-msg'),
+    chipTitle: document.getElementById('aia-chip-title'),
+    chipScore: document.getElementById('aia-chip-score'),
+    review: document.getElementById('aia-review'),
+    later: document.getElementById('aia-later'),
+    close: document.getElementById('aia-close')
+  };
+
+  var pending = load();                 // { newsId: {title, score, snoozeUntil} }
+  var currentId = null;                 // id shown on the card (one at a time)
+  var queued = false;                   // a card is waiting for the user to go idle
+  var lastActivity = 0;
+  var timers = { idle: null, remind: null };
+
+  function load(){ try { return JSON.parse(sessionStorage.getItem(STORE_KEY) || '{}') || {}; } catch(e){ return {}; } }
+  function save(){ try { sessionStorage.setItem(STORE_KEY, JSON.stringify(pending)); } catch(e){} }
+  function count(){ return Object.keys(pending).length; }
+  function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function clip(v,n){ v = String(v||'').replace(/<[^>]*>/g,''); return v.length>n ? v.slice(0,n-1)+'…' : v; }
+
+  function renderBell(){
+    var n = count();
+    if (n>0){
+      els.count.textContent = n; els.count.style.display='flex';
+      els.count.classList.remove('aia-pop'); void els.count.offsetWidth; els.count.classList.add('aia-pop');
+      els.badge.style.display='inline-flex'; els.badgeText.textContent = n + (n>1?' to review':' to review');
+    } else {
+      els.count.style.display='none'; els.badge.style.display='none';
+    }
+  }
+  function renderPanel(){
+    var ids = Object.keys(pending);
+    if (!ids.length){ els.list.innerHTML = '<div style="font-size:12px;color:#9ca3af">All caught up.</div>'; return; }
+    els.list.innerHTML = ids.map(function(id){
+      var it = pending[id];
+      return '<div class="aia-row"><span class="aia-row-t">'+esc(clip(it.title,40))+'</span>'+
+             (it.score? '<span class="aia-row-s">'+it.score+'%</span>':'')+
+             '<span class="aia-row-a" data-id="'+esc(id)+'">Review</span></div>';
+    }).join('');
+    Array.prototype.forEach.call(els.list.querySelectorAll('.aia-row-a'), function(a){
+      a.addEventListener('click', function(){ openReview(a.getAttribute('data-id')); });
+    });
+  }
+
+  // ---- idle gate: never interrupt typing ----
+  function isTyping(){
+    var a = document.activeElement;
+    if (a){
+      var t = (a.tagName||'').toUpperCase();
+      if (t==='INPUT'||t==='TEXTAREA'||t==='SELECT'||a.isContentEditable) return true;
+    }
+    return (Date.now() - lastActivity) < IDLE_MS;
+  }
+  ['keydown','input','pointerdown'].forEach(function(ev){
+    document.addEventListener(ev, function(){ lastActivity = Date.now(); }, true);
+  });
+
+  // ---- card (one at a time) ----
+  function showCard(id){
+    var it = pending[id]; if (!it) return;
+    if (it.snoozeUntil && Date.now() < it.snoozeUntil) return;
+    currentId = id; queued = false;
+    els.chipTitle.textContent = '“' + clip(it.title || 'this article', 40) + '”';
+    els.chipScore.textContent = it.score ? (it.score + '% match') : 'possible match';
+    els.card.classList.remove('aia-hide'); els.card.classList.add('aia-show');
+  }
+  function hideCard(){
+    els.card.classList.remove('aia-show'); els.card.classList.add('aia-hide');
+    currentId = null;
+  }
+  function maybeShow(id){
+    if (els.card.classList.contains('aia-show')) return;   // one at a time
+    if (isTyping()){ queued = true; return; }              // wait for idle
+    showCard(id);
+  }
+  function nextPending(){
+    var ids = Object.keys(pending);
+    for (var i=0;i<ids.length;i++){ var it=pending[ids[i]]; if(!it.snoozeUntil || Date.now()>=it.snoozeUntil) return ids[i]; }
+    return null;
+  }
+  // idle re-check so a queued card appears the moment the user pauses
+  timers.idle = setInterval(function(){
+    if (els.card.classList.contains('aia-show')) return;
+    if (!isTyping()){ var id = queued ? nextPending() : null; if (id) showCard(id); }
+  }, 700);
+
+  // ---- actions ----
+  function openReview(id){
+    hideCard(); if (els.panel) els.panel.style.display='none';
+    if (typeof window.viewDuplicates === 'function'){ window.viewDuplicates(id); }   // reuse in-page modal
+    else { window.location.href = '/admin/my-ai-queue'; }                            // else go where the modal lives
+  }
+  function addItem(id, title, score){
+    if (!id) return;
+    pending[id] = { title: title || 'this article', score: score || null, snoozeUntil: (pending[id]&&pending[id].snoozeUntil)||0 };
+    save(); renderBell(); renderPanel(); maybeShow(id);
+  }
+  function removeItem(id){
+    if (!pending[id]) return;
+    delete pending[id]; save(); renderBell(); renderPanel();
+    if (currentId === id) hideCard();
+  }
+
+  els.review.addEventListener('click', function(){ if (currentId) openReview(currentId); });
+  els.later.addEventListener('click', function(){                 // does NOT resolve
+    if (currentId && pending[currentId]){ pending[currentId].snoozeUntil = Date.now() + REMIND_MS; save(); }
+    var id = currentId; hideCard();
+    clearTimeout(timers.remind);
+    timers.remind = setTimeout(function(){ if (id && pending[id]) maybeShow(id); }, REMIND_MS);
+  });
+  els.close.addEventListener('click', function(){ hideCard(); });  // does NOT resolve
+  els.bell.addEventListener('click', function(){
+    els.panel.style.display = (els.panel.style.display==='block') ? 'none' : 'block'; renderPanel();
+  });
+  document.addEventListener('click', function(e){
+    if (els.panel.style.display==='block' && !els.panel.contains(e.target) && !els.bell.contains(e.target)) els.panel.style.display='none';
+  });
+
+  // ---- live wiring (existing Socket.IO events; no polling) ----
+  document.addEventListener('ai_status_updated_received', function(e){
+    var d = e.detail || {}; var id = (d.id||'').toString(); if (!id) return;
+    if (d.status === 'review_required'){
+      var s = d.duplicateSummary || {};
+      addItem(id, d.title, s.similarity != null ? Math.round(s.similarity) : null);
+    } else if (d.status === 'verified'){
+      removeItem(id);                                   // cleared → drop from bell/card
+    }
+  });
+  // Resolved elsewhere (approved/rejected) → keep bell consistent (existing event)
+  document.addEventListener('story_status_updated_admin_received', function(e){
+    var d = e.detail || {}; var id=(d.id||'').toString();
+    if (id && (d.status==='approved' || d.status==='rejected')) removeItem(id);
+  });
+
+  window.addEventListener('beforeunload', function(){ clearInterval(timers.idle); clearTimeout(timers.remind); });
+
+  renderBell(); renderPanel();
+})();
+</script>

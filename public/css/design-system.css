@@ -1,0 +1,349 @@
+/* Enterprise Design System Tokens */
+:root {
+    /* Colors */
+    --ds-primary: #4F46E5;
+    --ds-primary-hover: #4338CA;
+    --ds-primary-light: #EEF2FF;
+    
+    --ds-bg-app: #F8FAFC;
+    --ds-bg-surface: #FFFFFF;
+    
+    --ds-text-primary: #0F172A;
+    --ds-text-secondary: #64748B;
+    --ds-text-muted: #94A3B8;
+    
+    --ds-border: #E2E8F0;
+    --ds-border-hover: #CBD5E1;
+    
+    /* Semantic */
+    --ds-success: #10B981;
+    --ds-danger: #F43F5E;
+    --ds-warning: #F59E0B;
+    --ds-info: #0EA5E9;
+    
+    /* Spacing */
+    --ds-spacing-1: 4px;
+    --ds-spacing-2: 8px;
+    --ds-spacing-3: 12px;
+    --ds-spacing-4: 16px;
+    --ds-spacing-6: 24px;
+    --ds-spacing-8: 32px;
+    
+    /* Borders */
+    --ds-radius-sm: 4px;
+    --ds-radius-md: 6px;
+    --ds-radius-lg: 12px;
+    
+    /* Typography */
+    --ds-font-primary: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    
+    /* Layout */
+    --ds-header-height: 64px;
+    --ds-sidebar-width: 260px;
+}
+
+/* Global Reset Overrides */
+body {
+    font-family: var(--ds-font-primary);
+    background-color: var(--ds-bg-app);
+    color: var(--ds-text-primary);
+    font-size: 16px; /* Base 16px for accessibility */
+}
+
+/* --------------------------------------
+   TOP NAVIGATION RE-STYLE
+--------------------------------------- */
+.top-nav {
+    background: var(--ds-bg-surface) !important; /* Override legacy gradient */
+    height: var(--ds-header-height);
+    border-bottom: 1px solid var(--ds-border);
+    box-shadow: none !important;
+    padding: 0 var(--ds-spacing-6);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 1020; /* Bootstrap standard sticky */
+}
+
+.top-nav .page-title {
+    color: var(--ds-text-primary);
+    font-size: 1.125rem; /* 18px */
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.top-nav-left, .top-nav-center, .top-nav-right {
+    display: flex;
+    align-items: center;
+    gap: var(--ds-spacing-4);
+}
+
+/* Breadcrumbs in Top Nav */
+.ds-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--ds-spacing-2);
+    font-size: 0.875rem; /* 14px */
+    color: var(--ds-text-secondary);
+}
+
+.ds-breadcrumb-separator {
+    color: var(--ds-border-hover);
+}
+
+.ds-breadcrumb-active {
+    color: var(--ds-text-primary);
+    font-weight: 500;
+}
+
+/* Search Input */
+.ds-search-wrapper {
+    position: relative;
+    width: 240px;
+}
+
+.ds-search-wrapper i {
+    position: absolute;
+    left: var(--ds-spacing-3);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ds-text-muted);
+    font-size: 0.875rem;
+}
+
+.ds-search-input {
+    width: 100%;
+    height: 36px;
+    padding: 0 var(--ds-spacing-3) 0 36px;
+    border: 1px solid var(--ds-border);
+    border-radius: var(--ds-radius-md);
+    background-color: var(--ds-bg-app);
+    color: var(--ds-text-primary);
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.ds-search-input:focus {
+    outline: none;
+    background-color: var(--ds-bg-surface);
+    border-color: var(--ds-primary);
+    box-shadow: 0 0 0 2px var(--ds-primary-light);
+}
+
+/* Action Buttons (Icons in header) */
+.ds-icon-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--ds-text-secondary);
+    width: 36px;
+    height: 36px;
+    border-radius: var(--ds-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.ds-icon-btn:hover {
+    background-color: var(--ds-bg-app);
+    color: var(--ds-text-primary);
+}
+
+.ds-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    background-color: var(--ds-danger);
+    border-radius: 50%;
+    border: 2px solid var(--ds-bg-surface);
+}
+
+/* AI Status Badge */
+.ds-ai-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--ds-spacing-1);
+    padding: 4px var(--ds-spacing-2);
+    background-color: var(--ds-primary-light);
+    color: var(--ds-primary);
+    border-radius: var(--ds-radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* User Profile */
+.ds-user-profile {
+    display: flex;
+    align-items: center;
+    gap: var(--ds-spacing-2);
+    padding: 4px 8px;
+    border-radius: var(--ds-radius-md);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+.ds-user-profile:hover {
+    background-color: var(--ds-bg-app);
+}
+
+/* --------------------------------------
+   SIDEBAR RE-STYLE
+--------------------------------------- */
+.sidebar {
+    background: var(--ds-bg-surface) !important; /* Override legacy gradient */
+    border-right: 1px solid var(--ds-border) !important;
+    box-shadow: none !important;
+    color: var(--ds-text-primary) !important;
+}
+
+/* Fix width for desktop to ensure pixel-perfect 260px regardless of bootstrap cols */
+@media (min-width: 768px) {
+    .sidebar {
+        width: var(--ds-sidebar-width) !important;
+        position: fixed;
+        height: 100vh;
+    }
+    
+    /* Adjust main content margin to match fixed sidebar width exactly instead of bootstrap % */
+    .main-content {
+        margin-left: var(--ds-sidebar-width) !important;
+        width: calc(100% - var(--ds-sidebar-width)) !important;
+    }
+}
+
+.sidebar-header {
+    border-bottom: 1px solid var(--ds-border) !important;
+}
+
+.sidebar-header h4 {
+    color: var(--ds-text-primary) !important;
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+.sidebar-header p {
+    color: var(--ds-text-secondary) !important;
+}
+
+.sidebar-profile-card {
+    background: var(--ds-bg-app) !important;
+    border: 1px solid var(--ds-border) !important;
+}
+
+/* Sidebar Navigation Items */
+.nav-section-title {
+    color: var(--ds-text-muted) !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em !important;
+    padding: var(--ds-spacing-4) var(--ds-spacing-6) var(--ds-spacing-2) !important;
+    margin-top: 0 !important;
+}
+
+.sidebar a.nav-link {
+    color: var(--ds-text-secondary) !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    padding: 10px var(--ds-spacing-3) !important;
+    margin: 2px var(--ds-spacing-4) !important;
+    border-radius: var(--ds-radius-md) !important;
+    border-left: none !important; /* override legacy active border */
+    border-bottom: none !important; /* override legacy border */
+    transition: all 0.15s ease !important;
+}
+
+.sidebar a.nav-link:hover {
+    color: var(--ds-text-primary) !important;
+    background-color: var(--ds-bg-app) !important;
+}
+
+.sidebar a.nav-link.active {
+    color: var(--ds-primary) !important;
+    background: var(--ds-primary-light) !important;
+}
+
+/* Icons in Sidebar */
+.sidebar a.nav-link i {
+    color: var(--ds-text-muted);
+    transition: color 0.15s ease;
+    width: 20px !important;
+    font-size: 1.1rem !important;
+}
+
+.sidebar a.nav-link:hover i,
+.sidebar a.nav-link.active i {
+    color: inherit;
+}
+
+/* Accordion Specific */
+.sidebar .nav-link.has-submenu[aria-expanded="true"] {
+    background: var(--ds-bg-app) !important;
+}
+
+.submenu-collapse .nav-item::before {
+    background: var(--ds-border) !important;
+    left: 21px !important; /* Align line */
+}
+
+.submenu-collapse .nav-link::before {
+    background: var(--ds-border) !important;
+    left: 21px !important;
+    width: 10px !important;
+}
+
+.submenu-collapse .nav-link:hover::before,
+.submenu-collapse .nav-link.active::before {
+    background: var(--ds-border-hover) !important;
+}
+
+/* Submenu links */
+.submenu-collapse .nav-link {
+    padding-left: 42px !important;
+    font-size: 0.8125rem !important; /* slightly smaller for hierarchy */
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+    border-top: 1px solid var(--ds-border) !important;
+    color: var(--ds-text-muted) !important;
+}
+
+.sidebar-footer small {
+    color: var(--ds-text-muted) !important;
+}
+
+/* --------------------------------------
+   BUTTONS RE-STYLE (for layout actions)
+--------------------------------------- */
+.btn-primary {
+    background-color: var(--ds-primary) !important;
+    border-color: var(--ds-primary) !important;
+    border-radius: var(--ds-radius-md) !important;
+    font-weight: 500 !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+}
+
+.btn-primary:hover {
+    background-color: var(--ds-primary-hover) !important;
+    border-color: var(--ds-primary-hover) !important;
+}
+
+.btn-outline-primary {
+    color: var(--ds-text-secondary) !important;
+    border-color: var(--ds-border) !important;
+    background-color: var(--ds-bg-surface) !important;
+    border-radius: var(--ds-radius-md) !important;
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--ds-bg-app) !important;
+    color: var(--ds-text-primary) !important;
+    border-color: var(--ds-border-hover) !important;
+}
