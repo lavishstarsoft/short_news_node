@@ -67,7 +67,8 @@
 
 /* Header Area */
 #sidebar .sidebar-header {
-    padding: 24px 20px 10px;
+    height: 64px;
+    padding: 0 20px;
     display: flex;
     align-items: center;
 }
@@ -83,16 +84,14 @@
 }
 #sidebar .sidebar-header h4 .logo-icon {
     background: linear-gradient(135deg, #0284C7, #38BDF8);
-    border-radius: 8px;
-    padding: 6px;
-    font-size: 14px;
-    color: #FFFFFF;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 24px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 32px;
     height: 32px;
-    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.4);
 }
 #sidebar .sidebar-header p {
     display: none; 
@@ -104,7 +103,7 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
     padding: 12px 16px;
-    margin: 10px 16px 24px;
+    margin: 8px 16px 24px;
     display: flex;
     align-items: center;
     color: #FFFFFF;
