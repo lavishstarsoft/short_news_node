@@ -15,121 +15,138 @@ body.theme-v2 {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "cv11", "ss01", "tnum";
-}
-
-/* ------------------------------------------------------------------ */
-/* SIDEBAR                                                             */
-/* ------------------------------------------------------------------ */
-body.theme-v2 #sidebar.sidebar {
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border-subtle);
-  box-shadow: none;
-}
-body.theme-v2 #sidebar .position-sticky {
-  padding-top: var(--sp-3);
-}
-
-body.theme-v2 #sidebar .sidebar-header {
-  padding: var(--sp-3) var(--sp-4) var(--sp-4);
-  margin-bottom: var(--sp-2);
-  border-bottom: 1px solid var(--border-subtle);
-}
-body.theme-v2 #sidebar .sidebar-header h4 {
-  font-size: var(--fs-lg);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-tight);
+  background: var(--bg-canvas);
   color: var(--text-primary);
 }
-body.theme-v2 #sidebar .sidebar-header p {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
+body.theme-v2 ::selection { background: var(--indigo-100); color: var(--indigo-900); }
+body.theme-v2 a { color: var(--indigo-600); text-decoration: none; }
+body.theme-v2 a:hover { color: var(--indigo-700); }
+body.theme-v2 h1, body.theme-v2 h2, body.theme-v2 h3,
+body.theme-v2 h4, body.theme-v2 h5, body.theme-v2 h6 {
+  letter-spacing: var(--tracking-tight); color: var(--text-primary); font-weight: var(--fw-semibold);
 }
-body.theme-v2 #sidebar .sidebar-profile-card {
+/* Refined scrollbars */
+body.theme-v2 *::-webkit-scrollbar { width: 10px; height: 10px; }
+body.theme-v2 *::-webkit-scrollbar-thumb { background: var(--slate-200); border-radius: var(--radius-full); border: 2px solid transparent; background-clip: content-box; }
+body.theme-v2 *::-webkit-scrollbar-thumb:hover { background: var(--slate-300); background-clip: content-box; }
+
+/* ==========================================================================
+   ONE GLOBAL DESIGN SYSTEM — applies to every page via body.theme-v2.
+   Additive, token-based, no !important (never overrides existing rules that
+   are already themed). Gives Bootstrap components one consistent language.
+   ========================================================================== */
+
+/* Buttons — accessible focus ring + ghost/soft variants (colors come from components.css) */
+body.theme-v2 .btn { border-radius: var(--radius-md); font-weight: var(--fw-medium); }
+body.theme-v2 .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+body.theme-v2 .btn-ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
+body.theme-v2 .btn-ghost:hover { background: var(--slate-100); color: var(--text-primary); }
+
+/* Cards */
+body.theme-v2 .card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xs);
+}
+body.theme-v2 .card-header {
   background: var(--slate-50);
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: var(--fw-medium);
+}
+body.theme-v2 .card-header.bg-light { background: var(--slate-50); }
+body.theme-v2 .card-footer { background: var(--slate-50); border-top: 1px solid var(--border-subtle); }
+
+/* Tables (generic Bootstrap) */
+body.theme-v2 .table { color: var(--text-primary); font-size: var(--fs-md); vertical-align: middle; }
+body.theme-v2 .table > thead th {
+  color: var(--text-muted); font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wide); text-transform: uppercase;
+  border-bottom: 1px solid var(--border-subtle); background: var(--slate-50);
+}
+body.theme-v2 .table > tbody td { border-color: var(--border-subtle); padding: var(--sp-3) var(--sp-3); }
+body.theme-v2 .table-hover > tbody > tr:hover > * { background: var(--slate-50); }
+
+/* Inputs / selects / textareas */
+body.theme-v2 .form-control,
+body.theme-v2 .form-select {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+body.theme-v2 .form-control:focus,
+body.theme-v2 .form-select:focus { border-color: var(--indigo-500); box-shadow: var(--focus-ring); }
+body.theme-v2 .form-control::placeholder { color: var(--text-muted); }
+body.theme-v2 .form-label { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text-primary); margin-bottom: var(--sp-2); }
+body.theme-v2 .input-group-text { background: var(--slate-50); border-color: var(--border-subtle); color: var(--text-secondary); }
+
+/* Badges (Bootstrap) */
+body.theme-v2 .badge { font-weight: var(--fw-medium); border-radius: var(--radius-full); padding: 4px 9px; }
+body.theme-v2 .badge.bg-primary { background: var(--indigo-50) !important; color: var(--indigo-700); }
+body.theme-v2 .badge.bg-success { background: var(--role-success-bg) !important; color: var(--role-success); }
+body.theme-v2 .badge.bg-danger  { background: var(--role-danger-bg) !important;  color: var(--role-danger); }
+body.theme-v2 .badge.bg-warning { background: var(--role-warning-bg) !important; color: var(--role-warning); }
+body.theme-v2 .badge.bg-secondary { background: var(--slate-100) !important; color: var(--text-secondary); }
+body.theme-v2 .badge.bg-info { background: var(--indigo-50) !important; color: var(--indigo-700); }
+
+/* Alerts */
+body.theme-v2 .alert { border: 1px solid var(--border-subtle); border-radius: 12px; }
+body.theme-v2 .alert-warning { background: var(--role-warning-bg); border-color: #FDE68A; color: #92400E; }
+body.theme-v2 .alert-success { background: var(--role-success-bg); border-color: #A7F3D0; color: #065F46; }
+body.theme-v2 .alert-danger  { background: var(--role-danger-bg);  border-color: #FECACA; color: #991B1B; }
+
+/* Modals */
+body.theme-v2 .modal-content { border: 1px solid var(--border-subtle); border-radius: 16px; box-shadow: var(--shadow-float); overflow: hidden; }
+body.theme-v2 .modal-header { border-bottom: 1px solid var(--border-subtle); padding: var(--sp-4) var(--sp-5); }
+body.theme-v2 .modal-title { font-weight: var(--fw-semibold); letter-spacing: var(--tracking-tight); }
+body.theme-v2 .modal-body { padding: var(--sp-5); }
+body.theme-v2 .modal-footer { border-top: 1px solid var(--border-subtle); padding: var(--sp-4) var(--sp-5); }
+
+/* Dropdowns — no default Bootstrap look */
+body.theme-v2 .dropdown-menu {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  transition: background var(--dur-fast) var(--ease-out);
+  box-shadow: var(--shadow-float);
+  padding: 6px;
+  font-size: var(--fs-md);
 }
-body.theme-v2 #sidebar .sidebar-profile-card:hover {
-  background: var(--slate-100);
-}
+body.theme-v2 .dropdown-item { border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--text-primary); }
+body.theme-v2 .dropdown-item:hover, body.theme-v2 .dropdown-item:focus { background: var(--slate-100); color: var(--text-primary); }
+body.theme-v2 .dropdown-item.text-danger:hover { background: var(--role-danger-bg); color: var(--role-danger); }
+body.theme-v2 .dropdown-divider { border-color: var(--border-subtle); }
 
-body.theme-v2 #sidebar .nav-section-title {
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-  color: var(--slate-600);
-  padding: var(--sp-6) var(--sp-4) var(--sp-2);
-  margin: 0;
-}
-body.theme-v2 #sidebar .nav-section-title:first-of-type { padding-top: var(--sp-2); }
+/* Content rhythm */
+body.theme-v2 .content-area { padding-top: var(--sp-2); }
 
-body.theme-v2 #sidebar .nav-link {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin: 1px var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--radius-md);
-  font-size: var(--fs-base);
-  font-weight: var(--fw-medium);
-  color: var(--text-secondary);
-  line-height: var(--lh-tight);
-  transition: background var(--dur-fast) var(--ease-out),
-              color var(--dur-fast) var(--ease-out);
+/* ==========================================================================
+   Mobile sidebar drawer overlay (unscoped so it works app-wide, theme or not).
+   Paired with the shared controller in footer.ejs.
+   ========================================================================== */
+.app-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+  z-index: 1039; /* just below #sidebar.sidebar (1040) */
 }
-body.theme-v2 #sidebar .nav-link i {
-  width: 18px;
-  font-size: 15px;
-  text-align: center;
-  color: var(--text-muted);
-  margin: 0 !important;
-  transition: color var(--dur-fast) var(--ease-out);
-}
-body.theme-v2 #sidebar .nav-link:hover {
-  background: var(--slate-100);
-  color: var(--text-primary);
-}
-body.theme-v2 #sidebar .nav-link:hover i {
-  color: var(--text-secondary);
-}
-body.theme-v2 #sidebar .nav-link.active {
-  background: var(--indigo-50);
-  color: var(--indigo-700);
-  font-weight: var(--fw-semibold);
-}
-body.theme-v2 #sidebar .nav-link.active::before {
-  content: "";
-  position: absolute;
-  left: 2px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 17px;
-  border-radius: var(--radius-full);
-  background: var(--indigo-600);
-}
-body.theme-v2 #sidebar .nav-link.active i {
-  color: var(--indigo-600);
-}
-body.theme-v2 #sidebar .nav-link:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-/* Refined scrollbar within the sidebar */
-body.theme-v2 #sidebar .position-sticky::-webkit-scrollbar { width: 8px; }
-body.theme-v2 #sidebar .position-sticky::-webkit-scrollbar-thumb {
-  background: var(--slate-200);
-  border-radius: var(--radius-full);
+.app-sidebar-backdrop.show { opacity: 1; visibility: visible; }
+body.sidebar-open { overflow: hidden; }
+@media (min-width: 769px) {
+  .app-sidebar-backdrop { display: none !important; }
+  body.sidebar-open { overflow: visible; }
 }
 
 /* ------------------------------------------------------------------ */
 /* HEADER / TOP-NAV                                                    */
 /* ------------------------------------------------------------------ */
 body.theme-v2 .top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
   height: var(--header-height);
   background: rgba(255, 255, 255, 0.85);
   -webkit-backdrop-filter: saturate(180%) blur(8px);
@@ -259,9 +276,6 @@ body.theme-v2 .top-nav .menu-toggle {
 body.theme-v2 .top-nav .menu-toggle:hover { background: var(--slate-100); }
 
 @media (prefers-reduced-motion: reduce) {
-  body.theme-v2 #sidebar .nav-link,
-  body.theme-v2 .top-nav .ds-icon-btn,
-  body.theme-v2 .top-nav .ds-search-wrapper { transition: none; }
 }
 
 /* ==========================================================================
@@ -573,6 +587,8 @@ body.theme-v2 .news-date-input {
   background: var(--bg-surface); font-size: var(--fs-md); color: var(--text-primary);
   transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
+body.theme-v2 .news-facet-select { padding: 4px 36px 4px 12px; }
+body.theme-v2 .news-date-input { padding: 4px 12px; }
 body.theme-v2 .news-facet-select:focus,
 body.theme-v2 .news-date-input:focus { outline: none; border-color: var(--indigo-500); box-shadow: var(--focus-ring); }
 body.theme-v2 .news-facet-select-wrap.is-active .news-facet-select,

@@ -1,22 +1,18 @@
+<link rel="stylesheet" href="/css/sidebar-standard.css?v=2">
 <div class="col-md-3 col-lg-2 d-md-block sidebar" id="sidebar">
     <div class="position-sticky pt-3 pb-5">
-        <div class="sidebar-header text-center py-3 mb-2">
-            <h4 class="mb-0 fw-bold">Short News</h4>
-            <p class="small mb-0" style="color: var(--text-secondary);">Admin Dashboard</p>
-            <% if (typeof admin !=='undefined' && admin) { %>
-                <div class="sidebar-profile-card d-flex align-items-center justify-content-center mt-3 p-2 mx-3 rounded">
-                    <i class="fas fa-user-circle fa-2x me-2" style="color: var(--text-muted);"></i>
-                    <div class="text-start">
-                        <div class="fw-bold lh-1 mb-1">
-                            <%= admin.username %>
-                        </div>
-                        <div class="small lh-1" style="color: var(--text-secondary);">
-                            <%= admin.role.toUpperCase() %>
-                        </div>
-                    </div>
-                </div>
-            <% } %>
+        <div class="sidebar-header">
+            <h4><i class="fas fa-layer-group logo-icon"></i> Tehelka News</h4>
         </div>
+        
+        <% if (typeof admin !=='undefined' && admin) { %>
+            <div class="sidebar-profile-card">
+                <i class="fas fa-plus"></i>
+                <div class="text-start">
+                    <div class="fw-bold"><%= admin.username %></div>
+                </div>
+            </div>
+        <% } %>
 
         <ul class="nav flex-column" id="sidebarAccordion">
             <% 
@@ -79,14 +75,14 @@
                         <% } %>
                         <% if (canView('pendingNews')) { %>
                         <li class="nav-item">
-                            <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'pending-news' ? 'active' : '' %>" href="/admin/pending-news">
-                                <span><i class="fas fa-clock-rotate-left"></i> Pending News</span>
-                                <span class="badge bg-warning rounded-pill">Review</span>
+                            <a class="nav-link <%= activePage === 'pending-news' ? 'active' : '' %>" href="/admin/pending-news">
+                                Pending News
+                                
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'my-ai-queue' ? 'active' : '' %>" href="/admin/my-ai-queue">
-                                <span><i class="fas fa-robot"></i> My AI Queue</span>
+                            <a class="nav-link <%= activePage === 'my-ai-queue' ? 'active' : '' %>" href="/admin/my-ai-queue">
+                                My AI Queue
                             </a>
                         </li>
                         <% } %>
@@ -260,17 +256,17 @@
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'reporter-analytics' ? 'active' : '' %>" href="/admin/reporter-analytics">
-                                Analytics <span class="badge bg-success rounded-pill">New</span>
+                                Analytics 
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'news-map' ? 'active' : '' %>" href="/admin/news-map">
-                                News Map <span class="badge bg-success rounded-pill">New</span>
+                                News Map 
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'fraud-alerts' ? 'active' : '' %>" href="/admin/fraud-alerts">
-                                Fraud Alerts <span class="badge bg-danger rounded-pill">New</span>
+                                Fraud Alerts 
                             </a>
                         </li>
                         <li class="nav-item">
@@ -287,7 +283,7 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'reporter-popups' ? 'active' : '' %>" href="/admin/popups">
-                                In-App Popups <span class="badge bg-success rounded-pill">New</span>
+                                In-App Popups 
                             </a>
                         </li>
                     </ul>
@@ -409,7 +405,7 @@
                         <% if (isAdmin) { %>
                         <li class="nav-item">
                             <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'command-center' ? 'active' : '' %>" href="/admin/command-center">
-                                Command Center <span class="badge bg-danger rounded-pill">New</span>
+                                Command Center 
                             </a>
                         </li>
                         <li class="nav-item">
@@ -485,8 +481,10 @@
             </li>
         </ul>
         
-        <div class="sidebar-footer text-center py-4 mt-3 border-top border-secondary">
-            <small style="color: var(--text-muted);">© 2025 Short News</small>
+        <div class="sidebar-footer">
+            <div class="copyright-badge">
+                © <%= new Date().getFullYear() %> <span>Tehelka News</span>
+            </div>
         </div>
     </div>
 </div>

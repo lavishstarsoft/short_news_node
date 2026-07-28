@@ -1334,7 +1334,7 @@
                             }
                         });
 
-                        const sidebarLinks = document.querySelectorAll('.sidebar a');
+                        const sidebarLinks = document.querySelectorAll('.sidebar a:not(.has-submenu)');
                         sidebarLinks.forEach(link => {
                             link.addEventListener('click', function () {
                                 if (window.innerWidth < 768 && sidebar) {

@@ -192,48 +192,14 @@ body {
     background-color: var(--ds-bg-app);
 }
 
-/* --------------------------------------
-   SIDEBAR RE-STYLE
---------------------------------------- */
-.sidebar {
-    background: var(--ds-bg-surface) !important; /* Override legacy gradient */
-    border-right: 1px solid var(--ds-border) !important;
-    box-shadow: none !important;
-    color: var(--ds-text-primary) !important;
-}
-
 /* Fix width for desktop to ensure pixel-perfect 260px regardless of bootstrap cols */
 @media (min-width: 768px) {
-    .sidebar {
-        width: var(--ds-sidebar-width) !important;
-        position: fixed;
-        height: 100vh;
-    }
     
     /* Adjust main content margin to match fixed sidebar width exactly instead of bootstrap % */
     .main-content {
         margin-left: var(--ds-sidebar-width) !important;
         width: calc(100% - var(--ds-sidebar-width)) !important;
     }
-}
-
-.sidebar-header {
-    border-bottom: 1px solid var(--ds-border) !important;
-}
-
-.sidebar-header h4 {
-    color: var(--ds-text-primary) !important;
-    font-weight: 700;
-    font-size: 1.125rem;
-}
-
-.sidebar-header p {
-    color: var(--ds-text-secondary) !important;
-}
-
-.sidebar-profile-card {
-    background: var(--ds-bg-app) !important;
-    border: 1px solid var(--ds-border) !important;
 }
 
 /* Sidebar Navigation Items */
@@ -245,46 +211,6 @@ body {
     letter-spacing: 0.05em !important;
     padding: var(--ds-spacing-4) var(--ds-spacing-6) var(--ds-spacing-2) !important;
     margin-top: 0 !important;
-}
-
-.sidebar a.nav-link {
-    color: var(--ds-text-secondary) !important;
-    font-size: 0.875rem !important;
-    font-weight: 500 !important;
-    padding: 10px var(--ds-spacing-3) !important;
-    margin: 2px var(--ds-spacing-4) !important;
-    border-radius: var(--ds-radius-md) !important;
-    border-left: none !important; /* override legacy active border */
-    border-bottom: none !important; /* override legacy border */
-    transition: all 0.15s ease !important;
-}
-
-.sidebar a.nav-link:hover {
-    color: var(--ds-text-primary) !important;
-    background-color: var(--ds-bg-app) !important;
-}
-
-.sidebar a.nav-link.active {
-    color: var(--ds-primary) !important;
-    background: var(--ds-primary-light) !important;
-}
-
-/* Icons in Sidebar */
-.sidebar a.nav-link i {
-    color: var(--ds-text-muted);
-    transition: color 0.15s ease;
-    width: 20px !important;
-    font-size: 1.1rem !important;
-}
-
-.sidebar a.nav-link:hover i,
-.sidebar a.nav-link.active i {
-    color: inherit;
-}
-
-/* Accordion Specific */
-.sidebar .nav-link.has-submenu[aria-expanded="true"] {
-    background: var(--ds-bg-app) !important;
 }
 
 .submenu-collapse .nav-item::before {
@@ -307,16 +233,6 @@ body {
 .submenu-collapse .nav-link {
     padding-left: 42px !important;
     font-size: 0.8125rem !important; /* slightly smaller for hierarchy */
-}
-
-/* Sidebar Footer */
-.sidebar-footer {
-    border-top: 1px solid var(--ds-border) !important;
-    color: var(--ds-text-muted) !important;
-}
-
-.sidebar-footer small {
-    color: var(--ds-text-muted) !important;
 }
 
 /* --------------------------------------

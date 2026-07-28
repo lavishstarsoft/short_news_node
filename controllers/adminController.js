@@ -290,13 +290,30 @@ const checkVpnIndicators = async (ip) => {
 };
 
 // Handle login
+const axios = require('axios'); // For reCAPTCHA verification
+
 const login = async (req, res) => {
   try {
     const { username, password, latitude, longitude, locationPermission } = req.body;
+    const recaptchaResponse = req.body['g-recaptcha-response'];
 
     // Validate input
     if (!username || !password) {
       return res.render('login', { error: 'Please provide username and password' });
+    }
+
+    // Verify reCAPTCHA
+    if (!recaptchaResponse) {
+      return res.render('login', { error: 'దయచేసి "I\'m not a robot" వెరిఫికేషన్ పూర్తి చేయండి. (Please complete the CAPTCHA)' });
+    }
+    try {
+      const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=6Ld_QWktAAAAABG9QCKZ5vceFaxk92kGLSiv51wl&response=${recaptchaResponse}`;
+      const captchaRes = await axios.post(verifyUrl);
+      if (!captchaRes.data.success) {
+        return res.render('login', { error: 'క్యాప్చా ఫెయిల్ అయ్యింది. మళ్ళీ ప్రయత్నించండి. (CAPTCHA failed)' });
+      }
+    } catch (error) {
+      return res.render('login', { error: 'సిస్టమ్ ఎర్రర్. క్యాప్చా చెక్ చేయలేకపోతున్నాం. (Error verifying CAPTCHA)' });
     }
 
     // Check if MongoDB is connected

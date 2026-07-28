@@ -42,5 +42,51 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/admin-notifications.js"></script>
 
+<!-- Unified design system: activate the premium theme on every page (shared chrome + tokens). -->
+<script>try{document.body.classList.add('theme-v2');}catch(e){}</script>
+
+<!-- Shared mobile sidebar drawer controller (one handler for every page + overlay).
+     Capture-phase click on #menuToggle neutralises any per-page duplicate handler,
+     so the drawer opens/closes reliably app-wide. UI only. -->
+<script>
+(function () {
+  if (window.__mobileMenuBound) return; window.__mobileMenuBound = true;
+  var backdrop = null;
+  function ensureBackdrop() {
+    if (backdrop) return backdrop;
+    backdrop = document.createElement('div');
+    backdrop.className = 'app-sidebar-backdrop';
+    backdrop.addEventListener('click', function () { setOpen(false); });
+    document.body.appendChild(backdrop);
+    return backdrop;
+  }
+  function isOpen() { var s = document.getElementById('sidebar'); return !!(s && s.classList.contains('active')); }
+  function setOpen(open) {
+    var s = document.getElementById('sidebar'); if (!s) return;
+    s.classList.toggle('active', open);
+    s.classList.toggle('show', open);
+    ensureBackdrop().classList.toggle('show', open);
+    document.body.classList.toggle('sidebar-open', open);
+  }
+  // Toggle: capture phase + stopImmediatePropagation prevents any page-level duplicate handler.
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest ? e.target.closest('#menuToggle') : null;
+    if (!t) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    setOpen(!isOpen());
+  }, true);
+  // Close on Escape and when a sidebar link is tapped on mobile.
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setOpen(false); });
+  document.addEventListener('click', function (e) {
+    if (window.innerWidth <= 768 && e.target.closest) {
+      var link = e.target.closest('#sidebar a.nav-link');
+      if (link && !link.classList.contains('has-submenu') && !link.hasAttribute('data-bs-toggle')) {
+        setOpen(false);
+      }
+    }
+  });
+})();
+</script>
+
 <!-- Friendly AI Assistant (duplicate-review UX) -->
 <%- include('ai-assistant') %>

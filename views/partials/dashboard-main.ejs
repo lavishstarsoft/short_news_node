@@ -26,7 +26,7 @@
                                         <h1 style="color: var(--text-primary); font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 4px 0;">News Intelligence Dashboard</h1>
                                         <p style="color: var(--text-secondary); font-size: 14px; margin: 0; max-width: 600px;">Welcome back, <%= dashAdminName %>. Monitor your content pipeline, live broadcast, and regional distribution in one place.</p>
                                     </div>
-                                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                                    <div class="ds-header-actions">
                                         <a href="/add-news" class="btn btn-primary"><i class="fas fa-plus"></i> New article</a>
                                         <a href="/news-list" class="btn btn-secondary"><i class="fas fa-newspaper"></i> News library</a>
                                         <% if (!dashIsEditor) { %>
@@ -51,7 +51,7 @@
                                     .sd-range-pill i { color:var(--color-primary); }
                                     .sd-refresh { display:inline-flex; align-items:center; gap:6px; background:var(--bg-surface); color:var(--text-primary); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:6px 12px; font-size:13px; font-weight:500; cursor:pointer; transition:.15s; box-shadow:var(--shadow-sm); }
                                     .sd-refresh:hover { background:var(--slate-50); border-color:var(--border-strong); }
-                                    .sd-viewas select { border:1px solid var(--border-subtle); background:var(--bg-surface); border-radius:var(--radius-md); padding:6px 10px; font-size:13px; font-weight:500; color:var(--text-primary); }
+                                    .sd-viewas select { border:1px solid var(--border-subtle); background:var(--bg-surface); border-radius:var(--radius-md); padding:6px 10px; font-size:13px; font-weight:500; color:var(--text-primary); max-width: 140px; text-overflow: ellipsis; }
 
                                     /* Filter tabs */
                                     .sd-tabs { display:inline-flex; gap:2px; background:var(--slate-100); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:4px; flex-wrap:wrap; margin-bottom:18px; }
@@ -62,6 +62,26 @@
                                     .sd-custom.show { display:flex; flex-wrap:wrap; }
                                     .sd-custom input { border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:6px 10px; font-size:13px; color:var(--text-primary); background:var(--bg-surface); }
                                     .sd-custom .sd-apply { border:none; background:var(--color-primary); color:#fff; font-size:13px; font-weight:500; padding:7px 16px; border-radius:var(--radius-md); cursor:pointer; }
+                                    
+                                    /* Mobile Scrolling Action Bars */
+                                    .ds-header-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+                                    .btn { white-space: nowrap; flex-shrink: 0; }
+                                    @media (max-width: 600px) {
+                                        .ds-header-actions, .sd-header-right, .sd-tabs { 
+                                            flex-wrap: nowrap !important; 
+                                            overflow-x: auto; 
+                                            -webkit-overflow-scrolling: touch; 
+                                            scrollbar-width: none; 
+                                            padding-bottom: 8px;
+                                            margin-bottom: 4px;
+                                        }
+                                        .ds-header-actions::-webkit-scrollbar, 
+                                        .sd-header-right::-webkit-scrollbar, 
+                                        .sd-tabs::-webkit-scrollbar { display: none; }
+                                        .ds-header-actions { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
+                                        .sd-header-right { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
+                                        .sd-tabs { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; display: flex; width: auto; }
+                                    }
 
                                     /* Summary cards */
                                     .sd-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:16px; margin-bottom:24px; }
@@ -77,9 +97,18 @@
                                     .sd-ic-purple { background:var(--purple-50); color:var(--purple-600); } .sd-tx-purple { color:var(--purple-600); }
 
                                     /* Panels grid */
-                                    .sd-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
+                                    .sd-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; max-width: 100%; }
                                     @media (max-width: 1100px) { .sd-grid { grid-template-columns:1fr; } }
-                                    .sd-panel { padding:20px 24px; }
+                                    .sd-panel { padding:20px 24px; box-sizing: border-box; max-width: 100%; }
+                                    @media (max-width: 600px) {
+                                        .sd-grid { gap: 16px; }
+                                        .sd-panel { padding: 16px 12px; overflow-x: hidden; }
+                                        .sd-bar-label { width: 90px !important; font-size: 11px !important; }
+                                        .sd-table th, .sd-table td { padding: 8px 6px !important; font-size: 11px !important; }
+                                    }
+                                    .sd-panel.sd-scrollable-panel { display:flex; flex-direction:column; max-height:350px; }
+                                    .sd-panel.sd-scrollable-panel .sd-panel-head { flex:0 0 auto; }
+                                    .sd-panel.sd-scrollable-panel .sd-scroll-content { flex:1 1 auto; overflow-y:auto; overflow-x:auto; padding-right:4px; }
                                     .sd-panel-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px; }
                                     .sd-panel-head h4 { font-size:14px; font-weight:600; color:var(--text-primary); margin:0; display:flex; align-items:center; gap:8px; }
                                     .sd-panel-head .sd-panel-hint { font-size:12px; color:var(--text-secondary); font-weight:500; }
@@ -166,7 +195,6 @@
                                             <button class="sd-refresh" id="sdRefresh"><i class="fas fa-rotate"></i> Refresh</button>
                                         </div>
                                     </div>
-
                                     <div class="sd-tabs" role="tablist">
                                         <button class="sd-tab" data-range="today">Today</button>
                                         <button class="sd-tab" data-range="yesterday">Yesterday</button>
@@ -228,21 +256,19 @@
                                         </div>
 
                                         <div class="sd-grid" id="sdRow4">
-                                            <div class="sd-card sd-panel">
+                                            <div class="sd-card sd-panel sd-scrollable-panel">
                                                 <div class="sd-panel-head">
                                                     <h4><i class="fas fa-location-dot" style="color:var(--sd-red)"></i> Top Assigned Locations</h4>
                                                 </div>
-                                                <div id="sdTopLoc"></div>
+                                                <div id="sdTopLoc" class="sd-scroll-content"></div>
                                             </div>
-                                            <div class="sd-card sd-panel" id="sdReporterPanel" style="display:none">
+                                            <div class="sd-card sd-panel sd-scrollable-panel" id="sdReporterPanel" style="display:none">
                                                 <div class="sd-panel-head">
                                                     <h4><i class="fas fa-users" style="color:var(--sd-blue)"></i> Reporter-wise Breakdown</h4>
                                                 </div>
-                                                <div style="overflow-x:auto" id="sdReporterWrap"></div>
+                                                <div class="sd-scroll-content" id="sdReporterWrap"></div>
                                             </div>
                                         </div>
-
-                                        <div class="sd-cards" id="sdAllTime"></div>
                                     </div>
                                 </div>
 
@@ -281,22 +307,19 @@
                                         </div>`;
                                     }
 
-                                    function renderCards(s) {
+                                    function renderCards(s, a) {
+                                        const myPostsCount = typeof dashMyArticles !== 'undefined' ? dashMyArticles.length : 0;
+                                        const dashInactiveCount = <%= typeof dashInactive !== 'undefined' ? dashInactive : 0 %>;
+                                        const isEditor = <%= typeof dashIsSubEditor !== 'undefined' && dashIsSubEditor ? 'true' : (typeof dashIsEditor !== 'undefined' && dashIsEditor ? 'true' : 'false') %>;
+                                        
                                         document.getElementById('sdCards').innerHTML =
                                             statCard(num(s.total), 'Total Posts', '', '', 'fa-file-lines', 'blue') +
                                             statCard(num(s.approved), 'Approved', s.total ? s.approvalRate + '%' : '', 'green', 'fa-circle-check', 'green') +
                                             statCard(num(s.rejected), 'Rejected', s.total ? s.rejectionRate + '%' : '', 'red', 'fa-circle-xmark', 'red') +
                                             statCard(num(s.pending), 'Pending', s.total ? Math.round((s.pending / s.total) * 100) + '%' : '', 'orange', 'fa-clock', 'orange') +
-                                            statCard(compact(s.views), 'Total Views', '', '', 'fa-eye', 'purple');
-                                    }
-
-                                    function renderAllTime(a) {
-                                        document.getElementById('sdAllTime').innerHTML =
-                                            statCard(num(a.total), 'My Total Posts (All Time)', '', '', 'fa-file-lines', 'blue') +
-                                            statCard(num(a.approved), 'All Time Approved', a.total ? a.approvalRate + '%' : '', 'green', 'fa-circle-check', 'green') +
-                                            statCard(num(a.rejected), 'All Time Rejected', a.total ? a.rejectionRate + '%' : '', 'red', 'fa-circle-xmark', 'red') +
-                                            statCard(num(a.pending), 'All Time Pending', a.total ? a.pendingRate + '%' : '', 'orange', 'fa-clock', 'orange') +
-                                            statCard(num(a.views), 'All Time Views', '', '', 'fa-eye', 'purple');
+                                            statCard(compact(s.views), 'Total Views', '', '', 'fa-eye', 'purple') +
+                                            statCard(num(dashInactiveCount), 'Inactive (All Time)', '', 'slate', 'fa-pause-circle', 'slate') +
+                                            (isEditor ? statCard(num(myPostsCount), 'My Posts (All Time)', '', 'blue', 'fa-user-edit', 'blue') : '');
                                     }
 
                                     function renderLocTree(tree) {
@@ -495,7 +518,7 @@
                                             ? ' — All Data (Super Admin)'
                                             : (data.scope.viewingAs ? ` — Viewing: ${data.scope.name}` : '');
 
-                                        renderCards(data.summary);
+                                        renderCards(data.summary, data.allTime);
                                         renderLocTree(data.assignedLocations);
                                         renderCategoryDonut(data.categories, data.summary.total);
                                         renderStatusBars(data.summary);
@@ -503,7 +526,6 @@
                                         renderTrend();
                                         renderTopLocations(data.locations);
                                         renderReporters(data.reporters, data.scope.role);
-                                        renderAllTime(data.allTime || { total: 0, approved: 0, rejected: 0, pending: 0, views: 0 });
 
                                         if (data.viewTargets && !sdTargetsLoaded) {
                                             sdTargetsLoaded = true;
@@ -570,74 +592,6 @@
                                 <!-- ============ /SCOPED PERFORMANCE ANALYTICS ============ -->
 
                                 <% if (!dashIsSubEditor) { %>
-                                <div class="dash-kpi-grid">
-                                    <div class="dash-kpi">
-                                        <div class="dash-kpi-top">
-                                            <div>
-                                                <div class="dash-kpi-value"><%= dashTotal.toLocaleString('en-IN') %></div>
-                                                <div class="dash-kpi-label">Total articles</div>
-                                            </div>
-                                            <span class="dash-kpi-icon dash-kpi-icon--indigo"><i class="fas fa-layer-group"></i></span>
-                                        </div>
-                                        <div class="dash-kpi-bar"><span style="width:100%"></span></div>
-                                        <div class="dash-kpi-meta">Full archive</div>
-                                    </div>
-                                    <div class="dash-kpi">
-                                        <div class="dash-kpi-top">
-                                            <div>
-                                                <div class="dash-kpi-value"><%= dashActive.toLocaleString('en-IN') %></div>
-                                                <div class="dash-kpi-label">Live &amp; active</div>
-                                            </div>
-                                            <span class="dash-kpi-icon dash-kpi-icon--green"><i class="fas fa-circle-check"></i></span>
-                                        </div>
-                                        <div class="dash-kpi-bar"><span style="width:<%= dashActivePct %>%"></span></div>
-                                        <div class="dash-kpi-meta"><%= dashActivePct %>% of total</div>
-                                    </div>
-                                    <div class="dash-kpi">
-                                        <div class="dash-kpi-top">
-                                            <div>
-                                                <div class="dash-kpi-value"><%= dashPending.toLocaleString('en-IN') %></div>
-                                                <div class="dash-kpi-label">Awaiting review</div>
-                                            </div>
-                                            <span class="dash-kpi-icon dash-kpi-icon--amber"><i class="fas fa-hourglass-half"></i></span>
-                                        </div>
-                                        <div class="dash-kpi-bar"><span style="width:<%= dashPendingPct %>%"></span></div>
-                                        <div class="dash-kpi-meta"><%= dashPendingPct %>% pending queue</div>
-                                    </div>
-                                    <div class="dash-kpi">
-                                        <div class="dash-kpi-top">
-                                            <div>
-                                                <div class="dash-kpi-value"><%= dashToday.toLocaleString('en-IN') %></div>
-                                                <div class="dash-kpi-label">Published today</div>
-                                            </div>
-                                            <span class="dash-kpi-icon dash-kpi-icon--sky"><i class="fas fa-calendar-day"></i></span>
-                                        </div>
-                                        <div class="dash-kpi-bar"><span style="width:<%= dashTotal > 0 ? Math.min(100, Math.round((dashToday / dashTotal) * 100)) : 0 %>%"></span></div>
-                                        <div class="dash-kpi-meta">Today's output</div>
-                                    </div>
-                                    <div class="dash-kpi">
-                                        <div class="dash-kpi-top">
-                                            <div>
-                                                <div class="dash-kpi-value"><%= dashViews.toLocaleString('en-IN') %></div>
-                                                <div class="dash-kpi-label">Total views</div>
-                                            </div>
-                                            <span class="dash-kpi-icon dash-kpi-icon--violet"><i class="fas fa-eye"></i></span>
-                                        </div>
-                                        <div class="dash-kpi-bar"><span style="width:<%= Math.min(100, dashActivePct + 10) %>%"></span></div>
-                                        <div class="dash-kpi-meta">Reader reach</div>
-                                    </div>
-                                    <div class="dash-kpi">
-                                        <div class="dash-kpi-top">
-                                            <div>
-                                                <div class="dash-kpi-value"><%= dashInactive.toLocaleString('en-IN') %></div>
-                                                <div class="dash-kpi-label">Inactive</div>
-                                            </div>
-                                            <span class="dash-kpi-icon dash-kpi-icon--slate"><i class="fas fa-pause-circle"></i></span>
-                                        </div>
-                                        <div class="dash-kpi-bar"><span style="width:<%= dashInactivePct %>%"></span></div>
-                                        <div class="dash-kpi-meta"><%= dashInactivePct %>% offline</div>
-                                    </div>
-                                </div>
 
                                 <section class="dash-pipeline" aria-label="Content pipeline">
                                     <div class="dash-pipeline-head">
@@ -740,23 +694,6 @@
                                     </section>
                                 </div>
 
-                                <section class="dash-section">
-                                    <div class="dash-section-head">
-                                        <div>
-                                            <h2>Regional coverage</h2>
-                                            <p>Top locations by article volume</p>
-                                        </div>
-                                        <a href="/locations" class="dash-link-btn"><i class="fas fa-map"></i> Manage locations</a>
-                                    </div>
-                                    <div class="dash-loc-panel">
-                                        <div id="locationsContainer">
-                                            <div class="dash-loading">
-                                                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
-                                                <p class="mt-2 mb-0">Loading locations...</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </section>
 
                                 <section class="dash-section">
                                     <div class="dash-section-head">

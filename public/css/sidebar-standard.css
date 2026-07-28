@@ -1,0 +1,381 @@
+/* =========================================================================
+   STANDARD SIDEBAR STYLES (Applies across all pages)
+   ========================================================================= */
+
+:root {
+    --sidebar-bg: #0F172A; /* Very dark slate/navy */
+    --sidebar-text: #94A3B8;
+    --sidebar-text-hover: #F8FAFC;
+    --sidebar-active-bg: #1E293B; /* Distinct dark blue card background for active item */
+    --sidebar-active-text: #FFFFFF;
+    --sidebar-active-icon: #38BDF8; /* Bright cyan/blue */
+    --sidebar-border: rgba(255, 255, 255, 0.05); 
+    --sidebar-width: 270px;
+    --sidebar-font: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+#sidebar.sidebar {
+    background-color: var(--sidebar-bg) !important;
+    color: var(--sidebar-text) !important;
+    min-height: 100vh;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1040;
+    padding: 0;
+    font-family: var(--sidebar-font);
+    width: var(--sidebar-width);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    overflow-y: auto;
+}
+
+/* Adjust main content when sidebar is fixed */
+.main-content {
+    margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+}
+
+@media (max-width: 768px) {
+    #sidebar.sidebar {
+        transform: translateX(-100%);
+    }
+    #sidebar.sidebar.active {
+        transform: translateX(0);
+    }
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+/* Sidebar Scrollbar */
+#sidebar.sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+#sidebar.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+#sidebar.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+}
+#sidebar.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Header Area */
+#sidebar .sidebar-header {
+    padding: 24px 20px 10px;
+    display: flex;
+    align-items: center;
+}
+#sidebar .sidebar-header h4 {
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 19px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    letter-spacing: -0.3px;
+}
+#sidebar .sidebar-header h4 .logo-icon {
+    background: linear-gradient(135deg, #0284C7, #38BDF8);
+    border-radius: 8px;
+    padding: 6px;
+    font-size: 14px;
+    color: #FFFFFF;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.4);
+}
+#sidebar .sidebar-header p {
+    display: none; 
+}
+
+/* Profile Card */
+#sidebar .sidebar-profile-card {
+    background: linear-gradient(to right, #1E293B, #0F172A); 
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin: 10px 16px 24px;
+    display: flex;
+    align-items: center;
+    color: #FFFFFF;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    cursor: pointer;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+#sidebar .sidebar-profile-card:hover {
+    background: linear-gradient(to right, #334155, #1E293B);
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+}
+#sidebar .sidebar-profile-card i {
+    color: #38BDF8 !important;
+    font-size: 16px;
+    margin-right: 12px;
+}
+#sidebar .sidebar-profile-card .text-start {
+    display: flex;
+    flex-direction: column;
+}
+#sidebar .sidebar-profile-card .fw-bold {
+    color: #F8FAFC;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+/* Navigation List */
+#sidebar .nav {
+    padding: 0 16px;
+}
+
+/* Group Titles / Dividers */
+#sidebar .nav-section-title {
+    color: #F97316; /* Vibrant Orange for high visibility */
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    padding: 20px 16px 10px;
+    margin-top: 12px;
+    position: relative;
+}
+
+/* Paper cutting / Perforated design separator */
+#sidebar .nav-section-title::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 16px;
+    right: 16px;
+    height: 1px;
+    border-top: 2px dotted rgba(255, 255, 255, 0.2); /* Dotted border simulating paper cut */
+}
+
+/* No separator for the very first group */
+#sidebar .nav-section-title:first-of-type {
+    padding-top: 8px;
+    margin-top: 4px;
+}
+#sidebar .nav-section-title:first-of-type::before {
+    display: none;
+}
+
+/* Nav Links */
+#sidebar .nav-item {
+    margin-bottom: 2px;
+    position: relative; /* For the active pill indicator */
+}
+#sidebar .nav-link {
+    display: flex;
+    align-items: center;
+    color: var(--sidebar-text) !important;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+}
+#sidebar .nav-link i.fa-solid, 
+#sidebar .nav-link i.fas,
+#sidebar .nav-link i.far {
+    width: 24px;
+    font-size: 18px;
+    text-align: center;
+    margin-right: 14px !important;
+    color: #94A3B8; /* Matches the text color more closely when inactive */
+    transition: color 0.2s, transform 0.2s;
+}
+
+/* Hover State */
+#sidebar .nav-link:hover {
+    background-color: rgba(255,255,255,0.03);
+    color: var(--sidebar-text-hover) !important;
+}
+#sidebar .nav-link:hover i {
+    color: var(--sidebar-text-hover) !important;
+}
+
+/* Expanded State (for parent menus) */
+#sidebar .nav-link[aria-expanded="true"] {
+    color: #F8FAFC !important;
+}
+#sidebar .nav-link[aria-expanded="true"] i:not(.toggle-icon) {
+    color: #F8FAFC !important;
+}
+
+/* Active State */
+#sidebar .nav-link.active {
+    background-color: var(--sidebar-active-bg) !important;
+    color: var(--sidebar-active-text) !important;
+    font-weight: 600;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+#sidebar .nav-link.active i {
+    color: var(--sidebar-active-icon) !important;
+}
+
+/* Ultra-visible left indicator for active top-level items */
+#sidebar .nav-item > .nav-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 5px;
+    height: 70%;
+    background-color: var(--sidebar-active-icon);
+    border-radius: 0 4px 4px 0;
+}
+
+/* Toggle Icon */
+#sidebar .toggle-icon {
+    margin-left: auto !important;
+    margin-right: 0 !important;
+    width: auto !important;
+    font-size: 12px !important;
+    transition: transform 0.3s ease;
+    color: #64748B;
+}
+#sidebar .nav-link[aria-expanded="true"] .toggle-icon {
+    transform: rotate(180deg);
+    color: #94A3B8;
+}
+
+/* Card Design for Open Menus */
+#sidebar .nav-item:has(.submenu-collapse.show) {
+    background-color: rgba(255, 255, 255, 0.03); /* Subtle transparent card background */
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+#sidebar .nav-item:has(.submenu-collapse.show) > .nav-link {
+    background-color: transparent !important;
+}
+
+/* Submenu Hierarchy Styling (Tree Structure) */
+#sidebar .submenu-collapse .nav {
+    padding: 0; 
+    margin-top: 4px;
+    margin-bottom: 4px;
+    margin-left: 16px; /* Further reduced left margin */
+    padding-left: 0;
+    list-style: none;
+}
+#sidebar .submenu-collapse .nav-item {
+    margin-bottom: 2px;
+    position: relative;
+}
+
+/* Vertical line of the tree */
+#sidebar .submenu-collapse .nav-item::before {
+    content: '';
+    position: absolute;
+    top: 0; 
+    bottom: 0;
+    left: 0;
+    width: 1px;
+    background-color: rgba(255, 255, 255, 0.12);
+}
+/* Extend the first item's line up to connect with the parent menu */
+#sidebar .submenu-collapse .nav-item:first-child::before {
+    top: -8px;
+}
+/* The last item's vertical line stops halfway */
+#sidebar .submenu-collapse .nav-item:last-child::before {
+    bottom: 50%;
+}
+
+/* Horizontal lines removed as requested */
+#sidebar .submenu-collapse .nav-item::after {
+    display: none;
+}
+
+/* Active item tree lines glow */
+#sidebar .submenu-collapse .nav-item:has(> .nav-link.active)::before {
+    background-color: #38BDF8;
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.5);
+    z-index: 1;
+}
+
+/* Submenu Link Styling */
+#sidebar .submenu-collapse .nav-link {
+    margin-left: 8px; /* Empty space between the vertical line and the highlight */
+    padding: 7px 12px 7px 8px; /* Tight left padding so highlight starts near text */
+    font-size: 14px;
+    font-weight: 400;
+    color: #94A3B8 !important;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+#sidebar .submenu-collapse .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+    color: #F8FAFC !important;
+    transform: translateX(3px);
+}
+#sidebar .submenu-collapse .nav-link.active {
+    background-color: rgba(56, 189, 248, 0.08) !important;
+    color: #38BDF8 !important;
+    font-weight: 500;
+}
+
+/* Footer */
+#sidebar .sidebar-footer {
+    padding: 20px 20px 24px;
+    margin-top: auto;
+}
+#sidebar .copyright-badge {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.08));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 10px 14px;
+    text-align: center;
+    font-size: 12px;
+    color: #94A3B8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    cursor: default;
+}
+#sidebar .copyright-badge span {
+    color: #F8FAFC;
+    font-weight: 600;
+}
+#sidebar .copyright-badge:hover {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(56, 189, 248, 0.15));
+    border-color: rgba(56, 189, 248, 0.3);
+    color: #38BDF8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.2);
+}
+#sidebar .copyright-badge:hover span {
+    color: #38BDF8;
+}
+
+/* Remove default link underline */
+a {
+    text-decoration: none !important;
+}
+

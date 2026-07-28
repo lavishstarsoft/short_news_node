@@ -5,6 +5,7 @@
     <title>Polls Management - Short News</title>
 </head>
 <body class="bg-light">
+    <%- include('partials/top-nav', { pageTitle: 'Polls Management', backButton: true, backUrl: '/admin/dashboard' }) %>
     <div class="container-fluid">
         <div class="row">
             <%- include('partials/sidebar', { activePage: 'polls', admin: admin }) %>

@@ -857,12 +857,21 @@
   }
 
   .dash-pipeline-flow {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
   }
 
-  .dash-flow-arrow {
+  .dash-flow-arrow:nth-child(2),
+  .dash-flow-arrow:nth-child(6) {
+    transform: none;
+    justify-self: center;
+  }
+
+  .dash-flow-arrow:nth-child(4) {
+    grid-column: 1 / -1;
     transform: rotate(90deg);
     justify-self: center;
+    margin: 8px 0;
   }
 }
 
@@ -877,10 +886,6 @@
 
   .dash-articles-grid,
   #locationsContainer .dash-loc-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dash-insight-grid {
     grid-template-columns: 1fr;
   }
 }
