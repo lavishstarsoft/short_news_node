@@ -1,0 +1,158 @@
+<!-- Lottie-based AI Observer Widget -->
+<script src="https://unpkg.com/@lottiefiles/lottie-player@2.0.3/dist/lottie-player.js"></script>
+
+<style>
+  :root {
+    --ai-cyan: rgba(0, 240, 255, 0.8);
+  }
+
+  #ai-observer-widget {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    z-index: 999999;
+    cursor: grab;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    user-select: none;
+  }
+
+  #ai-observer-widget:active {
+    cursor: grabbing;
+  }
+
+  .ai-orb-container {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Solid white circle behind the animation */
+  .ai-orb-bg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    /* Adjust this value if the white circle is too big/small compared to the animation */
+    height: 80px;
+    background: #ffffff;
+    border-radius: 50%;
+    z-index: -1;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Close button floating */
+  .ai-orb-close {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(0, 0, 0, 0.4);
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 10;
+    backdrop-filter: blur(4px);
+  }
+
+  #ai-observer-widget:hover .ai-orb-close {
+    opacity: 1;
+  }
+
+  .ai-orb-close:hover {
+    transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.9);
+    color: #000;
+  }
+</style>
+
+<div id="ai-observer-widget">
+  <div class="ai-orb-container">
+    <button class="ai-orb-close" id="ai-close-widget" title="Dismiss">&times;</button>
+    <div class="ai-orb-bg"></div>
+    <lottie-player src="/lottie/ai-assistant-new.json" speed="1" loop autoplay
+      style="width: 100%; height: 100%; pointer-events: none;">
+    </lottie-player>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const widget = document.getElementById('ai-observer-widget');
+    const closeBtn = document.getElementById('ai-close-widget');
+
+    if (!widget) return;
+
+    // Close Functionality
+    closeBtn.addEventListener('click', () => {
+      widget.style.opacity = '0';
+      widget.style.transform = 'scale(0.8)';
+      widget.style.pointerEvents = 'none';
+      setTimeout(() => widget.remove(), 300);
+    });
+
+    // Draggable Functionality
+    let isDragging = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    widget.addEventListener('mousedown', (e) => {
+      if (e.target === closeBtn) return;
+      isDragging = true;
+      const rect = widget.getBoundingClientRect();
+      dragOffsetX = e.clientX - rect.left;
+      dragOffsetY = e.clientY - rect.top;
+      widget.style.transition = 'none';
+    });
+
+    function updateCloseButtonPosition() {
+      const rect = widget.getBoundingClientRect();
+      const screenCenterX = window.innerWidth / 2;
+
+      // If widget center is on the right half of the screen, put close button on the left
+      if (rect.left + (rect.width / 2) > screenCenterX) {
+        closeBtn.style.right = 'auto';
+        closeBtn.style.left = '5px';
+      } else {
+        closeBtn.style.left = 'auto';
+        closeBtn.style.right = '5px';
+      }
+    }
+
+    // Initial check
+    setTimeout(updateCloseButtonPosition, 100);
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        let newX = e.clientX - dragOffsetX;
+        let newY = e.clientY - dragOffsetY;
+        newX = Math.max(0, Math.min(newX, window.innerWidth - widget.offsetWidth));
+        newY = Math.max(0, Math.min(newY, window.innerHeight - widget.offsetHeight));
+        widget.style.left = newX + 'px';
+        widget.style.top = newY + 'px';
+        widget.style.bottom = 'auto';
+        widget.style.right = 'auto';
+
+        updateCloseButtonPosition();
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) isDragging = false;
+    });
+  })();
+</script>

@@ -166,6 +166,7 @@ router.post(
 router.get('/rejected-news', adminController.requireAuth, adminController.renderRejectedNewsPage);
 router.delete('/api/rejected-news', adminController.requireAuth, adminController.deleteAllRejectedNews);
 router.delete('/api/rejected-news/:id', adminController.requireAuth, adminController.deleteRejectedNewsById);
+router.post('/api/rejected-news/:id/revert', adminController.requireAuth, adminController.revertRejectedNews);
 
 // Polls routes
 router.get('/polls', adminController.requireAuth, adminController.renderPollsPage);

@@ -4663,6 +4663,7 @@ async function rejectNews(req, res) {
           error: 'Only admins and authorized subeditors can reject news.',
         });
       }
+      adminName = admin.name || admin.username || 'Editor';
       if (admin.role === 'superadmin' || admin.role === 'admin') {
         adminRole = 'Admin';
       } else if (admin.role === 'subeditor' || admin.role === 'sub_editor') {
@@ -4759,6 +4760,109 @@ async function rejectNews(req, res) {
   } catch (error) {
     console.error('Error rejecting news:', error);
     res.status(500).json({ error: 'Failed to reject news' });
+  }
+}
+
+// Revert rejected news back to pending or approved (Super Admin only)
+async function revertRejectedNews(req, res) {
+  try {
+    const { id } = req.params;
+    const { targetState } = req.body; // 'pending' or 'approved'
+    
+    // Validate targetState
+    if (targetState !== 'pending' && targetState !== 'approved') {
+      return res.status(400).json({ error: 'Invalid target state' });
+    }
+
+    // Get admin details
+    const adminId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
+    if (!adminId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const admin = await Admin.findById(adminId).select('username name role').lean();
+    if (!admin) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    // ONLY superadmin can revert rejected news
+    if (admin.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Only Super Admin can revert rejected news.' });
+    }
+
+    const adminName = admin.name || admin.username || 'Super Admin';
+
+    const existingNews = await News.findById(id).lean();
+    if (!existingNews) {
+      return res.status(404).json({ error: 'News not found' });
+    }
+
+    if (!existingNews.rejectionStatus?.isRejected) {
+      return res.status(400).json({ error: 'This news is not rejected.' });
+    }
+
+    const actionHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
+    
+    const updateObj = {
+      rejectionStatus: {
+        isRejected: false,
+        reason: null,
+        feedback: null,
+        rejectedBy: null,
+        rejectedByRole: null,
+        rejectedAt: null
+      }
+    };
+    
+    if (targetState === 'pending') {
+      actionHistory.push(
+        buildAdminNewsHistory(
+          'updated',
+          adminId,
+          adminName,
+          'Admin',
+          'News reverted from rejected to pending by Super Admin',
+          { fromStatus: existingNews.isActive, toStatus: false }
+        )
+      );
+      updateObj.isActive = false;
+      updateObj.actionHistory = actionHistory;
+    } else if (targetState === 'approved') {
+      actionHistory.push(
+        buildAdminNewsHistory(
+          'approved',
+          adminId,
+          adminName,
+          'Admin',
+          'News directly approved from rejected state by Super Admin',
+          { fromStatus: existingNews.isActive, toStatus: true }
+        )
+      );
+      updateObj.isActive = true;
+      updateObj.aiStatus = 'verified';
+      updateObj.publishedAt = new Date();
+      updateObj.approvalStatus = {
+        isApproved: true,
+        approvedBy: adminName,
+        approvedAt: new Date()
+      };
+      updateObj.actionHistory = actionHistory;
+    }
+
+    const revertedNews = await News.findOneAndUpdate(
+      { _id: id, 'rejectionStatus.isRejected': true },
+      updateObj,
+      { new: true }
+    );
+
+    if (!revertedNews) {
+      return res.status(409).json({ error: 'News state changed. Refresh and try again.' });
+    }
+
+    res.json({ success: true, message: `News successfully moved to ${targetState} state.` });
+  } catch (error) {
+    console.error('Error reverting rejected news:', error);
+    res.status(500).json({ error: 'Failed to revert rejected news' });
   }
 }
 
@@ -5378,7 +5482,7 @@ async function renderRejectedNewsPage(req, res) {
         .sort({ 'rejectionStatus.rejectedAt': -1 })
         .skip(skip)
         .limit(limit)
-        .select('title author category location language publishedAt rejectionStatus isActive views authorId')
+        .select('title author category location language publishedAt rejectionStatus isActive views authorId actionHistory')
         .lean(),
       News.countDocuments(baseMatch),
       News.aggregate([
@@ -5417,14 +5521,27 @@ async function renderRejectedNewsPage(req, res) {
     const safePage = Math.min(page, totalPages);
     
     const authorIds = [...new Set(rejectedNews.map(n => n.authorId).filter(Boolean))];
-    const authors = await Admin.find({ _id: { $in: authorIds } }).select('name email mobileNumber constituency').lean();
-    const authorMap = {};
-    authors.forEach(a => authorMap[a._id.toString()] = a);
+    
+    // Also gather reviewer IDs from actionHistory
+    const reviewerIds = [...new Set(rejectedNews.map(n => {
+       const rejectAction = n.actionHistory?.slice().reverse().find(a => a.action === 'rejected');
+       return rejectAction ? rejectAction.performedById : null;
+    }).filter(Boolean))];
 
-    const rejectedNewsWithAuthors = rejectedNews.map(article => ({
-      ...article,
-      authorDetails: article.authorId ? authorMap[article.authorId.toString()] : null
-    }));
+    const allAdminIds = [...new Set([...authorIds, ...reviewerIds])];
+    
+    const admins = await Admin.find({ _id: { $in: allAdminIds } }).select('name username email mobileNumber constituency role').lean();
+    const adminMap = {};
+    admins.forEach(a => adminMap[a._id.toString()] = a);
+
+    const rejectedNewsWithAuthors = rejectedNews.map(article => {
+      const rejectAction = article.actionHistory?.slice().reverse().find(a => a.action === 'rejected');
+      return {
+        ...article,
+        authorDetails: article.authorId ? adminMap[article.authorId.toString()] : null,
+        reviewerDetails: (rejectAction && rejectAction.performedById) ? adminMap[rejectAction.performedById.toString()] : null
+      };
+    });
 
     res.render('rejected-news', {
       admin: req.admin,
@@ -9794,6 +9911,7 @@ module.exports = {
   renderRejectedNewsPage,
   deleteAllRejectedNews,
   deleteRejectedNewsById,
+  revertRejectedNews,
   getEditorRangeStats,
   renderRegistrationFieldsPage,
   renderReporterApplicationsPage,

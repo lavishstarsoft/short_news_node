@@ -167,9 +167,17 @@
                                                         <% } %>
                                                     </td>
                                                     <td class="rn-reviewer-cell">
-                                                        <div class="rn-reviewer-name"><%= rejection.rejectedBy || 'Unknown' %></div>
-                                                        <% if (rejection.rejectedByRole) { %>
-                                                            <span class="rn-reviewer-role"><%= rejection.rejectedByRole %></span>
+                                                        <% if (article.reviewerDetails) { %>
+                                                            <div class="rn-reviewer-name"><%= article.reviewerDetails.name || article.reviewerDetails.username || 'Unknown' %></div>
+                                                            <% if (article.reviewerDetails.mobileNumber) { %>
+                                                                <div style="font-size: 0.8rem; color: #64748b; margin-top: 2px;"><i class="fas fa-phone-alt" style="font-size:0.75rem;"></i> <%= article.reviewerDetails.mobileNumber %></div>
+                                                            <% } %>
+                                                            <span class="rn-reviewer-role mt-1 d-inline-block"><%= article.reviewerDetails.role ? article.reviewerDetails.role.charAt(0).toUpperCase() + article.reviewerDetails.role.slice(1) : (rejection.rejectedByRole || 'Editor') %></span>
+                                                        <% } else { %>
+                                                            <div class="rn-reviewer-name"><%= rejection.rejectedBy || 'Unknown' %></div>
+                                                            <% if (rejection.rejectedByRole) { %>
+                                                                <span class="rn-reviewer-role"><%= rejection.rejectedByRole %></span>
+                                                            <% } %>
                                                         <% } %>
                                                     </td>
                                                     <td>
@@ -177,6 +185,14 @@
                                                             <button type="button" class="rn-view-btn" onclick="viewRejectedArticle('<%= article._id %>')">
                                                                 <i class="fas fa-newspaper"></i> View
                                                             </button>
+                                                            <% if (admin && admin.role === 'superadmin') { %>
+                                                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="quickRevert('<%= article._id %>', 'pending')" title="Move to Pending">
+                                                                    <i class="fas fa-undo"></i>
+                                                                </button>
+                                                                <button type="button" class="btn btn-sm btn-outline-success" onclick="quickRevert('<%= article._id %>', 'approved')" title="Approve Directly">
+                                                                    <i class="fas fa-check-circle"></i>
+                                                                </button>
+                                                            <% } %>
                                                             <button type="button" class="btn btn-sm btn-outline-danger" onclick="openSingleDeleteModal('<%= article._id %>')">
                                                                 <i class="fas fa-trash"></i> Delete
                                                             </button>
@@ -240,6 +256,14 @@
                             <div class="rn-preview-loading"><i class="fas fa-spinner fa-spin me-2"></i>Loading article...</div>
                         </div>
                         <div class="modal-footer">
+                            <% if (admin && admin.role === 'superadmin') { %>
+                                <button type="button" class="btn btn-warning text-dark me-auto" onclick="revertRejectedArticle('pending')">
+                                    <i class="fas fa-undo"></i> Move to Pending
+                                </button>
+                                <button type="button" class="btn btn-success me-2" onclick="revertRejectedArticle('approved')">
+                                    <i class="fas fa-check-circle"></i> Approve Directly
+                                </button>
+                            <% } %>
                             <a href="#" id="rejectEditLink" class="btn btn-outline-primary" style="display:none;">
                                 <i class="fas fa-pen me-1"></i> Edit article
                             </a>
@@ -304,6 +328,7 @@
                         title: a.title,
                         author: a.author || '',
                         authorDetails: a.authorDetails || null,
+                        reviewerDetails: a.reviewerDetails || null,
                         category: a.category || '',
                         location: a.location || '',
                         language: a.language || '',
@@ -315,6 +340,7 @@
                 let rejectDetailModalInstance = null;
                 let deleteAllModalInstance = null;
                 let deleteSingleModalInstance = null;
+                let currentArticleId = null;
 
                 function openDeleteModal() {
                     const modalEl = document.getElementById('deleteAllModal');
@@ -453,14 +479,29 @@
                 }
 
                 function buildRejectionSidebar(article, rejection) {
+                    let reviewerName = escapeHtml(rejection.rejectedBy || 'Unknown');
+                    let reviewerRole = escapeHtml(rejection.rejectedByRole || 'Editor');
+                    let reviewerPhone = '';
+
+                    if (article.reviewerDetails) {
+                        reviewerName = escapeHtml(article.reviewerDetails.name || article.reviewerDetails.username || 'Unknown');
+                        if (article.reviewerDetails.role) {
+                            reviewerRole = escapeHtml(article.reviewerDetails.role.charAt(0).toUpperCase() + article.reviewerDetails.role.slice(1));
+                        }
+                        if (article.reviewerDetails.mobileNumber) {
+                            reviewerPhone = '<div class="rn-detail-item"><div class="rn-detail-label">Reviewer Phone</div><div class="rn-detail-value"><i class="fas fa-phone-alt" style="font-size:0.85rem; color:#64748b; margin-right:6px;"></i>' + escapeHtml(article.reviewerDetails.mobileNumber) + '</div></div>';
+                        }
+                    }
+
                     return '<div class="rn-preview-sidebar">' +
                         '<div class="rn-feedback-block">' +
                             '<h4><i class="fas fa-ban me-1"></i> ' + escapeHtml(rejection.reason || 'Rejected') + '</h4>' +
                             '<p>' + escapeHtml(rejection.feedback || 'No additional feedback was provided.') + '</p>' +
                         '</div>' +
                         '<div class="rn-detail-grid" style="grid-template-columns:1fr;">' +
-                            '<div class="rn-detail-item"><div class="rn-detail-label">Rejected by</div><div class="rn-detail-value">' + escapeHtml(rejection.rejectedBy || 'Unknown') + '</div></div>' +
-                            '<div class="rn-detail-item"><div class="rn-detail-label">Role</div><div class="rn-detail-value">' + escapeHtml(rejection.rejectedByRole || 'Editor') + '</div></div>' +
+                            '<div class="rn-detail-item"><div class="rn-detail-label">Rejected by</div><div class="rn-detail-value">' + reviewerName + '</div></div>' +
+                            reviewerPhone +
+                            '<div class="rn-detail-item"><div class="rn-detail-label">Role</div><div class="rn-detail-value">' + reviewerRole + '</div></div>' +
                             '<div class="rn-detail-item"><div class="rn-detail-label">Rejected at</div><div class="rn-detail-value">' + formatDateTime(rejection.rejectedAt) + '</div></div>' +
                             '<div class="rn-detail-item" style="grid-column: 1 / -1;"><div class="rn-detail-label">Reporter Details</div><div class="rn-detail-value" style="background:#f8f9fa; padding:10px; border-radius:8px;">' +
                                 (article.authorDetails && canViewReporterDetails ? `
@@ -526,6 +567,7 @@
                 }
 
                 async function viewRejectedArticle(id) {
+                    currentArticleId = id;
                     const cached = window.rejectedArticlesData.find(function(a) { return String(a._id) === String(id); });
                     const modalEl = document.getElementById('rejectDetailModal');
                     document.getElementById('rejectModalBody').innerHTML =
@@ -556,6 +598,86 @@
                             editLink.href = '/edit-news/' + id;
                             editLink.style.display = 'inline-flex';
                         }
+                    }
+                }
+
+                async function revertRejectedArticle(targetState) {
+                    if (!currentArticleId) return;
+                    
+                    const confirmMsg = targetState === 'pending' 
+                        ? 'Are you sure you want to move this article back to Pending Review?' 
+                        : 'Are you sure you want to Approve and Publish this article directly?';
+                        
+                    if (!confirm(confirmMsg)) return;
+
+                    try {
+                        const btn = event.currentTarget;
+                        const originalHtml = btn.innerHTML;
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                        btn.disabled = true;
+
+                        const response = await fetch(`/admin/api/rejected-news/${currentArticleId}/revert`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ targetState })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok && data.success) {
+                            alert(data.message);
+                            window.location.reload();
+                        } else {
+                            btn.innerHTML = originalHtml;
+                            btn.disabled = false;
+                            alert(data.error || data.message || 'Error updating article state');
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        alert('An error occurred. Please try again.');
+                        const btn = event.currentTarget;
+                        btn.disabled = false;
+                    }
+                }
+
+                async function quickRevert(id, targetState) {
+                    const confirmMsg = targetState === 'pending' 
+                        ? 'Are you sure you want to move this article back to Pending Review?' 
+                        : 'Are you sure you want to Approve and Publish this article directly?';
+                        
+                    if (!confirm(confirmMsg)) return;
+
+                    try {
+                        const btn = event.currentTarget;
+                        const originalHtml = btn.innerHTML;
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                        btn.disabled = true;
+
+                        const response = await fetch(`/admin/api/rejected-news/${id}/revert`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ targetState })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok && data.success) {
+                            alert(data.message);
+                            window.location.reload();
+                        } else {
+                            btn.innerHTML = originalHtml;
+                            btn.disabled = false;
+                            alert(data.error || data.message || 'Error updating article state');
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        alert('An error occurred. Please try again.');
+                        const btn = event.currentTarget;
+                        btn.disabled = false;
                     }
                 }
             </script>
