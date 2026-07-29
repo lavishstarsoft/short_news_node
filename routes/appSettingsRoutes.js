@@ -43,7 +43,7 @@ router.get('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
 // Admin route to update app settings
 router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, enableLocationModule, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl, referralHelpText, referralRewardAmount, referralRequiredDays, maxDailyReferralBudget, referralShareUrl, isReferralEnabled, allowReporterBrowserAccess } = req.body;
+        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, enableLocationModule, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl, referralHelpText, referralRewardAmount, referralRequiredDays, maxDailyReferralBudget, referralShareUrl, isReferralEnabled, allowReporterBrowserAccess, enableAIAssistant } = req.body;
         let settings = await AppSettings.findOne({ key: 'update_flags' });
 
         if (!settings) {
@@ -81,6 +81,11 @@ router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
         // Superadmin-only: allow reporters site in normal browsers (dev)
         if (allowReporterBrowserAccess !== undefined && req.admin?.role === 'superadmin') {
             settings.allowReporterBrowserAccess = !!allowReporterBrowserAccess;
+        }
+        
+        // Superadmin-only: enable AI Assistant widget
+        if (enableAIAssistant !== undefined && req.admin?.role === 'superadmin') {
+            settings.enableAIAssistant = !!enableAIAssistant;
         }
 
         await settings.save();
@@ -123,7 +128,8 @@ router.get('/api/public/app-settings', async (req, res) => {
                 maxDailyReferralBudget: 5000,
                 referralShareUrl: 'https://play.google.com/store/apps/details?id=com.lavish.yellowsingam',
                 isReferralEnabled: true,
-                allowReporterBrowserAccess: false
+                allowReporterBrowserAccess: false,
+                enableAIAssistant: true
             };
         } else {
             responseSettings = settings.toObject();
@@ -138,6 +144,9 @@ router.get('/api/public/app-settings', async (req, res) => {
             }
             if (responseSettings.enableLocationModule === undefined) {
                 responseSettings.enableLocationModule = true;
+            }
+            if (responseSettings.enableAIAssistant === undefined) {
+                responseSettings.enableAIAssistant = true;
             }
         }
 

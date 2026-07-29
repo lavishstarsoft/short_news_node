@@ -12,7 +12,7 @@
     right: 40px;
     z-index: 999999;
     cursor: grab;
-    display: flex;
+    display: none; /* Hidden by default until settings are checked */
     flex-direction: column;
     align-items: center;
     user-select: none;
@@ -97,6 +97,19 @@
 
     if (!widget) return;
 
+    // Fetch settings to determine visibility
+    fetch('/api/public/app-settings')
+      .then(res => res.json())
+      .then(settings => {
+        if (settings && settings.enableAIAssistant !== false) {
+          widget.style.display = 'flex';
+        }
+      })
+      .catch(e => {
+        console.error('Failed to load settings:', e);
+        widget.style.display = 'flex'; // Default fallback
+      });
+
     // Close Functionality
     closeBtn.addEventListener('click', () => {
       widget.style.opacity = '0';
@@ -152,6 +165,39 @@
     });
 
     document.addEventListener('mouseup', () => {
+      if (isDragging) isDragging = false;
+    });
+
+    // Touch Support for Mobile Dragging
+    widget.addEventListener('touchstart', (e) => {
+      if (e.target === closeBtn) return;
+      isDragging = true;
+      const rect = widget.getBoundingClientRect();
+      const touch = e.touches[0];
+      dragOffsetX = touch.clientX - rect.left;
+      dragOffsetY = touch.clientY - rect.top;
+      widget.style.transition = 'none';
+      // Prevent scrolling while dragging (optional, but good for UX)
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (isDragging) {
+        e.preventDefault(); // Prevent scrolling while dragging
+        const touch = e.touches[0];
+        let newX = touch.clientX - dragOffsetX;
+        let newY = touch.clientY - dragOffsetY;
+        newX = Math.max(0, Math.min(newX, window.innerWidth - widget.offsetWidth));
+        newY = Math.max(0, Math.min(newY, window.innerHeight - widget.offsetHeight));
+        widget.style.left = newX + 'px';
+        widget.style.top = newY + 'px';
+        widget.style.bottom = 'auto';
+        widget.style.right = 'auto';
+
+        updateCloseButtonPosition();
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
       if (isDragging) isDragging = false;
     });
   })();

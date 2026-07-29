@@ -402,6 +402,18 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="p-3 rounded-3 mt-3" style="background-color: rgba(0, 123, 255, 0.06); border: 1px solid rgba(0, 123, 255, 0.25);">
+                                        <div class="form-check form-switch d-flex align-items-center mb-0">
+                                            <input class="form-check-input me-3" type="checkbox" id="enableAIAssistant" name="enableAIAssistant" <%= settings.enableAIAssistant !== false ? 'checked' : '' %>>
+                                            <div>
+                                                <label class="form-check-label fw-bold text-dark mb-0" for="enableAIAssistant">Enable AI Assistant Widget</label>
+                                                <div class="text-muted small mt-1">
+                                                    <strong>ON:</strong> Displays the AI Assistant icon in the admin panel.<br>
+                                                    <strong>OFF:</strong> Hides the AI Assistant icon for everyone.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <% } %>
                                     
                                     <div class="row g-4 mt-2">
@@ -608,6 +620,11 @@
         const browserAccessToggle = document.getElementById('allowReporterBrowserAccess');
         if (browserAccessToggle) {
             payload.allowReporterBrowserAccess = browserAccessToggle.checked;
+        }
+
+        const aiAssistantToggle = document.getElementById('enableAIAssistant');
+        if (aiAssistantToggle) {
+            payload.enableAIAssistant = aiAssistantToggle.checked;
         }
 
         try {

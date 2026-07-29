@@ -126,6 +126,10 @@ const appSettingsSchema = new mongoose.Schema({
   allowReporterBrowserAccess: {
     type: Boolean,
     default: false
+  },
+  enableAIAssistant: {
+    type: Boolean,
+    default: true
   }
 }, { timestamps: true });
 
