@@ -23,7 +23,7 @@
                                 value.includes('pub-')); } function raIsEmail(value) { return typeof value==='string' &&
                                 /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()); } function raIsPhone(value) { return
                                 typeof value==='string' && /^\+?[\d\s()-]{8,}$/.test(value.replace(/\s/g, '' )); }
-                                function raPickString(data, keys) { for (let i=0; i < keys.length; i++) { const
+                                function raPickString(data, keys) { if (!data) return ''; for (let i=0; i < keys.length; i++) { const
                                 val=data[keys[i]]; if (val && typeof val==='string' && val.trim() && !raIsUrl(val))
                                 return val.trim(); } return '' ; } function raGetName(data) { if (!data || typeof data
                                 !=='object' ) return 'Applicant' ; for (let i=0; i < raRegFields.length; i++) { const
@@ -110,7 +110,7 @@
                     <div class="ra-panel">
                         <div class="ra-panel-head">
                             <h2 class="ra-panel-title"><i class="fas fa-list-check me-2"></i>Application inbox</h2>
-                            <span class="text-muted" style="font-size:0.8rem;">Showing <strong id="raVisibleCount"><%= raApps.length %></strong> of <%= raApps.length %></span>
+                            <span class="text-muted" style="font-size:0.8rem;">Showing <strong id="raVisibleCount"><%= raApps.length %></strong> (Page <%= typeof pagination !== 'undefined' ? pagination.page : 1 %> of <%= typeof pagination !== 'undefined' ? pagination.totalPages : 1 %>)</span>
                         </div>
 
                         <% if (raApps.length === 0) { %>
@@ -150,6 +150,19 @@
                                         </span>
                                     </div>
                                     <div class="ra-actions">
+                                        
+                                        <% 
+                                            const locationStr = (typeof raPickString === 'function') ? raPickString(app.data || {}, ['district', 'District', 'mandal', 'Mandal', 'village', 'Village', 'constituency', 'Constituency', 'city', 'City', 'location', 'Location']) : ''; 
+                                            const finalEmail = email || app.data['email'] || app.data['Email'] || app.data['email_address'] || '';
+                                            const finalPhone = phone || app.data['phone_number'] || app.data['Mobile'] || app.data['mobile'] || app.data['mobile_number'] || '';
+                                        %>
+                                        <% if (app.status === 'pending') { %>
+                                        <a href="/register-editor?source=application&email=<%= encodeURIComponent(finalEmail) %>&name=<%= encodeURIComponent(name || '') %>&mobile=<%= encodeURIComponent(finalPhone) %>&location=<%= encodeURIComponent(locationStr || '') %>"
+                                           class="ra-action-btn" style="color: #059669; border-color: #a7f3d0; background: #ecfdf5; text-decoration: none;"
+                                           title="Register as Member" target="_blank">
+                                            <i class="fas fa-user-plus"></i> Onboard
+                                        </a>
+                                        <% } %>
                                         <button type="button" class="ra-action-btn ra-action-btn--view"
                                             onclick="openApplicationDetail('<%= app._id %>')"><i class="fas fa-eye"></i>
                                             View</button>
@@ -172,8 +185,62 @@
                                     </div>
                                 </div>
                                 <% }); %>
+
+                </div>
+                
+                <% if (typeof pagination !== 'undefined' && pagination.totalPages > 1) { %>
+                <div class="d-flex justify-content-center mt-4 mb-2">
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination pagination-sm shadow-sm" style="border-radius: 8px; overflow: hidden;">
+                            <li class="page-item <%= pagination.page <= 1 ? 'disabled' : '' %>">
+                                <a class="page-link" href="?page=<%= pagination.page - 1 %>" style="border-color: #e5e7eb; color: #4f46e5; font-weight: 500;">Previous</a>
+                            </li>
+                            
+                            <% 
+                            let startPage = Math.max(1, pagination.page - 2);
+                            let endPage = Math.min(pagination.totalPages, pagination.page + 2);
+                            if (endPage - startPage < 4) {
+                                if (startPage === 1) endPage = Math.min(pagination.totalPages, 5);
+                                else if (endPage === pagination.totalPages) startPage = Math.max(1, pagination.totalPages - 4);
+                            }
+                            %>
+                            
+                            <% if (startPage > 1) { %>
+                                <li class="page-item"><a class="page-link" href="?page=1" style="border-color: #e5e7eb; color: #6b7280;">1</a></li>
+                                <% if (startPage > 2) { %>
+                                    <li class="page-item disabled"><span class="page-link" style="border-color: #e5e7eb; color: #9ca3af;">...</span></li>
+                                <% } %>
+                            <% } %>
+                            
+                            <% for(let i = startPage; i <= endPage; i++) { %>
+                                <li class="page-item <%= pagination.page === i ? 'active' : '' %>">
+                                    <a class="page-link" href="?page=<%= i %>" 
+                                       style="<%= pagination.page === i ? 'background-color: #4f46e5; border-color: #4f46e5; color: white;' : 'border-color: #e5e7eb; color: #6b7280;' %>">
+                                        <%= i %>
+                                    </a>
+                                </li>
+                            <% } %>
+                            
+                            <% if (endPage < pagination.totalPages) { %>
+                                <% if (endPage < pagination.totalPages - 1) { %>
+                                    <li class="page-item disabled"><span class="page-link" style="border-color: #e5e7eb; color: #9ca3af;">...</span></li>
+                                <% } %>
+                                <li class="page-item"><a class="page-link" href="?page=<%= pagination.totalPages %>" style="border-color: #e5e7eb; color: #6b7280;"><%= pagination.totalPages %></a></li>
+                            <% } %>
+                            
+                            <li class="page-item <%= pagination.page >= pagination.totalPages ? 'disabled' : '' %>">
+                                <a class="page-link" href="?page=<%= pagination.page + 1 %>" style="border-color: #e5e7eb; color: #4f46e5; font-weight: 500;">Next</a>
+                            </li>
+                        </ul>
+                    </nav>
+                    <div class="text-center mt-2 text-muted" style="font-size: 0.85rem;">
+                        Page <strong><%= pagination.page %></strong> of <strong><%= pagination.totalPages %></strong> &middot; Total Applications: <strong><%= pagination.totalApps %></strong>
+                    </div>
                 </div>
                 <% } %>
+                
+                <% } %>
+
             </div>
             </div>
             </main>
@@ -188,7 +255,7 @@
                         <div class="print-header text-center border-bottom border-2 border-dark pb-3 mb-4">
                             <div class="d-flex justify-content-between align-items-end">
                                 <div class="text-start" style="width: 200px;">
-                                    <img src="/uploads/logo.png" alt="Logo" style="max-height: 80px; max-width: 150px;"
+                                    <img src="/uploads/logo.png" alt="Logo" style="max-height: 80px; max-width: 150px;" loading="lazy"
                                         onerror="this.style.display='none'">
                                 </div>
                                 <div class="text-center flex-grow-1">
@@ -258,7 +325,7 @@
                                                     <%= field.key.replace(/_/g, ' ' ) %>
                                                 </p>
                                                 <% if (isImage) { %>
-                                                    <img src="<%= field.value %>" crossorigin="anonymous"
+                                                    <img src="<%= field.value %>" crossorigin="anonymous" loading="lazy"
                                                         style="max-width: 100%; max-height: 200px; object-fit: contain;">
                                                     <% } else { %>
                                                         <div class="p-3 bg-light border w-100">Document
@@ -437,8 +504,7 @@
                     function raIsPhone(value) {
                         return typeof value === 'string' && /^\+?[\d\s()-]{8,}$/.test(value.replace(/\s/g, ''));
                     }
-                    function raPickString(data, keys) {
-                        for (let i = 0; i < keys.length; i++) {
+                    function raPickString(data, keys) { if (!data) return ''; for (let i = 0; i < keys.length; i++) {
                             const val = data[keys[i]];
                             if (val && typeof val === 'string' && val.trim() && !raIsUrl(val)) return val.trim();
                         }

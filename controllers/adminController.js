@@ -5698,7 +5698,16 @@ async function renderRegistrationFieldsPage(req, res) {
 
 async function renderReporterApplicationsPage(req, res) {
   try {
-    const applications = await ReporterApplication.find().sort({ createdAt: -1 }).lean();
+    const page = parseInt(req.query.page) || 1;
+    const limit = 20;
+    const skip = (page - 1) * limit;
+    
+    const applications = await ReporterApplication.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean();
+    const totalApps = await ReporterApplication.countDocuments();
+    const totalPages = Math.ceil(totalApps / limit);
+    
+    // Add pagination info to res.locals so it's accessible in the view
+    res.locals.pagination = { page, limit, totalApps, totalPages };
     const registrationFields = await RegistrationField.find({ isActive: true }).sort({ order: 1 }).lean();
     res.render('reporter-applications', {
       admin: req.admin,

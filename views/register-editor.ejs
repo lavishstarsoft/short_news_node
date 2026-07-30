@@ -3,7 +3,203 @@
 
 <%- include('partials/header', { title: 'Register Team Member' }) %>
 <link rel="stylesheet" href="/css/editors-directory.css">
-<link rel="stylesheet" href="/css/team-register.css">
+<style>
+        .feedback-message {
+            position: fixed;
+            top: 25px;
+            right: 25px;
+            padding: 16px 24px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            z-index: 9999;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            transform: translateX(200%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .feedback-message.show { transform: translateX(0); }
+        .feedback-message.success { background-color: #10b981; }
+        .feedback-message.error { background-color: #ef4444; }
+        .cropper-view-box, .cropper-face { border-radius: 50%; }
+
+        /* ── Editor modal (add / edit) ── */
+        .editor-modal .modal-dialog {
+            max-height: calc(100vh - 3.5rem);
+            margin: 1.75rem auto;
+        }
+        .editor-modal .modal-content {
+            border: none; border-radius: 16px; overflow: hidden;
+            display: flex; flex-direction: column;
+            max-height: calc(100vh - 3.5rem);
+        }
+        .editor-modal .modal-header,
+        .editor-modal .editor-tabs {
+            flex-shrink: 0;
+        }
+        .editor-modal form {
+            display: flex; flex-direction: column;
+            flex: 1 1 auto; min-height: 0; overflow: hidden;
+        }
+        .editor-modal .editor-tab-body {
+            flex: 1 1 auto; min-height: 0;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        .editor-modal-header {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: #fff; padding: 20px 24px;
+        }
+        .editor-modal-header .modal-title { font-weight: 700; margin: 0; }
+        .editor-modal-sub { opacity: .85; font-size: 13px; margin: 4px 0 0; }
+        .editor-tabs {
+            display: flex; gap: 4px; padding: 12px 16px 0;
+            background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+            overflow-x: auto;
+        }
+        .editor-tab-btn {
+            border: none; background: transparent; padding: 10px 16px;
+            border-radius: 10px 10px 0 0; font-weight: 600; font-size: 13px;
+            color: #64748b; white-space: nowrap; cursor: pointer; transition: .2s;
+        }
+        .editor-tab-btn.active {
+            background: #fff; color: #4f46e5;
+            box-shadow: 0 -2px 0 #4f46e5 inset;
+        }
+        .editor-tab-panel { display: none; padding: 20px 24px; }
+        .editor-tab-panel.active { display: block; }
+        .editor-help {
+            background: linear-gradient(135deg, #eef2ff, #f0f9ff);
+            border: 1px solid #c7d2fe; border-radius: 12px;
+            padding: 14px 16px; margin-bottom: 18px; font-size: 13px; color: #475569;
+        }
+        .editor-help strong { color: #3730a3; }
+        .editor-section-title {
+            font-size: 14px; font-weight: 700; color: #1e293b;
+            margin: 0 0 14px; display: flex; align-items: center; gap: 8px;
+        }
+        .editor-role-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .editor-role-card {
+            border: 2px solid #e2e8f0; border-radius: 12px; padding: 14px;
+            cursor: pointer; transition: .2s; background: #fff; text-align: left;
+        }
+        .editor-role-card.selected { border-color: #4f46e5; background: #eef2ff; }
+        .editor-role-card strong { display: block; color: #1e293b; margin-bottom: 4px; }
+        .editor-role-card small { color: #64748b; line-height: 1.4; }
+        .editor-chip-wrap {
+            border: 1px solid #e2e8f0; border-radius: 12px; background: #fafafa; overflow: hidden;
+        }
+        .editor-chip-toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
+            font-size: 12px; color: #64748b;
+        }
+        .editor-chip-toolbar .chip-count {
+            font-weight: 700; color: #4f46e5;
+        }
+        .editor-chip-toolbar .chip-actions {
+            display: flex; gap: 8px;
+        }
+        .editor-chip-toolbar .chip-action-btn {
+            background: none; border: 1px solid #cbd5e1; border-radius: 6px;
+            padding: 3px 10px; font-size: 11px; color: #475569; cursor: pointer;
+            transition: .15s;
+        }
+        .editor-chip-toolbar .chip-action-btn:hover {
+            background: #4f46e5; color: #fff; border-color: #4f46e5;
+        }
+        .editor-chip-grid {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            max-height: 200px; overflow-y: auto; padding: 12px;
+        }
+        .editor-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 12px; border-radius: 20px; font-size: 13px;
+            border: 1px solid #cbd5e1; background: #fff; cursor: pointer;
+            user-select: none; transition: .15s;
+        }
+        .editor-chip.selected { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+        .editor-chip input { display: none; }
+        .editor-scope-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .editor-scope-card {
+            border: 2px solid #e2e8f0; border-radius: 10px; padding: 12px;
+            cursor: pointer; text-align: center; transition: .2s;
+        }
+        .editor-scope-card.selected { border-color: #059669; background: #ecfdf5; }
+        .editor-scope-card .te { font-size: 12px; color: #64748b; }
+        .editor-perm-card {
+            border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px;
+            margin-bottom: 10px; background: #fff;
+        }
+        .editor-perm-card label { font-weight: 600; cursor: pointer; margin: 0; }
+        .editor-perm-card .hint { font-size: 12px; color: #94a3b8; margin: 4px 0 0 28px; }
+        .editor-modal-footer {
+            flex-shrink: 0;
+            padding: 16px 24px; border-top: 1px solid #e2e8f0;
+            background: #f8fafc; display: flex; justify-content: space-between; gap: 12px;
+        }
+        .editor-field { margin-bottom: 14px; }
+        .editor-field label { font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 6px; display: block; }
+        .editor-field input, .editor-field select {
+            width: 100%; border: 1px solid #cbd5e1; border-radius: 10px;
+            padding: 10px 12px; font-size: 14px;
+        }
+        .editor-field-hint { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+        .editor-profile-wrap { text-align: center; margin-bottom: 20px; }
+
+        /* ── Info tooltip "?" icon ── */
+        .info-tip {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #e2e8f0; color: #475569; font-size: 11px; font-weight: 700;
+            cursor: help; margin-left: 6px; position: relative; vertical-align: middle;
+            transition: background .2s;
+        }
+        .info-tip:hover { background: #4f46e5; color: #fff; }
+        .info-tip .info-tip-text {
+            display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+            transform: translateX(-50%); width: 260px; padding: 10px 14px;
+            background: #1e293b; color: #f1f5f9; font-size: 12px; font-weight: 400;
+            line-height: 1.5; border-radius: 8px; box-shadow: 0 4px 12px rgb(0 0 0/.2);
+            z-index: 100; text-align: left; white-space: normal;
+        }
+        .info-tip .info-tip-text::after {
+            content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+            border: 6px solid transparent; border-top-color: #1e293b;
+        }
+        .info-tip:hover .info-tip-text { display: block; }
+
+        /* ── Step info banner ── */
+        .editor-step-banner {
+            background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+            border: 1px solid #86efac; border-radius: 12px;
+            padding: 14px 16px; margin-bottom: 18px; font-size: 13px; color: #166534;
+            display: flex; align-items: flex-start; gap: 10px;
+        }
+        .editor-step-banner.blue {
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            border-color: #93c5fd; color: #1e40af;
+        }
+        .editor-step-banner.amber {
+            background: linear-gradient(135deg, #fffbeb, #fef3c7);
+            border-color: #fcd34d; color: #92400e;
+        }
+        .editor-step-banner.purple {
+            background: linear-gradient(135deg, #faf5ff, #f3e8ff);
+            border-color: #c4b5fd; color: #6b21a8;
+        }
+        .editor-step-banner .step-icon {
+            font-size: 18px; flex-shrink: 0; margin-top: 1px;
+        }
+        .editor-step-banner strong { font-weight: 700; }
+
+        /* ── Reporter-only / SubEditor-only markers ── */
+        .reporter-only-section, .subeditor-only-section { transition: .3s; }
+        .role-hidden { display: none !important; }
+
+        @media (max-width: 768px) {
+            .editor-role-cards, .editor-scope-row { grid-template-columns: 1fr; }
+            .info-tip .info-tip-text { width: 200px; }
+        }
+    </style>
 
 <body>
     <%- include('partials/top-nav', { pageTitle: 'Add Team Member', backButton: true, backUrl: '/editors' }) %>
@@ -13,15 +209,8 @@
             <%- include('partials/sidebar', { activePage: 'register-editor' }) %>
 
             <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                <div class="reg-page content-area mt-4">
-                    <header class="reg-hero">
-                        <div>
-                            <p class="reg-eyebrow"><i class="fas fa-user-plus"></i> Team onboarding</p>
-                            <h1 class="reg-hero-title">Register new team member</h1>
-                            <p class="reg-hero-sub">Create a reporter or sub-editor account with the right role, language, and regional coverage — they'll be ready to publish in minutes.</p>
-                        </div>
-                        <a href="/editors" class="reg-hero-link"><i class="fas fa-users"></i> Team directory</a>
-                    </header>
+                <div class="content-area mt-4">
+                    
 
                     <div id="alertContainer"></div>
 
@@ -32,499 +221,1813 @@
                     <div class="reg-alert reg-alert--success"><i class="fas fa-check-circle"></i><span><%= success %></span></div>
                     <% } %>
 
-                    <div class="reg-layout">
-                        <div class="reg-form-panel">
-                            <form id="registerEditorForm" action="/register-editor" method="POST" novalidate>
-                                <section class="reg-form-section">
-                                    <div class="reg-section-head">
-                                        <span class="reg-section-icon reg-section-icon--account"><i class="fas fa-key"></i></span>
-                                        <div>
-                                            <h2 class="reg-section-title">Account credentials</h2>
-                                            <p class="reg-section-desc">Login details for the new member</p>
-                                        </div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="username">Username <span class="reg-required">*</span></label>
-                                                <input type="text" id="username" name="username" required autocomplete="off" placeholder="e.g. ravi_reporter">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="email">Email address <span class="reg-required">*</span></label>
-                                                <input type="email" id="email" name="email" required placeholder="name@newsroom.com">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="password">Password <span class="reg-required">*</span></label>
-                                                <div class="reg-password-wrap">
-                                                    <input type="password" id="password" name="password" required minlength="6" placeholder="Minimum 6 characters">
-                                                    <button type="button" class="reg-password-toggle" id="togglePassword" aria-label="Show password"><i class="fas fa-eye"></i></button>
-                                                </div>
-                                                <div class="reg-field-hint">Use at least 6 characters. Share securely with the member.</div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="name">Full name</label>
-                                                <input type="text" id="name" name="name" placeholder="Display name in bylines">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </section>
+                    
 
-                                <section class="reg-form-section">
-                                    <div class="reg-section-head">
-                                        <span class="reg-section-icon reg-section-icon--role"><i class="fas fa-id-badge"></i></span>
-                                        <div>
-                                            <h2 class="reg-section-title">Role &amp; permissions</h2>
-                                            <p class="reg-section-desc">Choose access level for this member</p>
-                                        </div>
-                                    </div>
-                                    <div class="reg-role-cards" id="roleCards">
-                                        <button type="button" class="reg-role-card is-selected" data-role="editor">
-                                            <div class="reg-role-card-title"><i class="fas fa-pen-nib me-1"></i> Reporter</div>
-                                            <div class="reg-role-card-desc">Create and submit news articles. Basic publishing access.</div>
-                                        </button>
-                                        <button type="button" class="reg-role-card" data-role="subeditor">
-                                            <div class="reg-role-card-title"><i class="fas fa-user-check me-1"></i> Sub-Editor</div>
-                                            <div class="reg-role-card-desc">Extended access to review, edit, and manage content workflow.</div>
-                                        </button>
-                                    </div>
-                                    <select class="d-none" id="role" name="role" required>
-                                        <option value="editor" selected>Reporter</option>
-                                        <option value="subeditor">Sub-Editor</option>
-                                    </select>
-                                    <div class="reg-field mt-3">
-                                        <label for="displayRole">Display role label</label>
-                                        <input type="text" id="displayRole" name="displayRole" placeholder="e.g. Sports Reporter, District Correspondent">
-                                        <div class="reg-field-hint">Shown publicly on articles and team directory</div>
-                                    </div>
-                                </section>
+<style>
+    .editor-page-container { background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 40px; margin: 20px auto; min-height: 70vh; }
+    .wizard-header { margin-bottom: 30px; text-align: center; }
+    
+    #addEditorTabs { 
+        display: flex; 
+        justify-content: center; 
+        gap: 15px;
+        border: none; 
+        padding-bottom: 20px; 
+        margin-bottom: 35px; 
+        background: transparent;
+        flex-wrap: wrap;
+    }
+    #addEditorTabs .editor-tab-btn {
+        flex: 1;
+        min-width: 150px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef !important;
+        border-radius: 50px;
+        color: #6c757d;
+        font-weight: 600;
+        font-size: 15px;
+        padding: 12px 20px;
+        text-align: center;
+        text-transform: capitalize;
+        letter-spacing: 0.5px;
+        margin-bottom: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    #addEditorTabs .editor-tab-btn:hover {
+        background: #e2e8f0;
+        color: #475569;
+        transform: translateY(-1px);
+    }
+    #addEditorTabs .editor-tab-btn.active { 
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #ffffff; 
+        border: 1px solid transparent !important;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+        transform: translateY(-2px);
+    }
+    
+    .editor-tab-body {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        display: block !important;
+    }
+    
+    .editor-tab-panel { padding: 20px; }
+    .editor-modal-footer { 
+        border-top: 1px solid #eee; 
+        padding-top: 25px; 
+        margin-top: 20px; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+    }
+    
+    .editor-modal-footer .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 30px; font-weight: bold; font-size: 16px; border-radius: 8px; white-space: nowrap; line-height: normal; }
+</style>
 
-                                <section class="reg-form-section">
-                                    <div class="reg-section-head">
-                                        <span class="reg-section-icon reg-section-icon--region"><i class="fas fa-map-marker-alt"></i></span>
-                                        <div>
-                                            <h2 class="reg-section-title">Regional &amp; language</h2>
-                                            <p class="reg-section-desc">Coverage area and publishing language</p>
-                                        </div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="location">Location</label>
-                                                <% if (typeof locations !== 'undefined' && locations.length) { %>
-                                                <select id="assignedLocations" name="assignedLocations" multiple class="form-select" size="4">
-                                                    <option value="" disabled>Select locations (hold Cmd/Ctrl for multiple)</option>
-                                                    <% locations.forEach(function(loc) { %>
-                                                    <option value="<%= loc.name %>"><%= loc.name %><% if (loc.code) { %> (<%= loc.code %>)<% } %></option>
-                                                    <% }); %>
-                                                </select>
-                                                <% } else { %>
-                                                <input type="text" id="assignedLocations" name="assignedLocations" placeholder="District or city">
-                                                <% } %>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="constituency">Constituency</label>
-                                                <input type="text" id="constituency" name="constituency" placeholder="Assembly constituency">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="workingLanguage">News language <span class="reg-required">*</span></label>
-                                                <select id="workingLanguage" name="workingLanguage" required>
-                                                    <%- include('partials/language-select-options', { selectedValue: defaultLanguage || 'te' }) %>
-                                                </select>
-                                                <div class="reg-field-hint">Primary language for this member's articles</div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="reg-field">
-                                                <label for="mobileNumber">Mobile number</label>
-                                                <input type="tel" id="mobileNumber" name="mobileNumber" placeholder="+91 98765 43210">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </section>
-
-                                <% if (admin.role === 'superadmin' || admin.role === 'admin') { %>
-                                <section class="reg-form-section">
-                                    <div class="reg-section-head">
-                                        <span class="reg-section-icon reg-section-icon--settings" style="background: rgba(30, 41, 59, 0.1); color: #1e293b;"><i class="fas fa-cog"></i></span>
-                                        <div>
-                                            <h2 class="reg-section-title">Admin Dashboard Settings</h2>
-                                            <p class="reg-section-desc">Additional access options for dashboard</p>
-                                        </div>
-                                    </div>
-                                    <div id="viewReporterDetailsWrapper" style="display: none;">
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                                            <input type="checkbox" id="canViewReporterDetails" name="canViewReporterDetails" value="true" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="canViewReporterDetails" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can view reporter details</label>
-                                        </div>
-                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -10px; margin-bottom: 15px;">Allows this member to see the full details (Email, Phone, Constituency) of reporters in the news list.</div>
-                                    </div>
-                                    
-                                    <div id="dashboardAccessWrapper" style="display: none;">
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                                            <input type="checkbox" id="canAccessAdminDashboard" name="canAccessAdminDashboard" value="true" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="canAccessAdminDashboard" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can access admin dashboard</label>
-                                        </div>
-                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -10px; margin-bottom: 15px;">Allows this sub-editor to log in to this admin dashboard.</div>
-                                    </div>
-                                    
-                                    <div id="approveNewsWrapper" style="display: none;">
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                                            <input type="checkbox" id="canApproveNews" name="canApproveNews" value="true" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="canApproveNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can approve/reject news</label>
-                                        </div>
-                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -10px;">Allows this sub-editor to approve or reject pending news.</div>
-                                    </div>
-
-                                    <div id="viewAllNewsWrapper" style="display: none; margin-top: 15px;">
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
-                                            <input type="checkbox" id="canViewAllNews" name="canViewAllNews" value="true" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="canViewAllNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">View all articles</label>
-                                        </div>
-                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -10px;">If off, sub-editor only sees their own articles and assigned reporters' articles.</div>
-                                    </div>
-                                    
-                                    <div id="managedLocationsWrapper" style="display: none; margin-top: 15px; margin-left: 30px; padding-left: 15px; border-left: 2px solid #e2e8f0;">
-                                        <div class="reg-field" style="margin-bottom: 10px;">
-                                            <label style="font-size: 0.9rem;">Whose news can they approve?</label>
-                                            <select id="approvalScope" name="approvalScope" class="form-select" style="font-size: 0.9rem; padding: 6px 12px; height: auto;">
-                                                <option value="all">All Reporters</option>
-                                                <option value="locations">Reporters in Specific Locations</option>
-                                            </select>
-                                        </div>
-                                        <div class="reg-field" id="managedLocationsSelectWrapper" style="display: none;">
-                                            <label style="font-size: 0.9rem;">Select Parent Locations</label>
-                                            <% if (typeof locations !== 'undefined' && locations.length) { %>
-                                            <select id="managedLocations" name="managedLocations" multiple class="form-select" size="4" style="font-size: 0.9rem;">
-                                                <% locations.forEach(function(loc) { %>
-                                                <option value="<%= loc.name %>"><%= loc.name %></option>
-                                                <% }); %>
-                                            </select>
-                                            <div class="reg-field-hint">Hold Cmd/Ctrl to select multiple locations.</div>
-                                            <% } else { %>
-                                            <div class="alert alert-warning" style="font-size: 0.85rem; padding: 8px;">No locations found.</div>
-                                            <% } %>
-                                        </div>
-                                    </div>
-                                    
-                                    <div id="subEditorPermissionsWrapper" style="display: none; margin-top: 15px;">
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
-                                            <input type="checkbox" id="canSendNotifications" name="canSendNotifications" value="true" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="canSendNotifications" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can send notifications</label>
-                                        </div>
-                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -5px; margin-bottom: 15px;">Allows this sub-editor to send push notifications for news articles.</div>
-                                        
-                                        <div class="reg-field" style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
-                                            <input type="checkbox" id="canEditNews" name="canEditNews" value="true" style="width: auto; height: 18px; cursor: pointer;">
-                                            <label for="canEditNews" style="margin-bottom: 0; font-weight: 500; cursor: pointer;">Can edit any news</label>
-                                        </div>
-                                        <div class="reg-field-hint" style="margin-left: 30px; margin-top: -5px;">Allows this sub-editor to edit active, inactive, and rejected news (like super admin).</div>
-                                    </div>
-                                    
-                                    <div id="sidebarAccessWrapper" style="display: none; margin-top: 20px;">
-                                        <h5 style="margin-bottom: 15px; font-size: 1rem; border-bottom: 1px solid #eaeaea; padding-bottom: 5px;">Sidebar Menu Access</h5>
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                            <% const menus = [
-                                                { id: 'dashboard', label: 'Dashboard' },
-                                                { id: 'newsList', label: 'News List' },
-                                                { id: 'addNews', label: 'Add News' },
-                                                { id: 'pendingNews', label: 'Pending News' },
-                                                { id: 'rejectedNews', label: 'Rejected News' },
-                                                { id: 'plagiarismReport', label: 'Plagiarism Report' },
-                                                { id: 'viralVideos', label: 'Viral Videos' },
-                                                { id: 'polls', label: 'Polls' },
-                                                { id: 'longVideos', label: 'Long Videos / Programs' },
-                                                { id: 'categories', label: 'Categories' },
-                                                { id: 'programCategories', label: 'Program Categories' },
-                                                { id: 'locations', label: 'Locations' },
-                                                { id: 'reports', label: 'Reports' }
-                                            ]; %>
-                                            <% menus.forEach(menu => { %>
-                                                <div class="reg-field" style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-                                                    <input type="checkbox" id="sidebar_<%= menu.id %>" name="sidebar[<%= menu.id %>]" value="true" checked style="width: auto; height: 16px; cursor: pointer;">
-                                                    <label for="sidebar_<%= menu.id %>" style="margin-bottom: 0; font-size: 0.9rem; cursor: pointer;"><%= menu.label %></label>
-                                                </div>
-                                            <% }) %>
-                                        </div>
-                                    </div>
-                                </section>
-                                <% } %>
-
-                                <div class="reg-form-footer">
-                                    <button type="submit" class="reg-submit-btn" id="submitBtn">
-                                        <i class="fas fa-user-plus"></i> Create team member
-                                    </button>
-                                </div>
-                            </form>
+<div class="editor-page-container w-100">
+    <div class="wizard-header">
+        <h2 class="fw-bold text-dark mb-2">Register Team Member</h2>
+        <p class="text-muted">Complete the steps below to onboard a new Sub-Editor or Reporter.</p>
+    </div>
+    <div class="editor-tabs" id="addEditorTabs">
+                            <button type="button" class="editor-tab-btn active" data-tab="add-tab-account"><i class="fas fa-key me-1"></i> 1. Login</button>
+                            <button type="button" class="editor-tab-btn" data-tab="add-tab-profile"><i class="fas fa-user me-1"></i> 2. Details</button>
+                            <button type="button" class="editor-tab-btn" data-tab="add-tab-location"><i class="fas fa-map-marker-alt me-1"></i> 3. Location</button>
+                            <button type="button" class="editor-tab-btn" data-tab="add-tab-perms" id="addTabPermsBtn"><i class="fas fa-shield-alt me-1"></i> 4. Permissions</button>
                         </div>
 
-                        <aside class="reg-aside">
-                            <div class="reg-preview-card">
-                                <div class="reg-preview-avatar" id="previewAvatar">?</div>
-                                <div class="reg-preview-name" id="previewName">New member</div>
-                                <div class="reg-preview-meta" id="previewEmail">email@example.com</div>
-                                <div class="reg-preview-pills">
-                                    <span class="reg-preview-pill reg-preview-pill--role" id="previewRole">Reporter</span>
-                                    <span class="reg-preview-pill" id="previewLang">Telugu</span>
-                                    <span class="reg-preview-pill" id="previewLocation" style="display:none;"></span>
+                        <form id="addEditorForm">
+                            <select id="addRole" class="d-none"><option value="editor">editor</option><option value="subeditor">subeditor</option></select>
+                            <select id="addAssignedStates" multiple class="d-none"></select>
+                            <select id="addAssignedDistricts" multiple class="d-none"></select>
+                            <select id="addAssignedConstituencies" multiple class="d-none"></select>
+                            <select id="addManagedStates" multiple class="d-none"></select>
+                            <select id="addManagedDistricts" multiple class="d-none"></select>
+                            <select id="addManagedConstituencies" multiple class="d-none"></select>
+                            <select id="addManagedReporterIds" multiple class="d-none"></select>
+                            <select id="addAllowedScopes" multiple class="d-none">
+                                <option value="district">district</option><option value="state">state</option>
+                                <option value="national">national</option><option value="international">international</option>
+                            </select>
+
+                            <div class="editor-tab-body">
+                            <!-- Add Tab 1: Login -->
+                            <div class="editor-tab-panel active" id="add-tab-account">
+                                <div class="editor-step-banner blue">
+                                    <span class="step-icon">🔑</span>
+                                    <div><strong>Step 1: Login Credentials</strong><br>These are required to create the account. The member will use these to log in.</div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6"><div class="editor-field"><label for="addUsername">Username *
+                                        <span class="info-tip">?<span class="info-tip-text">A unique login name. Example: ravi_reporter, kumar_subeditor</span></span>
+                                    </label><input type="text" id="addUsername" required placeholder="e.g. ravi_reporter"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addEmail">Email *</label><input type="email" id="addEmail" required placeholder="name@news.com"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addPassword">Password *</label><div style="position:relative;"><input type="password" id="addPassword" required minlength="6" placeholder="Minimum 6 characters" style="padding-right: 40px;"><span id="toggleAddPassword" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; color:#6b7280;"><i class="fas fa-eye"></i></span></div></div></div>
                                 </div>
                             </div>
 
-                            <div class="reg-permissions-card">
-                                <div class="reg-permissions-head"><i class="fas fa-shield-alt me-1"></i> Access preview</div>
-                                <div class="reg-permissions-body" id="permissionsList">
-                                    <div class="reg-perm-item"><i class="fas fa-check"></i><span>Create and submit news articles</span></div>
-                                    <div class="reg-perm-item"><i class="fas fa-check"></i><span>Manage own published content</span></div>
-                                    <div class="reg-perm-item is-muted" data-perm="subeditor"><i class="fas fa-times"></i><span>Review pending submissions</span></div>
-                                    <div class="reg-perm-item is-muted" data-perm="subeditor"><i class="fas fa-times"></i><span>Approve or reject articles</span></div>
+                            <!-- Add Tab 2: Profile -->
+                            <div class="editor-tab-panel" id="add-tab-profile">
+                                <div class="editor-step-banner blue">
+                                    <span class="step-icon">👤</span>
+                                    <div><strong>Step 2: Member Details</strong><br>Choose the member type and fill in their info.</div>
+                                </div>
+
+                                <p class="editor-section-title"><i class="fas fa-id-badge text-primary"></i> What type of member?
+                                    <span class="info-tip">?<span class="info-tip-text"><b>Reporter</b> = Writes news articles from the field and submits for approval.<br><br><b>Sub-Editor</b> = Reviews and approves/rejects news. Can access the dashboard.</span></span>
+                                </p>
+                                <div class="editor-role-cards" id="addRoleCards">
+                                    <div class="editor-role-card selected" data-role="editor">
+                                        <strong><i class="fas fa-pen-nib me-1"></i> Reporter</strong>
+                                        <small>Writes news from the field. Submits for approval.</small>
+                                    </div>
+                                    <div class="editor-role-card" data-role="subeditor">
+                                        <strong><i class="fas fa-user-check me-1"></i> Sub-Editor</strong>
+                                        <small>Reviews &amp; approves/rejects news. Has dashboard access.</small>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6"><div class="editor-field"><label for="addName">Full Name *</label><input type="text" id="addName" required placeholder="e.g. Ravi Kumar"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addDisplayRole">Display Role *
+                                        <span class="info-tip">?<span class="info-tip-text">Title shown next to articles in the app. Example: "Senior Reporter", "Khammam Correspondent"</span></span>
+                                    </label><input type="text" id="addDisplayRole" required placeholder="e.g. Senior Reporter"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addMobile">Mobile *</label><input type="text" id="addMobile" required placeholder="+91 98765 43210"></div></div>
+                                    <div class="col-md-6 reporter-only-section"><div class="editor-field"><label for="addWorkingLanguage">News Language *
+                                        <span class="info-tip">?<span class="info-tip-text">The language this reporter writes news in. Their news will appear in this language section of the app.</span></span>
+                                    </label>
+                                        <select id="addWorkingLanguage" required><%- include('partials/language-select-options', { selectedValue: 'te' }) %></select>
+                                    </div></div>
                                 </div>
                             </div>
 
-                            <div class="reg-tip-card">
-                                <i class="fas fa-lightbulb me-1"></i>
-                                After registration, share login credentials securely. The member can update their profile from the admin panel.
+                            <!-- Add Tab 3: Location -->
+                            <div class="editor-tab-panel" id="add-tab-location">
+                                <div class="editor-step-banner reporter-only-section" id="addLocationBannerReporter">
+                                    <span class="step-icon">📍</span>
+                                    <div><strong>Step 3: Where does this reporter work?</strong><br>Select the areas they cover. Follow the steps below in order.</div>
+                                </div>
+                                <div class="editor-step-banner purple subeditor-only-section" id="addLocationBannerSubeditor">
+                                    <span class="step-icon">📍</span>
+                                    <div><strong>Step 3: Sub-Editor's base location</strong><br>This is for record-keeping. The areas they manage are set in the <strong>Permissions</strong> tab.</div>
+                                </div>
+
+                                <div class="editor-field"><label><strong>① Select State(s) *</strong>
+                                    <span class="info-tip">?<span class="info-tip-text">Click to select one or more states. This filters the districts below.</span></span>
+                                </label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addStateChips"><span class="text-muted small">Loading...</span></div></div></div>
+                                <div class="editor-field"><label><strong>② Select District(s)</strong>
+                                    <span class="info-tip">?<span class="info-tip-text">Districts appear based on states selected above. Click to select.</span></span>
+                                </label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addDistrictChips"><span class="text-muted small">Select states first...</span></div></div></div>
+                                <div class="editor-field"><label><strong>③ Select Constituency (optional)</strong></label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addConstituencyChips"><span class="text-muted small">Select districts first...</span></div></div></div>
+
+                                <div class="editor-field" id="addAllowedScopesSection">
+                                    <label><strong>④ What type of news can they write? *</strong>
+                                        <span class="info-tip">?<span class="info-tip-text"><b>Local</b> = District-level news<br><b>State</b> = State-wide news<br><b>National</b> = Country-level<br><b>International</b> = World news<br><br>Select one or more.</span></span>
+                                    </label>
+                                    <div class="editor-scope-row" id="addScopeCards">
+                                        <div class="editor-scope-card" data-scope="district"><strong>🏘 Local</strong><div class="te">District-level news</div></div>
+                                        <div class="editor-scope-card" data-scope="state"><strong>🏛 State</strong><div class="te">State-wide news</div></div>
+                                        <div class="editor-scope-card" data-scope="national"><strong>🇮🇳 National</strong><div class="te">Country-level news</div></div>
+                                        <div class="editor-scope-card" data-scope="international"><strong>🌍 International</strong><div class="te">World news</div></div>
+                                    </div>
+                                </div>
+                                <div class="editor-field"><label for="addConstituency">Primary Constituency *
+                                    <span class="info-tip">?<span class="info-tip-text">Shown next to their name in the app. Example: "Malakpet Correspondent"</span></span>
+                                </label><input type="text" id="addConstituency" required placeholder="e.g. Malakpet"></div>
                             </div>
-                        </aside>
-                    </div>
+
+                            <!-- Add Tab 4: Permissions -->
+                            <div class="editor-tab-panel" id="add-tab-perms">
+                                <!-- Reporter message -->
+                                <div id="addReporterNote" class="editor-step-banner">
+                                    <span class="step-icon">✅</span>
+                                    <div><strong>No permissions needed for Reporters</strong><br>Reporters simply write and submit news. Permissions are only for Sub-Editors. Wallet settings below apply to this member.</div>
+                                </div>
+
+                                <!-- Wallet & Daily Earnings (per member) -->
+                                <div id="addWalletConfigBlock">
+                                    <div class="editor-step-banner green" style="background:#ecfdf5;border-color:#a7f3d0">
+                                        <span class="step-icon">💰</span>
+                                        <div><strong>Wallet &amp; Daily Earnings</strong><br>Settings here apply <b>only to this member</b>. Other reporters are not affected. If wallet is OFF, the app hides wallet, daily target and earnings completely.</div>
+                                    </div>
+
+                                    <div class="editor-perm-card">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="addWalletEnabled">
+                                            <label class="form-check-label" for="addWalletEnabled"><strong>Wallet Enabled</strong></label>
+                                        </div>
+                                        <div class="hint">ON = this member sees wallet, daily target and earns daily rewards. OFF = wallet section fully hidden, no reward credits.</div>
+                                    </div>
+
+                                    <div class="row g-3" id="addWalletNumbersRow">
+                                        <div class="col-md-6">
+                                            <div class="editor-field">
+                                                <label for="addWalletDailyTarget">Daily Target (news per day)
+                                                    <span class="info-tip">?<span class="info-tip-text">How many approved news this member needs in one day to earn the daily reward. Leave empty to use the global default.</span></span>
+                                                </label>
+                                                <input type="number" id="addWalletDailyTarget" min="1" step="1" placeholder="Global default">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="editor-field">
+                                                <label for="addWalletDailyReward">Daily Reward (₹)
+                                                    <span class="info-tip">?<span class="info-tip-text">Amount credited when the daily target is reached. Leave empty to use the global default.</span></span>
+                                                </label>
+                                                <input type="number" id="addWalletDailyReward" min="1" step="1" placeholder="Global default">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="hint mb-3">Empty boxes = global defaults from the Wallet Settings page apply (e.g. 5 news / ₹30).</div>
+                                </div>
+
+                                <!-- Sub-editor permissions -->
+                                <div id="addSubEditorPerms" style="display:none">
+                                    <div class="editor-step-banner purple">
+                                        <span class="step-icon">🔐</span>
+                                        <div><strong>Sub-Editor Permissions</strong><br>Control what this sub-editor can do in the dashboard.</div>
+                                    </div>
+
+                                    <div class="editor-perm-card">
+                                        <input type="checkbox" id="addCanAccessAdminDashboard" class="form-check-input me-2">
+                                        <label for="addCanAccessAdminDashboard"><strong>Can login to Dashboard</strong></label>
+                                        <div class="hint">Allow this sub-editor to log in to the admin dashboard</div>
+                                    </div>
+                                    <div class="editor-perm-card">
+                                        <input type="checkbox" id="addCanApproveNews" class="form-check-input me-2">
+                                        <label for="addCanApproveNews"><strong>Can approve / reject news</strong></label>
+                                        <div class="hint">This sub-editor can approve or reject reporters' news articles</div>
+                                    </div>
+                                    <div class="editor-perm-card">
+                                        <input type="checkbox" id="addCanViewAllNews" class="form-check-input me-2">
+                                        <label for="addCanViewAllNews"><strong>Can view ALL articles</strong></label>
+                                        <div class="hint">If OFF, only sees news from assigned reporters</div>
+                                    </div>
+
+                                    <div class="editor-field" id="addAllowedLanguagesSection">
+                                        <label><strong>Languages for Add News</strong>
+                                            <span class="info-tip">?<span class="info-tip-text">Choose which languages this sub-editor can use when uploading news.<br><br><b>All Languages</b> = any active language<br><b>One or more</b> = only those in Add News dropdown</span></span>
+                                        </label>
+                                        <div class="editor-scope-row" id="addLangCards"></div>
+                                        <select id="addAllowedLanguages" multiple class="d-none"></select>
+                                    </div>
+
+                                    <div class="editor-field" id="addApprovalScopeWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #4f46e5;margin-top:12px">
+                                        <label for="addApprovalScope"><strong>Whose news can they approve?</strong>
+                                            <span class="info-tip">?<span class="info-tip-text"><b>All Reporters</b> = approve anyone's news<br><b>By Geography</b> = only reporters from selected areas<br><b>Specific Reporters</b> = hand-pick reporters</span></span>
+                                        </label>
+                                        <select id="addApprovalScope" class="form-select">
+                                            <option value="all">All Reporters (can approve anyone's news)</option>
+                                            <option value="geography">By Geography (only reporters from selected areas)</option>
+                                            <option value="reporters" selected>Specific Reporters (pick by name)</option>
+                                        </select>
+                                    </div>
+                                    <div id="addManagedGeographyWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #4f46e5">
+                                        <div class="editor-field"><label>Managed States</label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addManagedStateChips"></div></div></div>
+                                        <div class="editor-field"><label>Managed Districts</label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addManagedDistrictChips"></div></div></div>
+                                        <div class="editor-field"><label>Managed Constituencies</label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addManagedConstituencyChips"></div></div></div>
+                                    </div>
+                                    <div id="addManagedReportersWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #4f46e5">
+                                        <div class="editor-field"><input type="text" id="addReporterSearch" placeholder="Search reporters..." class="form-control"></div>
+                                        <div id="addManagedReporterList" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:10px"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            </div><!-- /.editor-tab-body -->
+
+                            <div class="editor-modal-footer" id="addEditorFooter">
+                                <button type="button" class="btn btn-light" onclick="window.history.back()">Cancel</button>
+                                <button type="button" class="btn btn-primary px-4" id="addNextBtn">Next <i class="fas fa-arrow-right ms-1"></i></button>
+                                <button type="submit" class="btn btn-success px-4" id="addSubmitBtn" style="display:none;"><i class="fas fa-user-plus me-1"></i> Add Member</button>
+                            </div>
+                        </form>
+</div>
+</div>
                 </div>
             </div>
         </div>
     </div>
 
     <%- include('partials/footer') %>
-    <script>
-        (function () {
-            const form = document.getElementById('registerEditorForm');
-            const roleSelect = document.getElementById('role');
-            const roleCards = document.querySelectorAll('.reg-role-card');
-            const alertContainer = document.getElementById('alertContainer');
-            const submitBtn = document.getElementById('submitBtn');
-            const langSelect = document.getElementById('workingLanguage');
+                    <script>
+                    let editors = [];
+                    let selectedInsightsEditorId = null;
+                    const _activeLanguages = <%- JSON.stringify(typeof languageOptions !== 'undefined' ? languageOptions : []) %>;
 
-            function updatePreview() {
-                const name = document.getElementById('name').value.trim();
-                const username = document.getElementById('username').value.trim();
-                const email = document.getElementById('email').value.trim();
-                const locationEl = document.getElementById('assignedLocations');
-                let location = '';
-                if (locationEl && locationEl.tagName === 'SELECT') {
-                    const selected = Array.from(locationEl.selectedOptions).map(opt => opt.value).filter(val => val !== "");
-                    location = selected.join(', ');
-                } else if (locationEl) {
-                    location = locationEl.value.trim();
-                }
-                const displayRole = document.getElementById('displayRole').value.trim();
-                const role = roleSelect.value;
-
-                const displayName = name || username || 'New member';
-                document.getElementById('previewName').textContent = displayName;
-                document.getElementById('previewEmail').textContent = email || 'email@example.com';
-                document.getElementById('previewAvatar').textContent = displayName.split(/[\s._-]+/).filter(Boolean).map(function (n) { return n[0]; }).join('').toUpperCase().substring(0, 2) || '?';
-
-                document.getElementById('previewRole').textContent = displayRole || (role === 'subeditor' ? 'Sub-Editor' : 'Reporter');
-
-                const langText = langSelect.options[langSelect.selectedIndex]?.text || 'Telugu';
-                document.getElementById('previewLang').textContent = langText;
-
-                const locPill = document.getElementById('previewLocation');
-                if (location) {
-                    locPill.textContent = location;
-                    locPill.style.display = 'inline-flex';
-                } else {
-                    locPill.style.display = 'none';
-                }
-
-                document.querySelectorAll('[data-perm="subeditor"]').forEach(function (el) {
-                    if (role === 'subeditor') {
-                        el.classList.remove('is-muted');
-                        el.querySelector('i').className = 'fas fa-check';
-                    } else {
-                        el.classList.add('is-muted');
-                        el.querySelector('i').className = 'fas fa-times';
-                    }
-                });
-
-                const dashboardAccessWrapper = document.getElementById('dashboardAccessWrapper');
-                const viewReporterDetailsWrapper = document.getElementById('viewReporterDetailsWrapper');
-                const approveNewsWrapper = document.getElementById('approveNewsWrapper');
-                const viewAllNewsWrapper = document.getElementById('viewAllNewsWrapper');
-                const managedLocationsWrapper = document.getElementById('managedLocationsWrapper');
-                const sidebarAccessWrapper = document.getElementById('sidebarAccessWrapper');
-                const subEditorPermissionsWrapper = document.getElementById('subEditorPermissionsWrapper');
-                
-                if (dashboardAccessWrapper && viewReporterDetailsWrapper && approveNewsWrapper && sidebarAccessWrapper) {
-                    if (role === 'subeditor') {
-                        dashboardAccessWrapper.style.display = 'block';
-                        viewReporterDetailsWrapper.style.display = 'block';
-                        approveNewsWrapper.style.display = 'block';
-                        if (viewAllNewsWrapper) viewAllNewsWrapper.style.display = 'block';
-                        sidebarAccessWrapper.style.display = 'block';
-                        const subEditorPermissionsWrapper = document.getElementById('subEditorPermissionsWrapper');
-                        if (subEditorPermissionsWrapper) subEditorPermissionsWrapper.style.display = 'block';
-                        
-                        // Check checkbox status for dependent wrappers
-                        if (document.getElementById('canApproveNews').checked) {
-                            managedLocationsWrapper.style.display = 'block';
-                        } else {
-                            managedLocationsWrapper.style.display = 'none';
+                    document.addEventListener('DOMContentLoaded', function () {
+                        const dataScript = document.getElementById('editorsData');
+                        if (dataScript) {
+                            try {
+                                editors = JSON.parse(dataScript.textContent);
+                            } catch (e) {
+                                console.error('Error parsing editors data:', e);
+                            }
                         }
-                    } else {
-                        dashboardAccessWrapper.style.display = 'none';
-                        viewReporterDetailsWrapper.style.display = 'none';
-                        approveNewsWrapper.style.display = 'none';
-                        if (viewAllNewsWrapper) viewAllNewsWrapper.style.display = 'none';
-                        sidebarAccessWrapper.style.display = 'none';
-                        managedLocationsWrapper.style.display = 'none';
-                        const subEditorPermissionsWrapper = document.getElementById('subEditorPermissionsWrapper');
-                        if (subEditorPermissionsWrapper) subEditorPermissionsWrapper.style.display = 'none';
-                        document.getElementById('canAccessAdminDashboard').checked = false;
-                        document.getElementById('canViewReporterDetails').checked = false;
-                        document.getElementById('canApproveNews').checked = false;
-                        const canViewAllNews = document.getElementById('canViewAllNews');
-                        if (canViewAllNews) canViewAllNews.checked = false;
-                        const canSendNotifCb = document.getElementById('canSendNotifications');
-                        if (canSendNotifCb) canSendNotifCb.checked = false;
-                    }
-                }
-            }
-
-            // Event listener for canApproveNews checkbox
-            const canApproveNewsCheckbox = document.getElementById('canApproveNews');
-            const managedLocationsWrapper = document.getElementById('managedLocationsWrapper');
-            if (canApproveNewsCheckbox && managedLocationsWrapper) {
-                canApproveNewsCheckbox.addEventListener('change', function() {
-                    if (this.checked) {
-                        managedLocationsWrapper.style.display = 'block';
-                    } else {
-                        managedLocationsWrapper.style.display = 'none';
-                    }
-                });
-            }
-
-            // Event listener for approvalScope dropdown
-            const approvalScopeSelect = document.getElementById('approvalScope');
-            const managedLocationsSelectWrapper = document.getElementById('managedLocationsSelectWrapper');
-            if (approvalScopeSelect && managedLocationsSelectWrapper) {
-                approvalScopeSelect.addEventListener('change', function() {
-                    if (this.value === 'locations') {
-                        managedLocationsSelectWrapper.style.display = 'block';
-                    } else {
-                        managedLocationsSelectWrapper.style.display = 'none';
-                    }
-                });
-            }
-
-            roleCards.forEach(function (card) {
-                card.addEventListener('click', function () {
-                    roleCards.forEach(function (c) { c.classList.remove('is-selected'); });
-                    card.classList.add('is-selected');
-                    roleSelect.value = card.getAttribute('data-role');
-                    updatePreview();
-                });
-            });
-
-            ['username', 'name', 'email', 'displayRole', 'assignedLocations', 'constituency'].forEach(function (id) {
-                const el = document.getElementById(id);
-                if (el) el.addEventListener('input', updatePreview);
-                if (el && el.tagName === 'SELECT') el.addEventListener('change', updatePreview);
-            });
-            if (langSelect) langSelect.addEventListener('change', updatePreview);
-            const locationSelect = document.getElementById('assignedLocations');
-            if (locationSelect && locationSelect.tagName === 'SELECT') locationSelect.addEventListener('change', updatePreview);
-
-            document.getElementById('togglePassword').addEventListener('click', function () {
-                const input = document.getElementById('password');
-                const icon = this.querySelector('i');
-                if (input.type === 'password') {
-                    input.type = 'text';
-                    icon.className = 'fas fa-eye-slash';
-                } else {
-                    input.type = 'password';
-                    icon.className = 'fas fa-eye';
-                }
-            });
-
-            form.addEventListener('submit', async function (e) {
-                e.preventDefault();
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
-
-                const formData = new FormData(form);
-                const data = {};
-                formData.forEach(function (value, key) { 
-                    if (key === 'assignedLocations' || key === 'managedLocations') {
-                        if (!data[key]) data[key] = [];
-                        data[key].push(value);
-                    } else {
-                        data[key] = value; 
-                    }
-                });
-
-                try {
-                    const response = await fetch('/register-editor', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data)
+                        initStaffFilters();
+                        populateLegacyLocationOptions();
+                        initEditorTabButtons('editEditorTabs');
+                        initEditorTabButtons('addEditorTabs');
+                        initRoleCards('editRoleCards', 'editRole', applyEditSubEditorVisibility);
+                        initRoleCards('addRoleCards', 'addRole', applyAddSubEditorVisibility);
+                        initScopeCards('editScopeCards', 'editAllowedScopes');
+                        
+                        // Initialize location hierarchy for the registration form
+                        loadAddEditorLocationHierarchy();
+                        initScopeCards('addScopeCards', 'addAllowedScopes');
+                        buildLanguagePermissionUI('edit');
+                        buildLanguagePermissionUI('add');
+                        initApprovalScopeHandlers('edit');
+                        initApprovalScopeHandlers('add');
+                        
+                        const addNextBtn = document.getElementById('addNextBtn');
+                        if (addNextBtn) {
+                            addNextBtn.addEventListener('click', () => {
+                                const root = document.getElementById('addEditorTabs');
+                                if (!root) return;
+                                const tabs = Array.from(root.querySelectorAll('.editor-tab-btn'));
+                                const currentIdx = tabs.findIndex(btn => btn.classList.contains('active'));
+                                if (currentIdx !== -1 && currentIdx < tabs.length - 1) {
+                                    const nextTabId = tabs[currentIdx + 1].dataset.tab;
+                                    switchEditorTab('addEditorTabs', nextTabId);
+                                }
+                            });
+                        }
                     });
-                    const result = await response.json();
 
-                    if (response.ok) {
-                        alertContainer.innerHTML = '<div class="reg-alert reg-alert--success"><i class="fas fa-check-circle"></i><span>' + result.message + ' — ' + (result.editor.role === 'subeditor' ? 'Sub-Editor' : 'Reporter') + ' created! Redirecting...</span></div>';
-                        form.reset();
-                        roleCards.forEach(function (c) { c.classList.remove('is-selected'); });
-                        document.querySelector('.reg-role-card[data-role="editor"]').classList.add('is-selected');
-                        roleSelect.value = 'editor';
-                        updatePreview();
-                        setTimeout(function () { window.location.href = '/editors'; }, 1800);
-                    } else {
-                        alertContainer.innerHTML = '<div class="reg-alert reg-alert--error"><i class="fas fa-exclamation-circle"></i><span>' + (result.error || 'Registration failed') + '</span></div>';
+                    function initStaffFilters() {
+                        const searchInput = document.getElementById('staffSearchInput');
+                        const languageFilter = document.getElementById('staffLanguageFilter');
+                        const segments = document.querySelectorAll('.team-segment');
+                        const visibleCountEl = document.getElementById('teamVisibleCount');
+                        let activeRole = 'all';
+
+                        function applyStaffFilters() {
+                            const query = (searchInput?.value || '').trim().toLowerCase();
+                            const lang = languageFilter?.value || '';
+                            let visible = 0;
+
+                            document.querySelectorAll('.staff-row').forEach(row => {
+                                const role = row.dataset.role;
+                                const rowLang = row.dataset.language || '';
+                                const haystack = row.dataset.search || '';
+
+                                const roleMatch = activeRole === 'all' || role === activeRole;
+                                const searchMatch = !query || haystack.includes(query);
+                                const langMatch = !lang || (lang === '__unset__' ? !rowLang : rowLang === lang);
+                                const show = roleMatch && searchMatch && langMatch;
+
+                                row.style.display = show ? '' : 'none';
+                                if (show) visible += 1;
+                            });
+
+                            if (visibleCountEl) visibleCountEl.textContent = visible;
+                        }
+
+                        segments.forEach(segment => {
+                            segment.addEventListener('click', function () {
+                                segments.forEach(item => item.classList.remove('active'));
+                                segment.classList.add('active');
+                                activeRole = segment.dataset.staffFilter || 'all';
+                                applyStaffFilters();
+                            });
+                        });
+
+                        if (searchInput) searchInput.addEventListener('input', applyStaffFilters);
+                        if (languageFilter) languageFilter.addEventListener('change', applyStaffFilters);
+
+                        applyStaffFilters();
                     }
-                } catch (err) {
-                    alertContainer.innerHTML = '<div class="reg-alert reg-alert--error"><i class="fas fa-exclamation-circle"></i><span>An error occurred. Please try again.</span></div>';
-                } finally {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-user-plus"></i> Create team member';
-                }
-            });
 
-            updatePreview();
-            setupMobileMenu();
-        })();
+                    function showEditorInsightsById(id) {
+                        const editor = editors.find(e => e._id === id);
+                        if (!editor) {
+                            showFeedback('Editor data not found', 'error');
+                            return;
+                        }
+                        showEditorInsights(
+                            id,
+                            editor.name || editor.username,
+                            JSON.stringify(editor.newsStats?.monthlyTrend || [])
+                        );
+                    }
 
-        function setupMobileMenu() {
-            const menuToggle = document.getElementById('menuToggle');
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-            if (menuToggle && sidebar) {
-                menuToggle.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    sidebar.classList.toggle('active');
-                    mainContent.classList.toggle('sidebar-active');
-                });
+                    let currentReportEditorId = null;
+
+                    function showAdvancedReport(id) {
+                        currentReportEditorId = id;
+                        const modal = new bootstrap.Modal(document.getElementById('reporterReportModal'));
+                        
+                        // Reset modal UI
+                        document.getElementById('reportModalTitle').textContent = 'Loading...';
+                        document.getElementById('reportAccountCreated').textContent = '—';
+                        document.getElementById('reportFirstArticle').textContent = '—';
+                        document.getElementById('reportTotalArticles').textContent = '—';
+                        document.getElementById('reportTodayCount').textContent = '—';
+                        document.getElementById('reportYesterdayCount').textContent = '—';
+                        document.getElementById('reportTotalViews').textContent = '—';
+                        document.getElementById('reportApprovedCount').textContent = '—';
+                        document.getElementById('reportRejectedCount').textContent = '—';
+                        document.getElementById('reportTopCategories').innerHTML = '';
+                        document.getElementById('reportDateWiseBody').innerHTML = '<tr><td colspan="2" class="text-muted py-3">Select a date range or month to view data</td></tr>';
+                        document.getElementById('reportRangeTotal').textContent = 'Total: 0';
+                        document.getElementById('reportMonthFilter').value = '';
+                        document.getElementById('reportStartDate').value = '';
+                        document.getElementById('reportEndDate').value = '';
+
+                        modal.show();
+                        fetchEditorReportData(id);
+                    }
+
+                    function formatDateDDMMYYYY(dateStr) {
+                        if (!dateStr) return '—';
+                        const d = new Date(dateStr);
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const year = d.getFullYear();
+                        return `${day}-${month}-${year}`;
+                    }
+
+                    async function fetchEditorReportData(id, params = '') {
+                        try {
+                            const response = await fetch(`/admin/editors/${id}/report?${params}`);
+                            if (!response.ok) throw new Error('Failed to fetch report');
+                            
+                            const data = await response.json();
+                            
+                            document.getElementById('reportModalTitle').textContent = `${data.editor.name || data.editor.username} (${data.editor.role})`;
+                            document.getElementById('reportAccountCreated').textContent = data.editor.createdAt ? formatDateDDMMYYYY(data.editor.createdAt) : 'N/A';
+                            document.getElementById('reportFirstArticle').textContent = data.firstArticleDate ? formatDateDDMMYYYY(data.firstArticleDate) : 'No Articles Yet';
+                            
+                            document.getElementById('reportTotalArticles').textContent = data.totalArticles;
+                            document.getElementById('reportTodayCount').textContent = data.todayCount;
+                            document.getElementById('reportYesterdayCount').textContent = data.yesterdayCount;
+                            document.getElementById('reportTotalViews').textContent = data.totalViews || 0;
+                            document.getElementById('reportApprovedCount').textContent = data.approvedCount;
+                            document.getElementById('reportRejectedCount').textContent = data.rejectedCount;
+
+                            // Populate PDF template as well
+                            document.getElementById('pdfGeneratedDate').textContent = formatDateDDMMYYYY(new Date());
+                            document.getElementById('pdfEmpName').textContent = data.editor.name || data.editor.username;
+                            document.getElementById('pdfEmpRole').textContent = (data.editor.role).toUpperCase();
+                            document.getElementById('pdfEmpJoined').textContent = data.editor.createdAt ? formatDateDDMMYYYY(data.editor.createdAt) : 'N/A';
+                            document.getElementById('pdfEmpFirstArticle').textContent = data.firstArticleDate ? formatDateDDMMYYYY(data.firstArticleDate) : 'No Articles Yet';
+                            
+                            document.getElementById('pdfTotalArticles').textContent = data.totalArticles;
+                            document.getElementById('pdfTodayArticles').textContent = data.todayCount;
+                            document.getElementById('pdfYesterdayArticles').textContent = data.yesterdayCount;
+                            document.getElementById('pdfTotalViews').textContent = data.totalViews || 0;
+                            document.getElementById('pdfApproved').textContent = data.approvedCount;
+                            document.getElementById('pdfRejected').textContent = data.rejectedCount;
+
+                            const categoriesList = document.getElementById('reportTopCategories');
+                            const pdfCategoriesList = document.getElementById('pdfTopCategories');
+                            categoriesList.innerHTML = '';
+                            pdfCategoriesList.innerHTML = '';
+                            if (data.topCategories && data.topCategories.length > 0) {
+                                data.topCategories.forEach(cat => {
+                                    categoriesList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                                        ${cat.category || 'Uncategorized'}
+                                        <span class="badge bg-primary rounded-pill">${cat.count}</span>
+                                    </li>`;
+                                    pdfCategoriesList.innerHTML += `<tr>
+                                        <td style="padding: 10px; border-bottom: 1px solid #eee;">${cat.category || 'Uncategorized'}</td>
+                                        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">${cat.count}</td>
+                                    </tr>`;
+                                });
+                            } else {
+                                categoriesList.innerHTML = '<li class="list-group-item text-muted border-0 text-center py-3">No categories data</li>';
+                                pdfCategoriesList.innerHTML = '<tr><td style="padding: 10px; text-align: center; color: #666;" colspan="2">No categories data</td></tr>';
+                            }
+
+                            document.getElementById('pdfReportPeriod').textContent = params !== '' ? 'Custom Range' : 'All Time';
+                            const tbody = document.getElementById('reportDateWiseBody');
+                            const pdfTbody = document.getElementById('pdfBreakdownBody');
+                            
+                            if (params !== '') {
+                                // Render datewise data
+                                document.getElementById('reportRangeTotal').textContent = `Total: ${data.customRangeCount}`;
+                                tbody.innerHTML = '';
+                                pdfTbody.innerHTML = '';
+                                if (data.dateWiseData && data.dateWiseData.length > 0) {
+                                    data.dateWiseData.forEach(item => {
+                                        tbody.innerHTML += `<tr>
+                                            <td>${new Date(item.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                                            <td class="fw-bold text-primary">${item.count}</td>
+                                        </tr>`;
+                                        pdfTbody.innerHTML += `<tr>
+                                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;">${formatDateDDMMYYYY(item.date)}</td>
+                                            <td style="padding: 10px 15px; border: 1px solid #dee2e6; text-align: right; font-weight: bold;">${item.count}</td>
+                                        </tr>`;
+                                    });
+                                } else {
+                                    tbody.innerHTML = '<tr><td colspan="2" class="text-muted py-3">No articles found in this period</td></tr>';
+                                    pdfTbody.innerHTML = '<tr><td colspan="2" style="padding: 20px; text-align: center; color: #666; border: 1px solid #dee2e6;">No articles found in this period</td></tr>';
+                                }
+                                document.getElementById('pdfBreakdownSection').style.display = 'block';
+                            } else {
+                                document.getElementById('pdfBreakdownSection').style.display = 'none';
+                            }
+                        } catch (error) {
+                            console.error(error);
+                            showFeedback('Error fetching report data', 'error');
+                        }
+                    }
+
+                    document.addEventListener('DOMContentLoaded', () => {
+                        const filterForm = document.getElementById('reportFilterForm');
+                        if (filterForm) {
+                            filterForm.addEventListener('submit', (e) => {
+                                e.preventDefault();
+                                const month = document.getElementById('reportMonthFilter').value;
+                                const startDate = document.getElementById('reportStartDate').value;
+                                const endDate = document.getElementById('reportEndDate').value;
+
+                                let params = new URLSearchParams();
+                                if (month) params.append('month', month);
+                                else {
+                                    if (startDate) params.append('startDate', startDate);
+                                    if (endDate) params.append('endDate', endDate);
+                                }
+
+                                if (currentReportEditorId) {
+                                    fetchEditorReportData(currentReportEditorId, params.toString());
+                                }
+                            });
+                        }
+
+                        const btnDownloadPdf = document.getElementById('btnDownloadReportPdf');
+                        if (btnDownloadPdf) {
+                            btnDownloadPdf.addEventListener('click', async () => {
+                                const element = document.getElementById('pdfReportContent');
+                                
+                                // Temporarily move it on-screen for html2pdf (if needed) but keep it invisible
+                                const wrapper = document.getElementById('pdfReportTemplate');
+                                wrapper.style.position = 'absolute';
+                                wrapper.style.left = '0';
+                                wrapper.style.top = '0';
+                                wrapper.style.zIndex = '-1000';
+
+                                const name = document.getElementById('reportModalTitle').textContent.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                                const opt = {
+                                    margin:       0.4,
+                                    filename:     `${name}_performance_report.pdf`,
+                                    image:        { type: 'jpeg', quality: 0.98 },
+                                    html2canvas:  { scale: 2, useCORS: true, logging: false, scrollY: 0 },
+                                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' },
+                                    pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+                                };
+                                
+                                const originalText = btnDownloadPdf.innerHTML;
+                                btnDownloadPdf.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
+                                btnDownloadPdf.disabled = true;
+                                
+                                try {
+                                    await html2pdf().set(opt).from(element).save();
+                                } catch(err) {
+                                    console.error("PDF generation error:", err);
+                                    showFeedback('Failed to generate PDF', 'error');
+                                } finally {
+                                    wrapper.style.left = '-9999px';
+                                    wrapper.style.top = '-9999px';
+                                    btnDownloadPdf.innerHTML = originalText;
+                                    btnDownloadPdf.disabled = false;
+                                }
+                            });
+                        }
+                    });
+
+                    // ── Editor modal helpers (tabs, chips, scopes) ──
+                    let _editorHierarchy = null;
+
+                    function validateAddEditorTab(tabId) {
+                        let isValid = true;
+                        let firstErrorInput = null;
+
+                        function showError(inputId, message) {
+                            const input = document.getElementById(inputId);
+                            if (input) {
+                                input.classList.add('is-invalid');
+                                let err = input.nextElementSibling;
+                                if (!err || !err.classList.contains('invalid-feedback')) {
+                                    err = document.createElement('div');
+                                    err.className = 'invalid-feedback';
+                                    input.parentNode.appendChild(err);
+                                }
+                                err.textContent = message;
+                                err.style.display = 'block';
+                                if (!firstErrorInput) firstErrorInput = input;
+                                isValid = false;
+                                
+                                input.addEventListener('input', function() {
+                                    input.classList.remove('is-invalid');
+                                    if(err) err.style.display = 'none';
+                                }, {once: true});
+                            }
+                        }
+
+                        if (tabId === 'add-tab-account') {
+                            if (!document.getElementById('addUsername').value.trim()) showError('addUsername', 'Username is required');
+                            if (!document.getElementById('addEmail').value.trim()) showError('addEmail', 'Email is required');
+                            if (!document.getElementById('addPassword').value.trim()) showError('addPassword', 'Password is required');
+                        } else if (tabId === 'add-tab-profile') {
+                            if (!document.getElementById('addName').value.trim()) showError('addName', 'Full Name is required');
+                            if (!document.getElementById('addDisplayRole').value.trim()) showError('addDisplayRole', 'Display Role is required');
+                            if (!document.getElementById('addMobile').value.trim()) showError('addMobile', 'Mobile Number is required');
+                            if (!document.getElementById('addWorkingLanguage').value) showError('addWorkingLanguage', 'Language is required');
+                        } else if (tabId === 'add-tab-location') {
+                            if (!document.getElementById('addConstituency').value.trim()) showError('addConstituency', 'Primary Constituency is required');
+
+                            const roleType = document.getElementById('addRole').value;
+                            if (roleType === 'editor') {
+                                const scopes = document.getElementById('addAllowedScopes').options;
+                                let hasScope = false;
+                                for(let i=0; i<scopes.length; i++) if(scopes[i].selected) hasScope = true;
+                                if (!hasScope) {
+                                    if (typeof showFeedback === 'function') showFeedback('Please select at least one type of news they can write.', 'error');
+                                    isValid = false;
+                                }
+
+                                const states = document.getElementById('addAssignedStates').options;
+                                let hasState = false;
+                                for(let i=0; i<states.length; i++) if(states[i].selected) hasState = true;
+                                if (!hasState) {
+                                    if (typeof showFeedback === 'function') showFeedback('Please select at least one state.', 'error');
+                                    isValid = false;
+                                }
+                            }
+                        }
+
+                        if (firstErrorInput) firstErrorInput.focus();
+                        return isValid;
+                    }
+
+                    function switchEditorTab(tabsRootId, panelId) {
+                        const root = document.getElementById(tabsRootId);
+                        if (!root) return;
+                        
+                        // Validation only for Add Admin flow
+                        if (tabsRootId === 'addEditorTabs') {
+                            const modalContent = root.closest('.editor-page-container');
+                            if (modalContent) {
+                                const activePanel = modalContent.querySelector('.editor-tab-panel.active');
+                                // Only validate if moving FORWARD or trying to switch away from a tab
+                                // Note: A simple approach is just validating the current tab before allowing any switch
+                                if (activePanel && activePanel.id !== panelId) {
+                                    // If we are moving to an earlier tab (e.g. from 3 back to 1), maybe we shouldn't block?
+                                    // But user asked: "next కొట్టేటప్పుడు ఆ ఫీల్డ్ లేకపోతే ఎర్రర్ చూపించి ఆ ఫీల్డ్ వరకు డిస్ప్లే చేయాలి"
+                                    // Let's check tab index to see if it's forward.
+                                    const tabs = Array.from(root.querySelectorAll('.editor-tab-btn'));
+                                    const currentIdx = tabs.findIndex(btn => btn.classList.contains('active'));
+                                    const targetIdx = tabs.findIndex(btn => btn.dataset.tab === panelId);
+                                    
+                                    if (targetIdx > currentIdx) {
+                                        if (!validateAddEditorTab(activePanel.id)) {
+                                            return; // Stop tab switch if validation fails
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        root.querySelectorAll('.editor-tab-btn').forEach(btn => {
+                            btn.classList.toggle('active', btn.dataset.tab === panelId);
+                        });
+                        const modalContent = root.closest('.editor-page-container');
+                        if (modalContent) {
+                            modalContent.querySelectorAll('.editor-tab-panel').forEach(p => {
+                                p.classList.toggle('active', p.id === panelId);
+                            });
+                            const tabBody = modalContent.querySelector('.editor-tab-body');
+                            if (tabBody) tabBody.scrollTop = 0;
+                        }
+
+                        if (tabsRootId === 'addEditorTabs') {
+                            const addNextBtn = document.getElementById('addNextBtn');
+                            const addSubmitBtn = document.getElementById('addSubmitBtn');
+                            if (addNextBtn && addSubmitBtn) {
+                                if (panelId === 'add-tab-perms') {
+                                    addNextBtn.style.display = 'none';
+                                    addSubmitBtn.style.display = 'inline-block';
+                                } else {
+                                    addNextBtn.style.display = 'inline-block';
+                                    addSubmitBtn.style.display = 'none';
+                                }
+                            }
+                        }
+                    }
+
+                    function initEditorTabButtons(tabsRootId) {
+                        const root = document.getElementById(tabsRootId);
+                        if (!root || root.dataset.bound) return;
+                        root.dataset.bound = '1';
+                        root.querySelectorAll('.editor-tab-btn').forEach(btn => {
+                            btn.addEventListener('click', () => switchEditorTab(tabsRootId, btn.dataset.tab));
+                        });
+                    }
+
+                    function initRoleCards(cardsId, hiddenSelectId, onChange) {
+                        const cards = document.getElementById(cardsId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!cards || !sel || cards.dataset.bound) return;
+                        cards.dataset.bound = '1';
+                        cards.querySelectorAll('.editor-role-card').forEach(card => {
+                            card.addEventListener('click', () => {
+                                cards.querySelectorAll('.editor-role-card').forEach(c => c.classList.remove('selected'));
+                                card.classList.add('selected');
+                                sel.value = card.dataset.role;
+                                sel.dispatchEvent(new Event('change'));
+                                if (onChange) onChange(sel.value);
+                            });
+                        });
+                    }
+
+                    function setRoleCards(cardsId, role) {
+                        const cards = document.getElementById(cardsId);
+                        if (!cards) return;
+                        cards.querySelectorAll('.editor-role-card').forEach(c => {
+                            c.classList.toggle('selected', c.dataset.role === role);
+                        });
+                    }
+
+                    function initScopeCards(cardsId, hiddenSelectId) {
+                        const row = document.getElementById(cardsId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!row || !sel || row.dataset.bound) return;
+                        row.dataset.bound = '1';
+                        row.querySelectorAll('.editor-scope-card').forEach(card => {
+                            card.addEventListener('click', () => {
+                                card.classList.toggle('selected');
+                                const scope = card.dataset.scope;
+                                const opt = Array.from(sel.options).find(o => o.value === scope);
+                                if (opt) opt.selected = card.classList.contains('selected');
+                            });
+                        });
+                    }
+
+                    function syncScopeCardsFromSelect(cardsId, hiddenSelectId) {
+                        const row = document.getElementById(cardsId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!row || !sel) return;
+                        const selected = new Set(Array.from(sel.selectedOptions).map(o => o.value));
+                        row.querySelectorAll('.editor-scope-card').forEach(card => {
+                            card.classList.toggle('selected', selected.has(card.dataset.scope));
+                        });
+                    }
+
+                    function buildLanguagePermissionUI(prefix) {
+                        const sel = document.getElementById(prefix + 'AllowedLanguages');
+                        const row = document.getElementById(prefix + 'LangCards');
+                        if (!sel || !row) return;
+
+                        sel.innerHTML = '<option value="all">all</option>' +
+                            _activeLanguages.map(l => `<option value="${l.code}">${l.name || l.code}</option>`).join('');
+
+                        row.innerHTML =
+                            '<div class="editor-scope-card" data-lang="all"><strong>All Languages</strong><div class="te">Post in any active language</div></div>' +
+                            _activeLanguages.map(l =>
+                                `<div class="editor-scope-card" data-lang="${l.code}"><strong>${l.name || l.code}</strong></div>`
+                            ).join('');
+
+                        initLangCards(prefix + 'LangCards', prefix + 'AllowedLanguages');
+                    }
+
+                    function initLangCards(cardsId, hiddenSelectId) {
+                        const row = document.getElementById(cardsId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!row || !sel || row.dataset.langBound) return;
+                        row.dataset.langBound = '1';
+
+                        row.querySelectorAll('.editor-scope-card').forEach(card => {
+                            card.addEventListener('click', () => {
+                                const lang = card.dataset.lang;
+                                if (lang === 'all') {
+                                    Array.from(sel.options).forEach(opt => { opt.selected = opt.value === 'all'; });
+                                } else {
+                                    const allOpt = Array.from(sel.options).find(o => o.value === 'all');
+                                    if (allOpt) allOpt.selected = false;
+                                    const opt = Array.from(sel.options).find(o => o.value === lang);
+                                    if (opt) opt.selected = !opt.selected;
+                                }
+                                syncLangCardsFromSelect(cardsId, hiddenSelectId);
+                            });
+                        });
+                    }
+
+                    function syncLangCardsFromSelect(cardsId, hiddenSelectId) {
+                        const row = document.getElementById(cardsId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!row || !sel) return;
+                        const selected = new Set(Array.from(sel.selectedOptions).map(o => o.value));
+                        row.querySelectorAll('.editor-scope-card').forEach(card => {
+                            card.classList.toggle('selected', selected.has(card.dataset.lang));
+                        });
+                    }
+
+                    function loadAllowedLanguages(prefix, editor) {
+                        const sel = document.getElementById(prefix + 'AllowedLanguages');
+                        if (!sel) return;
+                        Array.from(sel.options).forEach(opt => { opt.selected = false; });
+
+                        const allowed = editor?.allowedLanguages || [];
+                        if (allowed.includes('all')) {
+                            const allOpt = sel.querySelector('option[value="all"]');
+                            if (allOpt) allOpt.selected = true;
+                        } else if (allowed.length) {
+                            allowed.forEach(code => {
+                                const opt = sel.querySelector(`option[value="${code}"]`);
+                                if (opt) opt.selected = true;
+                            });
+                        } else if (editor?.workingLanguage) {
+                            const opt = sel.querySelector(`option[value="${editor.workingLanguage}"]`);
+                            if (opt) opt.selected = true;
+                        }
+
+                        syncLangCardsFromSelect(prefix + 'LangCards', prefix + 'AllowedLanguages');
+                    }
+
+                    function getSelectedFromHidden(selectId) {
+                        const sel = document.getElementById(selectId);
+                        if (!sel) return [];
+                        return Array.from(sel.selectedOptions).map(o => o.value).filter(Boolean);
+                    }
+
+                    function renderChipGrid(gridId, hiddenSelectId, items, selectedNames, emptyMsg, onChange) {
+                        const grid = document.getElementById(gridId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        if (!grid || !sel) return;
+                        const selected = new Set(selectedNames || []);
+                        sel.innerHTML = '';
+
+                        const wrap = grid.closest('.editor-chip-wrap');
+                        if (wrap) {
+                            const oldToolbar = wrap.querySelector('.editor-chip-toolbar');
+                            if (oldToolbar) oldToolbar.remove();
+                        }
+                        grid.innerHTML = '';
+
+                        if (!items || !items.length) {
+                            grid.innerHTML = `<span class="text-muted small">${emptyMsg}</span>`;
+                            return;
+                        }
+
+                        const itemNames = [];
+                        items.forEach(item => {
+                            const name = typeof item === 'string' ? item : item.name;
+                            itemNames.push(name);
+                            const label = typeof item === 'string' ? item : (item.localName ? `${item.name} (${item.localName})` : item.name);
+                            const opt = document.createElement('option');
+                            opt.value = name;
+                            opt.textContent = label;
+                            opt.selected = selected.has(name);
+                            sel.appendChild(opt);
+
+                            const chip = document.createElement('label');
+                            chip.className = 'editor-chip' + (selected.has(name) ? ' selected' : '');
+                            chip.dataset.name = name;
+                            chip.innerHTML = `<input type="checkbox" value="${name}" ${selected.has(name) ? 'checked' : ''}>${label}`;
+                            chip.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                chip.classList.toggle('selected');
+                                const cb = chip.querySelector('input');
+                                cb.checked = chip.classList.contains('selected');
+                                const o = Array.from(sel.options).find(x => x.value === name);
+                                if (o) o.selected = cb.checked;
+                                updateChipCount(grid, sel);
+                                if (onChange) onChange();
+                            });
+                            grid.appendChild(chip);
+                        });
+
+                        if (wrap && items.length > 1) {
+                            const toolbar = document.createElement('div');
+                            toolbar.className = 'editor-chip-toolbar';
+                            const selCount = Array.from(sel.selectedOptions).length;
+                            toolbar.innerHTML = `
+                                <span><span class="chip-count">${selCount}</span> of ${items.length} selected</span>
+                                <span class="chip-actions">
+                                    <button type="button" class="chip-action-btn chip-select-all">Select All</button>
+                                    <button type="button" class="chip-action-btn chip-deselect-all">Clear All</button>
+                                </span>`;
+                            toolbar.querySelector('.chip-select-all').addEventListener('click', () => {
+                                grid.querySelectorAll('.editor-chip').forEach(c => {
+                                    c.classList.add('selected');
+                                    c.querySelector('input').checked = true;
+                                });
+                                Array.from(sel.options).forEach(o => { o.selected = true; });
+                                updateChipCount(grid, sel);
+                                if (onChange) onChange();
+                            });
+                            toolbar.querySelector('.chip-deselect-all').addEventListener('click', () => {
+                                grid.querySelectorAll('.editor-chip').forEach(c => {
+                                    c.classList.remove('selected');
+                                    c.querySelector('input').checked = false;
+                                });
+                                Array.from(sel.options).forEach(o => { o.selected = false; });
+                                updateChipCount(grid, sel);
+                                if (onChange) onChange();
+                            });
+                            wrap.insertBefore(toolbar, grid);
+                        }
+                    }
+
+                    function updateChipCount(grid, sel) {
+                        const wrap = grid.closest('.editor-chip-wrap');
+                        if (!wrap) return;
+                        const toolbar = wrap.querySelector('.editor-chip-toolbar');
+                        if (!toolbar) return;
+                        const countEl = toolbar.querySelector('.chip-count');
+                        if (countEl) countEl.textContent = Array.from(sel.selectedOptions).length;
+                    }
+
+                    function getDistrictsForStates(stateNames) {
+                        if (!_editorHierarchy || !stateNames?.length) return [];
+                        const districts = [];
+                        stateNames.forEach(sn => {
+                            const st = _editorHierarchy.find(s => s.name === sn);
+                            if (st?.districts) districts.push(...st.districts);
+                        });
+                        return districts.sort((a, b) => a.name.localeCompare(b.name));
+                    }
+
+                    function getConstituenciesForDistricts(districtNames) {
+                        if (!_editorHierarchy || !districtNames?.length) return [];
+                        const list = [];
+                        _editorHierarchy.forEach(st => {
+                            (st.districts || []).forEach(d => {
+                                if (districtNames.includes(d.name) && d.constituencies?.length) {
+                                    list.push(...d.constituencies);
+                                }
+                            });
+                        });
+                        return list.sort((a, b) => a.name.localeCompare(b.name));
+                    }
+
+                    function refreshReporterLocation(prefix) {
+                        const states = getSelectedFromHidden(prefix + 'AssignedStates');
+                        const districts = getSelectedFromHidden(prefix + 'AssignedDistricts');
+                        renderChipGrid(prefix + 'StateChips', prefix + 'AssignedStates',
+                            (_editorHierarchy || []).map(s => s), states, 'No states found', () => refreshReporterLocation(prefix));
+                        
+                        const distEmptyMsg = states.length ? 'No districts found' : 'Select at least one state';
+                        renderChipGrid(prefix + 'DistrictChips', prefix + 'AssignedDistricts',
+                            getDistrictsForStates(states),
+                            districts, distEmptyMsg, () => refreshReporterLocation(prefix));
+                        
+                        const validDistricts = getSelectedFromHidden(prefix + 'AssignedDistricts');
+                        const constEmptyMsg = validDistricts.length ? 'No constituencies found (optional)' : 'Select districts first (optional)';
+                        renderChipGrid(prefix + 'ConstituencyChips', prefix + 'AssignedConstituencies',
+                            getConstituenciesForDistricts(validDistricts),
+                            getSelectedFromHidden(prefix + 'AssignedConstituencies'),
+                            constEmptyMsg);
+                    }
+
+                    function refreshManagedGeography(prefix) {
+                        const states = getSelectedFromHidden(prefix + 'ManagedStates');
+                        renderChipGrid(prefix + 'ManagedStateChips', prefix + 'ManagedStates',
+                            (_editorHierarchy || []).map(s => s), states, 'No states', () => refreshManagedGeography(prefix));
+                            
+                        const distEmptyMsg = states.length ? 'No districts found' : 'Select managed states';
+                        renderChipGrid(prefix + 'ManagedDistrictChips', prefix + 'ManagedDistricts',
+                            getDistrictsForStates(states),
+                            getSelectedFromHidden(prefix + 'ManagedDistricts'), distEmptyMsg, () => refreshManagedGeography(prefix));
+                            
+                        const validDistricts = getSelectedFromHidden(prefix + 'ManagedDistricts');
+                        const constEmptyMsg = validDistricts.length ? 'No constituencies found (optional)' : 'Select managed districts (optional)';
+                        renderChipGrid(prefix + 'ManagedConstituencyChips', prefix + 'ManagedConstituencies',
+                            getConstituenciesForDistricts(validDistricts),
+                            getSelectedFromHidden(prefix + 'ManagedConstituencies'), constEmptyMsg);
+                    }
+
+                    function getReporterList() {
+                        return (editors || []).filter(e => e.role === 'editor');
+                    }
+
+                    function renderReporterPicker(listId, hiddenSelectId, searchId, selectedIds) {
+                        const listEl = document.getElementById(listId);
+                        const sel = document.getElementById(hiddenSelectId);
+                        const searchEl = searchId ? document.getElementById(searchId) : null;
+                        if (!listEl || !sel) return;
+                        const selected = new Set((selectedIds || []).map(String));
+                        const q = (searchEl?.value || '').trim().toLowerCase();
+
+                        sel.innerHTML = '';
+                        listEl.innerHTML = '';
+                        const reporters = getReporterList().filter(r => {
+                            if (!q) return true;
+                            const hay = [r.name, r.username, r.location, ...(r.assignedDistricts || []), ...(r.assignedStates || []), r.constituency].join(' ').toLowerCase();
+                            return hay.includes(q);
+                        });
+
+                        if (!reporters.length) {
+                            listEl.innerHTML = '<span class="text-muted small">No reporters found</span>';
+                            return;
+                        }
+
+                        reporters.forEach(r => {
+                            const id = r._id;
+                            const opt = document.createElement('option');
+                            opt.value = id;
+                            opt.selected = selected.has(String(id));
+                            sel.appendChild(opt);
+
+                            const districts = (r.assignedDistricts || []).slice(0, 2).join(', ') || r.location || '—';
+                            const row = document.createElement('label');
+                            row.className = 'd-flex align-items-start gap-2 mb-2';
+                            row.style.cursor = 'pointer';
+                            row.innerHTML = `<input type="checkbox" class="form-check-input mt-1" value="${id}" ${selected.has(String(id)) ? 'checked' : ''}>
+                                <span><strong>${r.name || r.username}</strong><br><small class="text-muted">${districts}</small></span>`;
+                            row.querySelector('input').addEventListener('change', (e) => {
+                                const o = Array.from(sel.options).find(x => x.value === id);
+                                if (o) o.selected = e.target.checked;
+                            });
+                            listEl.appendChild(row);
+                        });
+                    }
+
+                    function syncApprovalScopeUI(prefix) {
+                        const scopeEl = document.getElementById(prefix + 'ApprovalScope');
+                        if (!scopeEl) return;
+                        let scope = scopeEl.value;
+                        if (scope === 'locations') scope = 'geography';
+                        const geo = document.getElementById(prefix + 'ManagedGeographyWrapper');
+                        const reps = document.getElementById(prefix + 'ManagedReportersWrapper');
+                        if (geo) geo.style.display = scope === 'geography' ? 'block' : 'none';
+                        if (reps) reps.style.display = scope === 'reporters' ? 'block' : 'none';
+                        if (scope === 'geography') refreshManagedGeography(prefix);
+                        if (scope === 'reporters') renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', getSelectedFromHidden(prefix + 'ManagedReporterIds'));
+                    }
+
+                    function syncApprovalScopeSectionVisibility(prefix) {
+                        const isEdit = prefix === 'edit';
+                        const approveCb = document.getElementById(isEdit ? 'editCanApproveNews' : 'addCanApproveNews');
+                        const checked = !!(approveCb && approveCb.checked);
+
+                        if (isEdit) {
+                            const wrap = document.getElementById('editManagedLocationsWrapper');
+                            if (wrap) wrap.style.display = checked ? 'block' : 'none';
+                        } else {
+                            const scopeWrap = document.getElementById('addApprovalScopeWrapper');
+                            const geo = document.getElementById('addManagedGeographyWrapper');
+                            const reps = document.getElementById('addManagedReportersWrapper');
+                            if (!checked) {
+                                if (scopeWrap) scopeWrap.style.display = 'none';
+                                if (geo) geo.style.display = 'none';
+                                if (reps) reps.style.display = 'none';
+                            } else {
+                                if (scopeWrap) scopeWrap.style.display = 'block';
+                            }
+                        }
+
+                        if (checked) syncApprovalScopeUI(prefix);
+                    }
+
+                    function initApprovalScopeHandlers(prefix) {
+                        const scopeEl = document.getElementById(prefix + 'ApprovalScope');
+                        if (scopeEl && !scopeEl.dataset.bound) {
+                            scopeEl.dataset.bound = '1';
+                            scopeEl.addEventListener('change', () => syncApprovalScopeUI(prefix));
+                        }
+                        const searchEl = document.getElementById(prefix + 'ReporterSearch');
+                        if (searchEl && !searchEl.dataset.bound) {
+                            searchEl.dataset.bound = '1';
+                            searchEl.addEventListener('input', () => renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', getSelectedFromHidden(prefix + 'ManagedReporterIds')));
+                        }
+                        const approveCb = document.getElementById(prefix === 'edit' ? 'editCanApproveNews' : 'addCanApproveNews');
+                        if (approveCb && !approveCb.dataset.coverageBound) {
+                            approveCb.dataset.coverageBound = '1';
+                            approveCb.addEventListener('change', () => syncApprovalScopeSectionVisibility(prefix));
+                        }
+                    }
+
+                    function renderDistrictChips(gridId, hiddenSelectId, districts, selectedNames) {
+                        renderChipGrid(gridId, hiddenSelectId, districts, selectedNames, 'No districts found for this state');
+                    }
+
+                    function loadReporterCoverage(prefix, editor) {
+                        const states = editor?.assignedStates?.length ? editor.assignedStates : (editor?.assignedState ? [editor.assignedState] : []);
+                        renderChipGrid(prefix + 'StateChips', prefix + 'AssignedStates', (_editorHierarchy || []).map(s => s), states, 'No states', () => refreshReporterLocation(prefix));
+                        
+                        const districts = editor?.assignedDistricts || [];
+                        const consts = editor?.assignedConstituencies || [];
+                        
+                        const distEmptyMsg = states.length ? 'No districts found' : 'Select states';
+                        renderChipGrid(prefix + 'DistrictChips', prefix + 'AssignedDistricts', getDistrictsForStates(states), districts, distEmptyMsg, () => refreshReporterLocation(prefix));
+                        
+                        const constEmptyMsg = districts.length ? 'No constituencies found (optional)' : 'Optional';
+                        renderChipGrid(prefix + 'ConstituencyChips', prefix + 'AssignedConstituencies', getConstituenciesForDistricts(districts), consts, constEmptyMsg);
+                    }
+
+                    function loadManagedCoverage(prefix, permissions) {
+                        const perms = permissions || {};
+                        let scope = perms.approvalScope || 'reporters';
+                        if (scope === 'locations') scope = 'geography';
+                        const scopeEl = document.getElementById(prefix + 'ApprovalScope');
+                        if (scopeEl) scopeEl.value = scope;
+                        
+                        const geo = document.getElementById(prefix + 'ManagedGeographyWrapper');
+                        const reps = document.getElementById(prefix + 'ManagedReportersWrapper');
+                        if (geo) geo.style.display = scope === 'geography' ? 'block' : 'none';
+                        if (reps) reps.style.display = scope === 'reporters' ? 'block' : 'none';
+
+                        const mStates = perms.managedStates || [];
+                        const mDistricts = perms.managedDistricts || [];
+                        const mConst = perms.managedConstituencies || [];
+                        
+                        renderChipGrid(prefix + 'ManagedStateChips', prefix + 'ManagedStates', (_editorHierarchy || []).map(s => s), mStates, 'No states', () => refreshManagedGeography(prefix));
+                        
+                        const distEmptyMsg = mStates.length ? 'No districts found' : 'Select states';
+                        renderChipGrid(prefix + 'ManagedDistrictChips', prefix + 'ManagedDistricts', getDistrictsForStates(mStates), mDistricts, distEmptyMsg, () => refreshManagedGeography(prefix));
+                        
+                        const constEmptyMsg = mDistricts.length ? 'No constituencies found (optional)' : 'Optional';
+                        renderChipGrid(prefix + 'ManagedConstituencyChips', prefix + 'ManagedConstituencies', getConstituenciesForDistricts(mDistricts), mConst, constEmptyMsg);
+                        
+                        renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', perms.managedReporterIds || []);
+                        syncApprovalScopeUI(prefix);
+                    }
+
+                    async function loadEditorLocationHierarchy(editor) {
+                        await ensureEditorHierarchy();
+                        loadReporterCoverage('edit', editor);
+                        const scopesEl = document.getElementById('editAllowedScopes');
+                        Array.from(scopesEl.options).forEach(opt => { opt.selected = false; });
+                        if (editor?.allowedScopes?.length) {
+                            Array.from(scopesEl.options).forEach(opt => {
+                                opt.selected = editor.allowedScopes.includes(opt.value);
+                            });
+                        }
+                        syncScopeCardsFromSelect('editScopeCards', 'editAllowedScopes');
+                    }
+
+                    async function loadAddEditorLocationHierarchy() {
+                        await ensureEditorHierarchy();
+                        loadReporterCoverage('add', null);
+                        const scopesEl = document.getElementById('addAllowedScopes');
+                        Array.from(scopesEl.options).forEach(opt => { opt.selected = false; });
+                        syncScopeCardsFromSelect('addScopeCards', 'addAllowedScopes');
+                        refreshManagedGeography('add');
+                    }
+
+                    function collectCoveragePayload(prefix) {
+                        return {
+                            assignedStates: getSelectedFromHidden(prefix + 'AssignedStates'),
+                            assignedDistricts: getSelectedFromHidden(prefix + 'AssignedDistricts'),
+                            assignedConstituencies: getSelectedFromHidden(prefix + 'AssignedConstituencies'),
+                            managedStates: getSelectedFromHidden(prefix + 'ManagedStates'),
+                            managedDistricts: getSelectedFromHidden(prefix + 'ManagedDistricts'),
+                            managedConstituencies: getSelectedFromHidden(prefix + 'ManagedConstituencies'),
+                            managedReporterIds: getSelectedFromHidden(prefix + 'ManagedReporterIds')
+                        };
+                    }
+
+                    function populateLegacyLocationOptions() {
+                        const selectEl = document.getElementById('editAssignedLocations');
+                        if (!selectEl || selectEl.dataset.populated) return;
+                        selectEl.dataset.populated = '1';
+                        selectEl.innerHTML = '';
+                        <% if (typeof locations !== 'undefined' && locations.length) { %>
+                        <% locations.forEach(function(loc) { %>
+                        (function () {
+                            const opt = document.createElement('option');
+                            opt.value = <%- JSON.stringify(loc.name) %>;
+                            opt.textContent = <%- JSON.stringify(loc.name) %>;
+                            selectEl.appendChild(opt);
+                        })();
+                        <% }); %>
+                        <% } %>
+                    }
+
+                    function applyRoleSections(modalRoot, isSub) {
+                        if (!modalRoot) return;
+                        modalRoot.querySelectorAll('.reporter-only-section').forEach(el => {
+                            el.classList.toggle('role-hidden', isSub);
+                        });
+                        modalRoot.querySelectorAll('.subeditor-only-section').forEach(el => {
+                            el.classList.toggle('role-hidden', !isSub);
+                        });
+                    }
+
+                    function applyEditSubEditorVisibility(role) {
+                        const isSub = role === 'subeditor';
+                        const modal = document.getElementById('editEditorModal');
+
+                        applyRoleSections(modal, isSub);
+
+                        const permsTab = document.getElementById('editTabPermsBtn');
+                        if (permsTab) {
+                            permsTab.textContent = isSub ? '🔐 4. Permissions' : '✅ 4. Permissions';
+                        }
+
+                        const permsNote = document.getElementById('editPermsReporterNote');
+                        const subBlock = document.getElementById('editSubEditorPermsBlock');
+                        if (permsNote) permsNote.classList.toggle('role-hidden', isSub);
+                        if (subBlock) subBlock.classList.toggle('role-hidden', !isSub);
+
+                        const managedLocWrapper = document.getElementById('editManagedLocationsWrapper');
+                        const approveChecked = document.getElementById('editCanApproveNews')?.checked;
+                        if (managedLocWrapper) {
+                            managedLocWrapper.style.display = (isSub && approveChecked) ? 'block' : 'none';
+                        }
+                        if (!isSub) {
+                            ['editCanAccessAdminDashboard', 'editCanViewReporterDetails', 'editCanApproveNews', 'editCanViewAllNews',
+                             'editCanSendNotifications', 'editCanEditNews', 'editRequiresSourceLink'].forEach(id => {
+                                const el = document.getElementById(id);
+                                if (el) el.checked = false;
+                            });
+                        }
+                    }
+
+                    function applyAddSubEditorVisibility(role) {
+                        const isSub = role === 'subeditor';
+                        const modal = document.getElementById('addEditorModal');
+
+                        applyRoleSections(modal, isSub);
+
+                        const permsTab = document.getElementById('addTabPermsBtn');
+                        if (permsTab) {
+                            permsTab.textContent = isSub ? '🔐 4. Permissions' : '✅ 4. Permissions';
+                        }
+
+                        const subPerms = document.getElementById('addSubEditorPerms');
+                        const repNote = document.getElementById('addReporterNote');
+                        if (subPerms) subPerms.style.display = isSub ? 'block' : 'none';
+                        if (repNote) repNote.style.display = isSub ? 'none' : 'block';
+                        const approveWrap = document.getElementById('addApprovalScopeWrapper');
+                        const approveChecked = document.getElementById('addCanApproveNews')?.checked;
+                        if (isSub && approveChecked) {
+                            syncApprovalScopeSectionVisibility('add');
+                        } else {
+                            if (approveWrap) approveWrap.style.display = 'none';
+                            ['addManagedGeographyWrapper', 'addManagedReportersWrapper'].forEach(id => {
+                                const el = document.getElementById(id);
+                                if (el) el.style.display = 'none';
+                            });
+                        }
+                    }
+
+                    async function ensureEditorHierarchy() {
+                        if (!_editorHierarchy) {
+                            try {
+                                const resp = await fetch('/api/public/location-hierarchy');
+                                _editorHierarchy = await resp.json();
+                            } catch (e) {
+                                console.error('Failed to load hierarchy:', e);
+                                _editorHierarchy = [];
+                            }
+                        }
+                        return _editorHierarchy;
+                    }
+
+                    function openAddEditorModal() {
+                        document.getElementById('addEditorForm').reset();
+                        document.getElementById('addRole').value = 'editor';
+                        setRoleCards('addRoleCards', 'editor');
+                        applyAddSubEditorVisibility('editor');
+                        switchEditorTab('addEditorTabs', 'add-tab-account');
+                        loadAddEditorLocationHierarchy();
+                        refreshManagedGeography('add');
+                        new bootstrap.Modal(document.getElementById('addEditorModal')).show();
+                    }
+
+                    // Open Edit Modal
+                    function openEditEditorModal(editorId) {
+                        populateLegacyLocationOptions();
+                        const editor = editors.find(e => e._id === editorId);
+                        if (!editor) {
+                            showFeedback('Editor data not found', 'error');
+                            return;
+                        }
+
+                        document.getElementById('editEditorId').value = editor._id;
+                        document.getElementById('editProfileImageUrl').value = editor.profileImage || '';
+                        document.getElementById('editModalSubtitle').textContent = (editor.username || '') + ' — ' + (editor.email || '');
+
+                        if (editor.profileImage) {
+                            document.getElementById('editProfilePreview').src = editor.profileImage;
+                        } else {
+                            document.getElementById('editProfilePreview').src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2394a3b8"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
+                        }
+
+                        document.getElementById('editName').value = editor.name || '';
+                        const editUsernameEl = document.getElementById('editUsername');
+                        const editUsernameWrap = document.getElementById('editUsernameFieldWrap');
+                        const currentAdminRole = '<%= admin.role %>';
+                        const isSuperAdmin = currentAdminRole === 'superadmin';
+                        if (editUsernameWrap) {
+                            editUsernameWrap.style.display = isSuperAdmin ? '' : 'none';
+                        }
+                        if (editUsernameEl) {
+                            editUsernameEl.value = editor.username || '';
+                            editUsernameEl.disabled = !isSuperAdmin;
+                        }
+                        const role = editor.role || 'editor';
+                        document.getElementById('editRole').value = role;
+                        setRoleCards('editRoleCards', role);
+                        applyEditSubEditorVisibility(role);
+
+                        document.getElementById('editDisplayRole').value = editor.displayRole || '';
+                        const assignedLocations = editor.assignedLocations || (editor.location ? [editor.location] : []);
+                        const selectEl = document.getElementById('editAssignedLocations');
+                        Array.from(selectEl.options).forEach(opt => {
+                            opt.selected = assignedLocations.includes(opt.value);
+                        });
+
+                        loadEditorLocationHierarchy(editor);
+
+                        document.getElementById('editWorkingLanguage').value = editor.workingLanguage || 'te';
+                        document.getElementById('editConstituency').value = editor.constituency || '';
+                        document.getElementById('editMobile').value = editor.mobileNumber || '';
+
+                        const displaySettings = editor.displaySettings || { showProfileImage: true, showName: true, showConstituency: true };
+                        document.getElementById('editShowProfileImage').checked = displaySettings.showProfileImage !== false;
+                        document.getElementById('editShowName').checked = displaySettings.showName !== false;
+                        document.getElementById('editShowConstituency').checked = displaySettings.showConstituency !== false;
+
+                        const permissions = editor.permissions || {};
+                        document.getElementById('editCanViewReporterDetails').checked = permissions.canViewReporterDetails === true;
+                        document.getElementById('editCanAccessAdminDashboard').checked = permissions.canAccessAdminDashboard === true;
+                        document.getElementById('editCanApproveNews').checked = permissions.canApproveNews === true;
+                        document.getElementById('editCanViewAllNews').checked = permissions.canViewAllNews === true;
+                        document.getElementById('editCanSendNotifications').checked = permissions.canSendNotifications === true;
+                        document.getElementById('editCanEditNews').checked = permissions.canEditNews === true;
+                        document.getElementById('editRequiresSourceLink').checked = permissions.requiresSourceLink === true;
+                        // Default ON: only unchecked when super admin explicitly disabled it.
+                        document.getElementById('editAiCheckEnabled').checked = permissions.aiCheckEnabled !== false;
+
+                        const sidebarPerms = permissions.sidebar || {};
+                        document.querySelectorAll('#editEditorModal .sidebar-menu-cb').forEach(cb => {
+                            const menu = cb.getAttribute('data-menu');
+                            const optIn = cb.getAttribute('data-opt-in') === 'true';
+                            cb.checked = optIn ? sidebarPerms[menu] === true : sidebarPerms[menu] !== false;
+                        });
+
+                        const walletConfig = editor.walletConfig || {};
+                        document.getElementById('editWalletEnabled').checked = walletConfig.enabled === true;
+                        document.getElementById('editWalletDailyTarget').value = walletConfig.dailyTargetNews || '';
+                        document.getElementById('editWalletDailyReward').value = walletConfig.dailyRewardAmount || '';
+
+                        document.getElementById('editApprovalScope').value = (permissions.approvalScope === 'locations') ? 'geography' : (permissions.approvalScope || 'reporters');
+                        loadManagedCoverage('edit', permissions);
+                        loadAllowedLanguages('edit', editor);
+                        syncApprovalScopeSectionVisibility('edit');
+
+                        const adminSection = document.getElementById('adminSettingsSection');
+                        if (adminSection) adminSection.style.display = (currentAdminRole === 'superadmin' || currentAdminRole === 'admin') ? 'block' : 'none';
+
+                        switchEditorTab('editEditorTabs', 'edit-tab-profile');
+                        new bootstrap.Modal(document.getElementById('editEditorModal')).show();
+                    }
+
+                    document.getElementById('editRole').addEventListener('change', function () {
+                        applyEditSubEditorVisibility(this.value);
+                    });
+
+                    document.getElementById('editCanApproveNews').addEventListener('change', function () {
+                        syncApprovalScopeSectionVisibility('edit');
+                    });
+
+                    const editFormEl = document.getElementById('editEditorForm');
+if (editFormEl) editFormEl.addEventListener('submit', function (e) {
+                        e.preventDefault();
+                        const id = document.getElementById('editEditorId').value;
+                        const coverage = collectCoveragePayload('edit');
+                        const allowedScopes = Array.from(document.getElementById('editAllowedScopes').selectedOptions).map(o => o.value).filter(v => v);
+                        const allowedLanguages = getSelectedFromHidden('editAllowedLanguages');
+
+                        const sidebarData = {};
+                        document.querySelectorAll('#editEditorModal .sidebar-menu-cb').forEach(cb => {
+                            sidebarData[cb.getAttribute('data-menu')] = cb.checked;
+                        });
+
+                        const data = {
+                            name: document.getElementById('editName').value,
+                            role: document.getElementById('editRole').value,
+                            displayRole: document.getElementById('editDisplayRole').value,
+                            ...coverage,
+                            assignedState: coverage.assignedStates[0] || null,
+                            allowedScopes,
+                            allowedLanguages,
+                            workingLanguage: document.getElementById('editRole').value === 'subeditor'
+                                ? (getSelectedFromHidden('editAllowedLanguages').filter(c => c !== 'all')[0] || document.getElementById('editWorkingLanguage').value)
+                                : document.getElementById('editWorkingLanguage').value,
+                            constituency: document.getElementById('editConstituency').value,
+                            mobileNumber: document.getElementById('editMobile').value,
+                            profileImage: document.getElementById('editProfileImageUrl').value,
+                            displaySettings: {
+                                showProfileImage: document.getElementById('editShowProfileImage').checked,
+                                showName: document.getElementById('editShowName').checked,
+                                showConstituency: document.getElementById('editShowConstituency').checked
+                            },
+                            canViewReporterDetails: document.getElementById('editCanViewReporterDetails').checked,
+                            canAccessAdminDashboard: document.getElementById('editCanAccessAdminDashboard').checked,
+                            canApproveNews: document.getElementById('editCanApproveNews').checked,
+                            canViewAllNews: document.getElementById('editCanViewAllNews').checked,
+                            canSendNotifications: document.getElementById('editCanSendNotifications').checked,
+                            canEditNews: document.getElementById('editCanEditNews').checked,
+                            requiresSourceLink: document.getElementById('editRequiresSourceLink').checked,
+                            aiCheckEnabled: document.getElementById('editAiCheckEnabled').checked,
+                            approvalScope: document.getElementById('editApprovalScope').value,
+                            sidebar: sidebarData,
+                            walletConfig: {
+                                enabled: document.getElementById('editWalletEnabled').checked,
+                                dailyTargetNews: document.getElementById('editWalletDailyTarget').value || null,
+                                dailyRewardAmount: document.getElementById('editWalletDailyReward').value || null
+                            }
+                        };
+
+                        const editUsernameEl = document.getElementById('editUsername');
+                        if (editUsernameEl && !editUsernameEl.disabled) {
+                            data.username = editUsernameEl.value.trim();
+                        }
+
+                        fetch(`/admin/editors/${id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        })
+                            .then(res => res.json())
+                            .then(result => {
+                                if (result.error) showFeedback(result.error, 'error');
+                                else {
+                                    showFeedback(result.message, 'success');
+                                    bootstrap.Modal.getInstance(document.getElementById('editEditorModal')).hide();
+                                    setTimeout(() => location.reload(), 1000);
+                                }
+                            })
+                            .catch(() => showFeedback('Update failed', 'error'));
+                    });
+
+                    document.getElementById('addEditorForm').addEventListener('submit', function (e) {
+                        e.preventDefault();
+                        const coverage = collectCoveragePayload('add');
+                        const allowedScopes = Array.from(document.getElementById('addAllowedScopes').selectedOptions).map(o => o.value).filter(v => v);
+                        const allowedLanguages = getSelectedFromHidden('addAllowedLanguages');
+                        const approvalScopeEl = document.getElementById('addApprovalScope');
+
+                        const data = {
+                            username: document.getElementById('addUsername').value.trim(),
+                            email: document.getElementById('addEmail').value.trim(),
+                            password: document.getElementById('addPassword').value,
+                            name: document.getElementById('addName').value.trim(),
+                            role: document.getElementById('addRole').value,
+                            displayRole: document.getElementById('addDisplayRole').value.trim(),
+                            mobileNumber: document.getElementById('addMobile').value.trim(),
+                            constituency: document.getElementById('addConstituency').value.trim(),
+                            workingLanguage: document.getElementById('addRole').value === 'subeditor'
+                                ? (allowedLanguages.filter(c => c !== 'all')[0] || 'te')
+                                : document.getElementById('addWorkingLanguage').value,
+                            ...coverage,
+                            assignedState: coverage.assignedStates[0] || null,
+                            allowedScopes,
+                            allowedLanguages,
+                            canAccessAdminDashboard: document.getElementById('addCanAccessAdminDashboard').checked,
+                            canApproveNews: document.getElementById('addCanApproveNews').checked,
+                            canViewAllNews: document.getElementById('addCanViewAllNews').checked,
+                            approvalScope: approvalScopeEl ? approvalScopeEl.value : 'all',
+                            walletConfig: {
+                                enabled: document.getElementById('addWalletEnabled').checked,
+                                dailyTargetNews: document.getElementById('addWalletDailyTarget').value || null,
+                                dailyRewardAmount: document.getElementById('addWalletDailyReward').value || null
+                            }
+                        };
+
+                        fetch('/register-editor', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        })
+                            .then(res => res.json())
+                            .then(result => {
+                                if (result.error) showFeedback(result.error, 'error');
+                                else {
+                                    if (typeof showFeedback === 'function') showFeedback(result.message || 'Editor added', 'success');
+                                    else alert(result.message || 'Editor added');
+                                    setTimeout(() => window.location.href = '/editors', 1000);
+                                }
+                            })
+                            .catch(() => showFeedback('Registration failed', 'error'));
+                    });
+
+                    // Initialize Cropper Variables
+                    let cropper;
+                    const cropImageModalElement = document.getElementById('cropImageModal');
+                    const cropImageModal = new bootstrap.Modal(cropImageModalElement);
+                    const cropImageSource = document.getElementById('cropImageSource');
+
+                    // Handle Profile Image Selection for Cropping
+                    const editImgEl = document.getElementById('editProfileImageUpload');
+if (editImgEl) editImgEl.addEventListener('change', function(e) {
+                        const file = e.target.files[0];
+                        if (!file) return;
+
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            cropImageSource.src = event.target.result;
+                            cropImageModal.show();
+                            
+                            // Clear input so same file can be selected again
+                            e.target.value = '';
+                        };
+                        reader.readAsDataURL(file);
+                    });
+
+                    cropImageModalElement.addEventListener('shown.bs.modal', function () {
+                        if (cropper) {
+                            cropper.destroy();
+                        }
+                        cropper = new Cropper(cropImageSource, {
+                            aspectRatio: 1,
+                            viewMode: 1,
+                            dragMode: 'move',
+                            autoCropArea: 1,
+                            restore: false,
+                            guides: false,
+                            center: false,
+                            highlight: false,
+                            cropBoxMovable: false,
+                            cropBoxResizable: false,
+                            toggleDragModeOnDblclick: false,
+                        });
+                    });
+
+                    cropImageModalElement.addEventListener('hidden.bs.modal', function () {
+                        if (cropper) {
+                            cropper.destroy();
+                            cropper = null;
+                        }
+                    });
+
+                    // Handle Crop and Upload
+                    document.getElementById('btnCropAndSave').addEventListener('click', async function() {
+                        if (!cropper) return;
+                        
+                        // Show loading state
+                        const btn = this;
+                        const originalText = btn.innerHTML;
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Uploading...';
+                        btn.disabled = true;
+
+                        const croppedCanvas = cropper.getCroppedCanvas({
+                            width: 400,
+                            height: 400
+                        });
+                        
+                        // Create a new canvas to draw the circle
+                        const roundedCanvas = document.createElement('canvas');
+                        const context = roundedCanvas.getContext('2d');
+                        roundedCanvas.width = 400;
+                        roundedCanvas.height = 400;
+
+                        // Draw a circular path
+                        context.beginPath();
+                        context.arc(200, 200, 200, 0, Math.PI * 2, true);
+                        context.closePath();
+                        context.clip();
+
+                        // Draw the cropped image into the circle
+                        context.drawImage(croppedCanvas, 0, 0);
+
+                        // Export as PNG for transparency
+                        roundedCanvas.toBlob(async function(blob) {
+                            const formData = new FormData();
+                            // Append the blob as a PNG file
+                            formData.append('media', blob, 'profile.png');
+                            
+                            try {
+                                const response = await fetch('/news/upload-media', {
+                                    method: 'POST',
+                                    body: formData
+                                });
+                                
+                                if (response.ok) {
+                                    const data = await response.json();
+                                    if (data.mediaUrl) {
+                                        document.getElementById('editProfileImageUrl').value = data.mediaUrl;
+                                        document.getElementById('editProfilePreview').src = data.mediaUrl;
+                                        showFeedback('Image uploaded successfully', 'success');
+                                        cropImageModal.hide();
+                                    } else {
+                                        showFeedback('Image upload returned no URL', 'error');
+                                    }
+                                } else {
+                                    showFeedback('Failed to upload image', 'error');
+                                }
+                            } catch (err) {
+                                console.error('Image upload error:', err);
+                                showFeedback('Image upload failed', 'error');
+                            } finally {
+                                btn.innerHTML = originalText;
+                                btn.disabled = false;
+                            }
+                        }, 'image/png');
+                    });
+
+                    // Delete Editor
+                    function deleteEditor(id) {
+                        if (confirm('Are you sure you want to delete this editor?')) {
+                            fetch(`/admin/editors/${id}`, { method: 'DELETE' })
+                                .then(res => res.json())
+                                .then(result => {
+                                    if (result.error) {
+                                        showFeedback(result.error, 'error');
+                                    } else {
+                                        showFeedback('Editor deleted', 'success');
+                                        document.getElementById(`editor-row-${id}`).remove();
+                                    }
+                                })
+                                .catch(err => showFeedback('Delete failed', 'error'));
+                        }
+                    }
+
+                    // Toggle editor active status
+                    function toggleEditorStatus(id, currentStatus) {
+                        const nextStatus = !currentStatus;
+                        const actionText = nextStatus ? 'activate' : 'deactivate';
+
+                        if (!confirm(`Are you sure you want to ${actionText} this user?`)) return;
+
+                        fetch(`/admin/editors/${id}/status`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ isActive: nextStatus })
+                        })
+                            .then(res => res.json())
+                            .then(result => {
+                                if (result.error) {
+                                    showFeedback(result.error, 'error');
+                                } else {
+                                    showFeedback(result.message, 'success');
+                                    setTimeout(() => location.reload(), 800);
+                                }
+                            })
+                            .catch(() => showFeedback('Failed to update user status', 'error'));
+                    }
+
+                    // Open password modal
+                    function openPasswordModal(editorId) {
+                        document.getElementById('passwordEditorId').value = editorId;
+                        document.getElementById('newPassword').value = '';
+                        document.getElementById('confirmPassword').value = '';
+                        const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+                        modal.show();
+                    }
+
+                    // Handle password change form
+                    document.getElementById('changePasswordForm').addEventListener('submit', function (e) {
+                        e.preventDefault();
+
+                        const editorId = document.getElementById('passwordEditorId').value;
+                        const newPassword = document.getElementById('newPassword').value;
+                        const confirmPassword = document.getElementById('confirmPassword').value;
+
+                        if (newPassword.length < 6) {
+                            showFeedback('Password must be at least 6 characters', 'error');
+                            return;
+                        }
+
+                        if (newPassword !== confirmPassword) {
+                            showFeedback('Passwords do not match', 'error');
+                            return;
+                        }
+
+                        fetch(`/admin/editors/${editorId}/password`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ newPassword })
+                        })
+                            .then(res => res.json())
+                            .then(result => {
+                                if (result.error) {
+                                    showFeedback(result.error, 'error');
+                                } else {
+                                    showFeedback(result.message, 'success');
+                                    bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+                                }
+                            })
+                            .catch(() => showFeedback('Failed to update password', 'error'));
+                    });
+
+                    function showFeedback(message, type) {
+                        const feedback = document.getElementById('feedbackMessage');
+                        feedback.textContent = message;
+                        feedback.className = 'feedback-message ' + type + ' show';
+                        setTimeout(() => feedback.classList.remove('show'), 3000);
+                    }
+
+                    function openInsightsModal(editorId) {
+                        const editor = editors.find(e => e._id === editorId);
+                        if (!editor) {
+                            showFeedback('Editor data not found', 'error');
+                            return;
+                        }
+
+                        selectedInsightsEditorId = editorId;
+                        document.getElementById('insightsEditorName').textContent = editor.name || editor.username;
+                        document.getElementById('insightsEditorRole').textContent = editor.displayRole || (editor.role === 'subeditor' ? 'Sub-Editor' : 'Reporter');
+
+                        document.getElementById('insightsSubmitted').textContent = editor.newsStats?.submitted || 0;
+                        document.getElementById('insightsPublished').textContent = editor.newsStats?.published || 0;
+                        document.getElementById('insightsPending').textContent = editor.newsStats?.pending || 0;
+                        document.getElementById('insightsRejected').textContent = editor.newsStats?.rejected || 0;
+
+                        if (editor.latestRejection) {
+                            document.getElementById('insightsRejectionReason').textContent = editor.latestRejection.reason || 'Not specified';
+                            document.getElementById('insightsRejectionDate').textContent = editor.latestRejection.rejectedAt
+                                ? new Date(editor.latestRejection.rejectedAt).toLocaleString()
+                                : '';
+                        } else {
+                            document.getElementById('insightsRejectionReason').textContent = 'No rejection history';
+                            document.getElementById('insightsRejectionDate').textContent = '';
+                        }
+
+                        const modal = new bootstrap.Modal(document.getElementById('insightsModal'));
+                        modal.show();
+                    }
+
+                    function openEditorNews(type) {
+                        if (!selectedInsightsEditorId) return;
+
+                        const statusMap = {
+                            submitted: '',
+                            published: 'active',
+                            pending: 'pending',
+                            rejected: 'rejected'
+                        };
+
+                        const params = new URLSearchParams();
+                        params.set('authorId', selectedInsightsEditorId);
+                        if (statusMap[type]) {
+                            params.set('status', statusMap[type]);
+                        }
+
+                        window.location.href = `/news-list?${params.toString()}`;
+                    }
+                </script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Password Visibility Toggle
+    const toggleAddPassword = document.getElementById('toggleAddPassword');
+    const addPassword = document.getElementById('addPassword');
+    if (toggleAddPassword && addPassword) {
+        toggleAddPassword.addEventListener('click', function() {
+            const type = addPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+            addPassword.setAttribute('type', type);
+            this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+        });
+    }
+
+    // 2. Auto-fill from URL parameters (if source=application)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('source') === 'application') {
+        const email = urlParams.get('email');
+        const name = urlParams.get('name');
+        const mobile = urlParams.get('mobile');
+        const loc = urlParams.get('location');
+
+        // Delay slightly to ensure no other scripts clear it
+        setTimeout(() => {
+            if (email) {
+                const emailEl = document.getElementById('addEmail');
+                if (emailEl) { emailEl.value = email; emailEl.dispatchEvent(new Event('input', {bubbles: true})); }
+                const userEl = document.getElementById('addUsername');
+                if (userEl) { userEl.value = email; userEl.dispatchEvent(new Event('input', {bubbles: true})); }
             }
-            document.addEventListener('click', function (event) {
-                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('active') &&
-                    !sidebar.contains(event.target) && event.target !== menuToggle &&
-                    (!menuToggle || !menuToggle.contains(event.target))) {
-                    sidebar.classList.remove('active');
-                    if (mainContent) mainContent.classList.remove('sidebar-active');
-                }
-            });
+            if (name) {
+                const nameEl = document.getElementById('addName');
+                if (nameEl) { nameEl.value = name; nameEl.dispatchEvent(new Event('input', {bubbles: true})); }
+            }
+            if (mobile) {
+                const mobEl = document.getElementById('addMobile');
+                if (mobEl) { mobEl.value = mobile; mobEl.dispatchEvent(new Event('input', {bubbles: true})); }
+            }
+            if (loc) {
+                const constEl = document.getElementById('addConstituency');
+                if (constEl) { constEl.value = loc; constEl.dispatchEvent(new Event('input', {bubbles: true})); }
+            }
+        }, 100);
+
+        // Set default password to DDMMYYYY
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        if (addPassword) {
+            addPassword.value = dd + mm + yyyy;
+            // Also trigger change event to remove red border if it exists
+            addPassword.dispatchEvent(new Event('input'));
         }
-    </script>
+        
+        // Select reporter role by default (optional, user didn't explicitly ask but makes sense)
+        const repCard = document.querySelector('.editor-role-card[data-role="reporter"]');
+        if (repCard) {
+            repCard.click();
+        }
+    }
+});
+</script>
+
+
 </body>
 
 </html>
