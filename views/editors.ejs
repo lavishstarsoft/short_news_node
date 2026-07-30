@@ -861,15 +861,15 @@
                                     </div>
                                 </div>
                                 <div class="row">
-                                    <div class="col-md-6"><div class="editor-field"><label for="addName">Full Name</label><input type="text" id="addName" placeholder="e.g. Ravi Kumar"></div></div>
-                                    <div class="col-md-6"><div class="editor-field"><label for="addDisplayRole">Display Role
+                                    <div class="col-md-6"><div class="editor-field"><label for="addName">Full Name *</label><input type="text" id="addName" required placeholder="e.g. Ravi Kumar"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addDisplayRole">Display Role *
                                         <span class="info-tip">?<span class="info-tip-text">Title shown next to articles in the app. Example: "Senior Reporter", "Khammam Correspondent"</span></span>
-                                    </label><input type="text" id="addDisplayRole" placeholder="e.g. Senior Reporter"></div></div>
-                                    <div class="col-md-6"><div class="editor-field"><label for="addMobile">Mobile</label><input type="text" id="addMobile" placeholder="+91 98765 43210"></div></div>
+                                    </label><input type="text" id="addDisplayRole" required placeholder="e.g. Senior Reporter"></div></div>
+                                    <div class="col-md-6"><div class="editor-field"><label for="addMobile">Mobile *</label><input type="text" id="addMobile" required placeholder="+91 98765 43210"></div></div>
                                     <div class="col-md-6 reporter-only-section"><div class="editor-field"><label for="addWorkingLanguage">News Language *
                                         <span class="info-tip">?<span class="info-tip-text">The language this reporter writes news in. Their news will appear in this language section of the app.</span></span>
                                     </label>
-                                        <select id="addWorkingLanguage"><%- include('partials/language-select-options', { selectedValue: 'te' }) %></select>
+                                        <select id="addWorkingLanguage" required><%- include('partials/language-select-options', { selectedValue: 'te' }) %></select>
                                     </div></div>
                                 </div>
                             </div>
@@ -885,7 +885,7 @@
                                     <div><strong>Step 3: Sub-Editor's base location</strong><br>This is for record-keeping. The areas they manage are set in the <strong>Permissions</strong> tab.</div>
                                 </div>
 
-                                <div class="editor-field"><label><strong>① Select State(s)</strong>
+                                <div class="editor-field"><label><strong>① Select State(s) *</strong>
                                     <span class="info-tip">?<span class="info-tip-text">Click to select one or more states. This filters the districts below.</span></span>
                                 </label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addStateChips"><span class="text-muted small">Loading...</span></div></div></div>
                                 <div class="editor-field"><label><strong>② Select District(s)</strong>
@@ -894,7 +894,7 @@
                                 <div class="editor-field"><label><strong>③ Select Constituency (optional)</strong></label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addConstituencyChips"><span class="text-muted small">Select districts first...</span></div></div></div>
 
                                 <div class="editor-field" id="addAllowedScopesSection">
-                                    <label><strong>④ What type of news can they write?</strong>
+                                    <label><strong>④ What type of news can they write? *</strong>
                                         <span class="info-tip">?<span class="info-tip-text"><b>Local</b> = District-level news<br><b>State</b> = State-wide news<br><b>National</b> = Country-level<br><b>International</b> = World news<br><br>Select one or more.</span></span>
                                     </label>
                                     <div class="editor-scope-row" id="addScopeCards">
@@ -904,9 +904,9 @@
                                         <div class="editor-scope-card" data-scope="international"><strong>🌍 International</strong><div class="te">World news</div></div>
                                     </div>
                                 </div>
-                                <div class="editor-field"><label for="addConstituency">Primary Constituency
+                                <div class="editor-field"><label for="addConstituency">Primary Constituency *
                                     <span class="info-tip">?<span class="info-tip-text">Shown next to their name in the app. Example: "Malakpet Correspondent"</span></span>
-                                </label><input type="text" id="addConstituency" placeholder="e.g. Malakpet"></div>
+                                </label><input type="text" id="addConstituency" required placeholder="e.g. Malakpet"></div>
                             </div>
 
                             <!-- Add Tab 4: Permissions -->
@@ -914,7 +914,43 @@
                                 <!-- Reporter message -->
                                 <div id="addReporterNote" class="editor-step-banner">
                                     <span class="step-icon">✅</span>
-                                    <div><strong>No permissions needed for Reporters</strong><br>Reporters simply write and submit news. You can click "Add Member" to finish.</div>
+                                    <div><strong>No permissions needed for Reporters</strong><br>Reporters simply write and submit news. Permissions are only for Sub-Editors. Wallet settings below apply to this member.</div>
+                                </div>
+
+                                <!-- Wallet & Daily Earnings (per member) -->
+                                <div id="addWalletConfigBlock">
+                                    <div class="editor-step-banner green" style="background:#ecfdf5;border-color:#a7f3d0">
+                                        <span class="step-icon">💰</span>
+                                        <div><strong>Wallet &amp; Daily Earnings</strong><br>Settings here apply <b>only to this member</b>. Other reporters are not affected. If wallet is OFF, the app hides wallet, daily target and earnings completely.</div>
+                                    </div>
+
+                                    <div class="editor-perm-card">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="addWalletEnabled">
+                                            <label class="form-check-label" for="addWalletEnabled"><strong>Wallet Enabled</strong></label>
+                                        </div>
+                                        <div class="hint">ON = this member sees wallet, daily target and earns daily rewards. OFF = wallet section fully hidden, no reward credits.</div>
+                                    </div>
+
+                                    <div class="row g-3" id="addWalletNumbersRow">
+                                        <div class="col-md-6">
+                                            <div class="editor-field">
+                                                <label for="addWalletDailyTarget">Daily Target (news per day)
+                                                    <span class="info-tip">?<span class="info-tip-text">How many approved news this member needs in one day to earn the daily reward. Leave empty to use the global default.</span></span>
+                                                </label>
+                                                <input type="number" id="addWalletDailyTarget" min="1" step="1" placeholder="Global default">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="editor-field">
+                                                <label for="addWalletDailyReward">Daily Reward (₹)
+                                                    <span class="info-tip">?<span class="info-tip-text">Amount credited when the daily target is reached. Leave empty to use the global default.</span></span>
+                                                </label>
+                                                <input type="number" id="addWalletDailyReward" min="1" step="1" placeholder="Global default">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="hint mb-3">Empty boxes = global defaults from the Wallet Settings page apply (e.g. 5 news / ₹30).</div>
                                 </div>
 
                                 <!-- Sub-editor permissions -->
@@ -972,9 +1008,10 @@
 
                             </div><!-- /.editor-tab-body -->
 
-                            <div class="editor-modal-footer">
+                            <div class="editor-modal-footer" id="addEditorFooter">
                                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-success px-4"><i class="fas fa-user-plus me-1"></i> Add Member</button>
+                                <button type="button" class="btn btn-primary px-4" id="addNextBtn">Next <i class="fas fa-arrow-right ms-1"></i></button>
+                                <button type="submit" class="btn btn-success px-4" id="addSubmitBtn" style="display:none;"><i class="fas fa-user-plus me-1"></i> Add Member</button>
                             </div>
                         </form>
                     </div>
@@ -983,6 +1020,256 @@
 
             <!-- Feedback Message -->
             <div id="feedbackMessage" class="feedback-message"></div>
+
+            <!-- Advanced Reporter Report Modal -->
+            <div class="modal fade" id="reporterReportModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header" style="background: linear-gradient(135deg, #1e293b, #334155); color: white;">
+                            <h5 class="modal-title"><i class="fas fa-chart-pie me-2"></i><span id="reportModalTitle">Performance Report</span></h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body bg-light">
+                            <!-- Basic Info -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <p class="mb-1 text-muted">Account Created</p>
+                                    <h6 id="reportAccountCreated" class="fw-bold">—</h6>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-1 text-muted">First Article Published</p>
+                                    <h6 id="reportFirstArticle" class="fw-bold">—</h6>
+                                </div>
+                            </div>
+                            
+                            <!-- Quick Stats -->
+                            <div class="row mb-4 g-3">
+                                <div class="col-md-3">
+                                    <div class="card shadow-sm border-0 h-100">
+                                        <div class="card-body text-center">
+                                            <h3 id="reportTotalArticles" class="text-primary mb-1">—</h3>
+                                            <small class="text-muted text-uppercase fw-bold">Total Articles</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card shadow-sm border-0 h-100">
+                                        <div class="card-body text-center">
+                                            <h3 id="reportTodayCount" class="text-success mb-1">—</h3>
+                                            <small class="text-muted text-uppercase fw-bold">Today</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card shadow-sm border-0 h-100">
+                                        <div class="card-body text-center">
+                                            <h3 id="reportYesterdayCount" class="text-warning mb-1">—</h3>
+                                            <small class="text-muted text-uppercase fw-bold">Yesterday</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card shadow-sm border-0 h-100">
+                                        <div class="card-body text-center">
+                                            <h3 id="reportTotalViews" class="text-info mb-1">—</h3>
+                                            <small class="text-muted text-uppercase fw-bold">Total Views</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quality & Expertise -->
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="card shadow-sm border-0 h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title fw-bold text-secondary border-bottom pb-2"><i class="fas fa-tags me-2"></i>Top Categories</h6>
+                                            <ul id="reportTopCategories" class="list-group list-group-flush">
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card shadow-sm border-0 h-100">
+                                        <div class="card-body text-center">
+                                            <h6 class="card-title fw-bold text-secondary border-bottom pb-2"><i class="fas fa-clipboard-check me-2"></i>Quality Check</h6>
+                                            <div class="d-flex justify-content-around mt-3">
+                                                <div>
+                                                    <h4 id="reportApprovedCount" class="text-success mb-0">—</h4>
+                                                    <small class="text-muted">Approved</small>
+                                                </div>
+                                                <div>
+                                                    <h4 id="reportRejectedCount" class="text-danger mb-0">—</h4>
+                                                    <small class="text-muted">Rejected</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Filter Section -->
+                            <div class="card shadow-sm border-0 mb-3">
+                                <div class="card-body">
+                                    <h6 class="fw-bold mb-3"><i class="fas fa-calendar-alt me-2"></i>Custom Date / Monthly Report</h6>
+                                    <form id="reportFilterForm" class="row g-2 align-items-end">
+                                        <div class="col-md-4">
+                                            <label class="form-label small">Select Month</label>
+                                            <input type="month" id="reportMonthFilter" class="form-control">
+                                        </div>
+                                        <div class="col-md-1 text-center fw-bold">OR</div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small">Start Date</label>
+                                            <input type="date" id="reportStartDate" class="form-control">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small">End Date</label>
+                                            <input type="date" id="reportEndDate" class="form-control">
+                                        </div>
+                                        <div class="col-md-1">
+                                            <button type="submit" class="btn btn-primary w-100"><i class="fas fa-filter"></i></button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <!-- Date-wise Breakdown -->
+                            <div class="card shadow-sm border-0">
+                                <div class="card-body">
+                                    <h6 class="fw-bold d-flex justify-content-between align-items-center">
+                                        <span>Date-wise Breakdown</span>
+                                        <span class="badge bg-secondary" id="reportRangeTotal">Total: 0</span>
+                                    </h6>
+                                    <div class="table-responsive mt-3" style="max-height: 250px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover text-center border">
+                                            <thead class="table-light" style="position: sticky; top: 0;">
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Articles Published</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="reportDateWiseBody">
+                                                <tr><td colspan="2" class="text-muted py-3">Select a date range or month to view data</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-danger me-auto" id="btnDownloadReportPdf"><i class="fas fa-file-pdf me-2"></i>Download PDF</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden PDF Template for Professional Report -->
+            <div id="pdfReportTemplate" style="position: absolute; left: -9999px; top: -9999px;">
+                <div id="pdfReportContent" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; background: #fff; width: 800px; max-width: 100%;">
+                    
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E31E24; padding-bottom: 20px; margin-bottom: 30px;">
+                        <div style="display: flex; align-items: center;">
+                            <img src="/images/logo.png" alt="Tehelka News" style="height: 60px; margin-right: 20px;">
+                            <div>
+                                <h2 style="margin: 0; color: #E31E24; font-size: 24px; font-weight: bold; text-transform: uppercase;">TEHELKA NEWS</h2>
+                                <p style="margin: 5px 0 0; font-size: 14px; color: #666; font-weight: 500;">Employee Performance Report</p>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <p style="margin: 0; font-size: 14px;"><strong>Generated On:</strong> <span id="pdfGeneratedDate"></span></p>
+                            <p style="margin: 5px 0 0; font-size: 14px;"><strong>Report Period:</strong> <span id="pdfReportPeriod">All Time</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Employee Info -->
+                    <div style="margin-bottom: 30px; background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <h3 style="margin: 0 0 15px; font-size: 16px; color: #2c3e50; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; text-transform: uppercase;">Employee Details</h3>
+                        <table style="width: 100%; font-size: 14px;">
+                            <tr>
+                                <td style="padding: 5px 0; width: 25%; color: #666;">Name:</td>
+                                <td style="padding: 5px 0; width: 25%; font-weight: bold;" id="pdfEmpName">—</td>
+                                <td style="padding: 5px 0; width: 25%; color: #666;">Role:</td>
+                                <td style="padding: 5px 0; width: 25%; font-weight: bold;" id="pdfEmpRole">—</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px 0; color: #666;">Account Created:</td>
+                                <td style="padding: 5px 0; font-weight: bold;" id="pdfEmpJoined">—</td>
+                                <td style="padding: 5px 0; color: #666;">First Article:</td>
+                                <td style="padding: 5px 0; font-weight: bold;" id="pdfEmpFirstArticle">—</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- Performance Summary -->
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="margin: 0 0 15px; font-size: 16px; color: #2c3e50; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; text-transform: uppercase;">Performance Summary</h3>
+                        <div style="display: flex; justify-content: space-between; gap: 15px;">
+                            <div style="flex: 1; background: #f8f9fa; padding: 15px; text-align: center; border-radius: 8px; border: 1px solid #e9ecef;">
+                                <div style="font-size: 24px; font-weight: bold; color: #0d6efd;" id="pdfTotalArticles">—</div>
+                                <div style="font-size: 11px; color: #6c757d; text-transform: uppercase; margin-top: 5px; font-weight: bold;">Total Articles</div>
+                            </div>
+                            <div style="flex: 1; background: #f8f9fa; padding: 15px; text-align: center; border-radius: 8px; border: 1px solid #e9ecef;">
+                                <div style="font-size: 24px; font-weight: bold; color: #198754;" id="pdfTodayArticles">—</div>
+                                <div style="font-size: 11px; color: #6c757d; text-transform: uppercase; margin-top: 5px; font-weight: bold;">Today</div>
+                            </div>
+                            <div style="flex: 1; background: #f8f9fa; padding: 15px; text-align: center; border-radius: 8px; border: 1px solid #e9ecef;">
+                                <div style="font-size: 24px; font-weight: bold; color: #fd7e14;" id="pdfYesterdayArticles">—</div>
+                                <div style="font-size: 11px; color: #6c757d; text-transform: uppercase; margin-top: 5px; font-weight: bold;">Yesterday</div>
+                            </div>
+                            <div style="flex: 1; background: #f8f9fa; padding: 15px; text-align: center; border-radius: 8px; border: 1px solid #e9ecef;">
+                                <div style="font-size: 24px; font-weight: bold; color: #0dcaf0;" id="pdfTotalViews">—</div>
+                                <div style="font-size: 11px; color: #6c757d; text-transform: uppercase; margin-top: 5px; font-weight: bold;">Total Views</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quality & Expertise -->
+                    <div style="display: flex; gap: 30px; margin-bottom: 30px;">
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0 0 15px; font-size: 16px; color: #2c3e50; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; text-transform: uppercase;">Quality Metrics</h3>
+                            <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">Approved Articles</td>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; color: #198754; font-weight: bold;" id="pdfApproved">—</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">Rejected Articles</td>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; color: #dc3545; font-weight: bold;" id="pdfRejected">—</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0 0 15px; font-size: 16px; color: #2c3e50; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; text-transform: uppercase;">Top Categories</h3>
+                            <table style="width: 100%; font-size: 14px; border-collapse: collapse;" id="pdfTopCategories">
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Date-wise Breakdown -->
+                    <div id="pdfBreakdownSection">
+                        <h3 style="margin: 0 0 15px; font-size: 16px; color: #2c3e50; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; text-transform: uppercase;">Date-wise Breakdown</h3>
+                        <table style="width: 100%; font-size: 14px; border-collapse: collapse; border: 1px solid #dee2e6;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="padding: 10px 15px; border: 1px solid #dee2e6; text-align: left; color: #495057;">Date</th>
+                                    <th style="padding: 10px 15px; border: 1px solid #dee2e6; text-align: right; color: #495057;">Articles Published</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdfBreakdownBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div style="margin-top: 50px; text-align: center; color: #6c757d; font-size: 11px; border-top: 1px solid #eee; padding-top: 20px;">
+                        <p style="margin: 0;">This is a system generated report and does not require a physical signature.</p>
+                        <p style="margin: 5px 0 0;">© <script>document.write(new Date().getFullYear())</script> Tehelka News. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
 
             <!-- Change Password Modal -->
             <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
@@ -1042,6 +1329,20 @@
                         buildLanguagePermissionUI('add');
                         initApprovalScopeHandlers('edit');
                         initApprovalScopeHandlers('add');
+                        
+                        const addNextBtn = document.getElementById('addNextBtn');
+                        if (addNextBtn) {
+                            addNextBtn.addEventListener('click', () => {
+                                const root = document.getElementById('addEditorTabs');
+                                if (!root) return;
+                                const tabs = Array.from(root.querySelectorAll('.editor-tab-btn'));
+                                const currentIdx = tabs.findIndex(btn => btn.classList.contains('active'));
+                                if (currentIdx !== -1 && currentIdx < tabs.length - 1) {
+                                    const nextTabId = tabs[currentIdx + 1].dataset.tab;
+                                    switchEditorTab('addEditorTabs', nextTabId);
+                                }
+                            });
+                        }
                     });
 
                     function initStaffFilters() {
@@ -1101,12 +1402,284 @@
                         );
                     }
 
+                    let currentReportEditorId = null;
+
+                    function showAdvancedReport(id) {
+                        currentReportEditorId = id;
+                        const modal = new bootstrap.Modal(document.getElementById('reporterReportModal'));
+                        
+                        // Reset modal UI
+                        document.getElementById('reportModalTitle').textContent = 'Loading...';
+                        document.getElementById('reportAccountCreated').textContent = '—';
+                        document.getElementById('reportFirstArticle').textContent = '—';
+                        document.getElementById('reportTotalArticles').textContent = '—';
+                        document.getElementById('reportTodayCount').textContent = '—';
+                        document.getElementById('reportYesterdayCount').textContent = '—';
+                        document.getElementById('reportTotalViews').textContent = '—';
+                        document.getElementById('reportApprovedCount').textContent = '—';
+                        document.getElementById('reportRejectedCount').textContent = '—';
+                        document.getElementById('reportTopCategories').innerHTML = '';
+                        document.getElementById('reportDateWiseBody').innerHTML = '<tr><td colspan="2" class="text-muted py-3">Select a date range or month to view data</td></tr>';
+                        document.getElementById('reportRangeTotal').textContent = 'Total: 0';
+                        document.getElementById('reportMonthFilter').value = '';
+                        document.getElementById('reportStartDate').value = '';
+                        document.getElementById('reportEndDate').value = '';
+
+                        modal.show();
+                        fetchEditorReportData(id);
+                    }
+
+                    function formatDateDDMMYYYY(dateStr) {
+                        if (!dateStr) return '—';
+                        const d = new Date(dateStr);
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const year = d.getFullYear();
+                        return `${day}-${month}-${year}`;
+                    }
+
+                    async function fetchEditorReportData(id, params = '') {
+                        try {
+                            const response = await fetch(`/admin/editors/${id}/report?${params}`);
+                            if (!response.ok) throw new Error('Failed to fetch report');
+                            
+                            const data = await response.json();
+                            
+                            document.getElementById('reportModalTitle').textContent = `${data.editor.name || data.editor.username} (${data.editor.role})`;
+                            document.getElementById('reportAccountCreated').textContent = data.editor.createdAt ? formatDateDDMMYYYY(data.editor.createdAt) : 'N/A';
+                            document.getElementById('reportFirstArticle').textContent = data.firstArticleDate ? formatDateDDMMYYYY(data.firstArticleDate) : 'No Articles Yet';
+                            
+                            document.getElementById('reportTotalArticles').textContent = data.totalArticles;
+                            document.getElementById('reportTodayCount').textContent = data.todayCount;
+                            document.getElementById('reportYesterdayCount').textContent = data.yesterdayCount;
+                            document.getElementById('reportTotalViews').textContent = data.totalViews || 0;
+                            document.getElementById('reportApprovedCount').textContent = data.approvedCount;
+                            document.getElementById('reportRejectedCount').textContent = data.rejectedCount;
+
+                            // Populate PDF template as well
+                            document.getElementById('pdfGeneratedDate').textContent = formatDateDDMMYYYY(new Date());
+                            document.getElementById('pdfEmpName').textContent = data.editor.name || data.editor.username;
+                            document.getElementById('pdfEmpRole').textContent = (data.editor.role).toUpperCase();
+                            document.getElementById('pdfEmpJoined').textContent = data.editor.createdAt ? formatDateDDMMYYYY(data.editor.createdAt) : 'N/A';
+                            document.getElementById('pdfEmpFirstArticle').textContent = data.firstArticleDate ? formatDateDDMMYYYY(data.firstArticleDate) : 'No Articles Yet';
+                            
+                            document.getElementById('pdfTotalArticles').textContent = data.totalArticles;
+                            document.getElementById('pdfTodayArticles').textContent = data.todayCount;
+                            document.getElementById('pdfYesterdayArticles').textContent = data.yesterdayCount;
+                            document.getElementById('pdfTotalViews').textContent = data.totalViews || 0;
+                            document.getElementById('pdfApproved').textContent = data.approvedCount;
+                            document.getElementById('pdfRejected').textContent = data.rejectedCount;
+
+                            const categoriesList = document.getElementById('reportTopCategories');
+                            const pdfCategoriesList = document.getElementById('pdfTopCategories');
+                            categoriesList.innerHTML = '';
+                            pdfCategoriesList.innerHTML = '';
+                            if (data.topCategories && data.topCategories.length > 0) {
+                                data.topCategories.forEach(cat => {
+                                    categoriesList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                                        ${cat.category || 'Uncategorized'}
+                                        <span class="badge bg-primary rounded-pill">${cat.count}</span>
+                                    </li>`;
+                                    pdfCategoriesList.innerHTML += `<tr>
+                                        <td style="padding: 10px; border-bottom: 1px solid #eee;">${cat.category || 'Uncategorized'}</td>
+                                        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">${cat.count}</td>
+                                    </tr>`;
+                                });
+                            } else {
+                                categoriesList.innerHTML = '<li class="list-group-item text-muted border-0 text-center py-3">No categories data</li>';
+                                pdfCategoriesList.innerHTML = '<tr><td style="padding: 10px; text-align: center; color: #666;" colspan="2">No categories data</td></tr>';
+                            }
+
+                            document.getElementById('pdfReportPeriod').textContent = params !== '' ? 'Custom Range' : 'All Time';
+                            const tbody = document.getElementById('reportDateWiseBody');
+                            const pdfTbody = document.getElementById('pdfBreakdownBody');
+                            
+                            if (params !== '') {
+                                // Render datewise data
+                                document.getElementById('reportRangeTotal').textContent = `Total: ${data.customRangeCount}`;
+                                tbody.innerHTML = '';
+                                pdfTbody.innerHTML = '';
+                                if (data.dateWiseData && data.dateWiseData.length > 0) {
+                                    data.dateWiseData.forEach(item => {
+                                        tbody.innerHTML += `<tr>
+                                            <td>${new Date(item.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                                            <td class="fw-bold text-primary">${item.count}</td>
+                                        </tr>`;
+                                        pdfTbody.innerHTML += `<tr>
+                                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;">${formatDateDDMMYYYY(item.date)}</td>
+                                            <td style="padding: 10px 15px; border: 1px solid #dee2e6; text-align: right; font-weight: bold;">${item.count}</td>
+                                        </tr>`;
+                                    });
+                                } else {
+                                    tbody.innerHTML = '<tr><td colspan="2" class="text-muted py-3">No articles found in this period</td></tr>';
+                                    pdfTbody.innerHTML = '<tr><td colspan="2" style="padding: 20px; text-align: center; color: #666; border: 1px solid #dee2e6;">No articles found in this period</td></tr>';
+                                }
+                                document.getElementById('pdfBreakdownSection').style.display = 'block';
+                            } else {
+                                document.getElementById('pdfBreakdownSection').style.display = 'none';
+                            }
+                        } catch (error) {
+                            console.error(error);
+                            showFeedback('Error fetching report data', 'error');
+                        }
+                    }
+
+                    document.addEventListener('DOMContentLoaded', () => {
+                        const filterForm = document.getElementById('reportFilterForm');
+                        if (filterForm) {
+                            filterForm.addEventListener('submit', (e) => {
+                                e.preventDefault();
+                                const month = document.getElementById('reportMonthFilter').value;
+                                const startDate = document.getElementById('reportStartDate').value;
+                                const endDate = document.getElementById('reportEndDate').value;
+
+                                let params = new URLSearchParams();
+                                if (month) params.append('month', month);
+                                else {
+                                    if (startDate) params.append('startDate', startDate);
+                                    if (endDate) params.append('endDate', endDate);
+                                }
+
+                                if (currentReportEditorId) {
+                                    fetchEditorReportData(currentReportEditorId, params.toString());
+                                }
+                            });
+                        }
+
+                        const btnDownloadPdf = document.getElementById('btnDownloadReportPdf');
+                        if (btnDownloadPdf) {
+                            btnDownloadPdf.addEventListener('click', async () => {
+                                const element = document.getElementById('pdfReportContent');
+                                
+                                // Temporarily move it on-screen for html2pdf (if needed) but keep it invisible
+                                const wrapper = document.getElementById('pdfReportTemplate');
+                                wrapper.style.position = 'absolute';
+                                wrapper.style.left = '0';
+                                wrapper.style.top = '0';
+                                wrapper.style.zIndex = '-1000';
+
+                                const name = document.getElementById('reportModalTitle').textContent.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                                const opt = {
+                                    margin:       0.4,
+                                    filename:     `${name}_performance_report.pdf`,
+                                    image:        { type: 'jpeg', quality: 0.98 },
+                                    html2canvas:  { scale: 2, useCORS: true, logging: false, scrollY: 0 },
+                                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' },
+                                    pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+                                };
+                                
+                                const originalText = btnDownloadPdf.innerHTML;
+                                btnDownloadPdf.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
+                                btnDownloadPdf.disabled = true;
+                                
+                                try {
+                                    await html2pdf().set(opt).from(element).save();
+                                } catch(err) {
+                                    console.error("PDF generation error:", err);
+                                    showFeedback('Failed to generate PDF', 'error');
+                                } finally {
+                                    wrapper.style.left = '-9999px';
+                                    wrapper.style.top = '-9999px';
+                                    btnDownloadPdf.innerHTML = originalText;
+                                    btnDownloadPdf.disabled = false;
+                                }
+                            });
+                        }
+                    });
+
                     // ── Editor modal helpers (tabs, chips, scopes) ──
                     let _editorHierarchy = null;
+
+                    function validateAddEditorTab(tabId) {
+                        let isValid = true;
+                        let firstErrorInput = null;
+
+                        function showError(inputId, message) {
+                            const input = document.getElementById(inputId);
+                            if (input) {
+                                input.classList.add('is-invalid');
+                                let err = input.nextElementSibling;
+                                if (!err || !err.classList.contains('invalid-feedback')) {
+                                    err = document.createElement('div');
+                                    err.className = 'invalid-feedback';
+                                    input.parentNode.appendChild(err);
+                                }
+                                err.textContent = message;
+                                err.style.display = 'block';
+                                if (!firstErrorInput) firstErrorInput = input;
+                                isValid = false;
+                                
+                                input.addEventListener('input', function() {
+                                    input.classList.remove('is-invalid');
+                                    if(err) err.style.display = 'none';
+                                }, {once: true});
+                            }
+                        }
+
+                        if (tabId === 'add-tab-account') {
+                            if (!document.getElementById('addUsername').value.trim()) showError('addUsername', 'Username is required');
+                            if (!document.getElementById('addEmail').value.trim()) showError('addEmail', 'Email is required');
+                            if (!document.getElementById('addPassword').value.trim()) showError('addPassword', 'Password is required');
+                        } else if (tabId === 'add-tab-profile') {
+                            if (!document.getElementById('addName').value.trim()) showError('addName', 'Full Name is required');
+                            if (!document.getElementById('addDisplayRole').value.trim()) showError('addDisplayRole', 'Display Role is required');
+                            if (!document.getElementById('addMobile').value.trim()) showError('addMobile', 'Mobile Number is required');
+                            if (!document.getElementById('addWorkingLanguage').value) showError('addWorkingLanguage', 'Language is required');
+                        } else if (tabId === 'add-tab-location') {
+                            if (!document.getElementById('addConstituency').value.trim()) showError('addConstituency', 'Primary Constituency is required');
+
+                            const roleType = document.getElementById('addRole').value;
+                            if (roleType === 'editor') {
+                                const scopes = document.getElementById('addAllowedScopes').options;
+                                let hasScope = false;
+                                for(let i=0; i<scopes.length; i++) if(scopes[i].selected) hasScope = true;
+                                if (!hasScope) {
+                                    if (typeof showFeedback === 'function') showFeedback('Please select at least one type of news they can write.', 'error');
+                                    isValid = false;
+                                }
+
+                                const states = document.getElementById('addAssignedStates').options;
+                                let hasState = false;
+                                for(let i=0; i<states.length; i++) if(states[i].selected) hasState = true;
+                                if (!hasState) {
+                                    if (typeof showFeedback === 'function') showFeedback('Please select at least one state.', 'error');
+                                    isValid = false;
+                                }
+                            }
+                        }
+
+                        if (firstErrorInput) firstErrorInput.focus();
+                        return isValid;
+                    }
 
                     function switchEditorTab(tabsRootId, panelId) {
                         const root = document.getElementById(tabsRootId);
                         if (!root) return;
+                        
+                        // Validation only for Add Admin flow
+                        if (tabsRootId === 'addEditorTabs') {
+                            const modalContent = root.closest('.modal-content');
+                            if (modalContent) {
+                                const activePanel = modalContent.querySelector('.editor-tab-panel.active');
+                                // Only validate if moving FORWARD or trying to switch away from a tab
+                                // Note: A simple approach is just validating the current tab before allowing any switch
+                                if (activePanel && activePanel.id !== panelId) {
+                                    // If we are moving to an earlier tab (e.g. from 3 back to 1), maybe we shouldn't block?
+                                    // But user asked: "next కొట్టేటప్పుడు ఆ ఫీల్డ్ లేకపోతే ఎర్రర్ చూపించి ఆ ఫీల్డ్ వరకు డిస్ప్లే చేయాలి"
+                                    // Let's check tab index to see if it's forward.
+                                    const tabs = Array.from(root.querySelectorAll('.editor-tab-btn'));
+                                    const currentIdx = tabs.findIndex(btn => btn.classList.contains('active'));
+                                    const targetIdx = tabs.findIndex(btn => btn.dataset.tab === panelId);
+                                    
+                                    if (targetIdx > currentIdx) {
+                                        if (!validateAddEditorTab(activePanel.id)) {
+                                            return; // Stop tab switch if validation fails
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
                         root.querySelectorAll('.editor-tab-btn').forEach(btn => {
                             btn.classList.toggle('active', btn.dataset.tab === panelId);
                         });
@@ -1117,6 +1690,20 @@
                             });
                             const tabBody = modalContent.querySelector('.editor-tab-body');
                             if (tabBody) tabBody.scrollTop = 0;
+                        }
+
+                        if (tabsRootId === 'addEditorTabs') {
+                            const addNextBtn = document.getElementById('addNextBtn');
+                            const addSubmitBtn = document.getElementById('addSubmitBtn');
+                            if (addNextBtn && addSubmitBtn) {
+                                if (panelId === 'add-tab-perms') {
+                                    addNextBtn.style.display = 'none';
+                                    addSubmitBtn.style.display = 'inline-block';
+                                } else {
+                                    addNextBtn.style.display = 'inline-block';
+                                    addSubmitBtn.style.display = 'none';
+                                }
+                            }
                         }
                     }
 
@@ -1885,7 +2472,12 @@
                             canAccessAdminDashboard: document.getElementById('addCanAccessAdminDashboard').checked,
                             canApproveNews: document.getElementById('addCanApproveNews').checked,
                             canViewAllNews: document.getElementById('addCanViewAllNews').checked,
-                            approvalScope: approvalScopeEl ? approvalScopeEl.value : 'all'
+                            approvalScope: approvalScopeEl ? approvalScopeEl.value : 'all',
+                            walletConfig: {
+                                enabled: document.getElementById('addWalletEnabled').checked,
+                                dailyTargetNews: document.getElementById('addWalletDailyTarget').value || null,
+                                dailyRewardAmount: document.getElementById('addWalletDailyReward').value || null
+                            }
                         };
 
                         fetch('/register-editor', {

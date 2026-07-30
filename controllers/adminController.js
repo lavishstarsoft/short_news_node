@@ -9849,6 +9849,122 @@ async function uploadReporterEarningImage(req, res) {
   }
 }
 
+// Get detailed report for an editor/reporter
+async function getEditorReport(req, res) {
+  try {
+    const editorId = req.params.id;
+    const { startDate, endDate, month } = req.query;
+
+    const editor = await Admin.findById(editorId).select('name role email mobile createdAt');
+    if (!editor) {
+      return res.status(404).json({ error: 'Editor not found' });
+    }
+
+    const firstArticle = await News.findOne({ authorId: editorId }).sort({ publishedAt: 1 }).select('publishedAt');
+    const firstArticleDate = firstArticle ? firstArticle.publishedAt : null;
+
+    const totalArticles = await News.countDocuments({ authorId: editorId });
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    
+    const todayCount = await News.countDocuments({
+      authorId: editorId,
+      publishedAt: { $gte: startOfToday, $lte: endOfToday }
+    });
+
+    const startOfYesterday = new Date();
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    startOfYesterday.setHours(0, 0, 0, 0);
+    const endOfYesterday = new Date();
+    endOfYesterday.setDate(endOfYesterday.getDate() - 1);
+    endOfYesterday.setHours(23, 59, 59, 999);
+
+    const yesterdayCount = await News.countDocuments({
+      authorId: editorId,
+      publishedAt: { $gte: startOfYesterday, $lte: endOfYesterday }
+    });
+
+    let queryStart = null;
+    let queryEnd = null;
+
+    if (month) {
+      const [yearStr, monthStr] = month.split('-');
+      queryStart = new Date(yearStr, parseInt(monthStr) - 1, 1);
+      queryEnd = new Date(yearStr, parseInt(monthStr), 0, 23, 59, 59, 999);
+    } else if (startDate && endDate) {
+      queryStart = new Date(startDate);
+      queryStart.setHours(0, 0, 0, 0);
+      queryEnd = new Date(endDate);
+      queryEnd.setHours(23, 59, 59, 999);
+    }
+
+    let dateWiseData = [];
+    let customRangeCount = 0;
+
+    if (queryStart && queryEnd) {
+      const aggregation = await News.aggregate([
+        {
+          $match: {
+            authorId: editorId,
+            publishedAt: { $gte: queryStart, $lte: queryEnd }
+          }
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$publishedAt", timezone: "+05:30" } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]);
+      
+      dateWiseData = aggregation.map(item => ({
+        date: item._id,
+        count: item.count
+      }));
+      
+      customRangeCount = dateWiseData.reduce((sum, item) => sum + item.count, 0);
+    }
+
+    const topCategories = await News.aggregate([
+      { $match: { authorId: editorId } },
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 3 }
+    ]);
+
+    const viewsAggr = await News.aggregate([
+      { $match: { authorId: editorId } },
+      { $group: { _id: null, totalViews: { $sum: "$views" } } }
+    ]);
+    const totalViews = viewsAggr.length > 0 ? viewsAggr[0].totalViews : 0;
+
+    const approvedCount = await News.countDocuments({ authorId: editorId, isActive: true });
+    const rejectedCount = await News.countDocuments({ authorId: editorId, 'rejectionStatus.isRejected': true });
+
+    res.json({
+      editor,
+      firstArticleDate,
+      totalArticles,
+      todayCount,
+      yesterdayCount,
+      customRangeCount,
+      dateWiseData,
+      topCategories: topCategories.map(c => ({ category: c._id, count: c.count })),
+      totalViews,
+      approvedCount,
+      rejectedCount
+    });
+
+  } catch (error) {
+    console.error('Error fetching editor report:', error);
+    res.status(500).json({ error: 'Server error fetching editor report' });
+  }
+}
+
 module.exports = {
   renderMyAiQueuePage,
   deleteUserById,
@@ -9986,5 +10102,6 @@ module.exports = {
   getReporterEarningAdmin,
   updateReporterEarningAdmin,
   getReporterEarning,
-  uploadReporterEarningImage
+  uploadReporterEarningImage,
+  getEditorReport
 };
