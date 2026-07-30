@@ -2300,7 +2300,7 @@ async function updateEditor(req, res) {
       }
     }
     if (mobileNumber !== undefined) editor.mobileNumber = mobileNumber || null;
-    if (profileImage !== undefined) editor.profileImage = profileImage || null;
+    if (profileImage !== undefined) editor.profileImage = profileImage || '/images/default_user_icon.png';
     if (workingLanguage !== undefined) editor.workingLanguage = normalizeNewsLanguage(workingLanguage);
 
     if (displaySettings !== undefined) {

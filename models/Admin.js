@@ -35,7 +35,7 @@ const adminSchema = new mongoose.Schema({
   },
   profileImage: {
     type: String,
-    default: null
+    default: '/images/default_user_icon.png'
   },
   displayRole: {
     type: String,
