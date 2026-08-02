@@ -468,6 +468,9 @@ app.locals.googleAuthClient = client;
 // DO NOT add duplicate routes here - use publicRoutes.js instead
 
 
+// Set global asset version for cache busting CSS and JS files
+app.locals.assetVersion = '1.0.1';
+
 // Set EJS as templating engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));

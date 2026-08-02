@@ -3,7 +3,7 @@
 
 <%- include('partials/header', { title: 'Performance Analytics' }) %>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="/css/performance-hub.css">
+    <link rel="stylesheet" href="/css/performance-hub.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
     </head>
 
     <body>

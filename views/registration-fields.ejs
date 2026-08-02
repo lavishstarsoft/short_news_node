@@ -2,8 +2,8 @@
 <html lang="en">
 
 <%- include('partials/header', { title: 'Registration Form Builder' }) %>
-<link rel="stylesheet" href="/css/editors-directory.css">
-<link rel="stylesheet" href="/css/form-builder.css">
+<link rel="stylesheet" href="/css/editors-directory.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
+<link rel="stylesheet" href="/css/form-builder.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
 
 <body>
     <%- include('partials/top-nav', { pageTitle: 'Form Builder', backButton: true, backUrl: '/' }) %>

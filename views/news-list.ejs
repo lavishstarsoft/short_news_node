@@ -3,10 +3,10 @@
 
 <%- include('partials/header', { title: 'News List' }) %>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="/css/editors-directory.css">
-    <link rel="stylesheet" href="/css/news-directory.css">
-    <link rel="stylesheet" href="/css/news-detail-modal.css">
-    <link rel="stylesheet" href="/css/notification-modal.css">
+    <link rel="stylesheet" href="/css/editors-directory.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
+    <link rel="stylesheet" href="/css/news-directory.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
+    <link rel="stylesheet" href="/css/news-detail-modal.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
+    <link rel="stylesheet" href="/css/notification-modal.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
     <style>
         /* News detail modal — styles in news-detail-modal.css */
 
@@ -711,9 +711,9 @@
             </div>
 
             <%- include('partials/footer') %>
-                <script src="/js/rich-text.js"></script>
-                <script src="/js/main.js"></script>
-                <script src="/js/notification-sender.js"></script>
+                <script src="/js/rich-text.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>"></script>
+                <script src="/js/main.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>"></script>
+                <script src="/js/notification-sender.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>"></script>
                 <script id="newsData" type="application/json"><%- JSON.stringify(newsList) %></script>
                 <script>
                     window.newsListItems = JSON.parse(document.getElementById('newsData').textContent);

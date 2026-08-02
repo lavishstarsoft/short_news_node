@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <%- include('partials/header', { title: title }) %>
-<link rel="stylesheet" href="/css/ai-insights.css">
-<link rel="stylesheet" href="/css/ai-insights-compare.css">
+<link rel="stylesheet" href="/css/ai-insights.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
+<link rel="stylesheet" href="/css/ai-insights-compare.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="/js/ai-insights-compare.js?v=2" defer></script>
 <body>

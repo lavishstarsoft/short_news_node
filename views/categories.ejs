@@ -420,7 +420,7 @@
             </div>
 
             <%- include('partials/footer') %>
-                <script src="/js/main.js"></script>
+                <script src="/js/main.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>"></script>
                 <script>
                     // Server-side data
                     const serverCategories = JSON.parse(document.getElementById('serverData').textContent);
@@ -835,7 +835,7 @@
 
                 <!-- Global Admin Notifications -->
                 <script src="/socket.io/socket.io.js"></script>
-                <script src="/js/admin-notifications.js"></script>
+                <script src="/js/admin-notifications.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>"></script>
     </body>
 
 </html>

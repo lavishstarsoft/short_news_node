@@ -2,7 +2,7 @@
 <html lang="en">
 
 <%- include('partials/header', { title: 'Register Team Member' }) %>
-<link rel="stylesheet" href="/css/editors-directory.css">
+<link rel="stylesheet" href="/css/editors-directory.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
 <style>
         .feedback-message {
             position: fixed;

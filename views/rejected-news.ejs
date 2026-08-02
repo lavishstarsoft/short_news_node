@@ -2,8 +2,8 @@
 <html lang="en">
 
 <%- include('partials/header', { title: 'Rejected News Queue' }) %>
-    <link rel="stylesheet" href="/css/rejected-queue.css">
-    <link rel="stylesheet" href="/css/news-directory.css">
+    <link rel="stylesheet" href="/css/rejected-queue.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
+    <link rel="stylesheet" href="/css/news-directory.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
     </head>
 
     <body>
@@ -320,7 +320,7 @@
                 </div>
             </div>
 
-            <script src="/js/rich-text.js"></script>
+            <script src="/js/rich-text.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>"></script>
             <script>
                 window.rejectedArticlesData = <%- JSON.stringify(articles.map(function(a) {
                     return {

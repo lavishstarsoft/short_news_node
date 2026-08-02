@@ -4,8 +4,8 @@
 <%- include('partials/header', { title: (typeof news !=='undefined' ? 'Edit News' : 'Add News' ) + ' - Short News Admin'
     }) %>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
-    <link rel="stylesheet" href="/css/add-news.css">
-    <link rel="stylesheet" href="/css/duplicate-review-modals.css">
+    <link rel="stylesheet" href="/css/add-news.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
+    <link rel="stylesheet" href="/css/duplicate-review-modals.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
     </head>
 
     <body class="theme-v2">
@@ -252,7 +252,7 @@
 
             <%- include('partials/footer') %>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
-                <script src="/js/rich-text.js"></script>
+                <script src="/js/rich-text.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>"></script>
                 <script src="/js/duplicate-review-modals.js?v=1"></script>
                 <script>
                     const pageSource = '<%= typeof source !== "undefined" ? source : "" %>';

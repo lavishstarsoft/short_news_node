@@ -3,10 +3,10 @@
 
 <%- include('partials/header', { title: 'Dashboard' }) %>
 
-    <link rel="stylesheet" href="/css/editors-directory.css">
-    <link rel="stylesheet" href="/css/news-directory.css">
-    <link rel="stylesheet" href="/css/dashboard.css">
-    <link rel="stylesheet" href="/css/notification-modal.css">
+    <link rel="stylesheet" href="/css/editors-directory.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
+    <link rel="stylesheet" href="/css/news-directory.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
+    <link rel="stylesheet" href="/css/dashboard.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
+    <link rel="stylesheet" href="/css/notification-modal.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
 
     <body class="theme-v2">
         <%- include('partials/top-nav', { pageTitle: 'Dashboard' }) %>
@@ -199,8 +199,8 @@
             </div>
 
             <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-            <script src="/js/main.js"></script>
-            <script src="/js/notification-sender.js"></script>
+            <script src="/js/main.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>"></script>
+            <script src="/js/notification-sender.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>"></script>
             <script id="newsData" type="application/json"><%- JSON.stringify(newsList) %></script>
             <script>
                 window.newsList = JSON.parse(document.getElementById('newsData').textContent);

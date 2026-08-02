@@ -2,7 +2,7 @@
 <html lang="en">
 
 <%- include('partials/header', { title: 'Users Directory' }) %>
-    <link rel="stylesheet" href="/css/users-directory.css">
+    <link rel="stylesheet" href="/css/users-directory.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1.0.1' %>">
     </head>
 
     <body>
