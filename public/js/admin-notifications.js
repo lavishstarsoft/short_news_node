@@ -163,44 +163,17 @@
 
     // Show toast notification
     function showToastNotification(data) {
-        // Create toast container if it doesn't exist
-        let toastContainer = document.getElementById('globalNotificationToastContainer');
-        if (!toastContainer) {
-            toastContainer = document.createElement('div');
-            toastContainer.id = 'globalNotificationToastContainer';
-            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
-            toastContainer.style.zIndex = '9999';
-            document.body.appendChild(toastContainer);
-        }
-
-        // Create toast element
-        const toastId = 'toast-' + Date.now();
-        const toastHTML = `
-            <div id="${toastId}" class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="d-flex">
-                    <div class="toast-body">
-                        <strong><i class="fas fa-exclamation-triangle me-2"></i>New Report: ${data.reason || 'Unknown'}</strong><br>
-                        <small>Comment reported by ${data.reportedBy || 'Anonymous'}</small>
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-            </div>
-        `;
-
-        // Add toast to container
-        toastContainer.insertAdjacentHTML('beforeend', toastHTML);
-
-        // Show toast using Bootstrap
-        const toastElement = document.getElementById(toastId);
-        const toast = new bootstrap.Toast(toastElement, {
-            autohide: true,
-            delay: 5000
+        // Instead of overlaying a toast, just highlight the notification bell in the header
+        const dots = document.querySelectorAll('.global-notif-dot, .bg-danger.border-light.rounded-circle');
+        dots.forEach(dot => {
+            dot.style.display = 'block';
         });
-        toast.show();
-
-        // Remove toast from DOM after it's hidden
-        toastElement.addEventListener('hidden.bs.toast', function () {
-            toastElement.remove();
+        
+        // Optionally, we could add a subtle animation to the bell icon here
+        const bells = document.querySelectorAll('.fa-bell');
+        bells.forEach(bell => {
+            bell.classList.add('fa-shake');
+            setTimeout(() => bell.classList.remove('fa-shake'), 1000);
         });
     }
 

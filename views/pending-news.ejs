@@ -146,7 +146,8 @@
                                     </div>
                                 </div>
 
-                                <div class="team-panel pn-panel">
+                                <div class="pn-split" id="pnSplit">
+                                <div class="team-panel pn-panel pn-split-list">
                                     <div class="table-wrapper" id="pendingTableWrapper">
                                         <% 
                                             const showFullDetails = admin.role === 'superadmin' || (admin.permissions && admin.permissions.canViewReporterDetails);
@@ -155,12 +156,13 @@
                                         <% if (pendingNews.length > 0) { %>
                                             <div class="news-grid" id="newsGrid">
                                                 <% pendingNews.forEach((news) => { %>
-                                                    <%- include('partials/pending-news-card', { 
-                                                        news: news, 
-                                                        isAIQueue: false, 
-                                                        pendingLangLabels: pendingLangLabels, 
-                                                        showFullDetails: showFullDetails, 
-                                                        canApproveNews: canApproveNews 
+                                                    <%- include('partials/pending-news-card', {
+                                                        news: news,
+                                                        isAIQueue: false,
+                                                        pendingLangLabels: pendingLangLabels,
+                                                        showFullDetails: showFullDetails,
+                                                        canApproveNews: canApproveNews,
+                                                        isSuperAdmin: (admin.role === 'superadmin')
                                                     }) %>
                                                 <% }); %>
                                             </div>
@@ -172,6 +174,25 @@
                                             </div>
                                         <% } %>
                                     </div>
+                                </div>
+
+                                <aside class="pn-preview-pane" id="pnPreviewPane" aria-label="Selected news preview">
+                                    <div class="pn-preview-topbar">
+                                        <button type="button" class="pn-preview-back" id="pnPreviewBack" aria-label="Back to list"><i class="fas fa-arrow-left"></i></button>
+                                        <div class="pn-preview-counter" id="pnPreviewCounter">–</div>
+                                        <div class="pn-preview-navbtns">
+                                            <button type="button" class="pn-nav-btn" id="pnPrevBtn" title="Previous (K / ↑)"><i class="fas fa-chevron-up"></i></button>
+                                            <button type="button" class="pn-nav-btn" id="pnNextBtn" title="Next (J / ↓)"><i class="fas fa-chevron-down"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="pn-preview-scroll" id="pnPreviewBody">
+                                        <div class="pn-preview-empty" id="pnPreviewEmpty">
+                                            <i class="fas fa-hand-pointer"></i>
+                                            <h4>Select a submission</h4>
+                                            <p>Pick an item from the list to review it here.<br>Shortcuts: <kbd>J</kbd>/<kbd>K</kbd> navigate · <kbd>A</kbd> approve · <kbd>R</kbd> reject · <kbd>B</kbd> send back</p>
+                                        </div>
+                                    </div>
+                                </aside>
                                 </div>
                             </div>
                         </div>
@@ -2152,7 +2173,232 @@
                 modal.style.display = 'block';
             }
         </script>
-        
+
         <%- include('partials/image-moderator') %>
+
+        <!-- ═══════════ Split-view moderation UI (presentation layer only) ═══════════
+             Pure enhancement over the existing cards/actions/sockets. It never calls
+             an API itself: every action still goes through the original inline
+             onclick handlers, and real-time add/remove still comes from the existing
+             socket events — this layer only mirrors DOM changes into the preview. -->
+        <script>
+        (function pnSplitView() {
+            const grid = document.getElementById('newsGrid');
+            const split = document.getElementById('pnSplit');
+            const pane = document.getElementById('pnPreviewPane');
+            const paneBody = document.getElementById('pnPreviewBody');
+            const counter = document.getElementById('pnPreviewCounter');
+            if (!grid || !split || !pane || !paneBody) return;
+
+            let selectedId = null;
+            const isMobile = () => window.matchMedia('(max-width: 991.98px)').matches;
+
+            const visibleCards = () =>
+                [...grid.querySelectorAll('.news-card')].filter(c => c.style.display !== 'none');
+
+            // ── SLA age chips (computed from data-date; refreshed each minute) ──
+            function ageChip(card) {
+                const ts = parseInt(card.dataset.date || '0', 10);
+                if (!ts) return;
+                const hrs = (Date.now() - ts) / 36e5;
+                const cls = hrs < 4 ? 'pn-age--fresh' : hrs < 24 ? 'pn-age--warn' : 'pn-age--late';
+                const label = hrs < 1 ? Math.max(1, Math.round(hrs * 60)) + 'm' :
+                              hrs < 24 ? Math.round(hrs) + 'h' : Math.round(hrs / 24) + 'd';
+                let chip = card.querySelector(':scope .badge-group .pn-age');
+                if (!chip) {
+                    const bg = card.querySelector(':scope .badge-group');
+                    if (!bg) return;
+                    chip = document.createElement('span');
+                    bg.appendChild(chip);
+                }
+                chip.className = 'badge pn-age ' + cls;
+                chip.innerHTML = '<i class="fas fa-hourglass-half"></i> ' + label;
+                chip.title = 'Pending for ' + label;
+            }
+            function refreshAges() { grid.querySelectorAll('.news-card').forEach(ageChip); }
+
+            function lazyThumbs(scope) {
+                (scope || grid).querySelectorAll('.news-card-image img').forEach(img => {
+                    img.loading = 'lazy';
+                    img.decoding = 'async';
+                });
+            }
+
+            // ── selection + preview (clone keeps the original onclick handlers) ──
+            function renderPreview(card) {
+                const clone = card.cloneNode(true);
+                clone.removeAttribute('id'); // never duplicate #article-<id>
+                clone.classList.add('pn-preview-card');
+                clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+
+                // Rearrange the cloned nodes (layout only — inline handlers are kept)
+                // into: LEFT = image + meta + reporter/assignment, RIGHT = title +
+                // description + duplicate card, and a full-width sticky action bar.
+                try {
+                    const content = clone.querySelector('.news-card-content');
+                    const img = clone.querySelector('.news-card-image');
+                    if (content) {
+                        const pick = (sel) => content.querySelector(sel);
+                        const title = pick('.news-card-title');
+                        const badges = pick('.badge-group');
+                        const meta = pick('.news-card-meta');
+                        const assign = pick('.pn-assign-block');
+                        const fulltext = pick('.pn-preview-fulltext') || pick('.pn-card-excerpt');
+                        const dup = pick('.duplicate-warning');
+                        const actions = pick('.card-actions');
+
+                        const left = document.createElement('div');
+                        left.className = 'pn-pv-left';
+                        const right = document.createElement('div');
+                        right.className = 'pn-pv-right';
+                        const cols = document.createElement('div');
+                        cols.className = 'pn-pv-cols';
+
+                        if (img) left.appendChild(img);
+                        if (badges) left.appendChild(badges);
+                        // Compact News ID line (uses the card id already in the DOM).
+                        if (clone.dataset && clone.dataset.id) {
+                            const idLine = document.createElement('div');
+                            idLine.className = 'pn-pv-newsid';
+                            idLine.innerHTML = '<i class="fas fa-hashtag"></i> News ID: <span>' + clone.dataset.id + '</span>';
+                            left.appendChild(idLine);
+                        }
+                        if (meta) left.appendChild(meta);
+
+                        if (title) right.appendChild(title);
+                        if (dup) right.appendChild(dup);
+                        if (fulltext) right.appendChild(fulltext);
+
+                        cols.appendChild(left);
+                        cols.appendChild(right);
+                        content.innerHTML = '';
+                        content.appendChild(cols);
+                        if (assign) content.appendChild(assign);
+                        if (actions) content.appendChild(actions);
+                    }
+                } catch (e) { /* fall back to the plain clone on any error */ }
+
+                paneBody.innerHTML = '';
+                paneBody.appendChild(clone);
+                paneBody.scrollTop = 0;
+            }
+
+            function updateCounter() {
+                const cards = visibleCards();
+                const idx = cards.findIndex(c => c.dataset.id === selectedId);
+                counter.textContent = idx >= 0 ? (idx + 1) + ' of ' + cards.length : cards.length + ' pending';
+            }
+
+            function select(card, { openMobile = true, scroll = true } = {}) {
+                if (!card) return;
+                selectedId = card.dataset.id;
+                grid.querySelectorAll('.news-card.pn-row--selected')
+                    .forEach(c => c.classList.remove('pn-row--selected'));
+                card.classList.add('pn-row--selected');
+                if (scroll) card.scrollIntoView({ block: 'nearest' });
+                renderPreview(card);
+                updateCounter();
+                if (openMobile && isMobile()) split.classList.add('pn-mobile-open');
+            }
+
+            function step(dir) {
+                const cards = visibleCards();
+                if (!cards.length) return;
+                const idx = cards.findIndex(c => c.dataset.id === selectedId);
+                const next = cards[Math.min(cards.length - 1, Math.max(0, idx + dir))] || cards[0];
+                select(next);
+            }
+
+            function clearPreview() {
+                selectedId = null;
+                paneBody.innerHTML =
+                    '<div class="pn-preview-empty"><i class="fas fa-circle-check"></i>' +
+                    '<h4>All caught up</h4><p>Nothing selected — the queue is clear or filtered out.</p></div>';
+                counter.textContent = '–';
+                split.classList.remove('pn-mobile-open');
+            }
+
+            // ── wiring ──
+            grid.addEventListener('click', e => {
+                if (e.target.closest('button, a, video')) return; // actions keep working untouched
+                const card = e.target.closest('.news-card');
+                if (card) select(card, { scroll: false });
+            });
+            document.getElementById('pnPrevBtn').onclick = () => step(-1);
+            document.getElementById('pnNextBtn').onclick = () => step(1);
+            document.getElementById('pnPreviewBack').onclick = () => split.classList.remove('pn-mobile-open');
+
+            // Keyboard: J/K/arrows navigate, A approve, R reject, B send back.
+            document.addEventListener('keydown', e => {
+                if (e.altKey || e.ctrlKey || e.metaKey) return;
+                if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) return;
+                if (document.querySelector('.modal.show, .pn-modal-backdrop.active, .swal2-container')) return;
+                const k = e.key.toLowerCase();
+                if (k === 'j' || e.key === 'ArrowDown') { e.preventDefault(); step(1); }
+                else if (k === 'k' || e.key === 'ArrowUp') { e.preventDefault(); step(-1); }
+                else if (['a', 'r', 'b'].includes(k) && selectedId) {
+                    const sel = { a: '.btn-approve', r: '.btn-reject', b: '.btn-send-back' }[k];
+                    paneBody.querySelector(sel)?.click();
+                }
+            });
+
+            // Mobile swipe left/right in preview = next/prev.
+            let touchX = null;
+            pane.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive: true });
+            pane.addEventListener('touchend', e => {
+                if (touchX === null) return;
+                const dx = e.changedTouches[0].clientX - touchX;
+                touchX = null;
+                if (Math.abs(dx) > 70) step(dx < 0 ? 1 : -1);
+            }, { passive: true });
+
+            // ── mirror all existing DOM changes (actions, sockets, live updates) ──
+            const listObserver = new MutationObserver(muts => {
+                let removedSelected = false, structuralChange = false;
+                for (const m of muts) {
+                    if (m.type === 'childList' && m.target === grid) {
+                        structuralChange = true;
+                        m.addedNodes.forEach(n => {
+                            if (n.nodeType === 1 && n.classList.contains('news-card')) {
+                                n.classList.add('pn-row--new'); // "New" pulse
+                                setTimeout(() => n.classList.remove('pn-row--new'), 4000);
+                                ageChip(n); lazyThumbs(n);
+                            }
+                        });
+                        m.removedNodes.forEach(n => {
+                            if (n.nodeType === 1 && n.dataset && n.dataset.id === selectedId) removedSelected = true;
+                        });
+                    } else if (selectedId && m.target.closest &&
+                               m.target.closest('.news-card')?.dataset.id === selectedId) {
+                        structuralChange = true; // in-place card update (revision/duplicate socket)
+                    }
+                }
+                if (removedSelected) {
+                    const cards = visibleCards();
+                    cards.length ? select(cards[0], { openMobile: false }) : clearPreview();
+                } else if (structuralChange && selectedId) {
+                    const card = grid.querySelector('.news-card[data-id="' + selectedId + '"]');
+                    if (card) { renderPreview(card); }
+                    updateCounter();
+                }
+            });
+            listObserver.observe(grid, { childList: true, subtree: true });
+
+            // Keep counter honest when filters/sort run (they only toggle display/reorder).
+            ['searchInput', 'categoryFilter', 'locationFilter', 'dateFilter'].forEach(id => {
+                document.getElementById(id)?.addEventListener('input', () => setTimeout(updateCounter, 0));
+                document.getElementById(id)?.addEventListener('change', () => setTimeout(updateCounter, 0));
+            });
+
+            // ── boot ──
+            split.classList.add('pn-split--ready');
+            refreshAges();
+            lazyThumbs();
+            setInterval(refreshAges, 60000);
+            const first = visibleCards()[0];
+            if (first && !isMobile()) select(first, { openMobile: false });
+            else updateCounter();
+        })();
+        </script>
     </body>
 </html>

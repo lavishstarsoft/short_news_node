@@ -152,9 +152,10 @@
                                     <div class="ra-actions">
                                         
                                         <% 
-                                            const locationStr = (typeof raPickString === 'function') ? raPickString(app.data || {}, ['district', 'District', 'mandal', 'Mandal', 'village', 'Village', 'constituency', 'Constituency', 'city', 'City', 'location', 'Location']) : ''; 
-                                            const finalEmail = email || app.data['email'] || app.data['Email'] || app.data['email_address'] || '';
-                                            const finalPhone = phone || app.data['phone_number'] || app.data['Mobile'] || app.data['mobile'] || app.data['mobile_number'] || '';
+                                            const appData = app.data || {};
+                                            const locationStr = (typeof raPickString === 'function') ? raPickString(appData, ['district', 'District', 'mandal', 'Mandal', 'village', 'Village', 'constituency', 'Constituency', 'city', 'City', 'location', 'Location']) : ''; 
+                                            const finalEmail = email || appData['email'] || appData['Email'] || appData['email_address'] || '';
+                                            const finalPhone = phone || appData['phone_number'] || appData['Mobile'] || appData['mobile'] || appData['mobile_number'] || '';
                                         %>
                                         <% if (app.status === 'pending') { %>
                                         <a href="/register-editor?source=application&email=<%= encodeURIComponent(finalEmail) %>&name=<%= encodeURIComponent(name || '') %>&mobile=<%= encodeURIComponent(finalPhone) %>&location=<%= encodeURIComponent(locationStr || '') %>"

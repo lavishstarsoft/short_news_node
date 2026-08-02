@@ -130,7 +130,59 @@
             <div class="meta-item"><i class="fas fa-calendar"></i><span><%= new Date(news.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) %></span></div>
         </div>
 
+        <%
+            const _isSuperAdmin = (typeof isSuperAdmin !== 'undefined') && isSuperAdmin === true;
+        %>
+        <% if (!isAIQueue && _isSuperAdmin) { %>
+            <%
+                // Assignment & Approval — Super Admin only. Values are read from the
+                // article if the backend attaches them; missing fields fall back
+                // gracefully so the block never looks broken.
+                const _inc = typeof admin !== 'undefined' ? admin : null;
+                const _incName = _inc && (_inc.name || _inc.fullName);
+                const _incMobile = _inc && (_inc.mobileNumber || _inc.mobile || _inc.phone);
+                const _incEmail = _inc && (_inc.email);
+                const _assignedState = news.assignedState || news.location || '';
+                const _approvedBy = news.approvedBy || '';
+                const _approvedByRole = news.approvedByRole || '';
+                const _approvedAt = news.approvedAt
+                    ? new Date(news.approvedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+                    : '';
+            %>
+            <%
+                const _rep = news.authorDetails || null;
+                const _repName = (_rep && _rep.name) || news.author || '';
+                const _repMobile = _rep && _rep.mobileNumber;
+                const _repEmail = (_rep && _rep.email) || news.author;
+                const _repArea = _rep && _rep.constituency;
+            %>
+            <div class="pn-assign-block pn-assign-2col">
+                <div class="pn-assign-col">
+                    <div class="pn-assign-title"><i class="fas fa-user-pen"></i> Reporter Details</div>
+                    <div class="pn-assign-rows">
+                        <div class="pn-assign-item"><span class="pn-assign-label">Name</span><span class="pn-assign-value"><%= _repName || '—' %></span></div>
+                        <div class="pn-assign-item"><span class="pn-assign-label">Mobile</span><span class="pn-assign-value"><%= _repMobile || '—' %></span></div>
+                        <div class="pn-assign-item"><span class="pn-assign-label">Email</span><span class="pn-assign-value"><%= _repEmail || '—' %></span></div>
+                        <div class="pn-assign-item"><span class="pn-assign-label">Area</span><span class="pn-assign-value"><%= _repArea || '—' %></span></div>
+                    </div>
+                </div>
+                <div class="pn-assign-col">
+                    <div class="pn-assign-title"><i class="fas fa-user-shield"></i> Assignment &amp; Approval</div>
+                    <div class="pn-assign-rows">
+                        <div class="pn-assign-item"><span class="pn-assign-label">Incharge</span><span class="pn-assign-value"><%= _incName || '—' %></span></div>
+                        <div class="pn-assign-item"><span class="pn-assign-label">Mobile</span><span class="pn-assign-value"><%= _incMobile || '—' %></span></div>
+                        <div class="pn-assign-item"><span class="pn-assign-label">Email</span><span class="pn-assign-value"><%= _incEmail || '—' %></span></div>
+                        <div class="pn-assign-item"><span class="pn-assign-label">State</span><span class="pn-assign-value"><%= _assignedState || '—' %></span></div>
+                    </div>
+                </div>
+            </div>
+        <% } %>
+
         <p class="pn-card-excerpt rich-text"><%- renderRichTextExcerpt(news.content, 120) %></p>
+        <% if (!isAIQueue) { %>
+            <%# Full description — hidden in the list row/card; shown only inside the split-view preview clone %>
+            <div class="pn-preview-fulltext rich-text"><%- renderRichText(news.content) %></div>
+        <% } %>
 
         <% if (isAIQueue && news.aiStatus === 'review_required') { %>
             <% 
@@ -185,8 +237,6 @@
             <% if (!isAIQueue) { %>
                 <button type="button" class="btn-preview" onclick="openPreview('<%= news._id %>')"><i class="fas fa-pen-to-square"></i> Preview</button>
             <% } %>
-            <button type="button" class="btn-preview" onclick="window.location.href='/edit-news/<%= news._id %>?source=pending'" style="background-color: #3b82f6; color: white;"><i class="fas fa-pen"></i> Edit <%= isAIQueue ? 'Article' : '' %></button>
-            
             <% if (isAIQueue && news.aiStatus === 'review_required') { %>
                 <button type="button" class="btn-compare" onclick="openCompareArticlesModal('<%= news._id %>')" style="background-color: #f59e0b; color: white;"><i class="fas fa-code-compare"></i> Compare Articles</button>
                 <button type="button" class="btn-approve" onclick='approveNews("<%= news._id %>", <%- JSON.stringify(news.title).replace(/'/g, "&#39;") %>)'><i class="fas fa-check"></i> Publish Anyway</button>

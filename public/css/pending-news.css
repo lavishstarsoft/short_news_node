@@ -1150,7 +1150,17 @@ button.news-filters-reset {
 
 @media (max-width: 640px) {
   .pn-filters-card .news-filters-facets {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .pn-filters-card .news-facet-label {
+    font-size: 0.7rem;
+    margin-bottom: 2px;
+  }
+  .pn-filters-card .news-facet-select {
+    padding: 6px 24px 6px 8px;
+    font-size: 0.8rem;
+    height: 32px;
   }
 
   .pn-btn {
@@ -1613,5 +1623,547 @@ button.news-filters-reset {
   .pn-dup-layout {
     display: flex;
     flex-direction: column;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Split-view moderation console (pending-news page only).
+   Everything is scoped under .pn-split--ready — added by JS at boot — so
+   the shared card partial/CSS on my-ai-queue keeps its original layout,
+   and if JS ever fails the page gracefully falls back to classic cards.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Compact filter bar (formerly sticky) */
+.pn-page .pn-filters-card {
+  z-index: 40;
+  padding: 12px 16px;
+}
+.pn-page .pn-filters-card .news-filters-subtitle { display: none; }
+.pn-page .news-filters-top { margin-bottom: 8px; }
+.pn-page .team-stats { margin-bottom: 12px; }
+
+/* Layout shell */
+.pn-split--ready {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  min-height: 0;
+}
+.pn-split--ready .pn-split-list {
+  flex: 0 0 32%;
+  max-width: 420px;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+}
+.pn-split--ready .pn-split-list .table-wrapper {
+  overflow-y: auto;
+  max-height: calc(100vh - 130px);
+  overscroll-behavior: contain;
+}
+
+/* ── Dense list rows ── */
+.pn-split--ready .news-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+.pn-split--ready .news-grid .news-card {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+  padding: 8px;
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.pn-split--ready .news-grid .news-card:hover { border-color: #c7d2fe; }
+.pn-split--ready .news-grid .news-card.pn-row--selected {
+  border-color: #6366f1;
+  background: #eef2ff;
+  box-shadow: inset 3px 0 0 #6366f1;
+}
+.pn-split--ready .news-grid .news-card-image {
+  flex: 0 0 84px;
+  width: 84px;
+  height: 60px;
+  align-self: center;
+  border-radius: 8px;
+}
+.pn-split--ready .news-grid .news-card-image video { display: none; }
+.pn-split--ready .news-grid .pn-card-media--video::after {
+  font-size: 1rem;
+}
+.pn-split--ready .news-grid .news-card-content {
+  padding: 2px 4px;
+  gap: 4px;
+  min-width: 0;
+}
+.pn-split--ready .news-grid .news-card-title {
+  font-size: .84rem;
+  line-height: 1.35;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pn-split--ready .news-grid .badge-group { gap: 4px; }
+.pn-split--ready .news-grid .badge {
+  font-size: .58rem;
+  padding: 2px 7px;
+  letter-spacing: 0;
+}
+/* Row keeps only reporter name + badges: hide the heavy blocks (all fully
+   visible in the preview clone). */
+.pn-split--ready .news-grid .pn-card-excerpt,
+.pn-split--ready .news-grid .pn-revision-remarks,
+.pn-split--ready .news-grid .pn-revision-history,
+.pn-split--ready .news-grid .pn-change-chips,
+.pn-split--ready .news-grid .duplicate-warning,
+.pn-split--ready .news-grid .card-actions,
+.pn-split--ready .news-grid .news-card-meta .meta-item:not(.author-details-block),
+.pn-split--ready .news-grid .author-details-block div:not(:first-child) { display: none; }
+.pn-split--ready .news-grid .news-card-meta { margin: 0; }
+.pn-split--ready .news-grid .author-details-block {
+  background: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: .72rem;
+}
+.pn-split--ready .news-grid .author-details-block div:first-child {
+  font-weight: 500 !important;
+  color: #64748b !important;
+  font-size: .72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* New-arrival pulse (socket insertions) */
+.pn-row--new { animation: pnRowIn .5s ease, pnPulse 2.4s ease .5s; }
+@keyframes pnRowIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes pnPulse { 0%, 100% { background: transparent; } 30% { background: #ecfdf5; } }
+
+/* SLA age chip */
+.pn-age--fresh { background: #ecfdf5; color: #047857; }
+.pn-age--warn  { background: #fffbeb; color: #b45309; }
+.pn-age--late  { background: #fef2f2; color: #b91c1c; }
+
+/* ── Preview pane ── */
+.pn-preview-pane {
+  display: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  overflow: hidden;
+  flex-direction: column;
+  max-height: calc(100vh - 130px);
+  position: sticky;
+  top: 96px;
+}
+.pn-split--ready .pn-preview-pane { display: flex; }
+.pn-preview-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #eef2f7;
+  background: #f8fafc;
+  flex: 0 0 auto;
+}
+.pn-preview-counter { font-size: .8rem; color: #64748b; font-weight: 600; flex: 1; }
+.pn-preview-navbtns { display: flex; gap: 6px; }
+.pn-nav-btn, .pn-preview-back {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.pn-nav-btn:hover, .pn-preview-back:hover { background: #eef2ff; color: #4338ca; }
+.pn-preview-back { display: none; }
+.pn-preview-scroll { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+
+.pn-preview-empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 72px 24px;
+}
+.pn-preview-empty i { font-size: 2rem; margin-bottom: 12px; color: #c7d2fe; }
+.pn-preview-empty h4 { color: #334155; margin: 0 0 6px; }
+.pn-preview-empty kbd {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: .75rem;
+  color: #475569;
+}
+
+/* Cloned card inside the pane: full detail, sticky action bar */
+.pn-preview-card {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+/* Image: original aspect ratio, never cropped — the whole image is always
+   visible (contain), bounded so it doesn't dominate the panel height. */
+.pn-preview-card .news-card-image {
+  height: auto;
+  max-height: 340px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.pn-preview-card .news-card-image img,
+.pn-preview-card .news-card-image video {
+  width: 100%;
+  height: auto;
+  max-height: 340px;
+  object-fit: contain;
+}
+.pn-preview-card,
+.pn-preview-card .news-card-content { overflow: visible !important; }
+.pn-preview-card .badge-group { overflow: visible; flex-wrap: wrap; }
+.pn-preview-card .duplicate-warning { overflow: visible; }
+.pn-preview-card .news-card-content { padding: 20px; gap: 12px; }
+.pn-preview-card .news-card-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.35;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.01em;
+}
+
+/* Reporter block: display details in a vertical column */
+.pn-preview-card .author-details-block {
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 6px !important;
+  padding: 10px !important;
+  margin-bottom: 8px !important;
+  background: #f8fafc !important;
+}
+.pn-preview-card .author-details-block > div {
+  font-size: .8rem !important;
+  color: #64748b !important;
+}
+.pn-preview-card .author-details-block > div:first-child {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+  width: 100%;
+}
+/* Meta strip (location · time) in a column */
+.pn-preview-card .news-card-meta {
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+/* Full news description under the title. Hidden everywhere by default
+   (list rows / fallback card) and revealed only inside the preview clone. */
+.pn-preview-fulltext { display: none; }
+.pn-preview-card .pn-card-excerpt { display: none; }
+.pn-preview-card .pn-preview-fulltext {
+  display: block;
+  font-size: 1.05rem;
+  line-height: 1.85;
+  color: #1e293b;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 4px;
+  flex-grow: 1;
+}
+
+/* ── Part 1: "Similar Articles Found" — responsive inside the narrow pane ── */
+.pn-preview-card .duplicate-warning {
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.pn-preview-card .duplicate-warning .dup-reason-line {
+  display: block;
+  margin-top: 4px;
+}
+.pn-preview-card .duplicate-warning .dup-match-chips,
+.pn-preview-card .duplicate-warning .dup-source-chip {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+/* The "Duplicates"/"Compare" buttons live in the sticky action bar; let them
+   wrap instead of overflowing the narrow preview. */
+.pn-preview-card .card-actions .btn-duplicate,
+.pn-preview-card .card-actions .btn-compare { flex: 1 1 auto; min-width: 0; }
+
+/* ── Part 2: Assignment & Approval (Super Admin only) ── */
+.pn-assign-block {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin: 0 0 8px;
+}
+/* Compact 2-column card: Reporter | Assignment & Approval */
+.pn-assign-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+}
+.pn-preview-card .pn-assign-2col {
+  grid-template-columns: 1fr 1fr;
+}
+.pn-preview-card .pn-assign-2col .pn-assign-col:first-child {
+  border-right: 1px solid #e2e8f0;
+  border-bottom: none;
+  padding-right: 12px;
+  padding-bottom: 0;
+}
+.pn-assign-2col .pn-assign-col:first-child {
+  border-right: 1px solid #e2e8f0;
+  padding-right: 12px;
+}
+.pn-assign-title {
+  font-size: .74rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+.pn-assign-title i { color: #6366f1; }
+.pn-assign-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: baseline;
+}
+.pn-assign-item {
+  display: contents;
+}
+.pn-assign-label {
+  font-size: .68rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+.pn-assign-value {
+  font-size: .78rem;
+  color: #1e293b;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+/* Show the block only inside the preview clone; keep list rows dense. */
+.pn-split--ready .news-grid .pn-assign-block { display: none; }
+/* Avoid duplicate reporter info: the standalone reporter block is folded into
+   this 2-col card for Super Admin, so hide the separate one in the preview. */
+.pn-preview-card:has(.pn-assign-2col) .author-details-block { display: none !important; }
+
+@media (max-width: 575.98px) {
+  .pn-assign-2col { grid-template-columns: 1fr; }
+  .pn-assign-2col .pn-assign-col:first-child {
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+    padding-right: 0;
+    padding-bottom: 8px;
+  }
+}
+.pn-preview-card .card-actions {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  border-top: 1px solid #eef2f7;
+  padding: 10px 14px;
+  margin-top: auto;
+  z-index: 5;
+}
+
+/* ── Two-column preview body: LEFT media/meta, RIGHT title/description ── */
+.pn-preview-card .pn-pv-cols {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 24px;
+  align-items: stretch;
+}
+.pn-pv-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  height: 100%;
+}
+.pn-pv-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  height: 100%;
+  background: #f8fafc;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+.pn-pv-left .news-card-image { margin: 0; }
+.pn-pv-left .badge-group { gap: 5px; }
+.pn-pv-newsid {
+  font-size: .72rem;
+  color: #64748b;
+  overflow-wrap: anywhere;
+}
+.pn-pv-newsid i { color: #94a3b8; margin-right: 3px; }
+.pn-pv-newsid span { font-weight: 600; color: #334155; }
+/* In the narrow left column, stack Reporter over Assignment (no side-by-side). */
+.pn-pv-left .pn-assign-2col { grid-template-columns: 1fr; gap: 6px; }
+.pn-pv-left .pn-assign-2col .pn-assign-col:first-child {
+  border-right: 0;
+  padding-right: 0;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px;
+}
+.pn-pv-right .news-card-title { margin: 0; }
+.pn-pv-right .duplicate-warning { margin: 0; }
+
+/* ── Bottom action bar: dynamically sized buttons (Preview | Edit | Duplicate | Approve | Send Back | Reject) ── */
+.pn-preview-card .card-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  overflow: visible;
+}
+.pn-preview-card .card-actions > button {
+  flex: 0 1 auto;
+  min-width: max-content;
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+}
+.pn-preview-card .card-actions > button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 1200px) {
+  .pn-preview-card .pn-pv-cols { grid-template-columns: 190px minmax(0, 1fr); }
+}
+
+/* ── Mobile: list first, full-screen preview overlay ── */
+@media (max-width: 991.98px) {
+  .pn-split--ready { display: block; }
+  .pn-split--ready .pn-split-list {
+    max-width: none;
+    flex: none;
+    display: block;
+    height: auto;
+  }
+  .pn-split--ready .pn-split-list .table-wrapper {
+    max-height: none !important;
+    height: auto !important;
+    overflow: unset !important;
+    overflow-y: unset !important;
+    overscroll-behavior: unset !important;
+    -webkit-overflow-scrolling: auto !important;
+    touch-action: auto !important;
+  }
+  .pn-split--ready .news-grid .news-card {
+    touch-action: auto !important;
+    pointer-events: auto !important;
+  }
+  
+  /* Compact Filters for Mobile: save vertical space */
+  .pn-page .pn-filters-card {
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    top: 0;
+  }
+  .pn-page .pn-filters-card .team-page-title,
+  .pn-page .pn-filters-card .team-page-subtitle,
+  .pn-page .pn-filters-card .news-filters-icon {
+    display: none !important;
+  }
+  .pn-page .pn-filters-card .news-filters-reset {
+    border-radius: 5px !important;
+  }
+  .pn-page .team-stats {
+    display: flex !important;
+    margin-bottom: 8px !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    padding-bottom: 4px !important;
+    -webkit-overflow-scrolling: touch;
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .pn-page .team-stats::-webkit-scrollbar {
+    display: none;
+  }
+  .pn-page .news-filters-search-row {
+    margin-bottom: 8px !important;
+  }
+  .pn-page .team-stat {
+    flex: 0 0 auto !important;
+    padding: 6px 12px !important;
+    min-width: max-content;
+    border-radius: 8px !important;
+  }
+  .pn-page .team-stat-value { font-size: 1.1rem !important; margin-bottom: 0 !important; line-height: 1.2 !important; }
+  .pn-page .team-stat-label { font-size: 0.7rem !important; margin-top: 2px !important; }
+  .pn-page .news-filters-top {
+    margin-bottom: 0;
+    gap: 8px;
+  }
+
+  .pn-split--ready .pn-preview-pane {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    max-height: none;
+    border-radius: 0;
+    border: none;
+  }
+  .pn-split--ready.pn-mobile-open .pn-preview-pane { display: flex; }
+  .pn-split--ready.pn-mobile-open { }
+  .pn-preview-back { display: inline-block; }
+  /* Mobile: stack the two columns (image/meta above content). */
+  .pn-preview-card .pn-pv-cols { grid-template-columns: 1fr; gap: 12px; }
+  /* Mobile: full image, original aspect, never cropped (contain). */
+  .pn-preview-card .news-card-image { max-height: 45vh; }
+  .pn-preview-card .news-card-image img,
+  .pn-preview-card .news-card-image video { max-height: 45vh; }
+  
+  /* Mobile Actions: Beautiful grid-like wrapping instead of horizontal scroll */
+  .pn-preview-card .card-actions {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    flex-wrap: wrap;
+    overflow-x: visible;
+    justify-content: stretch;
+    gap: 10px;
+  }
+  .pn-preview-card .card-actions > button {
+    flex: 1 1 calc(50% - 10px);
+    min-width: min-content;
+    padding: 12px 10px;
+    font-size: 0.9rem;
+    justify-content: center;
   }
 }

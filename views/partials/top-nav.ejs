@@ -1,10 +1,12 @@
         <!-- Mobile Top Navigation -->
 <div class="top-nav d-md-none d-flex align-items-center justify-content-between w-100">
+    <div class="d-flex align-items-center" style="gap: 8px;">
         <button class="menu-toggle ripple" id="menuToggle" style="color: #4b5563; background: transparent; border: none; font-size: 20px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
             <i class="fas fa-bars"></i>
         </button>
+    </div>
     
-    <div class="mobile-header-icons ms-auto d-flex align-items-center" style="gap: 4px;">
+    <div class="mobile-header-icons ms-auto d-flex align-items-center" style="gap: 12px;">
         <% if (typeof actions !=='undefined' && actions && actions.length> 0) { %>
             <div class="d-flex align-items-center" style="gap: 4px;">
                 <% actions.forEach(function(action) { %>
@@ -15,17 +17,11 @@
             </div>
         <% } %>
         
-        
         <!-- Modern Mobile User Avatar -->
         <button class="modern-profile-btn" onclick="window.location.href='/admin/profile';" title="Profile">
             <div class="avatar-circle">
                 <i class="fas fa-user-alt" style="font-size: 14px; color: #ffffff;"></i>
             </div>
-        </button>
-
-        <!-- Search Icon (Mobile) -->
-        <button class="modern-icon-btn" onclick="document.getElementById('dsSearchInput').focus();" title="Search">
-            <i class="fas fa-search" style="font-size: 20px; color: #4b5563;"></i>
         </button>
     </div>
 </div>
@@ -135,12 +131,13 @@
 
 <!-- Desktop Navigation -->
 <div class="top-nav d-none d-md-flex w-100 justify-content-between align-items-center">
-    <div class="top-nav-left d-flex align-items-center">
+    <div class="top-nav-left d-flex align-items-center" style="gap: 16px;">
         <div class="ds-breadcrumb ms-2">
             <span class="ds-breadcrumb-separator"><i class="fas fa-home"></i></span>
             <span class="ds-breadcrumb-separator">/</span>
             <span class="ds-breadcrumb-active"><%= typeof pageTitle !=='undefined' ? pageTitle : 'Dashboard' %></span>
         </div>
+        
     </div>
     
     <div class="top-nav-right d-flex align-items-center">
@@ -160,31 +157,15 @@
             </div>
         <% } %>
 
-        <!-- Modern Header Actions: Notification, Profile, Search grouped together with equal spacing -->
+        <!-- Modern Header Actions: Notification and Profile grouped together with equal spacing -->
         <div class="d-flex align-items-center" style="gap: 16px; border-left: 1px solid #e5e7eb; padding-left: 16px;">
             
-            <!-- 1. Notification Bell (with red dot) -->
-            <button class="modern-icon-btn position-relative" onclick="window.location.href='/admin/notifications';" title="Notifications">
-                <i class="far fa-bell" style="font-size: 20px; color: #4b5563;"></i>
-                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle" style="width: 10px; height: 10px; margin-top: 8px; margin-left: -12px;"></span>
-            </button>
-
             <!-- 2. User Profile Avatar (Blue gradient) -->
             <button class="modern-profile-btn" onclick="window.location.href='/admin/profile';" title="Profile">
                 <div class="avatar-circle">
                     <i class="fas fa-user-alt" style="font-size: 14px; color: #ffffff;"></i>
                 </div>
             </button>
-            
-            <!-- 3. Expandable Search (White/Grey button) -->
-            <div class="ds-expandable-search" id="expandableSearch">
-                <button class="modern-icon-btn" id="searchToggleBtn" onclick="document.getElementById('expandableSearch').classList.toggle('active'); document.getElementById('dsSearchInput').focus();" title="Search">
-                    <i class="fas fa-search" style="font-size: 20px; color: #4b5563;"></i>
-                </button>
-                <div class="search-input-container" id="searchInputContainer">
-                    <input type="text" id="dsSearchInput" placeholder="Search news, editors...">
-                </div>
-            </div>
             
         </div>
     </div>
