@@ -426,6 +426,7 @@ const login = async (req, res) => {
       { 
         id: isConnectedToMongoDB ? admin._id : admin.id, 
         username: admin.username, 
+        name: admin.name,
         role: admin.role,
         permissions: admin.permissions || {}
       },
@@ -878,16 +879,7 @@ async function buildAnalyticsScopeFilter(adminDoc) {
   if (reporterIds.length) {
     orClauses.push({ authorId: { $in: reporterIds } });
   }
-  if (normalizeApprovalScope(perms.approvalScope) === 'geography') {
-    const coverage = getSubEditorManagedCoverage(adminDoc);
-    const names = uniqueStrings([
-      ...coverage.states,
-      ...coverage.districts,
-      ...coverage.constituencies,
-      ...coverage.locations
-    ]);
-    if (names.length) orClauses.push({ location: { $in: names } });
-  }
+  
   return { $or: orClauses };
 }
 
@@ -1110,6 +1102,20 @@ async function getScopedAnalytics(req, res) {
                 total: { $sum: 1 },
                 approved: { $sum: { $cond: [{ $eq: ['$approvalStatus.isApproved', true] }, 1, 0] } },
                 rejected: { $sum: { $cond: [{ $eq: ['$rejectionStatus.isRejected', true] }, 1, 0] } },
+                pending: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $ne: ['$isActive', true] },
+                          { $ne: ['$rejectionStatus.isRejected', true] },
+                          { $ne: ['$approvalStatus.isApproved', true] }
+                        ]
+                      },
+                      1, 0
+                    ]
+                  }
+                },
                 views: { $sum: { $ifNull: ['$views', 0] } }
               }
             },
@@ -1225,7 +1231,7 @@ async function getScopedAnalytics(req, res) {
         total: r.total,
         approved: r.approved,
         rejected: r.rejected,
-        pending: Math.max(0, r.total - r.approved - r.rejected),
+        pending: r.pending || 0,
         views: r.views
       })),
       locations: facets.byLocation.map(l => ({ name: l._id, count: l.count })),
@@ -2792,7 +2798,7 @@ async function sendNotification(req, res) {
           if (timeSincePublished < twoMinutesMs) {
             const remainingSeconds = Math.ceil((twoMinutesMs - timeSincePublished) / 1000);
             return res.status(429).json({ 
-              error: `సర్వర్ లోడ్ కంట్రోల్: దయచేసి రిఫ్రెష్ పేజీలో వార్త పబ్లిష్ లేదా అప్రూవ్ చేసిన 2 నిమిషాల తర్వాత మాత్రమే పుష్ నోటిఫికేషన్ పంపండి. ఇంకా ${remainingSeconds} సెకన్లు వేచి ఉండండి.` 
+              error: `Server Load Control: Please send push notifications only 2 minutes after publishing or approving the news. Please wait another ${remainingSeconds} seconds.` 
             });
           }
         }
@@ -3376,7 +3382,7 @@ const requireAuth = (req, res, next) => {
     // Fetch latest admin data to ensure permissions are up to date
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
     if (isConnectedToMongoDB) {
-        Admin.findById(decoded.id).select('permissions isActive role').then(latestAdmin => {
+        Admin.findById(decoded.id).select('permissions isActive role name').then(latestAdmin => {
             if (!latestAdmin || !latestAdmin.isActive) {
                 res.clearCookie('token');
                 if (isApiRequest) return res.status(401).json({ error: 'Session expired or account deactivated' });
@@ -3397,6 +3403,7 @@ const requireAuth = (req, res, next) => {
             
             decoded.role = latestAdmin.role;
             decoded.permissions = latestAdmin.permissions || {};
+            if (latestAdmin.name) decoded.name = latestAdmin.name;
             req.admin = decoded;
             res.locals.admin = decoded;
             next();
@@ -5365,8 +5372,11 @@ async function translateForDuplicateReview(req, res) {
 // Render plagiarism report page
 async function renderPlagiarismReportPage(req, res) {
   try {
+    const adminDoc = await Admin.findById(req.admin.id).lean();
+    const scopeFilter = adminDoc ? await buildAnalyticsScopeFilter(adminDoc) : {};
+
     // Get all articles with duplicate info
-    const allArticles = await News.find({})
+    const allArticles = await News.find(scopeFilter)
       .select('_id title author publishedAt category location isActive duplicateCheck')
       .sort({ publishedAt: -1 })
       .lean();
@@ -5437,7 +5447,10 @@ async function renderRejectedNewsPage(req, res) {
     const reasonFilter = (req.query.reason || '').trim();
     const categoryFilter = (req.query.category || '').trim();
 
-    const baseMatch = { 'rejectionStatus.isRejected': true };
+    const adminDoc = await Admin.findById(req.admin.id).lean();
+    const scopeFilter = adminDoc ? await buildAnalyticsScopeFilter(adminDoc) : {};
+
+    const baseMatch = { 'rejectionStatus.isRejected': true, ...scopeFilter };
     const filterConditions = [baseMatch];
 
     if (searchQuery) {
@@ -8497,22 +8510,22 @@ async function listAuditLogs(req, res) {
 const DEFAULT_REPORTER_HOME = {
   te: {
     title: 'ShortNews',
-    titleHighlight: 'రిపోర్టర్',
+    titleHighlight: 'Reporter',
     message:
-      'గమనిక: కాపీ వార్తలు పబ్లిష్ చేయబడవు. కాపీ వార్తలు పంపితే లీగల్‌గా రిపోర్టర్లదే బాధ్యత. అలాగే వార్తను పంపేముందు ఎప్పుడు, ఎక్కడ జరిగిందో నిర్ధారించుకోగలరు',
+      'Note: Copied news will not be published. Reporters are legally responsible for copied news. Before sending news, please confirm when and where it happened.',
     card1: {
       number: '1',
       title: 'Sr Reporter',
-      subtitle: 'న్యూస్ పోస్ట్ చేసి ఆదాయం పొందండి',
-      cta: 'న్యూస్ పోస్ట్ చేయండి',
+      subtitle: 'Post news and earn income',
+      cta: 'Post News',
       href: '/post',
       imageUrl: ''
     },
     card2: {
       number: '2',
-      title: 'అదనపు ఆదాయం కొరకు',
-      subtitle: 'ఇన్సూరేషన్ ఇవ్వండి అదనపు ఆదాయం పొందండి',
-      cta: 'ఎలాగో తెలుసుకోండి',
+      title: 'For Extra Income',
+      subtitle: 'Provide info and earn extra income',
+      cta: 'Learn How',
       href: '/earning',
       imageUrl: ''
     }
@@ -9376,7 +9389,7 @@ function defaultGuidelinesForLang(code) {
     }
   };
 
-  const base = packs[lang] || packs.en;
+  const base = packs.en;
   return {
     language: lang,
     pageTitle: base.pageTitle,
@@ -9636,7 +9649,7 @@ function defaultEarningForLang(code) {
     }
   };
 
-  const t = packs[lang] || packs.en;
+  const t = packs.en;
   return {
     language: lang,
     pageBgColor: '#F3F4F6',

@@ -9,7 +9,7 @@
             <div class="sidebar-profile-card">
                 <i class="fas fa-plus"></i>
                 <div class="text-start">
-                    <div class="fw-bold"><%= admin.username %></div>
+                    <div class="fw-bold"><%= admin.name || admin.username %></div>
                 </div>
             </div>
         <% } %>
@@ -207,11 +207,13 @@
             <!-- ==============================
                  MANAGEMENT
             =============================== -->
+            <% if (isAdmin) { %>
             <div class="nav-section-title">Management</div>
+            <% } %>
 
             <!-- Team & Roles Group -->
             <% 
-                const showTeamGroup = isAdmin || canView('editors'); // Assume subeditors can view editors list if canView returns true, though usually admin
+                const showTeamGroup = isAdmin; 
                 const teamGroupActive = ['editors', 'register-editor'].includes(activePage);
             %>
             <% if (showTeamGroup) { %>
@@ -348,13 +350,22 @@
             <!-- ==============================
                  SYSTEM & FINANCIAL
             =============================== -->
-            <div class="nav-section-title">System & Financial</div>
-
-            <!-- Analytics & Reports Group -->
             <% 
                 const showAnalyticsGroup = canView('reports') || isAdmin;
                 const analyticsGroupActive = ['reports', 'performance-analytics', 'onesignal-analytics'].includes(activePage);
+
+                const canSendNotif = isAdmin || (typeof admin !=='undefined' && admin.role==='subeditor' && admin.permissions && admin.permissions.canSendNotifications);
+                const showSystemGroup = isAdmin || canSendNotif;
+                const systemGroupActive = ['command-center', 'security', 'notifications', 'app-settings', 'r2-usage'].includes(activePage);
+
+                const showFinanceGroup = isAdmin || isReporter;
+                const financeActive = ['wallet-settings', 'my-wallet', 'withdrawals-queue', 'wallet-transactions', 'audit-logs', 'monthly-report'].includes(activePage); 
             %>
+            <% if (showAnalyticsGroup || showSystemGroup || showFinanceGroup) { %>
+            <div class="nav-section-title">System & Financial</div>
+            <% } %>
+
+            <!-- Analytics & Reports Group -->
             <% if (showAnalyticsGroup) { %>
             <li class="nav-item">
                 <a class="nav-link has-submenu <%= analyticsGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseAnalytics" role="button" aria-expanded="<%= analyticsGroupActive ? 'true' : 'false' %>" aria-controls="collapseAnalytics">
@@ -383,11 +394,6 @@
             <% } %>
 
             <!-- System Configuration Group -->
-            <% 
-                const canSendNotif = isAdmin || (typeof admin !=='undefined' && admin.role==='subeditor' && admin.permissions && admin.permissions.canSendNotifications);
-                const showSystemGroup = isAdmin || canSendNotif;
-                const systemGroupActive = ['command-center', 'security', 'notifications', 'app-settings', 'r2-usage'].includes(activePage);
-            %>
             <% if (showSystemGroup) { %>
             <li class="nav-item">
                 <a class="nav-link has-submenu <%= systemGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseSystem" role="button" aria-expanded="<%= systemGroupActive ? 'true' : 'false' %>" aria-controls="collapseSystem">
@@ -424,8 +430,7 @@
             <% } %>
 
             <!-- Financial Group -->
-            <% const financeActive = ['wallet-settings', 'my-wallet', 'withdrawals-queue', 'wallet-transactions', 'audit-logs', 'monthly-report'].includes(activePage); %>
-            <% if (isAdmin || isReporter) { %>
+            <% if (showFinanceGroup) { %>
             <li class="nav-item">
                 <a class="nav-link has-submenu <%= financeActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseFinance" role="button" aria-expanded="<%= financeActive ? 'true' : 'false' %>" aria-controls="collapseFinance">
                     <i class="fas fa-money-check-alt me-3 w-20px text-center"></i>
