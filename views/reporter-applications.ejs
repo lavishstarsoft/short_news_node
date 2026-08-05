@@ -14,10 +14,8 @@
                     <%- include('partials/sidebar', { activePage: 'reporter-applications' }) %>
 
                         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
-                            <% const raApps=typeof applications !=='undefined' ? applications : []; let raPending=0,
-                                raApproved=0, raRejected=0; raApps.forEach(function(app) { if (app.status==='pending' )
-                                raPending++; else if (app.status==='approved' ) raApproved++; else if
-                                (app.status==='rejected' ) raRejected++; }); const raRegFields=typeof registrationFields
+                            <% const raApps=typeof applications !=='undefined' ? applications : []; 
+                                const raRegFields=typeof registrationFields
                                 !=='undefined' ? registrationFields : []; function raIsUrl(value) { return typeof
                                 value==='string' && (value.startsWith('http') || value.startsWith('/uploads') ||
                                 value.includes('pub-')); } function raIsEmail(value) { return typeof value==='string' &&
@@ -38,12 +36,15 @@
                                 keys.length; i++) { const val=data[keys[i]]; if (typeof val !=='string' || !val.trim()
                                 || raIsUrl(val) || raIsEmail(val) || raIsPhone(val)) continue; if
                                 (/\.(pdf|jpg|jpeg|png|webp|gif)$/i.test(val)) continue; return val.trim(); }
-                                return 'Applicant' ; } function raGetEmail(data) { if (!data) return '' ; return
-                                raPickString(data, ['email', 'Email' , 'email_address' , 'Email_Address'
-                                , 'contact_email' ]) || '' ; } function raGetPhone(data) { if (!data) return '' ; return
-                                raPickString(data, ['mobile', 'Mobile' , 'phone' , 'Phone' , 'mobile_number'
-                                , 'Mobile_Number' , 'phone_number' , 'Phone_Number' , 'contact_number' , 'mobileNumber'
-                                ]) || '' ; } function raGetInitials(name) { return (name || '?'
+                                return 'Applicant' ; } function raGetEmail(data) { if (!data) return '' ; let val = 
+                                raPickString(data, ['email', 'Email' , 'email_address' , 'Email_Address', 'contact_email']); if (val) return val;
+                                for (let k in data) { if (/email/i.test(k) && typeof data[k] === 'string' && data[k].trim()) return data[k].trim(); }
+                                for (let k in data) { if (raIsEmail(data[k])) return data[k].trim(); }
+                                return '' ; } function raGetPhone(data) { if (!data) return '' ; let val = 
+                                raPickString(data, ['mobile', 'Mobile' , 'phone' , 'Phone' , 'mobile_number', 'Mobile_Number' , 'phone_number' , 'Phone_Number' , 'contact_number' , 'mobileNumber']); if (val) return val;
+                                for (let k in data) { if (/(phone|mobile|contact|whatsapp)/i.test(k) && typeof data[k] === 'string' && data[k].trim() && !raIsEmail(data[k])) return data[k].trim(); }
+                                for (let k in data) { if (raIsPhone(data[k])) return data[k].trim(); }
+                                return '' ; } function raGetInitials(name) { return (name || '?'
                                 ).split(/[\s._-]+/).filter(Boolean).map(function(n) { return n[0];
                                 }).join('').toUpperCase().substring(0, 2) || '?' ; } function raSearchText(app) { const
                                 parts=[raGetName(app.data), raGetEmail(app.data), raGetPhone(app.data), app.status,
@@ -63,28 +64,28 @@
                     <div class="ra-kpi-grid">
                         <div class="ra-kpi">
                             <div>
-                                <div class="ra-kpi-value"><%= raApps.length %></div>
+                                <div class="ra-kpi-value"><%= typeof appStats !== 'undefined' ? appStats.total : 0 %></div>
                                 <div class="ra-kpi-label">Total applications</div>
                             </div>
                             <span class="ra-kpi-icon ra-kpi-icon--total"><i class="fas fa-layer-group"></i></span>
                         </div>
                         <div class="ra-kpi">
                             <div>
-                                <div class="ra-kpi-value"><%= raPending %></div>
+                                <div class="ra-kpi-value"><%= typeof appStats !== 'undefined' ? appStats.pending : 0 %></div>
                                 <div class="ra-kpi-label">Awaiting review</div>
                             </div>
                             <span class="ra-kpi-icon ra-kpi-icon--pending"><i class="fas fa-hourglass-half"></i></span>
                         </div>
                         <div class="ra-kpi">
                             <div>
-                                <div class="ra-kpi-value"><%= raApproved %></div>
+                                <div class="ra-kpi-value"><%= typeof appStats !== 'undefined' ? appStats.approved : 0 %></div>
                                 <div class="ra-kpi-label">Approved</div>
                             </div>
                             <span class="ra-kpi-icon ra-kpi-icon--approved"><i class="fas fa-check"></i></span>
                         </div>
                         <div class="ra-kpi">
                             <div>
-                                <div class="ra-kpi-value"><%= raRejected %></div>
+                                <div class="ra-kpi-value"><%= typeof appStats !== 'undefined' ? appStats.rejected : 0 %></div>
                                 <div class="ra-kpi-label">Rejected</div>
                             </div>
                             <span class="ra-kpi-icon ra-kpi-icon--rejected"><i class="fas fa-times"></i></span>
@@ -95,15 +96,15 @@
                         <div class="ra-filters-left">
                             <span class="ra-filters-label">Status</span>
                             <div class="ra-status-pills" id="raStatusPills">
-                                <button type="button" class="ra-status-pill active" data-status="all">All</button>
-                                <button type="button" class="ra-status-pill ra-status-pill--pending" data-status="pending">Pending</button>
-                                <button type="button" class="ra-status-pill ra-status-pill--approved" data-status="approved">Approved</button>
-                                <button type="button" class="ra-status-pill ra-status-pill--rejected" data-status="rejected">Rejected</button>
+                                <button type="button" class="ra-status-pill <%= (typeof statusQuery === 'undefined' || statusQuery === 'all') ? 'active' : '' %>" data-status="all">All</button>
+                                <button type="button" class="ra-status-pill ra-status-pill--pending <%= (typeof statusQuery !== 'undefined' && statusQuery === 'pending') ? 'active' : '' %>" data-status="pending">Pending</button>
+                                <button type="button" class="ra-status-pill ra-status-pill--approved <%= (typeof statusQuery !== 'undefined' && statusQuery === 'approved') ? 'active' : '' %>" data-status="approved">Approved</button>
+                                <button type="button" class="ra-status-pill ra-status-pill--rejected <%= (typeof statusQuery !== 'undefined' && statusQuery === 'rejected') ? 'active' : '' %>" data-status="rejected">Rejected</button>
                             </div>
                         </div>
                         <div class="ra-search-wrap">
                             <i class="fas fa-search"></i>
-                            <input type="search" id="raSearchInput" class="ra-search-input" placeholder="Search applicant, email, phone..." autocomplete="off">
+                            <input type="search" id="raSearchInput" class="ra-search-input" placeholder="Search applicant, email, phone..." autocomplete="off" value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
                         </div>
                     </div>
 
@@ -465,35 +466,34 @@
                     });
 
                     function setupFilters() {
-                        let activeStatus = 'all';
                         const searchInput = document.getElementById('raSearchInput');
-                        const visibleCount = document.getElementById('raVisibleCount');
-
+                        const urlParams = new URLSearchParams(window.location.search);
+                        
                         document.querySelectorAll('.ra-status-pill').forEach(function (pill) {
                             pill.addEventListener('click', function () {
-                                document.querySelectorAll('.ra-status-pill').forEach(function (p) { p.classList.remove('active'); });
-                                pill.classList.add('active');
-                                activeStatus = pill.getAttribute('data-status');
-                                applyFilters();
+                                const newStatus = pill.getAttribute('data-status');
+                                urlParams.set('status', newStatus);
+                                urlParams.set('page', '1'); // Reset to page 1 on filter change
+                                window.location.href = '?' + urlParams.toString();
                             });
                         });
 
-                        function applyFilters() {
-                            const query = (searchInput?.value || '').trim().toLowerCase();
-                            let visible = 0;
-                            document.querySelectorAll('.ra-row').forEach(function (row) {
-                                const status = row.getAttribute('data-status');
-                                const haystack = row.getAttribute('data-search') || '';
-                                const statusMatch = activeStatus === 'all' || status === activeStatus;
-                                const searchMatch = !query || haystack.indexOf(query) !== -1;
-                                const show = statusMatch && searchMatch;
-                                row.classList.toggle('is-hidden', !show);
-                                if (show) visible++;
+                        if (searchInput) {
+                            let debounceTimer;
+                            searchInput.addEventListener('input', function() {
+                                clearTimeout(debounceTimer);
+                                debounceTimer = setTimeout(function() {
+                                    const query = searchInput.value.trim();
+                                    if (query) {
+                                        urlParams.set('search', query);
+                                    } else {
+                                        urlParams.delete('search');
+                                    }
+                                    urlParams.set('page', '1'); // Reset to page 1 on search
+                                    window.location.href = '?' + urlParams.toString();
+                                }, 500); // 500ms debounce
                             });
-                            if (visibleCount) visibleCount.textContent = String(visible);
                         }
-
-                        if (searchInput) searchInput.addEventListener('input', applyFilters);
                     }
 
                     function raIsUrl(value) {

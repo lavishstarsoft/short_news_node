@@ -5715,9 +5715,60 @@ async function renderReporterApplicationsPage(req, res) {
     const limit = 20;
     const skip = (page - 1) * limit;
     
-    const applications = await ReporterApplication.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean();
-    const totalApps = await ReporterApplication.countDocuments();
+    const searchQuery = req.query.search ? req.query.search.trim() : '';
+    const statusQuery = req.query.status || 'all';
+
+    let query = {};
+    if (statusQuery !== 'all') {
+      query.status = statusQuery;
+    }
+
+    if (searchQuery) {
+      const searchRegex = new RegExp(searchQuery, 'i');
+      
+      const nameKeys = ['Name', 'name', 'full_name', 'fullName', 'Full Name', 'Full_Name', 'reporter_name', 'Reporter Name', 'Reporter_Name', 'applicant_name', 'username', 'first_name', 'firstName'];
+      const emailKeys = ['email', 'Email', 'email_address', 'Email_Address', 'contact_email'];
+      const phoneKeys = ['mobile', 'Mobile', 'phone', 'Phone', 'mobile_number', 'Mobile_Number', 'phone_number', 'Phone_Number', 'contact_number', 'mobileNumber'];
+      
+      const orConditions = [
+        { status: searchRegex },
+        { adminNotes: searchRegex }
+      ];
+
+      const allKeys = [...nameKeys, ...emailKeys, ...phoneKeys];
+      allKeys.forEach(key => {
+        let condition = {};
+        condition[`data.${key}`] = searchRegex;
+        orConditions.push(condition);
+      });
+
+      if (query.status) {
+        query = {
+          $and: [
+            { status: query.status },
+            { $or: orConditions }
+          ]
+        };
+      } else {
+        query.$or = orConditions;
+      }
+    }
+
+    const applications = await ReporterApplication.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean();
+    const totalApps = await ReporterApplication.countDocuments(query);
     const totalPages = Math.ceil(totalApps / limit);
+    
+    const statsResult = await ReporterApplication.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
+    
+    let appStats = { pending: 0, approved: 0, rejected: 0, total: 0 };
+    statsResult.forEach(s => {
+      if (s._id === 'pending') appStats.pending = s.count;
+      if (s._id === 'approved') appStats.approved = s.count;
+      if (s._id === 'rejected') appStats.rejected = s.count;
+    });
+    appStats.total = appStats.pending + appStats.approved + appStats.rejected;
     
     // Add pagination info to res.locals so it's accessible in the view
     res.locals.pagination = { page, limit, totalApps, totalPages };
@@ -5726,7 +5777,10 @@ async function renderReporterApplicationsPage(req, res) {
       admin: req.admin,
       activePage: 'reporter-applications',
       applications,
-      registrationFields
+      registrationFields,
+      searchQuery,
+      statusQuery,
+      appStats
     });
   } catch (error) {
     console.error('Error rendering reporter applications page:', error);

@@ -26,7 +26,12 @@
       <div>
         <div class="team-member-name"><%= editor.name || editor.username %></div>
         <div class="team-member-meta"><%= displayTitle || (isSubEditor ? 'Sub-Editor' : 'Reporter') %> · @<%= editor.username %></div>
-        <div class="team-member-email" title="<%= editor.email %>"><%= editor.email %></div>
+        <div class="team-member-email" title="Contact Details">
+          <% if (editor.mobileNumber) { %><i class="fas fa-phone me-1" style="font-size:0.85em; opacity:0.7;"></i><%= editor.mobileNumber %><% } %>
+          <% if (editor.email && editor.mobileNumber) { %> <span class="mx-1 text-muted">·</span> <% } %>
+          <% if (editor.email) { %><i class="fas fa-envelope me-1" style="font-size:0.85em; opacity:0.7;"></i><%= editor.email %><% } %>
+          <% if (!editor.email && !editor.mobileNumber) { %><span class="text-muted fst-italic">No contact details</span><% } %>
+        </div>
       </div>
     </div>
   </td>
