@@ -114,6 +114,44 @@ button.news-filters-reset {
   color: #fff;
 }
 
+.pn-age-tabs-container {
+  margin-bottom: 24px;
+  display: flex;
+}
+
+.pn-age-tabs {
+  display: inline-flex;
+  background: #f3f4f6;
+  padding: 5px;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.pn-age-tab {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 10px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pn-age-tab:hover {
+  color: #111827;
+}
+
+.pn-age-tab.active {
+  background: #fff;
+  color: #111827;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
 .pn-panel {
   overflow: visible;
 }

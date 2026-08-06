@@ -137,6 +137,17 @@
                                     </div>
                                 </div>
 
+                                <div class="pn-age-tabs-container">
+                                    <div class="pn-age-tabs" id="ageTabs">
+                                        <button type="button" class="pn-age-tab active" data-tab="latest" onclick="setAgeTab('latest', event)">
+                                            <i class="fas fa-clock"></i> Latest (&lt; 24h)
+                                        </button>
+                                        <button type="button" class="pn-age-tab" data-tab="older" onclick="setAgeTab('older', event)">
+                                            <i class="fas fa-history"></i> Pending &gt; 24h
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <div class="pn-toolbar">
                                     <span class="pn-toolbar-label">Sort by</span>
                                     <div class="sort-options pn-sort-pills">
@@ -478,6 +489,27 @@
                 <% }); %>
             <% } %>
 
+            window.currentAgeTab = 'latest';
+            window.setAgeTab = function(tab, e) {
+                if (e) e.preventDefault();
+                window.currentAgeTab = tab;
+                
+                document.querySelectorAll('#ageTabs .pn-age-tab').forEach(el => el.classList.remove('active'));
+                if (e && e.currentTarget) {
+                    e.currentTarget.classList.add('active');
+                } else {
+                    document.querySelector(`#ageTabs .pn-age-tab[data-tab="${tab}"]`)?.classList.add('active');
+                }
+                
+                filterNews();
+                const cards = visibleCards();
+                if (cards.length) {
+                    if (!isMobile()) select(cards[0], { openMobile: false });
+                } else {
+                    clearPreview();
+                }
+            };
+
             function filterNews() {
                 const searchTerm = document.getElementById('searchInput').value.toLowerCase();
                 const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
@@ -496,6 +528,10 @@
                     const location = card.dataset.location;
                     const language = card.dataset.language || 'te';
                     const cardDate = parseInt(card.dataset.date);
+
+                    // Age tab filter (24 hours = 24 * 60 * 60 * 1000 ms)
+                    const ageInHours = (Date.now() - cardDate) / (1000 * 60 * 60);
+                    const matchesAgeTab = window.currentAgeTab === 'latest' ? (ageInHours < 24) : (ageInHours >= 24);
 
                     // Search filter
                     const matchesSearch = !searchTerm || title.includes(searchTerm) || author.includes(searchTerm);
@@ -533,7 +569,7 @@
                         }
                     }
 
-                    if (matchesSearch && matchesCategory && matchesLocation && matchesLanguage && matchesDate) {
+                    if (matchesSearch && matchesCategory && matchesLocation && matchesLanguage && matchesDate && matchesAgeTab) {
                         card.style.display = '';
                         visibleCount++;
                     } else {
