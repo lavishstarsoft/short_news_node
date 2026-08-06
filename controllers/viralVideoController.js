@@ -12,6 +12,9 @@ exports.getAllViralVideos = async (req, res) => {
         const category = (req.query.category || '').trim();
 
         const query = {};
+        if (req.admin && req.admin.role === 'subeditor') {
+            query.authorId = req.admin.id;
+        }
         if (search) {
             query.$or = [
                 { title: { $regex: search, $options: 'i' } },
@@ -139,6 +142,9 @@ exports.updateViralVideo = async (req, res) => {
 // Delete viral video
 exports.deleteViralVideo = async (req, res) => {
     try {
+        if (req.admin && req.admin.role === 'subeditor') {
+            return res.status(403).json({ error: 'Sub-editors are not allowed to delete viral videos. You can only hide them.' });
+        }
         const video = await ViralVideo.findByIdAndDelete(req.params.id);
 
         if (!video) {

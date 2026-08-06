@@ -363,9 +363,12 @@ async function renderNewsListPage(req, res) {
         query.isActive = true;
       } else if (selectedStatus === 'inactive') {
         query.isActive = false;
+        query['rejectionStatus.isRejected'] = { $ne: true };
+        query.isDeactivated = true;
       } else if (selectedStatus === 'pending') {
         query.isActive = false;
         query['rejectionStatus.isRejected'] = { $ne: true };
+        query.isDeactivated = { $ne: true };
       } else if (selectedStatus === 'rejected') {
         query['rejectionStatus.isRejected'] = true;
       }
@@ -501,6 +504,7 @@ async function renderNewsListPage(req, res) {
         toDate,
         ...languageViewData,
         admin: req.admin,
+        activePage: req.activePageOverride || 'news-list',
         pagination: {
           currentPage: page,
           totalPages,
@@ -541,10 +545,12 @@ async function renderNewsListPage(req, res) {
       if (selectedStatus === 'active') {
         filteredNewsData = filteredNewsData.filter(news => news.isActive !== false);
       } else if (selectedStatus === 'inactive') {
-        filteredNewsData = filteredNewsData.filter(news => news.isActive === false);
+        filteredNewsData = filteredNewsData.filter(news =>
+          news.isActive === false && !(news.rejectionStatus && news.rejectionStatus.isRejected) && news.isDeactivated
+        );
       } else if (selectedStatus === 'pending') {
         filteredNewsData = filteredNewsData.filter(news =>
-          news.isActive === false && !(news.rejectionStatus && news.rejectionStatus.isRejected)
+          news.isActive === false && !(news.rejectionStatus && news.rejectionStatus.isRejected) && !news.isDeactivated
         );
       } else if (selectedStatus === 'rejected') {
         filteredNewsData = filteredNewsData.filter(news =>
@@ -617,6 +623,7 @@ async function renderNewsListPage(req, res) {
         toDate,
         ...languageViewData,
         admin: req.admin,
+        activePage: req.activePageOverride || 'news-list',
         pagination: {
           currentPage: page,
           totalPages,
@@ -1425,6 +1432,7 @@ async function toggleNewsStatus(req, res) {
         id,
         {
           isActive: isActive,
+          isDeactivated: !isActive,
           actionHistory: updatedHistory
         },
         { new: true }
@@ -1514,9 +1522,8 @@ async function toggleNewsStatus(req, res) {
 
       // Toggle the isActive status
       newsData[newsIndex].isActive = isActive;
-      if (!Array.isArray(newsData[newsIndex].actionHistory)) {
-        newsData[newsIndex].actionHistory = [];
-      }
+      newsData[newsIndex].isDeactivated = !isActive;
+      newsData[newsIndex].actionHistory = newsData[newsIndex].actionHistory || [];
       newsData[newsIndex].actionHistory.push(
         buildHistoryEntry(
           'status_toggled',

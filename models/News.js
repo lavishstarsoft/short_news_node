@@ -29,6 +29,7 @@ const newsSchema = new mongoose.Schema({
   author: { type: String, required: true },
   authorId: { type: String, required: true }, // Add authorId to track the editor
   isActive: { type: Boolean, default: true }, // Add active status field
+  isDeactivated: { type: Boolean, default: false }, // Indicates if manually deactivated
   isRead: { type: Boolean, default: false }, // Add read status field
   readFullLink: { type: String }, // Custom link for "Read Full Article" button
   ePaperLink: { type: String }, // Custom link for "ePaper" button

@@ -729,7 +729,7 @@ async function renderDashboard(req, res) {
         newsList = await News.find({ authorId: req.admin.id }).sort({ publishedAt: -1 }).limit(12);
         totalNewsCount = await News.countDocuments({ authorId: req.admin.id });
         activeNewsCount = await News.countDocuments({ authorId: req.admin.id, isActive: true });
-        inactiveNewsCount = await News.countDocuments({ authorId: req.admin.id, isActive: false });
+        inactiveNewsCount = await News.countDocuments({ authorId: req.admin.id, isActive: false, 'rejectionStatus.isRejected': { $ne: true }, isDeactivated: true });
       } else if (req.admin.role === 'subeditor') {
         // Sub-editors: own scope matrame (data isolation)
         const subDoc = await Admin.findById(req.admin.id).lean();
@@ -737,13 +737,13 @@ async function renderDashboard(req, res) {
         newsList = await News.find(scopeFilter).sort({ publishedAt: -1 }).limit(12);
         totalNewsCount = await News.countDocuments(scopeFilter);
         activeNewsCount = await News.countDocuments({ ...scopeFilter, isActive: true });
-        inactiveNewsCount = await News.countDocuments({ ...scopeFilter, isActive: false });
+        inactiveNewsCount = await News.countDocuments({ ...scopeFilter, isActive: false, 'rejectionStatus.isRejected': { $ne: true }, isDeactivated: true });
       } else {
         // Admins and superadmins see all news, but limit to latest 12
         newsList = await News.find().sort({ publishedAt: -1 }).limit(12);
         totalNewsCount = await News.countDocuments();
         activeNewsCount = await News.countDocuments({ isActive: true });
-        inactiveNewsCount = await News.countDocuments({ isActive: false });
+        inactiveNewsCount = await News.countDocuments({ isActive: false, 'rejectionStatus.isRejected': { $ne: true }, isDeactivated: true });
       }
 
       const categories = await Category.find({ type: { $in: ['news', null] } });
@@ -807,7 +807,7 @@ async function renderDashboard(req, res) {
       // Calculate counts for in-memory data
       const totalNewsCount = newsData.length;
       const activeNewsCount = newsData.filter(news => news.isActive !== false).length;
-      const inactiveNewsCount = newsData.filter(news => news.isActive === false).length;
+      const inactiveNewsCount = newsData.filter(news => news.isActive === false && !(news.rejectionStatus && news.rejectionStatus.isRejected) && news.isDeactivated).length;
 
       // Calculate today's news count for in-memory data
       const today = new Date();
@@ -1268,11 +1268,12 @@ async function renderImpersonatedDashboard(req, res) {
       const newsList = await News.find({ authorId: targetEditorId }).sort({ publishedAt: -1 }).limit(12);
       totalNewsCount = await News.countDocuments({ authorId: targetEditorId });
       activeNewsCount = await News.countDocuments({ authorId: targetEditorId, isActive: true });
-      inactiveNewsCount = await News.countDocuments({ authorId: targetEditorId, isActive: false });
+      inactiveNewsCount = await News.countDocuments({ authorId: targetEditorId, isActive: false, 'rejectionStatus.isRejected': { $ne: true }, isDeactivated: true });
       pendingNewsCount = await News.countDocuments({
         authorId: targetEditorId,
         isActive: false,
-        'rejectionStatus.isRejected': { $ne: true }
+        'rejectionStatus.isRejected': { $ne: true },
+        isDeactivated: { $ne: true }
       });
 
       const categories = await Category.find({ type: { $in: ['news', null] } });
@@ -1369,7 +1370,7 @@ async function renderImpersonatedNewsList(req, res) {
       todayNews: await News.countDocuments({ ...queryCond, publishedAt: { $gte: todayStart } }),
       yesterdayNews: await News.countDocuments({ ...queryCond, publishedAt: { $gte: yesterdayStart, $lt: todayStart } }),
       sevenDaysNews: await News.countDocuments({ ...queryCond, publishedAt: { $gte: sevenDaysAgo } }),
-      pendingNews: await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': { $ne: true } }),
+      pendingNews: await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': { $ne: true }, isDeactivated: { $ne: true } }),
       rejectedNews: await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': true })
     };
 
@@ -1414,7 +1415,7 @@ async function getImpersonatedNewsCount(req, res) {
     };
 
     const count = await News.countDocuments(queryCond);
-    const pendingCount = await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': { $ne: true } });
+    const pendingCount = await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': { $ne: true }, isDeactivated: { $ne: true } });
     const rejectedCount = await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': true });
     
     // Calculate Video and Normal News
@@ -1466,7 +1467,7 @@ async function getMultiEditorReportData(req, res) {
       };
 
       const count = await News.countDocuments(queryCond);
-      const pendingCount = await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': { $ne: true } });
+      const pendingCount = await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': { $ne: true }, isDeactivated: { $ne: true } });
       const rejectedCount = await News.countDocuments({ ...queryCond, isActive: false, 'rejectionStatus.isRejected': true });
       const videoCount = await News.countDocuments({
         $and: [
@@ -3042,7 +3043,7 @@ async function getNotificationStats(req, res) {
           _id: null,
           totalRecipients: { $sum: "$totalRecipients" },
           totalOpened: { $sum: "$openedRecipients" },
-          totalReceived: { $sum: "$receivedRecipients" }
+          totalReceived: { $sum: "$totalReceived" }
         }
       }
     ]);
@@ -3942,6 +3943,7 @@ async function renderPendingNewsPage(req, res) {
       isActive: false,
       aiStatus: 'none',
       authorId: { $ne: String(req.admin.id) },
+      isDeactivated: { $ne: true },
       $or: [
         { 'rejectionStatus.isRejected': { $ne: true } },
         { rejectionStatus: { $exists: false } }
@@ -4013,6 +4015,7 @@ async function renderMyAiQueuePage(req, res) {
     const myPendingQuery = {
       isActive: false,
       authorId: String(req.admin.id),
+      isDeactivated: { $ne: true },
       aiStatus: { $in: ['processing', 'review_required', 'failed'] },
       $or: [
         { 'rejectionStatus.isRejected': { $ne: true } },
@@ -4077,6 +4080,7 @@ async function getPendingNewsDuplicateCheck(req, res) {
   try {
     const pendingNews = await News.find({
       isActive: false,
+      isDeactivated: { $ne: true },
       $or: [
         { 'rejectionStatus.isRejected': { $ne: true } },
         { rejectionStatus: { $exists: false } }
@@ -4152,7 +4156,7 @@ async function getPendingNewsDuplicateMatches(req, res) {
     }
 
     const pendingArticle = await News.findById(id)
-      .select('_id title content author category location language publishedAt isActive rejectionStatus mediaUrl mediaType imageUrl imageUrls thumbnailUrl videoUrl duplicateCheck mediaFingerprint')
+      .select('_id title content author category location language publishedAt isActive rejectionStatus mediaUrl mediaType imageUrl imageUrls videoUrl duplicateCheck mediaFingerprint')
       .lean();
 
     if (!pendingArticle) {

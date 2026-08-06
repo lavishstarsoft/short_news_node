@@ -107,7 +107,11 @@
                                         <input type="file" class="form-control vv-form-control" id="videoFile" accept="video/*">
                                         <div class="vv-upload-hint">MP4, MOV, WebM — or leave empty when editing</div>
                                     </div>
+                                    <div class="progress mt-2" id="uploadProgressContainer" style="display: none; height: 20px; border-radius: 10px;">
+                                        <div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                                    </div>
                                 </div>
+                                <% if (admin.role !== 'subeditor') { %>
                                 <div class="mb-3">
                                     <label class="vv-form-label" for="videoUrl">External URL (optional)</label>
                                     <input type="url" class="form-control vv-form-control" id="videoUrl" placeholder="YouTube Shorts, Instagram Reel, Vimeo...">
@@ -120,19 +124,23 @@
                                         <option value="entertainment">Entertainment</option>
                                     </select>
                                 </div>
+                                <% } else { %>
+                                <input type="hidden" id="videoUrl" value="">
+                                <input type="hidden" id="videoCategory" value="viral">
+                                <% } %>
                                 <div class="mb-0">
                                     <label class="vv-form-label" for="videoLanguage">Language</label>
-                                    <select class="form-control vv-form-control" id="videoLanguage">
-                                        <option value="" disabled selected>Select Language</option>
+                                    <select class="form-control vv-form-control" id="videoLanguage" <%= admin.role === 'subeditor' ? 'disabled' : '' %>>
+                                        <option value="" disabled <%= admin.role !== 'subeditor' ? 'selected' : '' %>>Select Language</option>
                                         <% if (typeof languages !== 'undefined' && languages.length > 0) { %>
                                             <% languages.forEach(function(lang) { %>
-                                                <option value="<%= lang.code %>"><%= lang.name %></option>
+                                                <option value="<%= lang.code %>" <%= (admin.role === 'subeditor' && admin.workingLanguage === lang.code) ? 'selected' : '' %>><%= lang.name %></option>
                                             <% }); %>
                                         <% } else { %>
-                                            <option value="te">Telugu</option>
-                                            <option value="hi">Hindi</option>
-                                            <option value="en">English</option>
-                                            <option value="ta">Tamil</option>
+                                            <option value="te" <%= (admin.role === 'subeditor' && admin.workingLanguage === 'te') ? 'selected' : '' %>>Telugu</option>
+                                            <option value="hi" <%= (admin.role === 'subeditor' && admin.workingLanguage === 'hi') ? 'selected' : '' %>>Hindi</option>
+                                            <option value="en" <%= (admin.role === 'subeditor' && admin.workingLanguage === 'en') ? 'selected' : '' %>>English</option>
+                                            <option value="ta" <%= (admin.role === 'subeditor' && admin.workingLanguage === 'ta') ? 'selected' : '' %>>Tamil</option>
                                         <% } %>
                                     </select>
                                 </div>
@@ -150,6 +158,7 @@
 
             <%- include('partials/footer') %>
                 <script>
+                    const adminRole = '<%= admin.role %>';
                     let currentVideoId = null;
                     let currentPage = 1;
                     let currentStatus = '';
@@ -240,12 +249,45 @@
                             }
 
                             if (fileInput.files.length > 0) {
-                                showLoader('Uploading video...');
+                                document.getElementById('uploadProgressContainer').style.display = 'flex';
+                                const progressBar = document.getElementById('uploadProgressBar');
+                                progressBar.style.width = '0%';
+                                progressBar.textContent = '0%';
+                                progressBar.setAttribute('aria-valuenow', 0);
+                                
                                 const formData = new FormData();
                                 formData.append('media', fileInput.files[0]);
-                                const uploadResponse = await fetch('/news/upload-media', { method: 'POST', body: formData });
-                                if (!uploadResponse.ok) throw new Error('Failed to upload video');
-                                const uploadData = await uploadResponse.json();
+                                
+                                const uploadData = await new Promise((resolve, reject) => {
+                                    const xhr = new XMLHttpRequest();
+                                    xhr.open('POST', '/news/upload-media', true);
+                                    xhr.upload.onprogress = function(e) {
+                                        if (e.lengthComputable) {
+                                            const percentComplete = Math.round((e.loaded / e.total) * 100);
+                                            progressBar.style.width = percentComplete + '%';
+                                            progressBar.textContent = percentComplete + '%';
+                                            progressBar.setAttribute('aria-valuenow', percentComplete);
+                                        }
+                                    };
+                                    xhr.onload = function() {
+                                        if (xhr.status >= 200 && xhr.status < 300) {
+                                            try {
+                                                resolve(JSON.parse(xhr.responseText));
+                                            } catch (err) {
+                                                reject(new Error('Invalid JSON response'));
+                                            }
+                                        } else {
+                                            reject(new Error('Failed to upload video'));
+                                        }
+                                    };
+                                    xhr.onerror = function() {
+                                        reject(new Error('Network error during upload'));
+                                    };
+                                    xhr.send(formData);
+                                });
+                                
+                                document.getElementById('uploadProgressContainer').style.display = 'none';
+                                
                                 mediaUrl = uploadData.mediaUrl;
                                 thumbnailUrl = uploadData.thumbnailUrl || '';
                             }
@@ -422,7 +464,7 @@
                                     '<div class="vv-card-actions">' +
                                         '<button type="button" class="vv-action-btn ' + toggleClass + '" title="' + toggleTitle + '" onclick="toggleVideoStatus(\'' + video._id + '\')"><i class="fas ' + toggleIcon + '"></i><span>' + toggleLabel + '</span></button>' +
                                         '<button type="button" class="vv-action-btn" title="Edit" onclick="editVideoById(\'' + video._id + '\')"><i class="fas fa-pen"></i><span>Edit</span></button>' +
-                                        '<button type="button" class="vv-action-btn danger" title="Delete" onclick="deleteVideo(\'' + video._id + '\')"><i class="fas fa-trash"></i><span>Delete</span></button>' +
+                                        (adminRole !== 'subeditor' ? '<button type="button" class="vv-action-btn danger" title="Delete" onclick="deleteVideo(\'' + video._id + '\')"><i class="fas fa-trash"></i><span>Delete</span></button>' : '') +
                                     '</div>' +
                                 '</div>' +
                             '</article>';
