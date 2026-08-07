@@ -1,14 +1,25 @@
 // View Engine Controller - Isolated module for View Engine UI
-const renderDashboard = (req, res) => {
+const AppSettings = require('../models/AppSettings');
+
+const renderDashboard = async (req, res) => {
     // Basic superadmin check (though routes should also protect this)
     if (!req.admin || req.admin.role !== 'superadmin') {
         return res.status(403).render('error', { message: 'Unauthorized. Super Admin access only.' });
     }
 
-    // Mock data for UI only
+    // Fetch real engine status
+    let settings = null;
+    try {
+        settings = await AppSettings.findOne({});
+    } catch (err) {
+        console.error('Error fetching AppSettings:', err);
+    }
+    const isEngineEnabled = settings && settings.viewEngineEnabled === true;
+
+    // Mock data for UI only (except killSwitchEnabled)
     const mockData = {
-        engineStatus: 'Running',
-        killSwitchEnabled: true,
+        engineStatus: isEngineEnabled ? 'Running' : 'Stopped',
+        killSwitchEnabled: isEngineEnabled,
         activeCampaigns: 4,
         queueSize: 12050,
         leader: 'Node-1 (Primary)',

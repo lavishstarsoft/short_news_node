@@ -221,7 +221,7 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body text-center py-4">
-        <i class="fas fa-power-off text-danger" style="font-size: 4rem; mb-3"></i>
+        <i class="fas fa-power-off text-danger" style="font-size: 4rem; margin-bottom: 1rem;"></i>
         <h4 class="fw-bold mt-3 text-dark">Are you absolutely sure?</h4>
         <p class="text-muted">This will immediately halt all synthetic view workers and drop the current queue. This action cannot be easily undone and may cause metric inconsistencies.</p>
       </div>
@@ -232,5 +232,43 @@
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const killSwitch = document.getElementById('killSwitch');
+    if (killSwitch) {
+        killSwitch.addEventListener('change', async function() {
+            const isEnabled = this.checked;
+            const label = this.nextElementSibling;
+            
+            try {
+                // Update UI Optimistically
+                this.className = `form-check-input bg-${isEnabled ? 'success' : 'danger'}`;
+                label.className = `form-check-label h5 mb-0 mt-1 fw-bold text-${isEnabled ? 'success' : 'danger'}`;
+                label.textContent = isEnabled ? 'ENGINE ON' : 'ENGINE OFF';
+                
+                const response = await fetch('/admin/view-engine/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled: isEnabled })
+                });
+                
+                if (!response.ok) throw new Error('Failed to toggle engine');
+                
+                // Show a toast or alert (optional, can just reload)
+                window.location.reload();
+            } catch (err) {
+                console.error(err);
+                alert('Error toggling Engine. Please try again.');
+                // Revert
+                this.checked = !isEnabled;
+                this.className = `form-check-input bg-${!isEnabled ? 'success' : 'danger'}`;
+                label.className = `form-check-label h5 mb-0 mt-1 fw-bold text-${!isEnabled ? 'success' : 'danger'}`;
+                label.textContent = !isEnabled ? 'ENGINE ON' : 'ENGINE OFF';
+            }
+        });
+    }
+});
+</script>
 
 <%- include('../partials/footer') %>
