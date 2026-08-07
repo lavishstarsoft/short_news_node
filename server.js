@@ -918,6 +918,8 @@ app.get('/ads', requireAuth, (req, res) => {
 
 // Use routes - reorganize to ensure proper isolation
 app.use('/', publicRoutes); // Public API routes (already have /api/public prefix)
+// Smart View Distribution Engine — isolated superadmin admin API (mounted before /admin so the prefix wins)
+app.use('/admin/view-engine', requireAuth, require('./services/viewDistribution/admin/viewEngineRoutes'));
 app.use('/admin', adminRoutes); // Admin routes with /admin prefix
 app.use('/news', newsRoutes); // News routes with /news prefix
 app.use('/categories', categoryRoutes);
@@ -931,6 +933,7 @@ app.use('/cache', cacheRoutes); // Cache management routes
 app.use('/', appSettingsRoutes); // Ensure it catches /api/admin/app-settings and /api/public/app-settings
 app.use('/', referralRoutes); // Referral System routes
 app.use('/health', require('./routes/health')); // Health check route
+app.use('/view-engine', requireAuth, require('./routes/viewEngineRoutes')); // View Engine UI routes
 
 // (Removed route logging for production)
 
@@ -953,6 +956,10 @@ maybeStartInsightsScanWorker();
 // Phase-4.3 — Recover stuck AI verifications (Sub Editor workflow)
 const { recoverStuckVerifications } = require('./services/aiDuplicate/scheduleAiVerification');
 recoverStuckVerifications(io);
+
+// Smart View Distribution Engine — isolated plug-in (no-op unless AppSettings.viewEngineEnabled=true)
+const { maybeStartViewEngine } = require('./services/viewDistribution');
+maybeStartViewEngine(io);
 
 // (Removed middleware logging for production)
 

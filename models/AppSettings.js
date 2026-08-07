@@ -130,6 +130,15 @@ const appSettingsSchema = new mongoose.Schema({
   enableAIAssistant: {
     type: Boolean,
     default: true
+  },
+  /**
+   * Master ON/OFF switch for the Smart View Distribution Engine (isolated plug-in).
+   * false (default) => engine never runs and consumer responses are identical to today.
+   * See services/viewDistribution/ for the fully isolated module.
+   */
+  viewEngineEnabled: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

@@ -1,0 +1,396 @@
+'use strict';
+
+/**
+ * viewEngineRoutes.js — isolated admin API for the Smart View Distribution Engine.
+ *
+ * Mounted at /admin/view-engine (see server.js). SUPERADMIN ONLY — enforced here
+ * with the existing adminController.requireSuperAdmin middleware (reused, not
+ * reimplemented). requireAuth is applied at the mount point.
+ *
+ * Scope: the single AppSettings ON/OFF flag + minimal campaign CRUD/lifecycle.
+ * Every mutating action writes to the existing AuditLog collection.
+ * Touches no existing routes. Rollback endpoints live in File 12.
+ */
+
+const express = require('express');
+const mongoose = require('mongoose');
+const router = express.Router();
+
+const AppSettings = require('../../../models/AppSettings');
+const AuditLog = require('../../../models/AuditLog');
+const { requireSuperAdmin } = require('../../../controllers/adminController');
+const ViewCampaign = require('../models/ViewCampaign');
+const config = require('../config');
+const queue = require('../queue');
+const ticker = require('../ticker');
+const rollback = require('../rollback');
+const { LOG_PREFIX } = require('../constants');
+
+const VALID_STATUS = ['draft', 'active', 'paused', 'completed', 'cancelled', 'reversed'];
+const VALID_DURATIONS = [30, 60, 120];
+const VALID_INTENSITY = ['conservative', 'balanced', 'aggressive'];
+const VALID_STRATEGY = ['static', 'adaptive', 'ml'];
+
+// Every route here is superadmin-only.
+router.use(requireSuperAdmin);
+
+// ---- helpers -----------------------------------------------------------
+
+function actorIp(req) {
+  return (req.headers['x-forwarded-for'] || req.ip || '').toString();
+}
+
+/** Best-effort audit write — never blocks the response on failure. */
+async function writeAudit(req, entry) {
+  try {
+    await AuditLog.create({
+      actorId: (req.admin && (req.admin._id || req.admin.id)) || null,
+      actorName: (req.admin && req.admin.username) || '',
+      actorRole: (req.admin && req.admin.role) || '',
+      action: entry.action,
+      entityType: entry.entityType || 'ViewCampaign',
+      entityId: String(entry.entityId || ''),
+      description: entry.description || '',
+      before: entry.before ?? null,
+      after: entry.after ?? null,
+      ip: actorIp(req)
+    });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} audit write failed:`, err.message);
+  }
+}
+
+const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+/** Validate + normalize a campaign create/update body. Returns {value?, errors?}. */
+function validateCampaignBody(body = {}, { partial = false } = {}) {
+  const errors = [];
+  const out = {};
+
+  if (!partial || body.name !== undefined) {
+    if (typeof body.name !== 'string' || !body.name.trim()) errors.push('name is required');
+    else out.name = body.name.trim();
+  }
+
+  if (!partial || body.durationMinutes !== undefined) {
+    const d = Number(body.durationMinutes);
+    if (!VALID_DURATIONS.includes(d)) errors.push('durationMinutes must be one of 30, 60, 120');
+    else out.durationMinutes = d;
+  }
+  if (!partial || body.minViews !== undefined) {
+    const min = Number(body.minViews);
+    if (!Number.isInteger(min) || min < 0) errors.push('minViews must be a non-negative integer');
+    else out.minViews = min;
+  }
+  if (!partial || body.maxViews !== undefined) {
+    const max = Number(body.maxViews);
+    if (!Number.isInteger(max) || max < 0) errors.push('maxViews must be a non-negative integer');
+    else out.maxViews = max;
+  }
+  if (out.minViews !== undefined && out.maxViews !== undefined && out.maxViews < out.minViews) {
+    errors.push('maxViews must be >= minViews');
+  }
+  if (body.intensity !== undefined) {
+    if (!VALID_INTENSITY.includes(body.intensity)) errors.push(`intensity must be one of ${VALID_INTENSITY.join(', ')}`);
+    else out.intensity = body.intensity;
+  }
+  if (!partial || body.strategy !== undefined) {
+    if (!VALID_STRATEGY.includes(body.strategy)) errors.push(`strategy must be one of ${VALID_STRATEGY.join(', ')}`);
+    else out.strategy = body.strategy;
+  }
+  if (body.dryRun !== undefined) out.dryRun = !!body.dryRun;
+  if (body.itemCap !== undefined) {
+    const c = Number(body.itemCap);
+    if (!Number.isInteger(c) || c < 1 || c > 100000) errors.push('itemCap must be an integer 1..100000');
+    else out.itemCap = c;
+  }
+  if (body.rebalanceIntervalSec !== undefined) {
+    const r = Number(body.rebalanceIntervalSec);
+    if (!Number.isInteger(r) || r < 30 || r > 3600) errors.push('rebalanceIntervalSec must be an integer 30..3600');
+    else out.rebalanceIntervalSec = r;
+  }
+  if (body.eligibility !== undefined && body.eligibility !== null) {
+    const e = body.eligibility;
+    if (typeof e !== 'object') errors.push('eligibility must be an object');
+    else {
+      out.eligibility = {};
+      for (const k of ['languages', 'categories', 'scopes']) {
+        if (e[k] !== undefined) {
+          if (!Array.isArray(e[k])) errors.push(`eligibility.${k} must be an array`);
+          else out.eligibility[k] = e[k].map(String);
+        }
+      }
+      if (e.maxAgeHours !== undefined && e.maxAgeHours !== null) {
+        const h = Number(e.maxAgeHours);
+        if (!Number.isFinite(h) || h <= 0) errors.push('eligibility.maxAgeHours must be a positive number');
+        else out.eligibility.maxAgeHours = h;
+      }
+    }
+  }
+
+  return errors.length ? { errors } : { value: out };
+}
+
+// ---- status ------------------------------------------------------------
+
+router.get('/status', async (req, res) => {
+  try {
+    const [qstats, active, draft] = await Promise.all([
+      queue.stats(),
+      ViewCampaign.countDocuments({ status: 'active' }),
+      ViewCampaign.countDocuments({ status: 'draft' })
+    ]);
+    res.json({
+      success: true,
+      enabled: config.isEnabledCached(),
+      killed: String(process.env.VIEW_ENGINE_KILL || '').toLowerCase() === 'true',
+      ticker: ticker.getMetrics(),
+      queue: qstats,
+      campaigns: { active, draft }
+    });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} status error:`, err.message);
+    res.status(500).json({ error: 'status_failed' });
+  }
+});
+
+// ---- ON/OFF flag -------------------------------------------------------
+
+router.put('/flag', async (req, res) => {
+  const enabled = req.body && req.body.enabled;
+  if (typeof enabled !== 'boolean') {
+    return res.status(400).json({ error: 'enabled must be a boolean' });
+  }
+  try {
+    let settings = await AppSettings.findOne({ key: 'update_flags' });
+    if (!settings) settings = new AppSettings();
+    const before = !!settings.viewEngineEnabled;
+    settings.viewEngineEnabled = enabled;
+    await settings.save();
+    await config.refreshEnabled(); // update the cached flag immediately
+
+    await writeAudit(req, {
+      action: 'view_engine_flag_update',
+      entityType: 'AppSettings',
+      entityId: settings._id,
+      description: `View Engine ${enabled ? 'ENABLED' : 'DISABLED'}`,
+      before: { viewEngineEnabled: before },
+      after: { viewEngineEnabled: enabled }
+    });
+    res.json({ success: true, enabled });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} flag update error:`, err.message);
+    res.status(500).json({ error: 'flag_update_failed' });
+  }
+});
+
+// ---- campaign list / read ---------------------------------------------
+
+router.get('/campaigns', async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.status && VALID_STATUS.includes(req.query.status)) filter.status = req.query.status;
+    const campaigns = await ViewCampaign.find(filter).sort({ createdAt: -1 }).limit(100).lean();
+    res.json({ success: true, campaigns });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} list campaigns error:`, err.message);
+    res.status(500).json({ error: 'list_failed' });
+  }
+});
+
+router.get('/campaigns/:id', async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    const c = await ViewCampaign.findById(req.params.id).lean();
+    if (!c) return res.status(404).json({ error: 'not_found' });
+    res.json({ success: true, campaign: c });
+  } catch (err) {
+    res.status(500).json({ error: 'read_failed' });
+  }
+});
+
+// ---- campaign create ---------------------------------------------------
+
+router.post('/campaigns', async (req, res) => {
+  const { value, errors } = validateCampaignBody(req.body || {});
+  if (errors) return res.status(400).json({ error: 'validation_failed', errors });
+  try {
+    const campaign = await ViewCampaign.create({
+      ...value,
+      status: 'draft',
+      createdBy: (req.admin && (req.admin._id || req.admin.id)) || null,
+      createdByName: (req.admin && req.admin.username) || ''
+    });
+    await writeAudit(req, {
+      action: 'view_engine_campaign_create',
+      entityId: campaign._id,
+      description: `Created campaign (${campaign.durationMinutes}m, ${campaign.minViews}-${campaign.maxViews})`,
+      after: campaign.toObject()
+    });
+    res.status(201).json({ success: true, campaign });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} create campaign error:`, err.message);
+    res.status(500).json({ error: 'create_failed' });
+  }
+});
+
+// ---- campaign update (draft only) -------------------------------------
+
+router.put('/campaigns/:id', async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'invalid_id' });
+  const { value, errors } = validateCampaignBody(req.body || {}, { partial: true });
+  if (errors) return res.status(400).json({ error: 'validation_failed', errors });
+  try {
+    const campaign = await ViewCampaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ error: 'not_found' });
+    if (campaign.status !== 'draft') {
+      return res.status(409).json({ error: 'only draft campaigns can be edited' });
+    }
+    const before = campaign.toObject();
+    Object.assign(campaign, value);
+    await campaign.save();
+    await writeAudit(req, {
+      action: 'view_engine_campaign_update',
+      entityId: campaign._id,
+      description: 'Updated draft campaign',
+      before,
+      after: campaign.toObject()
+    });
+    res.json({ success: true, campaign });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} update campaign error:`, err.message);
+    res.status(500).json({ error: 'update_failed' });
+  }
+});
+
+// ---- lifecycle: activate / pause / cancel -----------------------------
+
+router.post('/campaigns/:id/activate', async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    const campaign = await ViewCampaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ error: 'not_found' });
+    if (!['draft', 'paused'].includes(campaign.status)) {
+      return res.status(409).json({ error: `cannot activate a ${campaign.status} campaign` });
+    }
+    const before = { status: campaign.status };
+    const now = new Date();
+    // draft => fresh window; paused => resume keeping the original window.
+    if (campaign.status === 'draft' || !campaign.startAt) {
+      campaign.startAt = now;
+      campaign.endAt = new Date(now.getTime() + campaign.durationMinutes * 60000);
+    }
+    campaign.status = 'active';
+    await campaign.save();
+    await writeAudit(req, {
+      action: 'view_engine_campaign_activate',
+      entityId: campaign._id,
+      description: `Activated (${campaign.durationMinutes}m window)`,
+      before,
+      after: { status: 'active', startAt: campaign.startAt, endAt: campaign.endAt }
+    });
+    res.json({ success: true, campaign });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} activate error:`, err.message);
+    res.status(500).json({ error: 'activate_failed' });
+  }
+});
+
+router.post('/campaigns/:id/pause', async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    const campaign = await ViewCampaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ error: 'not_found' });
+    if (campaign.status !== 'active') {
+      return res.status(409).json({ error: `cannot pause a ${campaign.status} campaign` });
+    }
+    campaign.status = 'paused';
+    await campaign.save();
+    await writeAudit(req, {
+      action: 'view_engine_campaign_pause',
+      entityId: campaign._id,
+      description: 'Paused campaign',
+      before: { status: 'active' },
+      after: { status: 'paused' }
+    });
+    res.json({ success: true, campaign });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} pause error:`, err.message);
+    res.status(500).json({ error: 'pause_failed' });
+  }
+});
+
+router.post('/campaigns/:id/cancel', async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    const campaign = await ViewCampaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ error: 'not_found' });
+    if (['completed', 'cancelled', 'reversed'].includes(campaign.status)) {
+      return res.status(409).json({ error: `campaign already ${campaign.status}` });
+    }
+    const before = { status: campaign.status };
+    campaign.status = 'cancelled';
+    await campaign.save();
+    await writeAudit(req, {
+      action: 'view_engine_campaign_cancel',
+      entityId: campaign._id,
+      description: 'Cancelled campaign',
+      before,
+      after: { status: 'cancelled' }
+    });
+    res.json({ success: true, campaign });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} cancel error:`, err.message);
+    res.status(500).json({ error: 'cancel_failed' });
+  }
+});
+
+// ---- rollback: reverse synthetic views (ledger-driven, clamped) -------
+
+router.post('/campaigns/:id/reverse', async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    const result = await rollback.reverseCampaign(req.params.id);
+    if (!result.ok) {
+      const map = { not_found: 404, active_must_pause_first: 409 };
+      return res.status(map[result.error] || 400).json({ error: result.error });
+    }
+    await writeAudit(req, {
+      action: 'view_engine_campaign_reverse',
+      entityId: req.params.id,
+      description: `Reversed campaign (${result.cyclesReversed} cycle(s), -${result.totalReversed} synthetic)`,
+      after: { status: 'reversed', cyclesReversed: result.cyclesReversed, totalReversed: result.totalReversed }
+    });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} reverse endpoint error:`, err.message);
+    res.status(500).json({ error: 'reverse_failed' });
+  }
+});
+
+// ---- delete (draft only, safety) --------------------------------------
+
+router.delete('/campaigns/:id', async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    const campaign = await ViewCampaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ error: 'not_found' });
+    if (campaign.status !== 'draft') {
+      return res.status(409).json({ error: 'only draft campaigns can be deleted (cancel active ones instead)' });
+    }
+    const before = campaign.toObject();
+    await campaign.deleteOne();
+    await writeAudit(req, {
+      action: 'view_engine_campaign_delete',
+      entityId: req.params.id,
+      description: 'Deleted draft campaign',
+      before
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} delete error:`, err.message);
+    res.status(500).json({ error: 'delete_failed' });
+  }
+});
+
+module.exports = router;

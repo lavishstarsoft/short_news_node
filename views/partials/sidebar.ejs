@@ -125,6 +125,44 @@
             </li>
             <% } %>
 
+            <!-- View Engine (Super Admin only) -->
+            <% 
+                const viewEngineActive = ['view-engine-dashboard', 'view-engine-campaigns', 'view-engine-status', 'view-engine-settings'].includes(activePage);
+            %>
+            <% if (isSuperAdminOnly) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu <%= viewEngineActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseViewEngine" role="button" aria-expanded="<%= viewEngineActive ? 'true' : 'false' %>" aria-controls="collapseViewEngine">
+                    <i class="fas fa-server me-3 w-20px text-center"></i>
+                    <span class="nav-text">View Engine</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= viewEngineActive ? 'show' : '' %>" id="collapseViewEngine" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'view-engine-dashboard' ? 'active' : '' %>" href="/view-engine/dashboard">
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'view-engine-campaigns' ? 'active' : '' %>" href="/view-engine/campaigns">
+                                Campaigns
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'view-engine-status' ? 'active' : '' %>" href="/view-engine/status">
+                                Status
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'view-engine-settings' ? 'active' : '' %>" href="/view-engine/settings">
+                                Settings
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
             <!-- Media & Entertainment Group -->
             <% 
                 const showMediaGroup = canView('viralVideos') || canView('longVideos') || canView('polls') || canView('zodiac');

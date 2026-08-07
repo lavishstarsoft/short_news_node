@@ -24,7 +24,16 @@ const newsSchema = new mongoose.Schema({
   publishedAt: { type: Date, default: Date.now },
   likes: { type: Number, default: 0 },
   dislikes: { type: Number, default: 0 },
-  views: { type: Number, default: 0 }, // Add views field
+  views: { type: Number, default: 0 }, // Add views field (PRISTINE organic counter — never written by the View Engine)
+  /**
+   * Synthetic (engine-generated) views — Smart View Distribution Engine ONLY.
+   * NEVER read by analytics, fraud detection, recommendations, or ML — those use `views`.
+   * Combined with `views` solely at the consumer display layer via
+   * services/viewDistribution/displayViews.js (displayViews = views + syntheticViews).
+   * Not indexed on purpose: no query filters on it (engine reads via ViewDistributionState),
+   * so the organic write path and engine $inc stay lean.
+   */
+  syntheticViews: { type: Number, default: 0 },
   comments: { type: Number, default: 0 },
   author: { type: String, required: true },
   authorId: { type: String, required: true }, // Add authorId to track the editor

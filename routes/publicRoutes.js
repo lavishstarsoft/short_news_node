@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const News = require('../models/News');
+// Centralized consumer display helper — combines organic + syntheticViews when the
+// View Engine flag is ON; returns organic-only when OFF (byte-identical to today).
+const { displayViews } = require('../services/viewDistribution/displayViews');
 const User = require('../models/User');
 const Location = require('../models/Location');
 const Report = require('../models/Report');
@@ -113,7 +116,7 @@ const handleGetNews = async (req, res) => {
         published_at: newsObj.publishedAt, // Backward compatibility
         likes: newsObj.likes || 0,
         dislikes: newsObj.dislikes || 0,
-        views: newsObj.views || 0,
+        views: displayViews(newsObj),
         comments: newsObj.comments || 0,
         author: newsObj.author,
         isRead: newsObj.isRead || false,
@@ -182,7 +185,7 @@ router.get('/api/public/news/category/:category', async (req, res) => {
         publishedAt: newsObj.publishedAt,
         likes: newsObj.likes || 0,
         dislikes: newsObj.dislikes || 0,
-        views: newsObj.views || 0,
+        views: displayViews(newsObj),
         comments: newsObj.comments || 0,
         author: newsObj.author,
         isRead: newsObj.isRead || false,
@@ -249,7 +252,7 @@ router.get('/api/public/news/location/:location', cacheMiddleware(600), async (r
         publishedAt: newsObj.publishedAt,
         likes: newsObj.likes || 0,
         dislikes: newsObj.dislikes || 0,
-        views: newsObj.views || 0,
+        views: displayViews(newsObj),
         comments: newsObj.comments || 0,
         author: newsObj.author,
         isRead: newsObj.isRead || false,
@@ -661,7 +664,7 @@ router.post('/api/public/news/:id/interact', verifyMobileUser, async (req, res) 
       publishedAt: news.publishedAt,
       likes: news.likes,
       dislikes: news.dislikes,
-      views: news.views || 0,
+      views: displayViews(news),
       comments: news.comments,
       author: news.author,
       isRead: news.isRead || false,
@@ -1129,7 +1132,7 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
       publishedAt: news.publishedAt,
       likes: news.likes || 0,
       dislikes: news.dislikes || 0,
-      views: news.views || 0,
+      views: displayViews(news),
       comments: news.comments || 0,
       author: authorFields.author,
       authorName: authorFields.authorName,

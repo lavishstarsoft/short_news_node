@@ -1,4 +1,7 @@
 const News = require('../models/News');
+// Centralized consumer display helper — combines organic + syntheticViews when the
+// View Engine flag is ON; returns organic-only when OFF (byte-identical to today).
+const { displayViews } = require('../services/viewDistribution/displayViews');
 const ViralVideo = require('../models/ViralVideo');
 const Category = require('../models/Category');
 const Location = require('../models/Location');
@@ -292,7 +295,7 @@ const resolvers = {
                     thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
                     isActive: news.isActive !== false,
                     publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
-                    views: news.views || 0,
+                    views: displayViews(news),
                     likes: news.likes || 0,
                     dislikes: news.dislikes || 0,
                     author: news.author,
@@ -600,7 +603,7 @@ const resolvers = {
                     thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
                     isActive: resolveNewsIsActive(news),
                     publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
-                    views: news.views || 0,
+                    views: displayViews(news),
                     likes: news.likes || 0,
                     dislikes: news.dislikes || 0,
                     comments: news.comments || 0,
@@ -872,7 +875,7 @@ const resolvers = {
                     thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
                     isActive: news.isActive !== false,
                     publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
-                    views: news.views || 0,
+                    views: displayViews(news),
                     likes: news.likes || 0,
                     dislikes: news.dislikes || 0,
                     author: news.author,
@@ -1287,7 +1290,7 @@ const resolvers = {
                         likes: news.likes,
                         dislikes: news.dislikes,
                         comments: news.comments,
-                        views: news.views
+                        views: displayViews(news)
                     });
                     console.log(`🔥 Real-time like update sent: ${news.title} - Likes: ${news.likes}`);
                 }
@@ -1319,7 +1322,7 @@ const resolvers = {
                         likes: news.likes,
                         dislikes: news.dislikes,
                         comments: news.comments,
-                        views: news.views
+                        views: displayViews(news)
                     });
                     console.log(`🔥 Real-time dislike update sent: ${news.title} - Dislikes: ${news.dislikes}`);
                 }
@@ -1365,7 +1368,7 @@ const resolvers = {
                         likes: news.likes,
                         dislikes: news.dislikes,
                         comments: news.comments,
-                        views: news.views,
+                        views: displayViews(news),
                         newComment: comment
                     });
                     console.log(`🔥 Real-time comment update sent: ${news.title} - Comments: ${news.comments}`);
@@ -1422,7 +1425,7 @@ const resolvers = {
                             likes: news.likes,
                             dislikes: news.dislikes,
                             comments: news.comments,
-                            views: news.views
+                            views: displayViews(news)
                         });
                         console.log(`🔥 Real-time view update sent: ${news.title} - Views: ${news.views}`);
                     }
@@ -1611,7 +1614,7 @@ const resolvers = {
                         action: action,
                         likes: news.likes,
                         dislikes: news.dislikes,
-                        views: news.views,
+                        views: displayViews(news),
                         comments: news.comments,
                         userId: userId,
                         userName: userName,
