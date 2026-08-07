@@ -247,8 +247,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 label.className = `form-check-label h5 mb-0 mt-1 fw-bold text-${isEnabled ? 'success' : 'danger'}`;
                 label.textContent = isEnabled ? 'ENGINE ON' : 'ENGINE OFF';
                 
-                const response = await fetch('/admin/view-engine/toggle', {
-                    method: 'POST',
+                const response = await fetch('/admin/view-engine/flag', {
+                    method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enabled: isEnabled })
                 });

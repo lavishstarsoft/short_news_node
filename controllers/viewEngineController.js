@@ -16,36 +16,116 @@ const renderDashboard = async (req, res) => {
     }
     const isEngineEnabled = settings && settings.viewEngineEnabled === true;
 
-    // Mock data for UI only (except killSwitchEnabled)
-    const mockData = {
+    const mongoose = require('mongoose');
+    const ViewCampaign = require('../services/viewDistribution/models/ViewCampaign');
+    const ViewCycleLog = require('../services/viewDistribution/models/ViewCycleLog');
+    const queue = require('../services/viewDistribution/queue');
+    const { redisClient, isRedisAvailable } = require('../config/redis');
+    const AuditLog = require('../models/AuditLog'); // Assuming AuditLog exists
+
+    // Calculate start of today for metrics
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    // Fetch Today's Stats from Cycle Logs
+    let totalViews = 0;
+    let totalCycles = 0;
+    try {
+        const todayStats = await ViewCycleLog.aggregate([
+            { $match: { createdAt: { $gte: startOfToday } } },
+            { $group: { _id: null, totalViews: { $sum: "$totalIncrement" }, totalCycles: { $sum: 1 } } }
+        ]);
+        if (todayStats && todayStats.length) {
+            totalViews = todayStats[0].totalViews;
+            totalCycles = todayStats[0].totalCycles;
+        }
+    } catch (err) {
+        console.error('Error fetching cycle stats:', err);
+    }
+
+    // Active Campaigns count
+    let activeCampaigns = 0;
+    try {
+        activeCampaigns = await ViewCampaign.countDocuments({ status: 'active' });
+    } catch (err) {}
+
+    // Queue Stats
+    const qStats = await queue.stats();
+    const queueSize = qStats.available ? (qStats.stream || 0) : 0;
+
+    // Leader and Heartbeat
+    let leader = 'Unknown';
+    let lastHeartbeat = 'N/A';
+    if (isRedisAvailable()) {
+        try {
+            leader = await redisClient.get('vde:leader') || 'Unknown';
+            const hb = await redisClient.get('vde:heartbeat');
+            lastHeartbeat = hb ? new Date(parseInt(hb)).toLocaleTimeString() : 'N/A';
+        } catch (err) {}
+    }
+
+    // Active Workers (distinct in last 15 mins)
+    let activeWorkers = 0;
+    try {
+        const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+        const workersList = await ViewCycleLog.distinct('workerId', { createdAt: { $gte: fifteenMinsAgo } });
+        activeWorkers = workersList.length;
+    } catch (err) {}
+
+    // Recent Logs from AuditLog
+    let recentLogs = [];
+    try {
+        const logs = await AuditLog.find({ action: { $regex: 'view_engine' } })
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .lean();
+        
+        recentLogs = logs.map(log => ({
+            id: log._id.toString().substring(18),
+            time: new Date(log.createdAt).toLocaleTimeString(),
+            event: log.description || log.action,
+            user: log.actorName || 'System'
+        }));
+    } catch (err) {}
+
+    if (recentLogs.length === 0) {
+        recentLogs = [{ id: '-', time: '-', event: 'No recent activity', user: '-' }];
+    }
+
+    // Format Large Numbers
+    const formatViews = (v) => {
+        if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M';
+        if (v >= 1000) return (v / 1000).toFixed(1) + 'K';
+        return v || 0;
+    };
+
+    // Health
+    const redisHealth = isRedisAvailable() ? 'Healthy' : 'Down';
+    const mongoHealth = mongoose.connection.readyState === 1 ? 'Healthy' : 'Down';
+    const queueHealth = qStats.available ? 'Healthy' : 'Degraded';
+
+    const liveData = {
         engineStatus: isEngineEnabled ? 'Running' : 'Stopped',
         killSwitchEnabled: isEngineEnabled,
-        activeCampaigns: 4,
-        queueSize: 12050,
-        leader: 'Node-1 (Primary)',
-        workers: 12,
-        todaySyntheticViews: '1.2M',
-        processedCycles: 4892,
-        lastHeartbeat: new Date().toISOString(),
-        redisHealth: 'Healthy',
-        mongoHealth: 'Healthy',
-        queueHealth: 'Degraded',
+        activeCampaigns: activeCampaigns,
+        queueSize: queueSize,
+        leader: leader,
+        workers: activeWorkers,
+        todaySyntheticViews: formatViews(totalViews),
+        processedCycles: totalCycles,
+        lastHeartbeat: lastHeartbeat,
+        redisHealth: redisHealth,
+        mongoHealth: mongoHealth,
+        queueHealth: queueHealth,
         dryRun: false,
-        recentLogs: [
-            { id: 'L-101', time: '10:45:12 AM', event: 'Campaign #45 started', user: 'System' },
-            { id: 'L-102', time: '10:40:00 AM', event: 'Scale up workers to 12', user: 'Auto-Scaler' },
-            { id: 'L-103', time: '10:35:10 AM', event: 'Dry run disabled', user: 'admin123' },
-        ],
-        recentErrors: [
-            { id: 'E-404', time: '10:22:15 AM', message: 'Worker Node-3 timeout' },
-            { id: 'E-405', time: '10:15:00 AM', message: 'Queue backpressure detected' },
-        ]
+        recentLogs: recentLogs,
+        recentErrors: [] // Implement errors tracking if needed
     };
 
     res.render('view-engine/dashboard', {
         admin: req.admin,
         activePage: 'view-engine-dashboard',
-        data: mockData
+        data: liveData
     });
 };
 
