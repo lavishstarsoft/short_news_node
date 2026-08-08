@@ -3,26 +3,171 @@
 
 <div class="main-content">
     <div class="container-fluid py-4">
-        
-        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+
+        <!-- Header -->
+        <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4 border-bottom pb-3">
             <div>
-                <h1 class="h2 mb-1"><i class="fas fa-network-wired text-primary me-2"></i> Worker Node Status</h1>
-                <p class="text-muted mb-0">Detailed view of individual worker nodes and their health.</p>
+                <h1 class="h2 mb-1"><i class="fas fa-network-wired text-primary me-2"></i> Engine Status</h1>
+                <p class="text-muted mb-0">Live monitoring — all values are read directly from the backend.</p>
             </div>
-            <button class="btn btn-outline-secondary fw-bold shadow-sm">
-                <i class="fas fa-sync-alt me-2"></i> Refresh Nodes
-            </button>
+            <div class="d-flex align-items-center bg-light px-3 py-2 rounded-pill shadow-sm">
+                <div class="spinner-grow spinner-grow-sm text-success me-2" style="width:1rem;height:1rem"><span class="visually-hidden">live</span></div>
+                <span class="text-muted fw-bold small">Auto-refresh every 5s</span>
+                <span class="text-muted small ms-2" id="lastUpdated">—</span>
+            </div>
         </div>
 
-        <div class="card shadow-sm border-0">
-            <div class="card-body text-center py-5">
-                <i class="fas fa-server text-muted mb-3" style="font-size: 3rem;"></i>
-                <h4 class="text-dark fw-bold">Node Status Module</h4>
-                <p class="text-muted">This module is currently connected to placeholder UI. Data will be populated from the backend API soon.</p>
+        <!-- Top status row -->
+        <div class="row g-4 mb-4">
+            <div class="col-12 col-md-4 col-xl-3">
+                <div class="card shadow-sm border-0 h-100" id="engineStatusCard">
+                    <div class="card-body">
+                        <h6 class="text-muted text-uppercase fw-bold mb-2">Engine Status</h6>
+                        <h3 class="fw-bold mb-0" id="engineStatus">—</h3>
+                        <small class="text-muted" id="engineVersion">v—</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-3">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-muted text-uppercase fw-bold mb-2">Leader</h6>
+                    <h6 class="fw-bold text-dark mb-0 text-truncate" id="leader">—</h6>
+                    <small class="text-muted">Workers: <span id="workers">—</span></small>
+                </div></div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-3">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-muted text-uppercase fw-bold mb-2">Queue Size</h6>
+                    <h3 class="fw-bold text-dark mb-0" id="queueSize">—</h3>
+                    <small class="text-muted">Current cycle: <span id="currentCycle">—</span></small>
+                </div></div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-3">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-muted text-uppercase fw-bold mb-2">Uptime</h6>
+                    <h5 class="fw-bold text-dark mb-0" id="uptime">—</h5>
+                    <small class="text-muted">Last cycle: <span id="lastCycleAt">—</span></small>
+                </div></div>
+            </div>
+        </div>
+
+        <!-- Campaign counters -->
+        <div class="row g-4 mb-4">
+            <div class="col-6 col-xl-3"><div class="card shadow-sm border-0"><div class="card-body text-center"><div class="text-muted text-uppercase small fw-bold">Active Campaigns</div><div class="display-6 fw-bold text-primary" id="activeCampaigns">—</div></div></div></div>
+            <div class="col-6 col-xl-3"><div class="card shadow-sm border-0"><div class="card-body text-center"><div class="text-muted text-uppercase small fw-bold">Completed</div><div class="display-6 fw-bold text-success" id="completedCampaigns">—</div></div></div></div>
+            <div class="col-6 col-xl-3"><div class="card shadow-sm border-0"><div class="card-body text-center"><div class="text-muted text-uppercase small fw-bold">Cancelled / Reversed</div><div class="display-6 fw-bold text-danger" id="failedCampaigns">—</div></div></div></div>
+            <div class="col-6 col-xl-3"><div class="card shadow-sm border-0"><div class="card-body text-center"><div class="text-muted text-uppercase small fw-bold">Last Heartbeat</div><div class="h4 fw-bold text-dark mt-2" id="lastHeartbeat">—</div></div></div></div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Health -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white border-bottom pt-3"><h5 class="fw-bold"><i class="fas fa-stethoscope text-info me-2"></i> Infrastructure</h5></div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between px-0"><span class="fw-bold text-secondary">Redis</span><span class="badge bg-secondary rounded-pill px-3" id="redis">—</span></li>
+                            <li class="list-group-item d-flex justify-content-between px-0"><span class="fw-bold text-secondary">MongoDB</span><span class="badge bg-secondary rounded-pill px-3" id="mongo">—</span></li>
+                            <li class="list-group-item d-flex justify-content-between px-0"><span class="fw-bold text-secondary">Queue</span><span class="badge bg-secondary rounded-pill px-3" id="queueHealth">—</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active campaigns + activity -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white border-bottom pt-3"><h5 class="fw-bold mb-0"><i class="fas fa-bullhorn text-primary me-2"></i> Active Campaigns</h5></div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light"><tr><th>Campaign</th><th>Duration</th><th>Cycle</th></tr></thead>
+                                <tbody id="activeCampaignsBody"><tr><td colspan="3" class="text-center text-muted py-4">Loading…</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent activity -->
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white border-bottom pt-3"><h5 class="fw-bold mb-0"><i class="fas fa-clipboard-list text-secondary me-2"></i> Recent Activity</h5></div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light"><tr><th>Time</th><th>Event</th><th>User</th></tr></thead>
+                                <tbody id="activityBody"><tr><td colspan="3" class="text-center text-muted py-4">Loading…</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
     </div>
 </div>
+
+<script>
+(function () {
+    const DURATION_LABELS = { 30:'30 Minutes', 60:'1 Hour', 120:'2 Hours', 360:'6 Hours', 720:'12 Hours', 1440:'24 Hours', 4320:'3 Days', 10080:'7 Days', 21600:'15 Days', 43200:'30 Days' };
+    function durationCell(c) {
+        if (c.durationType === 'unlimited') return '<span class="badge bg-warning text-dark"><i class="fas fa-infinity me-1"></i>Unlimited (24×7)</span><br><span class="badge bg-light text-secondary border mt-1">Running Until Manually Stopped</span>';
+        return DURATION_LABELS[c.durationMinutes] || (c.durationMinutes + ' min');
+    }
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    const badge = (id, ok, text, warnState) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = text;
+        el.className = 'badge bg-' + (ok ? 'success' : (warnState ? 'warning text-dark' : 'danger')) + ' rounded-pill px-3';
+    };
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+    async function refresh() {
+        try {
+            const res = await fetch('/admin/view-engine/status-data');
+            if (!res.ok) return;
+            const { status: s } = await res.json();
+            if (!s) return;
+
+            set('engineStatus', s.killed ? 'KILLED' : (s.engineEnabled ? 'Running' : 'Stopped'));
+            const esc2 = document.getElementById('engineStatus');
+            if (esc2) esc2.className = 'fw-bold mb-0 text-' + (s.killed ? 'danger' : (s.engineEnabled ? 'success' : 'secondary'));
+            set('engineVersion', 'v' + s.version);
+            set('leader', s.leader || 'None');
+            set('workers', s.workers);
+            set('queueSize', s.queueSize);
+            set('currentCycle', s.currentCycle);
+            set('uptime', s.uptime);
+            set('lastCycleAt', s.lastCycleAt);
+            set('activeCampaigns', s.activeCampaigns);
+            set('completedCampaigns', s.completedCampaigns);
+            set('failedCampaigns', s.failedCampaigns);
+            set('lastHeartbeat', s.lastHeartbeat);
+            badge('redis', s.redis === 'Connected', s.redis);
+            badge('mongo', s.mongo === 'Connected', s.mongo);
+            badge('queueHealth', s.queue === 'Healthy', s.queue, s.queue === 'Degraded');
+
+            const ac = document.getElementById('activeCampaignsBody');
+            if (ac) {
+                ac.innerHTML = (s.activeCampaignsList && s.activeCampaignsList.length)
+                    ? s.activeCampaignsList.map(c => `<tr><td class="fw-bold">${esc(c.name)}</td><td>${durationCell(c)}</td><td>${c.cycle}</td></tr>`).join('')
+                    : '<tr><td colspan="3" class="text-center text-muted py-4">No active campaigns</td></tr>';
+            }
+            const av = document.getElementById('activityBody');
+            if (av) {
+                av.innerHTML = (s.recentActivity && s.recentActivity.length)
+                    ? s.recentActivity.map(a => `<tr><td class="text-muted small">${esc(a.time)}</td><td class="fw-bold text-dark">${esc(a.event)}</td><td><span class="badge bg-light text-secondary border">${esc(a.user)}</span></td></tr>`).join('')
+                    : '<tr><td colspan="3" class="text-center text-muted py-4">No recent activity</td></tr>';
+            }
+            set('lastUpdated', 'updated ' + new Date().toLocaleTimeString());
+        } catch (e) { /* keep last known values */ }
+    }
+
+    refresh();
+    setInterval(refresh, 5000);
+})();
+</script>
 
 <%- include('../partials/footer') %>

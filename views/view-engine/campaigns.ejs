@@ -119,12 +119,23 @@
             </div>
             <div class="mb-3">
                 <label class="form-label fw-bold text-secondary">Duration (Minutes)</label>
-                <select id="durationMinutes" class="form-select form-select-lg border-0 shadow-sm" required>
+                <select id="durationMinutes" class="form-select form-select-lg border-0 shadow-sm" onchange="toggleUnlimitedHint()" required>
                     <option value="" disabled selected>Select campaign duration...</option>
                     <option value="30">30 Minutes</option>
-                    <option value="60">60 Minutes</option>
-                    <option value="120">120 Minutes</option>
+                    <option value="60">1 Hour</option>
+                    <option value="120">2 Hours</option>
+                    <option value="360">6 Hours</option>
+                    <option value="720">12 Hours</option>
+                    <option value="1440">24 Hours</option>
+                    <option value="4320">3 Days</option>
+                    <option value="10080">7 Days</option>
+                    <option value="21600">15 Days</option>
+                    <option value="43200">30 Days</option>
+                    <option value="unlimited">Unlimited (24×7)</option>
                 </select>
+                <small id="unlimitedHint" class="text-warning fw-bold d-none">
+                    <i class="fas fa-infinity me-1"></i> Running Until Manually Stopped — no end time.
+                </small>
             </div>
             <div class="mb-3">
                 <label class="form-label fw-bold text-secondary">Strategy</label>
@@ -272,7 +283,7 @@ function renderTable() {
             <td class="fw-bold">${c.name}</td>
             <td><span class="badge bg-${getStatusColor(c.status)}">${c.status.toUpperCase()}</span></td>
             <td>${c.minViews} - ${c.maxViews}</td>
-            <td>${c.durationMinutes} min</td>
+            <td>${formatDuration(c)}</td>
             <td><span class="badge bg-light text-secondary border">${c.strategy || 'N/A'}</span></td>
             <td>${c.createdByName || 'System'}</td>
             <td class="text-muted small">${new Date(c.createdAt).toLocaleString()}</td>
@@ -293,6 +304,21 @@ function renderTable() {
         pagHtml += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" onclick="event.preventDefault(); currentPage=${i}; renderTable();">${i}</a></li>`;
     }
     document.getElementById('paginationControls').innerHTML = pagHtml;
+}
+
+// ── Duration display helpers (UI only) ──────────────────────────────────
+const DURATION_LABELS = { 30:'30 Minutes', 60:'1 Hour', 120:'2 Hours', 360:'6 Hours', 720:'12 Hours', 1440:'24 Hours', 4320:'3 Days', 10080:'7 Days', 21600:'15 Days', 43200:'30 Days' };
+function durationLabel(min) { return DURATION_LABELS[min] || (min + ' min'); }
+function formatDuration(c) {
+    if (c.durationType === 'unlimited') {
+        return '<span class="badge bg-warning text-dark"><i class="fas fa-infinity me-1"></i>Unlimited (24×7)</span>';
+    }
+    return durationLabel(c.durationMinutes);
+}
+function toggleUnlimitedHint() {
+    const sel = document.getElementById('durationMinutes');
+    const hint = document.getElementById('unlimitedHint');
+    if (sel && hint) hint.classList.toggle('d-none', sel.value !== 'unlimited');
 }
 
 function getActionButtons(c) {
@@ -364,7 +390,8 @@ function openEditModal(id) {
     document.getElementById('campaignName').value = c.name;
     document.getElementById('minFinalViews').value = c.minViews;
     document.getElementById('maxFinalViews').value = c.maxViews;
-    document.getElementById('durationMinutes').value = c.durationMinutes;
+    document.getElementById('durationMinutes').value = c.durationType === 'unlimited' ? 'unlimited' : c.durationMinutes;
+    toggleUnlimitedHint();
     document.getElementById('strategy').value = c.strategy || '';
     document.getElementById('intensity').value = c.intensity || 'balanced';
     
@@ -382,7 +409,8 @@ function duplicateCampaign(id) {
     document.getElementById('campaignName').value = c.name + ' (Copy)';
     document.getElementById('minFinalViews').value = c.minViews;
     document.getElementById('maxFinalViews').value = c.maxViews;
-    document.getElementById('durationMinutes').value = c.durationMinutes;
+    document.getElementById('durationMinutes').value = c.durationType === 'unlimited' ? 'unlimited' : c.durationMinutes;
+    toggleUnlimitedHint();
     document.getElementById('strategy').value = c.strategy || '';
     document.getElementById('intensity').value = c.intensity || 'balanced';
     
@@ -401,10 +429,11 @@ async function restartCampaign(id) {
         name: c.name + ' (Restarted)',
         minViews: c.minViews,
         maxViews: c.maxViews,
-        durationMinutes: c.durationMinutes,
         strategy: c.strategy,
         intensity: c.intensity
     };
+    if (c.durationType === 'unlimited') payload.durationType = 'unlimited';
+    else payload.durationMinutes = c.durationMinutes;
     
     try {
         const response = await fetch('/admin/view-engine/campaigns', {
@@ -459,10 +488,15 @@ async function saveCampaign() {
         name: name,
         minViews: min,
         maxViews: max,
-        durationMinutes: parseInt(duration, 10), 
         strategy: strategy,
         intensity: intensity
     };
+    // Unlimited => send durationType; finite => send durationMinutes (as today).
+    if (duration === 'unlimited') {
+        payload.durationType = 'unlimited';
+    } else {
+        payload.durationMinutes = parseInt(duration, 10);
+    }
     
     const btn = document.getElementById('btnSaveCampaign');
     const originalText = btn.innerHTML;
@@ -553,7 +587,8 @@ function viewDetails(id) {
                     <p class="mb-1"><strong>Name:</strong> ${c.name}</p>
                     <p class="mb-1"><strong>Status:</strong> <span class="badge bg-${getStatusColor(c.status)}">${c.status.toUpperCase()}</span></p>
                     <p class="mb-1"><strong>Views Range:</strong> ${c.minViews} - ${c.maxViews}</p>
-                    <p class="mb-1"><strong>Duration:</strong> ${c.durationMinutes} Minutes</p>
+                    <p class="mb-1"><strong>Duration:</strong> ${c.durationType === 'unlimited' ? 'Unlimited (24×7)' : durationLabel(c.durationMinutes)}</p>
+                    ${c.durationType === 'unlimited' ? '<p class="mb-1"><span class="badge bg-warning text-dark"><i class="fas fa-infinity me-1"></i>Running Until Manually Stopped</span></p>' : ''}
                     <p class="mb-1"><strong>Strategy:</strong> <span class="text-capitalize">${c.strategy}</span></p>
                     <p class="mb-0"><strong>Speed Profile:</strong> <span class="text-capitalize">${c.intensity}</span></p>
                 </div>

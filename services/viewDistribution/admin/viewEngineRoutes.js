@@ -30,7 +30,12 @@ const rollback = require('../rollback');
 const { LOG_PREFIX } = require('../constants');
 
 const VALID_STATUS = ['draft', 'active', 'paused', 'completed', 'cancelled', 'reversed'];
-const VALID_DURATIONS = [30, 60, 120];
+// Finite durations in minutes: 30m, 1h, 2h, 6h, 12h, 24h, 3d, 7d, 15d, 30d.
+const VALID_DURATIONS = [30, 60, 120, 360, 720, 1440, 4320, 10080, 21600, 43200];
+// Internal curve window used by 'unlimited' campaigns (ticker guard prevents
+// completion; this only drives the delivery curve). 24h ramp, then rebalancing
+// keeps discovering/boosting newly eligible news.
+const UNLIMITED_CURVE_MINUTES = 1440;
 const VALID_INTENSITY = ['conservative', 'balanced', 'aggressive'];
 const VALID_STRATEGY = ['static', 'adaptive', 'ml'];
 
@@ -75,10 +80,18 @@ function validateCampaignBody(body = {}, { partial = false } = {}) {
     else out.name = body.name.trim();
   }
 
-  if (!partial || body.durationMinutes !== undefined) {
+  // Duration + type. 'unlimited' => no durationMinutes required (internal curve window).
+  if (body.durationType === 'unlimited') {
+    out.durationType = 'unlimited';
+    out.durationMinutes = UNLIMITED_CURVE_MINUTES;
+  } else if (!partial || body.durationMinutes !== undefined || body.durationType !== undefined) {
+    out.durationType = 'finite';
     const d = Number(body.durationMinutes);
-    if (!VALID_DURATIONS.includes(d)) errors.push('durationMinutes must be one of 30, 60, 120');
-    else out.durationMinutes = d;
+    if (!VALID_DURATIONS.includes(d)) {
+      errors.push('durationMinutes must be one of: ' + VALID_DURATIONS.join(', ') + ' (or durationType "unlimited")');
+    } else {
+      out.durationMinutes = d;
+    }
   }
   if (!partial || body.minViews !== undefined) {
     const min = Number(body.minViews);
@@ -281,7 +294,10 @@ router.post('/campaigns/:id/activate', async (req, res) => {
     // draft => fresh window; paused => resume keeping the original window.
     if (campaign.status === 'draft' || !campaign.startAt) {
       campaign.startAt = now;
-      campaign.endAt = new Date(now.getTime() + campaign.durationMinutes * 60000);
+      // Unlimited => no end time (runs until manually stopped). Finite => as today.
+      campaign.endAt = campaign.durationType === 'unlimited'
+        ? null
+        : new Date(now.getTime() + campaign.durationMinutes * 60000);
     }
     campaign.status = 'active';
     await campaign.save();
@@ -544,6 +560,75 @@ router.post('/emergency-stop', async (req, res) => {
   } catch (err) {
     console.error(`${LOG_PREFIX} emergency stop error:`, err.message);
     res.status(500).json({ error: 'emergency_stop_failed' });
+  }
+});
+
+// ---- Status page: full live monitoring payload ------------------------
+
+function formatUptime(sec) {
+  sec = Math.floor(sec);
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const parts = [];
+  if (d) parts.push(d + 'd');
+  if (h || d) parts.push(h + 'h');
+  parts.push(m + 'm');
+  parts.push(s + 's');
+  return parts.join(' ');
+}
+
+router.get('/status-data', async (req, res) => {
+  try {
+    const base = await buildLiveMetrics();
+    const now = Date.now();
+    const [completed, cancelled, reversed, activeList, lastLog] = await Promise.all([
+      ViewCampaign.countDocuments({ status: 'completed' }),
+      ViewCampaign.countDocuments({ status: 'cancelled' }),
+      ViewCampaign.countDocuments({ status: 'reversed' }),
+      ViewCampaign.find({ status: 'active' }).select('name durationMinutes durationType startAt').sort({ startAt: -1 }).limit(20).lean(),
+      ViewCycleLog.findOne({}).select('cycleIndex createdAt').sort({ createdAt: -1 }).lean()
+    ]);
+
+    const activeCampaignsList = activeList.map((c) => {
+      const start = c.startAt ? new Date(c.startAt).getTime() : now;
+      return {
+        id: String(c._id),
+        name: c.name || '(unnamed)',
+        durationType: c.durationType || 'finite',
+        durationMinutes: c.durationMinutes,
+        cycle: Math.max(0, Math.floor((now - start) / 60000))
+      };
+    });
+
+    let recentActivity = [];
+    try {
+      const logs = await AuditLog.find({ action: { $regex: 'view_engine' } })
+        .sort({ createdAt: -1 }).limit(8).lean();
+      recentActivity = logs.map((l) => ({
+        time: new Date(l.createdAt).toLocaleString(),
+        event: l.description || l.action,
+        user: l.actorName || 'System'
+      }));
+    } catch (_) { /* ignore */ }
+
+    res.json({
+      success: true,
+      status: {
+        ...base, // engineEnabled, killed, redis, mongo, queue, leader, workers, queueSize, activeCampaigns(count), lastHeartbeat, version, lastRestart
+        completedCampaigns: completed,
+        failedCampaigns: cancelled + reversed,
+        currentCycle: lastLog ? lastLog.cycleIndex : 0,
+        lastCycleAt: lastLog ? new Date(lastLog.createdAt).toLocaleTimeString() : 'N/A',
+        uptime: formatUptime(process.uptime()),
+        activeCampaignsList,
+        recentActivity
+      }
+    });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} status-data error:`, err.message);
+    res.status(500).json({ error: 'status_data_failed' });
   }
 });
 

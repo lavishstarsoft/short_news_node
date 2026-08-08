@@ -25,7 +25,11 @@ const viewCampaignSchema = new mongoose.Schema(
     dryRun: { type: Boolean, default: false },
 
     // ---- Minimal admin inputs ----
-    durationMinutes: { type: Number, required: true }, // 30 | 60 | 120 (validated in service layer)
+    durationMinutes: { type: Number, required: true }, // curve window (validated in service layer)
+    // 'finite' (default) => auto-completes after durationMinutes, exactly as today.
+    // 'unlimited' => runs 24×7 until a Super Admin pauses/cancels/deletes (ticker guard).
+    // Absent on legacy docs => treated as 'finite' (backward compatible).
+    durationType: { type: String, enum: ['finite', 'unlimited'], default: 'finite' },
     minViews: { type: Number, required: true, min: 0 },
     maxViews: { type: Number, required: true, min: 0 },
 

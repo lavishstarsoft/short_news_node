@@ -57,17 +57,23 @@ function getMetrics() {
  */
 function planCycle(campaign, now) {
   const start = campaign.startAt ? new Date(campaign.startAt).getTime() : now;
-  const totalCycles = Math.max(1, Number(campaign.durationMinutes) || 0);
+  // Unlimited (24×7): the ONLY behavioural change — such campaigns never
+  // auto-complete by end time or duration; they keep enqueuing cycles until a
+  // Super Admin pauses/cancels/deletes them. Finite campaigns are unchanged.
+  const isUnlimited = campaign.durationType === 'unlimited';
 
-  if (campaign.endAt && now > new Date(campaign.endAt).getTime()) {
+  if (!isUnlimited && campaign.endAt && now > new Date(campaign.endAt).getTime()) {
     return { action: 'complete', reason: 'past_end' };
   }
   if (now < start) {
     return { action: 'skip', reason: 'not_started' };
   }
   const cycleIndex = Math.floor((now - start) / 60000);
-  if (cycleIndex > totalCycles) {
-    return { action: 'complete', reason: 'past_duration', cycleIndex };
+  if (!isUnlimited) {
+    const totalCycles = Math.max(1, Number(campaign.durationMinutes) || 0);
+    if (cycleIndex > totalCycles) {
+      return { action: 'complete', reason: 'past_duration', cycleIndex };
+    }
   }
   return { action: 'enqueue', cycleIndex };
 }
@@ -87,7 +93,7 @@ async function completeCampaign(id, reason) {
 /** One enqueue pass over active campaigns. Error-isolated per campaign. */
 async function tickOnce(now = Date.now()) {
   const campaigns = await ViewCampaign.find({ status: 'active' })
-    .select('startAt endAt durationMinutes')
+    .select('startAt endAt durationMinutes durationType')
     .lean();
 
   for (const c of campaigns) {
