@@ -129,11 +129,34 @@ const renderDashboard = async (req, res) => {
     });
 };
 
-const renderCampaigns = (req, res) => {
+const renderCampaigns = async (req, res) => {
     if (!req.admin || req.admin.role !== 'superadmin') return res.status(403).send('Unauthorized');
+    
+    let campaigns = [];
+    try {
+        const ViewCampaign = require('../services/viewDistribution/models/ViewCampaign');
+        const rawCampaigns = await ViewCampaign.find({}).sort({ createdAt: -1 }).lean();
+        const now = new Date().getTime();
+        
+        campaigns = rawCampaigns.map(c => {
+            let progress = 0;
+            if (c.status === 'active' && c.startAt && c.durationMinutes) {
+                const start = new Date(c.startAt).getTime();
+                const elapsedMins = (now - start) / 60000;
+                progress = Math.min(100, (elapsedMins / c.durationMinutes) * 100).toFixed(1);
+            } else if (c.status === 'completed') {
+                progress = 100;
+            }
+            return { ...c, progress };
+        });
+    } catch (err) {
+        console.error('Error fetching campaigns:', err);
+    }
+    
     res.render('view-engine/campaigns', {
         admin: req.admin,
-        activePage: 'view-engine-campaigns'
+        activePage: 'view-engine-campaigns',
+        data: { campaigns }
     });
 };
 

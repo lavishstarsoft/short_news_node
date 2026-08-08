@@ -71,7 +71,9 @@ function computeTiming(campaign, now = Date.now()) {
 }
 
 function rebalanceCyclesOf(campaign) {
-  return Math.max(1, Math.round((Number(campaign.rebalanceIntervalSec) || 300) / 60));
+  // Always return 1 to ensure new news published during an active campaign
+  // is instantly picked up in the very next cycle (1 minute latency max).
+  return 1;
 }
 
 /** Whether this cycle should (re)balance target bands. */

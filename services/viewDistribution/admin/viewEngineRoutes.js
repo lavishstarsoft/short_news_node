@@ -629,4 +629,142 @@ router.get('/status-data', async (req, res) => {
   }
 });
 
+
+// ---- Live Status (Production Monitoring) -------------------------------
+router.get('/live-status', async (req, res) => {
+  try {
+    const ViewDistributionState = require('../models/ViewDistributionState');
+    const ViewCampaign = require('../models/ViewCampaign');
+    const ViewCycleLog = require('../models/ViewCycleLog');
+    const AuditLog = require('../../../models/AuditLog');
+    const queue = require('../queue');
+    const { redisClient, isRedisAvailable } = require('../../../config/redis');
+
+    const now = new Date();
+
+    // 1. Active Campaigns
+    const activeCampaigns = await ViewCampaign.find({ status: 'active' }).lean();
+    const activeCampaignsData = activeCampaigns.map(c => {
+      const start = c.startAt ? new Date(c.startAt).getTime() : now.getTime();
+      const elapsedMins = (now.getTime() - start) / 60000;
+      const progress = c.durationMinutes ? Math.min(100, (elapsedMins / c.durationMinutes) * 100) : 0;
+      return {
+        id: String(c._id),
+        name: c.name || '(unnamed)',
+        startTime: c.startAt,
+        durationMinutes: c.durationMinutes,
+        progress: progress.toFixed(1),
+        targetRange: `${c.minViews} - ${c.maxViews}`,
+        status: c.status,
+        elapsedMins: elapsedMins.toFixed(1)
+      };
+    });
+
+    // 2. Engine metrics
+    let queueSize = 0;
+    let leader = 'Unknown';
+    if (isRedisAvailable()) {
+      try {
+        const qStats = await queue.stats();
+        queueSize = qStats.available ? (qStats.stream || 0) : 0;
+        leader = await redisClient.get('vde:leader') || 'Unknown';
+      } catch(e) {}
+    }
+
+    const lastLog = await ViewCycleLog.findOne().sort({ createdAt: -1 }).lean();
+    const currentCycle = lastLog ? lastLog.cycleIndex : 0;
+    
+    const fifteenMinsAgo = new Date(now.getTime() - 15 * 60000);
+    const workers = await ViewCycleLog.distinct('workerId', { createdAt: { $gte: fifteenMinsAgo } });
+
+    // Speed calculation (views per minute based on last 5 minutes)
+    const fiveMinsAgo = new Date(now.getTime() - 5 * 60000);
+    const recentLogs = await ViewCycleLog.find({ createdAt: { $gte: fiveMinsAgo } }).lean();
+    const recentViewsAdded = recentLogs.reduce((sum, log) => sum + (log.totalIncrement || 0), 0);
+    const processingSpeed = Math.round(recentViewsAdded / 5);
+
+    // 3. Current Processing News
+    let processingNews = [];
+    if (activeCampaigns.length > 0) {
+      // Find up to 10 actively tracking news items
+      const activeStates = await ViewDistributionState.find({ campaignId: { $in: activeCampaigns.map(c => c._id) } })
+        .populate('newsId', 'title views syntheticViews _id')
+        .limit(10)
+        .lean();
+
+      processingNews = activeStates.map(st => {
+        const n = st.newsId || {};
+        const cap = st.cap || 1; // avoid /0
+        const totalDelivered = st.deliveredTotal || 0;
+        const progress = Math.min(100, (totalDelivered / cap) * 100).toFixed(1);
+        
+        return {
+          newsId: n._id ? String(n._id) : 'unknown',
+          title: n.title || 'Unknown Title',
+          organicViews: n.views || 0,
+          syntheticViews: totalDelivered,
+          displayViews: (n.views || 0) + totalDelivered,
+          targetViews: cap,
+          remainingViews: Math.max(0, cap - totalDelivered),
+          progress: progress,
+          campaignId: String(st.campaignId)
+        };
+      });
+    }
+
+    // Estimated finish time overall (just an approximation based on speed)
+    let estimatedFinishTime = 'N/A';
+    if (processingNews.length > 0 && processingSpeed > 0) {
+      const totalRemaining = processingNews.reduce((s, n) => s + n.remainingViews, 0);
+      const minsRemaining = totalRemaining / processingSpeed;
+      if (minsRemaining < 10000) {
+        estimatedFinishTime = new Date(now.getTime() + minsRemaining * 60000).toLocaleString();
+      }
+    }
+
+    // 4. Logs and Errors
+    const engineLogs = await ViewCycleLog.find({}).sort({ createdAt: -1 }).limit(20).lean();
+    const formattedLogs = engineLogs.map(l => ({
+      time: new Date(l.createdAt).toLocaleTimeString(),
+      event: `Cycle ${l.cycleIndex} processed`,
+      type: 'info',
+      details: `${l.itemsAffected} items boosted. +${l.totalIncrement} views.`,
+      workerId: l.workerId
+    }));
+
+    const auditLogs = await AuditLog.find({ action: { $regex: 'view_engine' } }).sort({ createdAt: -1 }).limit(10).lean();
+    const formattedAudit = auditLogs.map(l => ({
+      time: new Date(l.createdAt).toLocaleTimeString(),
+      event: l.description || l.action,
+      type: l.action.includes('error') ? 'error' : 'success',
+      details: l.actorName || 'System',
+      workerId: 'System'
+    }));
+
+    const combinedLogs = [...formattedLogs, ...formattedAudit].sort((a,b) => new Date(b.time) - new Date(a.time)).slice(0, 50);
+
+    res.json({
+      success: true,
+      data: {
+        activeCampaigns: activeCampaignsData,
+        processingNews: processingNews,
+        engine: {
+          queueSize,
+          workers: workers.length,
+          leader,
+          processingSpeed,
+          currentCycle,
+          estimatedFinishTime,
+          startedTime: activeCampaignsData.length ? new Date(activeCampaignsData[0].startTime).toLocaleTimeString() : 'N/A',
+          lastUpdateTime: now.toLocaleTimeString()
+        },
+        logs: combinedLogs
+      }
+    });
+  } catch (err) {
+    console.error('Error in /live-status:', err);
+    res.status(500).json({ error: 'failed_to_fetch_live_status' });
+  }
+});
+
 module.exports = router;

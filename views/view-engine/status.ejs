@@ -1,173 +1,343 @@
 <%- include('../partials/header') %>
 <%- include('../partials/sidebar') %>
 
-<div class="main-content">
-    <div class="container-fluid py-4">
+<style>
+/* Datadog/Grafana Style Real-Time Console Theme */
+.console-bg {
+    background-color: #0d1117;
+    color: #c9d1d9;
+    font-family: 'Inter', sans-serif;
+    min-height: calc(100vh - 60px);
+}
+.console-card {
+    background-color: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    margin-bottom: 20px;
+}
+.console-header {
+    background-color: #21262d;
+    border-bottom: 1px solid #30363d;
+    padding: 10px 15px;
+    border-radius: 8px 8px 0 0;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #e6edf3;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.console-body {
+    padding: 20px;
+}
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #58a6ff;
+    line-height: 1;
+}
+.stat-label {
+    font-size: 0.8rem;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 5px;
+}
+.terminal-window {
+    background-color: #010409;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 15px;
+    height: 350px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+.log-line {
+    border-bottom: 1px solid #21262d;
+    padding: 4px 0;
+}
+.log-time { color: #8b949e; margin-right: 10px; }
+.log-info { color: #3fb950; }
+.log-error { color: #f85149; }
+.log-warn { color: #d29922; }
 
-        <!-- Header -->
-        <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4 border-bottom pb-3">
-            <div>
-                <h1 class="h2 mb-1"><i class="fas fa-network-wired text-primary me-2"></i> Engine Status</h1>
-                <p class="text-muted mb-0">Live monitoring — all values are read directly from the backend.</p>
-            </div>
-            <div class="d-flex align-items-center bg-light px-3 py-2 rounded-pill shadow-sm">
-                <div class="spinner-grow spinner-grow-sm text-success me-2" style="width:1rem;height:1rem"><span class="visually-hidden">live</span></div>
-                <span class="text-muted fw-bold small">Auto-refresh every 5s</span>
-                <span class="text-muted small ms-2" id="lastUpdated">—</span>
+/* Pulse Animation for Live Status */
+.pulse-dot {
+    height: 10px;
+    width: 10px;
+    background-color: #3fb950;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7);
+    animation: pulse 1.5s infinite;
+    margin-right: 8px;
+}
+@keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(63, 185, 80, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
+}
+
+/* Custom Progress Bar */
+.progress-dark {
+    background-color: #21262d;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.progress-bar-glow {
+    background: linear-gradient(90deg, #1f6feb 0%, #388bfd 100%);
+    box-shadow: 0 0 10px rgba(56, 139, 253, 0.5);
+    height: 100%;
+    transition: width 0.5s ease-in-out;
+}
+
+.table-dark-custom {
+    color: #c9d1d9;
+}
+.table-dark-custom th {
+    background-color: #21262d;
+    color: #8b949e;
+    border-bottom: 1px solid #30363d;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+.table-dark-custom td {
+    border-bottom: 1px solid #30363d;
+    vertical-align: middle;
+}
+</style>
+
+<div class="main-content console-bg p-3 p-md-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1 text-white"><i class="fas fa-satellite-dish me-2 text-primary"></i>Live Monitor</h4>
+            <div class="text-muted small"><span class="pulse-dot"></span> Real-time Engine Telemetry Connected</div>
+        </div>
+        <div class="text-end">
+            <div class="small" style="color:#8b949e;">Last Updated</div>
+            <div class="fw-bold text-white" id="last-update-time">--:--:--</div>
+        </div>
+    </div>
+
+    <!-- Top Metrics Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="console-card h-100">
+                <div class="console-body text-center">
+                    <div class="stat-value" id="val-speed">0</div>
+                    <div class="stat-label">Views / Min</div>
+                </div>
             </div>
         </div>
+        <div class="col-6 col-md-3">
+            <div class="console-card h-100">
+                <div class="console-body text-center">
+                    <div class="stat-value" id="val-cycle">0</div>
+                    <div class="stat-label">Current Cycle</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="console-card h-100">
+                <div class="console-body text-center">
+                    <div class="stat-value" id="val-queue">0</div>
+                    <div class="stat-label">Queue Size</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="console-card h-100">
+                <div class="console-body text-center">
+                    <div class="stat-value text-success" id="val-workers">0</div>
+                    <div class="stat-label">Active Workers</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        <!-- Top status row -->
-        <div class="row g-4 mb-4">
-            <div class="col-12 col-md-4 col-xl-3">
-                <div class="card shadow-sm border-0 h-100" id="engineStatusCard">
-                    <div class="card-body">
-                        <h6 class="text-muted text-uppercase fw-bold mb-2">Engine Status</h6>
-                        <h3 class="fw-bold mb-0" id="engineStatus">—</h3>
-                        <small class="text-muted" id="engineVersion">v—</small>
+    <div class="row g-4">
+        <!-- Live Processing News -->
+        <div class="col-xl-8">
+            <div class="console-card">
+                <div class="console-header">
+                    <span><i class="fas fa-server me-2"></i>Active Processing Pipeline</span>
+                    <span class="badge bg-primary" id="active-campaigns-count">0 Campaigns</span>
+                </div>
+                <div class="console-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-borderless table-dark-custom mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">News Item (ID)</th>
+                                    <th>Organic</th>
+                                    <th>Synthetic</th>
+                                    <th>Target</th>
+                                    <th>Progress</th>
+                                </tr>
+                            </thead>
+                            <tbody id="live-news-tbody">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">Awaiting runtime data...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-md-4 col-xl-3">
-                <div class="card shadow-sm border-0 h-100"><div class="card-body">
-                    <h6 class="text-muted text-uppercase fw-bold mb-2">Leader</h6>
-                    <h6 class="fw-bold text-dark mb-0 text-truncate" id="leader">—</h6>
-                    <small class="text-muted">Workers: <span id="workers">—</span></small>
-                </div></div>
-            </div>
-            <div class="col-6 col-md-4 col-xl-3">
-                <div class="card shadow-sm border-0 h-100"><div class="card-body">
-                    <h6 class="text-muted text-uppercase fw-bold mb-2">Queue Size</h6>
-                    <h3 class="fw-bold text-dark mb-0" id="queueSize">—</h3>
-                    <small class="text-muted">Current cycle: <span id="currentCycle">—</span></small>
-                </div></div>
-            </div>
-            <div class="col-6 col-md-4 col-xl-3">
-                <div class="card shadow-sm border-0 h-100"><div class="card-body">
-                    <h6 class="text-muted text-uppercase fw-bold mb-2">Uptime</h6>
-                    <h5 class="fw-bold text-dark mb-0" id="uptime">—</h5>
-                    <small class="text-muted">Last cycle: <span id="lastCycleAt">—</span></small>
-                </div></div>
-            </div>
-        </div>
-
-        <!-- Campaign counters -->
-        <div class="row g-4 mb-4">
-            <div class="col-6 col-xl-3"><div class="card shadow-sm border-0"><div class="card-body text-center"><div class="text-muted text-uppercase small fw-bold">Active Campaigns</div><div class="display-6 fw-bold text-primary" id="activeCampaigns">—</div></div></div></div>
-            <div class="col-6 col-xl-3"><div class="card shadow-sm border-0"><div class="card-body text-center"><div class="text-muted text-uppercase small fw-bold">Completed</div><div class="display-6 fw-bold text-success" id="completedCampaigns">—</div></div></div></div>
-            <div class="col-6 col-xl-3"><div class="card shadow-sm border-0"><div class="card-body text-center"><div class="text-muted text-uppercase small fw-bold">Cancelled / Reversed</div><div class="display-6 fw-bold text-danger" id="failedCampaigns">—</div></div></div></div>
-            <div class="col-6 col-xl-3"><div class="card shadow-sm border-0"><div class="card-body text-center"><div class="text-muted text-uppercase small fw-bold">Last Heartbeat</div><div class="h4 fw-bold text-dark mt-2" id="lastHeartbeat">—</div></div></div></div>
-        </div>
-
-        <div class="row g-4">
-            <!-- Health -->
-            <div class="col-lg-4">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-header bg-white border-bottom pt-3"><h5 class="fw-bold"><i class="fas fa-stethoscope text-info me-2"></i> Infrastructure</h5></div>
-                    <div class="card-body">
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item d-flex justify-content-between px-0"><span class="fw-bold text-secondary">Redis</span><span class="badge bg-secondary rounded-pill px-3" id="redis">—</span></li>
-                            <li class="list-group-item d-flex justify-content-between px-0"><span class="fw-bold text-secondary">MongoDB</span><span class="badge bg-secondary rounded-pill px-3" id="mongo">—</span></li>
-                            <li class="list-group-item d-flex justify-content-between px-0"><span class="fw-bold text-secondary">Queue</span><span class="badge bg-secondary rounded-pill px-3" id="queueHealth">—</span></li>
-                        </ul>
-                    </div>
+            
+            <!-- Execution Timeline -->
+            <div class="console-card mt-4">
+                <div class="console-header">
+                    <span><i class="fas fa-clock me-2"></i>Execution Timeline</span>
+                    <span id="val-eta" class="small text-warning">ETA: --</span>
                 </div>
-            </div>
-
-            <!-- Active campaigns + activity -->
-            <div class="col-lg-8">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-header bg-white border-bottom pt-3"><h5 class="fw-bold mb-0"><i class="fas fa-bullhorn text-primary me-2"></i> Active Campaigns</h5></div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light"><tr><th>Campaign</th><th>Duration</th><th>Cycle</th></tr></thead>
-                                <tbody id="activeCampaignsBody"><tr><td colspan="3" class="text-center text-muted py-4">Loading…</td></tr></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent activity -->
-            <div class="col-12">
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white border-bottom pt-3"><h5 class="fw-bold mb-0"><i class="fas fa-clipboard-list text-secondary me-2"></i> Recent Activity</h5></div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light"><tr><th>Time</th><th>Event</th><th>User</th></tr></thead>
-                                <tbody id="activityBody"><tr><td colspan="3" class="text-center text-muted py-4">Loading…</td></tr></tbody>
-                            </table>
-                        </div>
-                    </div>
+                <div class="console-body" id="timeline-container">
+                    <div class="text-center text-muted">Awaiting runtime data...</div>
                 </div>
             </div>
         </div>
 
+        <!-- Terminal Logs -->
+        <div class="col-xl-4">
+            <div class="console-card h-100">
+                <div class="console-header">
+                    <span><i class="fas fa-terminal me-2"></i>Event Stream</span>
+                    <i class="fas fa-circle-notch fa-spin text-success" style="font-size: 0.8rem;"></i>
+                </div>
+                <div class="console-body p-0">
+                    <div class="terminal-window" id="terminal-logs">
+                        <div class="log-line"><span class="log-time">[System]</span> <span class="log-info">Connecting to View Engine telemetry stream...</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
-(function () {
-    const DURATION_LABELS = { 30:'30 Minutes', 60:'1 Hour', 120:'2 Hours', 360:'6 Hours', 720:'12 Hours', 1440:'24 Hours', 4320:'3 Days', 10080:'7 Days', 21600:'15 Days', 43200:'30 Days' };
-    function durationCell(c) {
-        if (c.durationType === 'unlimited') return '<span class="badge bg-warning text-dark"><i class="fas fa-infinity me-1"></i>Unlimited (24×7)</span><br><span class="badge bg-light text-secondary border mt-1">Running Until Manually Stopped</span>';
-        return DURATION_LABELS[c.durationMinutes] || (c.durationMinutes + ' min');
-    }
-    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    const badge = (id, ok, text, warnState) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.textContent = text;
-        el.className = 'badge bg-' + (ok ? 'success' : (warnState ? 'warning text-dark' : 'danger')) + ' rounded-pill px-3';
-    };
-    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-
-    async function refresh() {
+document.addEventListener('DOMContentLoaded', function() {
+    
+    async function fetchLiveStatus() {
         try {
-            const res = await fetch('/admin/view-engine/status-data');
-            if (!res.ok) return;
-            const { status: s } = await res.json();
-            if (!s) return;
-
-            set('engineStatus', s.killed ? 'KILLED' : (s.engineEnabled ? 'Running' : 'Stopped'));
-            const esc2 = document.getElementById('engineStatus');
-            if (esc2) esc2.className = 'fw-bold mb-0 text-' + (s.killed ? 'danger' : (s.engineEnabled ? 'success' : 'secondary'));
-            set('engineVersion', 'v' + s.version);
-            set('leader', s.leader || 'None');
-            set('workers', s.workers);
-            set('queueSize', s.queueSize);
-            set('currentCycle', s.currentCycle);
-            set('uptime', s.uptime);
-            set('lastCycleAt', s.lastCycleAt);
-            set('activeCampaigns', s.activeCampaigns);
-            set('completedCampaigns', s.completedCampaigns);
-            set('failedCampaigns', s.failedCampaigns);
-            set('lastHeartbeat', s.lastHeartbeat);
-            badge('redis', s.redis === 'Connected', s.redis);
-            badge('mongo', s.mongo === 'Connected', s.mongo);
-            badge('queueHealth', s.queue === 'Healthy', s.queue, s.queue === 'Degraded');
-
-            const ac = document.getElementById('activeCampaignsBody');
-            if (ac) {
-                ac.innerHTML = (s.activeCampaignsList && s.activeCampaignsList.length)
-                    ? s.activeCampaignsList.map(c => `<tr><td class="fw-bold">${esc(c.name)}</td><td>${durationCell(c)}</td><td>${c.cycle}</td></tr>`).join('')
-                    : '<tr><td colspan="3" class="text-center text-muted py-4">No active campaigns</td></tr>';
+            const response = await fetch('/admin/view-engine/live-status');
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                updateDashboard(result.data);
             }
-            const av = document.getElementById('activityBody');
-            if (av) {
-                av.innerHTML = (s.recentActivity && s.recentActivity.length)
-                    ? s.recentActivity.map(a => `<tr><td class="text-muted small">${esc(a.time)}</td><td class="fw-bold text-dark">${esc(a.event)}</td><td><span class="badge bg-light text-secondary border">${esc(a.user)}</span></td></tr>`).join('')
-                    : '<tr><td colspan="3" class="text-center text-muted py-4">No recent activity</td></tr>';
-            }
-            set('lastUpdated', 'updated ' + new Date().toLocaleTimeString());
-        } catch (e) { /* keep last known values */ }
+        } catch (err) {
+            console.error('Failed to fetch telemetry:', err);
+            appendLog({ time: new Date().toLocaleTimeString(), event: 'Telemetry disconnected or failed.', type: 'error' });
+        }
     }
 
-    refresh();
-    setInterval(refresh, 5000);
-})();
+    function updateDashboard(data) {
+        // Update top metrics
+        document.getElementById('val-speed').innerText = data.engine.processingSpeed || 0;
+        document.getElementById('val-cycle').innerText = data.engine.currentCycle || 0;
+        document.getElementById('val-queue').innerText = data.engine.queueSize || 0;
+        document.getElementById('val-workers').innerText = data.engine.workers || 0;
+        document.getElementById('last-update-time').innerText = data.engine.lastUpdateTime || new Date().toLocaleTimeString();
+        document.getElementById('val-eta').innerText = 'ETA: ' + (data.engine.estimatedFinishTime || 'N/A');
+        document.getElementById('active-campaigns-count').innerText = (data.activeCampaigns ? data.activeCampaigns.length : 0) + ' Campaigns';
+
+        // Update Processing News Table
+        const tbody = document.getElementById('live-news-tbody');
+        if (data.processingNews && data.processingNews.length > 0) {
+            let html = '';
+            data.processingNews.forEach(n => {
+                html += `
+                <tr>
+                    <td class="ps-4">
+                        <div class="fw-bold text-truncate" style="color: black; max-width:250px;" title="${n.title}">${n.title}</div>
+                        <div class="small" style="color:#8b949e;font-family:monospace;">${n.newsId}</div>
+                    </td>
+                    <td class="fs-5">${n.organicViews}</td>
+                    <td class="fs-5 text-primary">${n.syntheticViews}</td>
+                    <td class="fs-5 text-warning">${n.targetViews}</td>
+                    <td>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>${n.progress}%</span>
+                            <span style="color:#8b949e;">${n.remainingViews} left</span>
+                        </div>
+                        <div class="progress-dark">
+                            <div class="progress-bar-glow" style="width: ${n.progress}%;"></div>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted"><i class="fas fa-bed fs-1 mb-3 opacity-50"></i><br>No active processing pipelines found.</td></tr>';
+        }
+
+        // Update Timelines
+        const timelineCont = document.getElementById('timeline-container');
+        if (data.activeCampaigns && data.activeCampaigns.length > 0) {
+            let thtml = '';
+            data.activeCampaigns.forEach(c => {
+                thtml += `
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-white fw-bold">${c.name}</span>
+                        <span class="small" style="color:#8b949e;">${c.elapsedMins} mins elapsed / ${c.durationMinutes || '∞'} mins</span>
+                    </div>
+                    <div class="progress-dark" style="height:8px;">
+                        <div class="progress-bar-glow bg-success" style="width: ${c.progress}%; background: linear-gradient(90deg, #238636 0%, #2ea043 100%); box-shadow: 0 0 10px rgba(46,160,67,0.5);"></div>
+                    </div>
+                </div>`;
+            });
+            timelineCont.innerHTML = thtml;
+        } else {
+            timelineCont.innerHTML = '<div class="text-center py-3 text-muted">Engine Idle</div>';
+        }
+
+        // Update Logs Terminal
+        const terminal = document.getElementById('terminal-logs');
+        if (data.logs && data.logs.length > 0) {
+            let lhtml = '';
+            data.logs.forEach(l => {
+                let colorClass = 'log-info';
+                if (l.type === 'error') colorClass = 'log-error';
+                else if (l.type === 'warn') colorClass = 'log-warn';
+                else if (l.type === 'success') colorClass = 'log-info';
+
+                lhtml += `
+                <div class="log-line">
+                    <span class="log-time">[${l.time}]</span>
+                    <span class="${colorClass}">[${l.workerId || 'System'}] ${l.event}</span>
+                    <span style="color:#8b949e; margin-left:10px;">${l.details || ''}</span>
+                </div>`;
+            });
+            // Only update if logs changed to prevent constant jumping
+            const firstLogTime = data.logs[0] ? data.logs[0].time : null;
+            const firstLogEvent = data.logs[0] ? data.logs[0].event : null;
+            const currentSig = firstLogTime + firstLogEvent;
+            
+            if (terminal.dataset.lastLogSig !== currentSig) {
+                terminal.innerHTML = lhtml;
+                terminal.dataset.lastLogSig = currentSig;
+            }
+        }
+    }
+
+    function appendLog(l) {
+        const terminal = document.getElementById('terminal-logs');
+        terminal.innerHTML = `<div class="log-line">
+            <span class="log-time">[${l.time}]</span>
+            <span class="log-${l.type}">${l.event}</span>
+        </div>` + terminal.innerHTML;
+    }
+
+    // Poll every 3 seconds
+    setInterval(fetchLiveStatus, 3000);
+    // Initial fetch
+    fetchLiveStatus();
+});
 </script>
 
 <%- include('../partials/footer') %>
