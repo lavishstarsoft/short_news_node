@@ -394,9 +394,6 @@ router.delete('/campaigns/:id', async (req, res) => {
   try {
     const campaign = await ViewCampaign.findById(req.params.id);
     if (!campaign) return res.status(404).json({ error: 'not_found' });
-    if (campaign.status !== 'draft') {
-      return res.status(409).json({ error: 'only draft campaigns can be deleted (cancel active ones instead)' });
-    }
     const before = campaign.toObject();
     await campaign.deleteOne();
     await writeAudit(req, {

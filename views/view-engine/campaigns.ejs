@@ -349,10 +349,8 @@ function getActionButtons(c) {
     // View Details
     html += `<button class="btn btn-outline-dark" onclick="viewDetails('${c._id}')" title="View Details"><i class="fas fa-chart-bar"></i></button>`;
     
-    // Delete: Draft, Completed, Cancelled
-    if (['draft', 'completed', 'cancelled', 'reversed'].includes(c.status)) {
-        html += `<button class="btn btn-outline-danger" onclick="deleteCampaign('${c._id}')" title="Delete"><i class="fas fa-trash"></i></button>`;
-    }
+    // Delete: Allowed in any status now
+    html += `<button class="btn btn-outline-danger" onclick="deleteCampaign('${c._id}')" title="Delete"><i class="fas fa-trash"></i></button>`;
     
     return html;
 }
