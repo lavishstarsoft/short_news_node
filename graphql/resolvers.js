@@ -295,7 +295,8 @@ const resolvers = {
                     thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
                     isActive: news.isActive !== false,
                     publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
-                    views: displayViews(news),
+                    views: news.views,
+                    syntheticViews: news.syntheticViews,
                     likes: news.likes || 0,
                     dislikes: news.dislikes || 0,
                     author: news.author,
@@ -603,7 +604,8 @@ const resolvers = {
                     thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
                     isActive: resolveNewsIsActive(news),
                     publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
-                    views: displayViews(news),
+                    views: news.views,
+                    syntheticViews: news.syntheticViews,
                     likes: news.likes || 0,
                     dislikes: news.dislikes || 0,
                     comments: news.comments || 0,
@@ -875,7 +877,8 @@ const resolvers = {
                     thumbnailUrl: getAbsoluteUrl(news.thumbnailUrl || news.mediaUrl || news.imageUrl),
                     isActive: news.isActive !== false,
                     publishedAt: news.publishedAt ? news.publishedAt.toISOString() : null,
-                    views: displayViews(news),
+                    views: news.views,
+                    syntheticViews: news.syntheticViews,
                     likes: news.likes || 0,
                     dislikes: news.dislikes || 0,
                     author: news.author,
@@ -995,6 +998,18 @@ const resolvers = {
     // Field resolvers for News type
     News: {
         id: (parent) => parent.id || parent._id.toString(),
+        // ── CENTRAL VIEW RESOLVER ────────────────────────────────────────────
+        // Single source of truth for the view count returned by GraphQL. EVERY
+        // resolver that returns a News object (feeds, newsById, getNewsById,
+        // newsByShortId, getNewsByEditor, incrementViews, search, bookmarks, and
+        // any future News query/mutation) is serialized through this one place,
+        // so the client always receives the SAME value from the first response.
+        // displayViews(parent) = parent.views + parent.syntheticViews when the
+        // engine flag is ON; returns organic parent.views when OFF (unchanged).
+        // Do NOT call displayViews() in individual GraphQL serializers — this is
+        // the single centralized combine. (Socket emits keep their own
+        // displayViews() call because they are not GraphQL-serialized.)
+        views: (parent) => displayViews(parent),
         commentsData: (parent) => {
             // Convert userInteractions.comments to Comment type
             if (parent.userInteractions && parent.userInteractions.comments) {

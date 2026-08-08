@@ -145,11 +145,75 @@ const renderStatus = (req, res) => {
     });
 };
 
-const renderSettings = (req, res) => {
+const renderSettings = async (req, res) => {
     if (!req.admin || req.admin.role !== 'superadmin') return res.status(403).send('Unauthorized');
+
+    const mongoose = require('mongoose');
+    const AppSettings = require('../models/AppSettings');
+    const ViewEngineSettings = require('../services/viewDistribution/models/ViewEngineSettings');
+    const ViewCampaign = require('../services/viewDistribution/models/ViewCampaign');
+    const ViewCycleLog = require('../services/viewDistribution/models/ViewCycleLog');
+    const queue = require('../services/viewDistribution/queue');
+    const { redisClient, isRedisAvailable } = require('../config/redis');
+
+    // Engine ON/OFF (live source of truth) + persisted settings (defaults if absent).
+    let engineEnabled = false;
+    try {
+        const app = await AppSettings.findOne({ key: 'update_flags' });
+        engineEnabled = !!(app && app.viewEngineEnabled === true);
+    } catch (err) { console.error('Error fetching AppSettings:', err); }
+
+    let settings = null;
+    try {
+        settings = await ViewEngineSettings.findOne({ key: 'view_engine_settings' }).lean();
+    } catch (err) { console.error('Error fetching ViewEngineSettings:', err); }
+    if (!settings) {
+        // Not saved yet — use schema defaults (real defaults, not mock).
+        settings = new ViewEngineSettings({ key: 'view_engine_settings' }).toObject();
+    }
+
+    // Live metrics (read-only, real sources).
+    const redisUp = isRedisAvailable();
+    const mongoUp = mongoose.connection.readyState === 1;
+    let leader = 'None';
+    let lastHeartbeat = 'N/A';
+    if (redisUp) {
+        try { leader = (await redisClient.get('vde:leader')) || 'None'; } catch (err) {}
+        try {
+            const hb = await redisClient.get('vde:heartbeat');
+            if (hb) lastHeartbeat = new Date(parseInt(hb, 10)).toLocaleTimeString();
+        } catch (err) {}
+    }
+    const qStats = await queue.stats();
+    let activeCampaigns = 0;
+    try { activeCampaigns = await ViewCampaign.countDocuments({ status: 'active' }); } catch (err) {}
+    let workers = 0;
+    try {
+        const since = new Date(Date.now() - 15 * 60 * 1000);
+        workers = (await ViewCycleLog.distinct('workerId', { createdAt: { $gte: since } })).length;
+    } catch (err) {}
+
+    const live = {
+        engineEnabled,
+        killed: String(process.env.VIEW_ENGINE_KILL || '').toLowerCase() === 'true',
+        redis: redisUp ? 'Connected' : 'Down',
+        mongo: mongoUp ? 'Connected' : 'Down',
+        queue: qStats.available ? 'Healthy' : 'Degraded',
+        leader,
+        workers,
+        queueSize: qStats.available ? (qStats.stream || 0) : 0,
+        activeCampaigns,
+        lastHeartbeat,
+        version: '1.0.0',
+        lastRestart: new Date(Date.now() - process.uptime() * 1000).toLocaleString()
+    };
+
     res.render('view-engine/settings', {
         admin: req.admin,
-        activePage: 'view-engine-settings'
+        activePage: 'view-engine-settings',
+        engineEnabled,
+        settings,
+        live
     });
 };
 

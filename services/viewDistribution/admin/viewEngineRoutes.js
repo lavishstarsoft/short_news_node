@@ -20,6 +20,9 @@ const AppSettings = require('../../../models/AppSettings');
 const AuditLog = require('../../../models/AuditLog');
 const { requireSuperAdmin } = require('../../../controllers/adminController');
 const ViewCampaign = require('../models/ViewCampaign');
+const ViewCycleLog = require('../models/ViewCycleLog');
+const ViewEngineSettings = require('../models/ViewEngineSettings');
+const { redisClient, isRedisAvailable } = require('../../../config/redis');
 const config = require('../config');
 const queue = require('../queue');
 const ticker = require('../ticker');
@@ -390,6 +393,157 @@ router.delete('/campaigns/:id', async (req, res) => {
   } catch (err) {
     console.error(`${LOG_PREFIX} delete error:`, err.message);
     res.status(500).json({ error: 'delete_failed' });
+  }
+});
+
+// ---- Settings: live metrics (read-only, real sources) -----------------
+
+async function buildLiveMetrics() {
+  const redisUp = isRedisAvailable();
+  const mongoUp = require('mongoose').connection.readyState === 1;
+  let leader = 'None';
+  let lastHeartbeat = 'N/A';
+  if (redisUp) {
+    try { leader = (await redisClient.get('vde:leader')) || 'None'; } catch (_) { /* ignore */ }
+    try {
+      const hb = await redisClient.get('vde:heartbeat');
+      if (hb) lastHeartbeat = new Date(parseInt(hb, 10)).toLocaleTimeString();
+    } catch (_) { /* ignore */ }
+  }
+  const qStats = await queue.stats();
+  let activeCampaigns = 0;
+  try { activeCampaigns = await ViewCampaign.countDocuments({ status: 'active' }); } catch (_) { /* ignore */ }
+  let workers = 0;
+  try {
+    const since = new Date(Date.now() - 15 * 60 * 1000);
+    workers = (await ViewCycleLog.distinct('workerId', { createdAt: { $gte: since } })).length;
+  } catch (_) { /* ignore */ }
+  return {
+    engineEnabled: config.isEnabledCached(),
+    killed: String(process.env.VIEW_ENGINE_KILL || '').toLowerCase() === 'true',
+    redis: redisUp ? 'Connected' : 'Down',
+    mongo: mongoUp ? 'Connected' : 'Down',
+    queue: qStats.available ? 'Healthy' : 'Degraded',
+    leader,
+    workers,
+    queueSize: qStats.available ? (qStats.stream || 0) : 0,
+    activeCampaigns,
+    lastHeartbeat,
+    version: '1.0.0',
+    lastRestart: new Date(Date.now() - process.uptime() * 1000).toLocaleString()
+  };
+}
+
+router.get('/live', async (req, res) => {
+  try {
+    res.json({ success: true, live: await buildLiveMetrics() });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} live metrics error:`, err.message);
+    res.status(500).json({ error: 'live_failed' });
+  }
+});
+
+// ---- Settings: validate + persist -------------------------------------
+
+function validateSettingsBody(body = {}) {
+  const errors = [];
+  const out = {};
+  const numField = (name, min, max) => {
+    if (body[name] === undefined) return;
+    const v = Number(body[name]);
+    if (!Number.isInteger(v) || v < min || v > max) errors.push(`${name} must be an integer ${min}..${max}`);
+    else out[name] = v;
+  };
+  const boolField = (name) => { if (body[name] !== undefined) out[name] = !!body[name]; };
+
+  if (body.defaultStrategy !== undefined) {
+    if (!['static', 'adaptive', 'ml'].includes(body.defaultStrategy)) errors.push('defaultStrategy must be static/adaptive/ml');
+    else out.defaultStrategy = body.defaultStrategy;
+  }
+  if (body.defaultDurationMinutes !== undefined) {
+    const d = Number(body.defaultDurationMinutes);
+    if (![30, 60, 120].includes(d)) errors.push('defaultDurationMinutes must be 30, 60 or 120');
+    else out.defaultDurationMinutes = d;
+  }
+  numField('defaultMinViews', 0, 100000000);
+  numField('defaultMaxViews', 0, 100000000);
+  numField('rebalanceIntervalSec', 30, 3600);
+  numField('maxItemSharePct', 1, 100);
+  numField('cooldownCycles', 0, 100);
+  numField('workerCount', 1, 64);
+  numField('batchSize', 1, 1000);
+  numField('pollIntervalMs', 100, 60000);
+  numField('retryAttempts', 0, 20);
+  ['autoRollback', 'allowRestart', 'allowDuplicateCampaign', 'enableGeoTargeting', 'enableLiveSync', 'globalDryRun'].forEach(boolField);
+
+  return errors.length ? { errors } : { value: out };
+}
+
+router.put('/settings', async (req, res) => {
+  const body = req.body || {};
+  const { value, errors } = validateSettingsBody(body);
+  if (errors) return res.status(400).json({ error: 'validation_failed', errors });
+  try {
+    // Engine ON/OFF is LIVE and lives in AppSettings (what the engine reads).
+    let engineChange = null;
+    if (typeof body.engineEnabled === 'boolean') {
+      let app = await AppSettings.findOne({ key: 'update_flags' });
+      if (!app) app = new AppSettings();
+      engineChange = { before: !!app.viewEngineEnabled, after: body.engineEnabled };
+      app.viewEngineEnabled = body.engineEnabled;
+      await app.save();
+      await config.refreshEnabled();
+    }
+
+    let settings = await ViewEngineSettings.findOne({ key: 'view_engine_settings' });
+    if (!settings) settings = new ViewEngineSettings({ key: 'view_engine_settings' });
+    const before = settings.toObject();
+    Object.assign(settings, value);
+    // cross-field check on the merged document
+    if (settings.defaultMaxViews < settings.defaultMinViews) {
+      return res.status(400).json({ error: 'validation_failed', errors: ['defaultMaxViews must be >= defaultMinViews'] });
+    }
+    await settings.save();
+
+    await writeAudit(req, {
+      action: 'view_engine_settings_update',
+      entityType: 'ViewEngineSettings',
+      entityId: settings._id,
+      description: 'Updated View Engine settings' + (engineChange ? ` (engine ${engineChange.after ? 'ON' : 'OFF'})` : ''),
+      before: { engineEnabled: engineChange ? engineChange.before : undefined, ...before },
+      after: { engineEnabled: engineChange ? engineChange.after : undefined, ...settings.toObject() }
+    });
+    res.json({ success: true, engineEnabled: config.isEnabledCached(), settings });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} settings update error:`, err.message);
+    res.status(500).json({ error: 'settings_update_failed' });
+  }
+});
+
+// ---- Emergency Stop: engine OFF + pause all active campaigns -----------
+
+router.post('/emergency-stop', async (req, res) => {
+  try {
+    let app = await AppSettings.findOne({ key: 'update_flags' });
+    if (!app) app = new AppSettings();
+    const before = !!app.viewEngineEnabled;
+    app.viewEngineEnabled = false;
+    await app.save();
+    await config.refreshEnabled();
+    const paused = await ViewCampaign.updateMany({ status: 'active' }, { $set: { status: 'paused' } });
+    const count = paused.modifiedCount || 0;
+    await writeAudit(req, {
+      action: 'view_engine_emergency_stop',
+      entityType: 'AppSettings',
+      entityId: app._id,
+      description: `EMERGENCY STOP — engine OFF, ${count} campaign(s) paused`,
+      before: { engineEnabled: before },
+      after: { engineEnabled: false, campaignsPaused: count }
+    });
+    res.json({ success: true, campaignsPaused: count });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} emergency stop error:`, err.message);
+    res.status(500).json({ error: 'emergency_stop_failed' });
   }
 });
 

@@ -3,26 +3,369 @@
 
 <div class="main-content">
     <div class="container-fluid py-4">
-        
-        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+
+        <!-- Header -->
+        <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4 border-bottom pb-3">
             <div>
                 <h1 class="h2 mb-1"><i class="fas fa-cogs text-primary me-2"></i> Engine Settings</h1>
-                <p class="text-muted mb-0">Configure View Engine parameters and rate limits.</p>
+                <p class="text-muted mb-0">Configure View Engine parameters. Live controls apply immediately; stored settings are saved for future wiring.</p>
             </div>
-            <button class="btn btn-success fw-bold shadow-sm">
+            <button id="saveConfigBtn" class="btn btn-success fw-bold shadow-sm">
                 <i class="fas fa-save me-2"></i> Save Configuration
             </button>
         </div>
 
-        <div class="card shadow-sm border-0">
-            <div class="card-body text-center py-5">
-                <i class="fas fa-sliders-h text-muted mb-3" style="font-size: 3rem;"></i>
-                <h4 class="text-dark fw-bold">Settings Module</h4>
-                <p class="text-muted">This module is currently connected to placeholder UI. Data will be populated from the backend API soon.</p>
+        <!-- 1. Engine Control (LIVE) -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <h5 class="fw-bold mb-0"><i class="fas fa-power-off text-primary me-2"></i> Engine Control</h5>
+                <span class="badge bg-success rounded-pill px-3"><i class="fas fa-bolt me-1"></i> Live</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-4 align-items-center">
+                    <div class="col-12 col-md-4">
+                        <div class="form-check form-switch fs-4 mb-0">
+                            <input class="form-check-input" type="checkbox" id="killSwitch" <%= engineEnabled ? 'checked' : '' %>>
+                            <label class="form-check-label h6 mb-0 mt-1 fw-bold text-<%= engineEnabled ? 'success' : 'danger' %>" for="killSwitch" id="killSwitchLabel">
+                                <%= engineEnabled ? 'ENGINE ON' : 'ENGINE OFF' %>
+                            </label>
+                        </div>
+                        <small class="text-muted">Master kill switch (AppSettings).</small>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="form-check form-switch fs-4 mb-0">
+                            <input class="form-check-input" type="checkbox" id="dryRunToggle" <%= settings.globalDryRun ? 'checked' : '' %>>
+                            <label class="form-check-label h6 mb-0 mt-1 fw-bold" for="dryRunToggle">
+                                Global Dry Run
+                                <span class="badge bg-warning text-dark rounded-pill ms-1 align-middle" style="font-size:.6rem">Stored Only (Not Yet Wired)</span>
+                            </label>
+                        </div>
+                        <small class="text-muted">Saved preference only. Campaign creation is unchanged; each campaign uses its own Dry Run value.</small>
+                    </div>
+                    <div class="col-12 col-md-4 text-md-end">
+                        <button class="btn btn-danger btn-lg fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#emergencyStopModal">
+                            <i class="fas fa-exclamation-triangle me-2"></i> EMERGENCY STOP
+                        </button>
+                        <div><small class="text-muted">Engine OFF + pause all active campaigns.</small></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- 2. Distribution Settings (STORED ONLY) -->
+            <div class="col-12 col-xl-6">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                        <h5 class="fw-bold mb-0"><i class="fas fa-share-nodes text-info me-2"></i> Distribution Settings</h5>
+                        <span class="badge bg-warning text-dark rounded-pill px-3">Stored Only (Not Yet Wired)</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small">Default Strategy</label>
+                                <select class="form-select" id="defaultStrategy">
+                                    <% ['static','adaptive','ml'].forEach(function(s){ %>
+                                        <option value="<%= s %>" <%= settings.defaultStrategy === s ? 'selected' : '' %>><%= s.charAt(0).toUpperCase()+s.slice(1) %></option>
+                                    <% }); %>
+                                </select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small">Default Duration (min)</label>
+                                <select class="form-select" id="defaultDurationMinutes">
+                                    <% [30,60,120].forEach(function(d){ %>
+                                        <option value="<%= d %>" <%= settings.defaultDurationMinutes === d ? 'selected' : '' %>><%= d %> minutes</option>
+                                    <% }); %>
+                                </select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small">Default Minimum Final Views</label>
+                                <input type="number" min="0" class="form-control" id="defaultMinViews" value="<%= settings.defaultMinViews %>">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small">Default Maximum Final Views</label>
+                                <input type="number" min="0" class="form-control" id="defaultMaxViews" value="<%= settings.defaultMaxViews %>">
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label fw-bold small">Rebalance Interval (sec)</label>
+                                <input type="number" min="30" max="3600" class="form-control" id="rebalanceIntervalSec" value="<%= settings.rebalanceIntervalSec %>">
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label fw-bold small">Max Item Share (%)</label>
+                                <input type="number" min="1" max="100" class="form-control" id="maxItemSharePct" value="<%= settings.maxItemSharePct %>">
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label fw-bold small">Cooldown Cycles</label>
+                                <input type="number" min="0" max="100" class="form-control" id="cooldownCycles" value="<%= settings.cooldownCycles %>">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Queue Settings (STORED ONLY) -->
+            <div class="col-12 col-xl-6">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                        <h5 class="fw-bold mb-0"><i class="fas fa-layer-group text-secondary me-2"></i> Queue Settings</h5>
+                        <span class="badge bg-warning text-dark rounded-pill px-3">Stored Only (Not Yet Wired)</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small">Worker Count</label>
+                                <input type="number" min="1" max="64" class="form-control" id="workerCount" value="<%= settings.workerCount %>">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small">Queue Batch Size</label>
+                                <input type="number" min="1" max="1000" class="form-control" id="batchSize" value="<%= settings.batchSize %>">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small">Poll Interval (ms)</label>
+                                <input type="number" min="100" max="60000" class="form-control" id="pollIntervalMs" value="<%= settings.pollIntervalMs %>">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small">Retry Attempts</label>
+                                <input type="number" min="0" max="20" class="form-control" id="retryAttempts" value="<%= settings.retryAttempts %>">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Performance Settings (LIVE, read-only) -->
+            <div class="col-12 col-xl-6">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                        <h5 class="fw-bold mb-0"><i class="fas fa-gauge-high text-success me-2"></i> Performance</h5>
+                        <span class="badge bg-success rounded-pill px-3"><i class="fas fa-bolt me-1"></i> Live</span>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between px-0"><span class="fw-bold text-secondary">Redis Status</span><span class="badge bg-<%= live.redis === 'Connected' ? 'success' : 'danger' %> rounded-pill px-3" id="liveRedis"><%= live.redis %></span></li>
+                            <li class="list-group-item d-flex justify-content-between px-0"><span class="fw-bold text-secondary">Mongo Status</span><span class="badge bg-<%= live.mongo === 'Connected' ? 'success' : 'danger' %> rounded-pill px-3" id="liveMongo"><%= live.mongo %></span></li>
+                            <li class="list-group-item d-flex justify-content-between px-0"><span class="fw-bold text-secondary">Current Leader</span><span class="text-dark fw-bold text-truncate ms-2" style="max-width:60%" id="liveLeader"><%= live.leader %></span></li>
+                            <li class="list-group-item d-flex justify-content-between px-0"><span class="fw-bold text-secondary">Worker Count</span><span class="text-dark fw-bold" id="liveWorkers"><%= live.workers %></span></li>
+                            <li class="list-group-item d-flex justify-content-between px-0"><span class="fw-bold text-secondary">Queue Size</span><span class="text-dark fw-bold" id="liveQueueSize"><%= live.queueSize %></span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Safety Settings (STORED ONLY) -->
+            <div class="col-12 col-xl-6">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                        <h5 class="fw-bold mb-0"><i class="fas fa-shield-halved text-danger me-2"></i> Safety Settings</h5>
+                        <span class="badge bg-warning text-dark rounded-pill px-3">Stored Only (Not Yet Wired)</span>
+                    </div>
+                    <div class="card-body">
+                        <% var safety = [
+                            ['autoRollback','Auto Rollback'],
+                            ['allowRestart','Allow Restart'],
+                            ['allowDuplicateCampaign','Allow Duplicate Campaign'],
+                            ['enableGeoTargeting','Enable Geo Targeting'],
+                            ['enableLiveSync','Enable Live Sync']
+                        ]; %>
+                        <% safety.forEach(function(item){ %>
+                        <div class="form-check form-switch fs-6 mb-3">
+                            <input class="form-check-input" type="checkbox" id="<%= item[0] %>" <%= settings[item[0]] ? 'checked' : '' %>>
+                            <label class="form-check-label fw-bold" for="<%= item[0] %>"><%= item[1] %></label>
+                        </div>
+                        <% }); %>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. System Information (LIVE, read-only) -->
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                        <h5 class="fw-bold mb-0"><i class="fas fa-circle-info text-primary me-2"></i> System Information</h5>
+                        <span class="badge bg-success rounded-pill px-3"><i class="fas fa-bolt me-1"></i> Live</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 text-center">
+                            <div class="col-6 col-md-4 col-xl-2"><div class="p-3 bg-light rounded"><div class="text-muted small text-uppercase fw-bold">Engine Version</div><div class="fw-bold text-dark" id="sysVersion"><%= live.version %></div></div></div>
+                            <div class="col-6 col-md-4 col-xl-2"><div class="p-3 bg-light rounded"><div class="text-muted small text-uppercase fw-bold">Last Restart</div><div class="fw-bold text-dark small" id="sysLastRestart"><%= live.lastRestart %></div></div></div>
+                            <div class="col-6 col-md-4 col-xl-2"><div class="p-3 bg-light rounded"><div class="text-muted small text-uppercase fw-bold">Last Heartbeat</div><div class="fw-bold text-dark" id="sysHeartbeat"><%= live.lastHeartbeat %></div></div></div>
+                            <div class="col-6 col-md-4 col-xl-2"><div class="p-3 bg-light rounded"><div class="text-muted small text-uppercase fw-bold">Redis Connected</div><div class="fw-bold text-<%= live.redis === 'Connected' ? 'success' : 'danger' %>" id="sysRedis"><%= live.redis === 'Connected' ? 'Yes' : 'No' %></div></div></div>
+                            <div class="col-6 col-md-4 col-xl-2"><div class="p-3 bg-light rounded"><div class="text-muted small text-uppercase fw-bold">Mongo Connected</div><div class="fw-bold text-<%= live.mongo === 'Connected' ? 'success' : 'danger' %>" id="sysMongo"><%= live.mongo === 'Connected' ? 'Yes' : 'No' %></div></div></div>
+                            <div class="col-6 col-md-4 col-xl-2"><div class="p-3 bg-light rounded"><div class="text-muted small text-uppercase fw-bold">Active Campaigns</div><div class="fw-bold text-dark" id="sysActive"><%= live.activeCampaigns %></div></div></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
     </div>
 </div>
+
+<!-- Emergency Stop Modal -->
+<div class="modal fade" id="emergencyStopModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-danger border-3">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-exclamation-triangle me-2"></i> Confirm Emergency Stop</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <i class="fas fa-power-off text-danger" style="font-size:3.5rem"></i>
+        <h4 class="fw-bold mt-3 text-dark">Are you absolutely sure?</h4>
+        <p class="text-muted">This turns the engine OFF and pauses all active campaigns immediately.</p>
+      </div>
+      <div class="modal-footer justify-content-center bg-light">
+        <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger fw-bold px-4" id="confirmEmergencyStop">YES, STOP ENGINE</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1080" id="veToastContainer"></div>
+
+<script>
+(function () {
+    const API = '/admin/view-engine';
+
+    function toast(message, type) {
+        const bg = type === 'error' ? 'danger' : (type === 'warn' ? 'warning' : 'success');
+        const el = document.createElement('div');
+        el.className = 'alert alert-' + bg + ' shadow-sm border-0 mb-2';
+        el.style.minWidth = '260px';
+        el.innerHTML = '<i class="fas fa-' + (type === 'error' ? 'circle-exclamation' : 'circle-check') + ' me-2"></i>' + message;
+        document.getElementById('veToastContainer').appendChild(el);
+        setTimeout(function () { el.remove(); }, 3500);
+    }
+
+    async function apiFetch(path, method, body) {
+        const res = await fetch(API + path, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: body ? JSON.stringify(body) : undefined
+        });
+        let data = {};
+        try { data = await res.json(); } catch (e) {}
+        if (!res.ok) {
+            const msg = data.errors ? data.errors.join(', ') : (data.error || 'Request failed');
+            throw new Error(msg);
+        }
+        return data;
+    }
+
+    const num = function (id) { return Number(document.getElementById(id).value); };
+    const bool = function (id) { return document.getElementById(id).checked; };
+
+    function collectAndValidate() {
+        const v = {
+            defaultStrategy: document.getElementById('defaultStrategy').value,
+            defaultDurationMinutes: num('defaultDurationMinutes'),
+            defaultMinViews: num('defaultMinViews'),
+            defaultMaxViews: num('defaultMaxViews'),
+            rebalanceIntervalSec: num('rebalanceIntervalSec'),
+            maxItemSharePct: num('maxItemSharePct'),
+            cooldownCycles: num('cooldownCycles'),
+            workerCount: num('workerCount'),
+            batchSize: num('batchSize'),
+            pollIntervalMs: num('pollIntervalMs'),
+            retryAttempts: num('retryAttempts'),
+            autoRollback: bool('autoRollback'),
+            allowRestart: bool('allowRestart'),
+            allowDuplicateCampaign: bool('allowDuplicateCampaign'),
+            enableGeoTargeting: bool('enableGeoTargeting'),
+            enableLiveSync: bool('enableLiveSync')
+        };
+        const errors = [];
+        const range = function (n, min, max, label) { if (!Number.isInteger(n) || n < min || n > max) errors.push(label + ' must be ' + min + '-' + max); };
+        range(v.defaultMinViews, 0, 100000000, 'Min Views');
+        range(v.defaultMaxViews, 0, 100000000, 'Max Views');
+        if (v.defaultMaxViews < v.defaultMinViews) errors.push('Max Views must be >= Min Views');
+        range(v.rebalanceIntervalSec, 30, 3600, 'Rebalance Interval');
+        range(v.maxItemSharePct, 1, 100, 'Max Item Share');
+        range(v.cooldownCycles, 0, 100, 'Cooldown Cycles');
+        range(v.workerCount, 1, 64, 'Worker Count');
+        range(v.batchSize, 1, 1000, 'Batch Size');
+        range(v.pollIntervalMs, 100, 60000, 'Poll Interval');
+        range(v.retryAttempts, 0, 20, 'Retry Attempts');
+        return { v: v, errors: errors };
+    }
+
+    document.getElementById('saveConfigBtn').addEventListener('click', async function () {
+        const result = collectAndValidate();
+        if (result.errors.length) { toast(result.errors[0], 'error'); return; }
+        this.disabled = true;
+        try {
+            await apiFetch('/settings', 'PUT', result.v);
+            toast('Configuration saved successfully.');
+        } catch (e) {
+            toast(e.message, 'error');
+        } finally {
+            this.disabled = false;
+        }
+    });
+
+    document.getElementById('killSwitch').addEventListener('change', async function () {
+        const enabled = this.checked;
+        const label = document.getElementById('killSwitchLabel');
+        try {
+            await apiFetch('/flag', 'PUT', { enabled: enabled });
+            label.textContent = enabled ? 'ENGINE ON' : 'ENGINE OFF';
+            label.className = 'form-check-label h6 mb-0 mt-1 fw-bold text-' + (enabled ? 'success' : 'danger');
+            toast('Engine turned ' + (enabled ? 'ON' : 'OFF') + '.');
+        } catch (e) {
+            this.checked = !enabled;
+            toast(e.message, 'error');
+        }
+    });
+
+    document.getElementById('dryRunToggle').addEventListener('change', async function () {
+        const globalDryRun = this.checked;
+        try {
+            await apiFetch('/settings', 'PUT', { globalDryRun: globalDryRun });
+            toast('Global Dry Run preference saved (stored only).');
+        } catch (e) {
+            this.checked = !globalDryRun;
+            toast(e.message, 'error');
+        }
+    });
+
+    document.getElementById('confirmEmergencyStop').addEventListener('click', async function () {
+        this.disabled = true;
+        try {
+            const r = await apiFetch('/emergency-stop', 'POST');
+            toast('Emergency stop complete — ' + r.campaignsPaused + ' campaign(s) paused.', 'warn');
+            setTimeout(function () { window.location.reload(); }, 1200);
+        } catch (e) {
+            toast(e.message, 'error');
+            this.disabled = false;
+        }
+    });
+
+    async function refreshLive() {
+        try {
+            const data = await apiFetch('/live', 'GET');
+            const live = data.live;
+            const set = function (id, val) { const el = document.getElementById(id); if (el) el.textContent = val; };
+            const badge = function (id, ok, text) {
+                const el = document.getElementById(id);
+                if (el) { el.textContent = text; el.className = 'badge bg-' + (ok ? 'success' : 'danger') + ' rounded-pill px-3'; }
+            };
+            badge('liveRedis', live.redis === 'Connected', live.redis);
+            badge('liveMongo', live.mongo === 'Connected', live.mongo);
+            set('liveLeader', live.leader);
+            set('liveWorkers', live.workers);
+            set('liveQueueSize', live.queueSize);
+            set('sysVersion', live.version);
+            set('sysLastRestart', live.lastRestart);
+            set('sysHeartbeat', live.lastHeartbeat);
+            set('sysActive', live.activeCampaigns);
+            const r = document.getElementById('sysRedis'); if (r) { r.textContent = live.redis === 'Connected' ? 'Yes' : 'No'; r.className = 'fw-bold text-' + (live.redis === 'Connected' ? 'success' : 'danger'); }
+            const m = document.getElementById('sysMongo'); if (m) { m.textContent = live.mongo === 'Connected' ? 'Yes' : 'No'; m.className = 'fw-bold text-' + (live.mongo === 'Connected' ? 'success' : 'danger'); }
+        } catch (e) { /* keep last known values */ }
+    }
+    setInterval(refreshLive, 10000);
+})();
+</script>
 
 <%- include('../partials/footer') %>
