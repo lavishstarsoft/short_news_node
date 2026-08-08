@@ -209,7 +209,15 @@ async function applyCycle(campaign, cycleIndex, timing) {
       const oid = toObjectId(d.itemId);
       if (!oid) continue;
       // $inc syntheticViews ONLY — organic `views` is never touched.
-      newsOps.push({ updateOne: { filter: { _id: oid }, update: { $inc: { syntheticViews: d.delta } } } });
+      newsOps.push({ 
+        updateOne: { 
+          filter: { _id: oid }, 
+          update: { 
+            $inc: { syntheticViews: d.delta },
+            $set: { viewEngineCampaignId: campaign._id }
+          } 
+        } 
+      });
     }
     await bulkWriteChunked(News, newsOps);
   }

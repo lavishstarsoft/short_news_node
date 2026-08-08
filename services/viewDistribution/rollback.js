@@ -66,7 +66,8 @@ async function reverseCampaign(campaignId) {
                     $max: [0, { $subtract: [{ $ifNull: ['$syntheticViews', 0] }, d.delta] }]
                   }
                 }
-              }
+              },
+              { $unset: ['viewEngineCampaignId'] }
             ]
           }
         }));

@@ -34,6 +34,8 @@ const newsSchema = new mongoose.Schema({
    * so the organic write path and engine $inc stay lean.
    */
   syntheticViews: { type: Number, default: 0 },
+  /** Exclusive lock to guarantee One News = One Campaign. Set by View Engine allocator. */
+  viewEngineCampaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'ViewCampaign', default: null },
   comments: { type: Number, default: 0 },
   author: { type: String, required: true },
   authorId: { type: String, required: true }, // Add authorId to track the editor

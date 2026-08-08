@@ -48,8 +48,16 @@ const PROJECTION =
 function buildEligibilityQuery(campaign, now = new Date()) {
   const q = {
     isActive: true,
-    'rejectionStatus.isRejected': { $ne: true }
+    'rejectionStatus.isRejected': { $ne: true },
+    $or: [
+      { viewEngineCampaignId: null },
+      { viewEngineCampaignId: { $exists: false } }
+    ]
   };
+  
+  if (campaign && campaign._id) {
+    q.$or.push({ viewEngineCampaignId: campaign._id });
+  }
   const e = (campaign && campaign.eligibility) || {};
   if (Array.isArray(e.languages) && e.languages.length) q.language = { $in: e.languages };
   if (Array.isArray(e.categories) && e.categories.length) q.category = { $in: e.categories };

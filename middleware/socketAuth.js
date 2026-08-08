@@ -92,6 +92,9 @@ function joinWorkflowRooms(socket) {
       role === 'subeditor'
     ) {
       socket.join(ROOM.admin);
+      // Per-admin room: scope-routed pending alerts are delivered here so they
+      // reach ONLY the authorized reviewer (not the whole admin room).
+      socket.join(ROOM.staff(socket.staff.id));
       // Sub Editors also act as reporters and have their own news in AI queue
       if (role === 'subeditor') {
         socket.join(ROOM.reporter(socket.staff.id));

@@ -12,6 +12,8 @@ const ROOM = {
   admin: 'admin',
   consumers: 'consumers',
   reporter: (authorId) => `reporter:${String(authorId)}`,
+  // Per-admin room (admin / superadmin / subeditor) for scope-routed pending alerts.
+  staff: (adminId) => `staff:${String(adminId)}`,
 };
 
 function getIo(appOrIo) {
@@ -40,8 +42,32 @@ function emitPublished(io, payload) {
   io.emit('news_published', payload);
 }
 
+/**
+ * Pending-news alert. SCOPE-ROUTED: only the authorized District Sub Editor(s),
+ * State Incharge(s) and Super Admin receive it — never a broadcast to all admins,
+ * and never a reporter. Event name ('new_news') and payload are unchanged, so
+ * existing client handlers keep working; they simply receive only in-scope events.
+ * Fire-and-forget; on any failure it falls back to the admin room so an alert is
+ * never lost (backward-safe).
+ */
 function emitNewPendingNews(io, payload) {
-  emitToAdmins(io, 'new_news', payload);
+  if (!io) return;
+  Promise.resolve()
+    .then(() => require('./pendingAlertRouter').resolvePendingRecipientIds(payload))
+    .then((ids) => {
+      if (Array.isArray(ids) && ids.length) {
+        for (const id of ids) {
+          io.to(ROOM.staff(id)).emit('new_news', payload);
+        }
+      } else {
+        // No resolved recipients (e.g. transient DB issue) — fail safe.
+        emitToAdmins(io, 'new_news', payload);
+      }
+    })
+    .catch((err) => {
+      console.error('[pendingAlert] recipient routing failed, falling back to admin room:', err && err.message);
+      emitToAdmins(io, 'new_news', payload);
+    });
 }
 
 function emitWorkflowToReporter(io, authorId, payload) {
