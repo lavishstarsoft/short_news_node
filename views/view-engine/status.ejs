@@ -221,17 +221,31 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     
+    function showNoPipeline(message) {
+        const tbody = document.getElementById('live-news-tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">' +
+            '<i class="fas fa-plug fs-1 mb-3 opacity-50"></i><br>' +
+            '<div class="fw-bold text-white mb-1">No Active Pipeline Running</div>' +
+            '<div class="small">' + (message || '') + '</div></td></tr>';
+        const tl = document.getElementById('timeline-container');
+        if (tl) tl.innerHTML = '<div class="text-center py-3 text-muted">No Active Pipeline Running</div>';
+    }
+
     async function fetchLiveStatus() {
         try {
             const response = await fetch('/admin/view-engine/live-status');
             const result = await response.json();
-            
-            if (result.success && result.data) {
+
+            if (result && result.success && result.data) {
                 updateDashboard(result.data);
+            } else {
+                // Real response, but no usable data (e.g. server-side error).
+                showNoPipeline('Telemetry returned no active pipeline data.');
             }
         } catch (err) {
             console.error('Failed to fetch telemetry:', err);
             appendLog({ time: new Date().toLocaleTimeString(), event: 'Telemetry disconnected or failed.', type: 'error' });
+            showNoPipeline('Unable to reach the telemetry endpoint.');
         }
     }
 
@@ -272,7 +286,22 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             tbody.innerHTML = html;
         } else {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted"><i class="fas fa-bed fs-1 mb-3 opacity-50"></i><br>No active processing pipelines found.</td></tr>';
+            const diag = data.diagnostics || {};
+            const engOn = diag.engineEnabled !== false;
+            let reason;
+            if (!engOn) {
+                reason = 'Engine OFF — enable the View Engine in Settings.';
+            } else if ((diag.activeCampaignCount || 0) === 0) {
+                reason = 'No Active Campaign — create and activate a campaign to start a pipeline.';
+            } else if ((diag.stateCount || 0) === 0) {
+                reason = 'Waiting for First Cycle — an active campaign exists but its distribution state has not been built yet (up to ~1 min).';
+            } else {
+                reason = 'Active campaign has no items boosting this cycle (all targets met or in cooldown).';
+            }
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">' +
+                '<i class="fas fa-bed fs-1 mb-3 opacity-50"></i><br>' +
+                '<div class="fw-bold text-white mb-1">No Active Pipeline Running</div>' +
+                '<div class="small">' + reason + '</div></td></tr>';
         }
 
         // Update Timelines
@@ -293,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             timelineCont.innerHTML = thtml;
         } else {
-            timelineCont.innerHTML = '<div class="text-center py-3 text-muted">Engine Idle</div>';
+            timelineCont.innerHTML = '<div class="text-center py-3 text-muted">No Active Pipeline Running</div>';
         }
 
         // Update Logs Terminal

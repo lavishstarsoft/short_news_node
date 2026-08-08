@@ -144,6 +144,19 @@ function validateCampaignBody(body = {}, { partial = false } = {}) {
     }
   }
 
+  // Safeguard passthrough from the create form (lenient: accept valid, ignore invalid).
+  if (body.budgetProtection && typeof body.budgetProtection === 'object') {
+    const p = Number(body.budgetProtection.maxItemSharePct);
+    if (Number.isFinite(p) && p >= 1 && p <= 100) out.budgetProtection = { maxItemSharePct: p };
+  }
+  if (body.diversity && typeof body.diversity === 'object') {
+    const div = {};
+    if (body.diversity.enabled !== undefined) div.enabled = !!body.diversity.enabled;
+    const b = Number(body.diversity.maxBucketSharePct);
+    if (Number.isFinite(b) && b >= 1 && b <= 100) div.maxBucketSharePct = b;
+    if (Object.keys(div).length) out.diversity = div;
+  }
+
   return errors.length ? { errors } : { value: out };
 }
 
@@ -409,6 +422,83 @@ router.delete('/campaigns/:id', async (req, res) => {
   }
 });
 
+// ---- duplicate / restart (create a copy from an existing campaign) -----
+
+function copyCampaignFields(src) {
+  return {
+    minViews: src.minViews,
+    maxViews: src.maxViews,
+    durationType: src.durationType || 'finite',
+    durationMinutes: src.durationMinutes,
+    strategy: src.strategy,
+    intensity: src.intensity,
+    budgetProtection: src.budgetProtection,
+    diversity: src.diversity,
+    cooldown: src.cooldown,
+    eligibility: src.eligibility,
+    itemCap: src.itemCap,
+    rebalanceIntervalSec: src.rebalanceIntervalSec,
+    dryRun: src.dryRun
+  };
+}
+
+// Duplicate → new DRAFT copy.
+router.post('/campaigns/:id/duplicate', async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    const src = await ViewCampaign.findById(req.params.id).lean();
+    if (!src) return res.status(404).json({ error: 'not_found' });
+    const copy = await ViewCampaign.create({
+      ...copyCampaignFields(src),
+      name: `${src.name || 'Campaign'} (Copy)`,
+      status: 'draft',
+      createdBy: (req.admin && (req.admin._id || req.admin.id)) || null,
+      createdByName: (req.admin && req.admin.username) || ''
+    });
+    await writeAudit(req, {
+      action: 'view_engine_campaign_duplicate',
+      entityId: copy._id,
+      description: `Duplicated from ${src._id}`,
+      after: copy.toObject()
+    });
+    res.status(201).json({ success: true, campaign: copy });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} duplicate error:`, err.message);
+    res.status(500).json({ error: 'duplicate_failed' });
+  }
+});
+
+// Restart → new ACTIVE copy with a fresh window.
+router.post('/campaigns/:id/restart', async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    const src = await ViewCampaign.findById(req.params.id).lean();
+    if (!src) return res.status(404).json({ error: 'not_found' });
+    const now = new Date();
+    const copy = await ViewCampaign.create({
+      ...copyCampaignFields(src),
+      name: `${src.name || 'Campaign'} (Restart)`,
+      status: 'active',
+      startAt: now,
+      endAt: src.durationType === 'unlimited'
+        ? null
+        : new Date(now.getTime() + (src.durationMinutes || 0) * 60000),
+      createdBy: (req.admin && (req.admin._id || req.admin.id)) || null,
+      createdByName: (req.admin && req.admin.username) || ''
+    });
+    await writeAudit(req, {
+      action: 'view_engine_campaign_restart',
+      entityId: copy._id,
+      description: `Restarted (active copy) from ${src._id}`,
+      after: copy.toObject()
+    });
+    res.status(201).json({ success: true, campaign: copy });
+  } catch (err) {
+    console.error(`${LOG_PREFIX} restart error:`, err.message);
+    res.status(500).json({ error: 'restart_failed' });
+  }
+});
+
 // ---- Settings: live metrics (read-only, real sources) -----------------
 
 async function buildLiveMetrics() {
@@ -638,6 +728,7 @@ router.get('/live-status', async (req, res) => {
     const ViewCycleLog = require('../models/ViewCycleLog');
     const AuditLog = require('../../../models/AuditLog');
     const queue = require('../queue');
+    const config = require('../config');
     const { redisClient, isRedisAvailable } = require('../../../config/redis');
 
     const now = new Date();
@@ -743,12 +834,29 @@ router.get('/live-status', async (req, res) => {
 
     const combinedLogs = [...formattedLogs, ...formattedAudit].sort((a,b) => new Date(b.time) - new Date(a.time)).slice(0, 50);
 
+    // Read-only diagnostics so the UI can show the EXACT empty-state reason
+    // (Engine OFF / No Active Campaign / Waiting for First Cycle). Real counts only.
+    const activeIds = activeCampaigns.map((c) => c._id);
+    const stateCount = activeIds.length
+      ? await ViewDistributionState.countDocuments({ campaignId: { $in: activeIds } })
+      : 0;
+    const cycleCount = activeIds.length
+      ? await ViewCycleLog.countDocuments({ campaignId: { $in: activeIds } })
+      : 0;
+
     res.json({
       success: true,
       data: {
         activeCampaigns: activeCampaignsData,
         processingNews: processingNews,
+        diagnostics: {
+          engineEnabled: config.isEnabledCached(),
+          activeCampaignCount: activeCampaigns.length,
+          stateCount,
+          cycleCount
+        },
         engine: {
+          engineEnabled: config.isEnabledCached(),
           queueSize,
           workers: workers.length,
           leader,
@@ -763,7 +871,7 @@ router.get('/live-status', async (req, res) => {
     });
   } catch (err) {
     console.error('Error in /live-status:', err);
-    res.status(500).json({ error: 'failed_to_fetch_live_status' });
+    res.status(500).json({ success: false, error: 'failed_to_fetch_live_status' });
   }
 });
 

@@ -10,7 +10,7 @@
                 <p class="text-muted mb-0">Monitor and control view distribution campaigns</p>
             </div>
             <div>
-                <button class="btn btn-primary fw-bold px-4" data-bs-toggle="modal" data-bs-target="#createCampaignModal">
+                <button class="btn btn-primary fw-bold px-4" data-bs-toggle="modal" data-bs-target="#newCampaignModal">
                     <i class="fas fa-plus me-2"></i>New Campaign
                 </button>
             </div>
@@ -286,6 +286,8 @@ async function createCampaign(e) {
         maxViews: Number(data.maxViews),
         durationType: data.durationType,
         durationMinutes: Number(data.durationMinutes),
+        strategy: 'adaptive',
+        intensity: 'balanced',
         budgetProtection: { maxItemSharePct: Number(data.maxItemSharePct) },
         diversity: { maxBucketSharePct: Number(data.maxBucketSharePct), enabled: true }
     };
