@@ -30,6 +30,11 @@ const viewCampaignSchema = new mongoose.Schema(
     // 'unlimited' => runs 24×7 until a Super Admin pauses/cancels/deletes (ticker guard).
     // Absent on legacy docs => treated as 'finite' (backward compatible).
     durationType: { type: String, enum: ['finite', 'unlimited'], default: 'finite' },
+    // Delivery mode. 'production' (default) = existing adaptive-curve engine, unchanged.
+    // 'per_news_window' = each news fills a frozen random target over its OWN window
+    // (intervalMinutes) with seeded random per-minute increments, then stops forever.
+    mode: { type: String, enum: ['production', 'per_news_window'], default: 'production' },
+    intervalMinutes: { type: Number, default: null }, // per-news growth window (per_news_window only)
     minViews: { type: Number, required: true, min: 0 },
     maxViews: { type: Number, required: true, min: 0 },
 

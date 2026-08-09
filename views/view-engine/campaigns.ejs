@@ -217,16 +217,38 @@ async function deleteCampaign(id) {
                             <input type="number" class="form-control" name="maxViews" required min="1" placeholder="e.g. 3000">
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Engine Mode</label>
+                            <select class="form-select" id="campaignMode" name="mode" onchange="toggleMode(this.value)">
+                                <option value="production">Production (adaptive curve)</option>
+                                <option value="per_news_window">Per-News Window (frozen random target)</option>
+                            </select>
+                            <div class="form-text">Per-News Window: each news fills a random target (Min–Max) over its own interval, minute-by-minute, then stops permanently.</div>
+                        </div>
+
+                        <!-- Production mode -->
+                        <div class="col-md-6 prod-only">
                             <label class="form-label fw-bold">Duration Type</label>
                             <select class="form-select" name="durationType" onchange="toggleDuration(this.value)">
                                 <option value="finite">Finite (Fixed Time)</option>
                                 <option value="unlimited">Unlimited (24x7)</option>
                             </select>
                         </div>
-                        <div class="col-md-6" id="durationMinutesContainer">
+                        <div class="col-md-6 prod-only" id="durationMinutesContainer">
                             <label class="form-label fw-bold">Duration (Minutes)</label>
-                            <input type="number" class="form-control" name="durationMinutes" id="durationMinutes" min="1" value="60" required>
+                            <input type="number" class="form-control" name="durationMinutes" id="durationMinutes" min="1" value="60">
+                        </div>
+
+                        <!-- Per-News Window mode -->
+                        <div class="col-md-6 window-only d-none">
+                            <label class="form-label fw-bold">Interval / Window (Minutes)</label>
+                            <input type="number" class="form-control" id="intervalMinutes" name="intervalMinutes" min="1" max="1440" value="30">
+                            <div class="form-text">Each news grows for this many minutes, then stops (e.g. 5, 30, 60, 120, 240).</div>
+                        </div>
+                        <div class="col-md-6 window-only d-none">
+                            <label class="form-label fw-bold">Run For (Days)</label>
+                            <input type="number" class="form-control" id="maxDays" name="maxDays" min="1" max="365" value="30">
+                            <div class="form-text">How long the engine keeps onboarding new news (1–365).</div>
                         </div>
 
                         <div class="col-12">
@@ -267,10 +289,22 @@ async function deleteCampaign(id) {
 function toggleDuration(val) {
     const input = document.getElementById('durationMinutes');
     if (val === 'unlimited') {
-        input.value = 1; 
+        input.value = 1;
         input.parentElement.style.display = 'none';
     } else {
         input.parentElement.style.display = 'block';
+    }
+}
+
+function toggleMode(mode) {
+    const prod = document.querySelectorAll('.prod-only');
+    const win = document.querySelectorAll('.window-only');
+    if (mode === 'per_news_window') {
+        prod.forEach(el => el.classList.add('d-none'));
+        win.forEach(el => el.classList.remove('d-none'));
+    } else {
+        prod.forEach(el => el.classList.remove('d-none'));
+        win.forEach(el => el.classList.add('d-none'));
     }
 }
 
@@ -280,17 +314,24 @@ async function createCampaign(e) {
     const data = Object.fromEntries(formData.entries());
     
     // Formatting data to match model structure
+    const mode = data.mode || 'production';
     const payload = {
         name: data.name,
         minViews: Number(data.minViews),
         maxViews: Number(data.maxViews),
-        durationType: data.durationType,
-        durationMinutes: Number(data.durationMinutes),
+        mode: mode,
         strategy: 'adaptive',
         intensity: 'balanced',
         budgetProtection: { maxItemSharePct: Number(data.maxItemSharePct) },
         diversity: { maxBucketSharePct: Number(data.maxBucketSharePct), enabled: true }
     };
+    if (mode === 'per_news_window') {
+        payload.intervalMinutes = Number(data.intervalMinutes);
+        payload.maxDays = Number(data.maxDays);
+    } else {
+        payload.durationType = data.durationType;
+        payload.durationMinutes = Number(data.durationMinutes);
+    }
 
     try {
         const res = await fetch('/admin/view-engine/campaigns', {

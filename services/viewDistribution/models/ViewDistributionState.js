@@ -55,7 +55,12 @@ const viewDistributionStateSchema = new mongoose.Schema(
 
     // ---- Loop cursors ----
     lastCycleIndex: { type: Number, default: -1 },
-    lastRebalanceAt: { type: Date, default: null }
+    lastRebalanceAt: { type: Date, default: null },
+
+    // ---- per_news_window mode (frozen once at onboard; never reset) ----
+    startedAt: { type: Date, default: null },      // this news's own window start
+    windowMinutes: { type: Number, default: 0 },   // snapshot of intervalMinutes at onboard
+    completedAt: { type: Date, default: null }      // set when target/window reached => permanently stopped
   },
   // autoIndex:false — indexes provisioned explicitly by migrate.js (OFF-first).
   { timestamps: true, autoIndex: false }
@@ -65,5 +70,7 @@ const viewDistributionStateSchema = new mongoose.Schema(
 viewDistributionStateSchema.index({ campaignId: 1, newsId: 1 }, { unique: true });
 // Cooldown + eligibility scans within a campaign.
 viewDistributionStateSchema.index({ campaignId: 1, cooldownUntilCycle: 1 });
+// Active (incomplete) news for per_news_window delivery.
+viewDistributionStateSchema.index({ campaignId: 1, completedAt: 1 });
 
 module.exports = mongoose.model('ViewDistributionState', viewDistributionStateSchema);

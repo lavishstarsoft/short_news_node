@@ -80,8 +80,20 @@ function validateCampaignBody(body = {}, { partial = false } = {}) {
     else out.name = body.name.trim();
   }
 
+  // Mode (default 'production'). per_news_window uses interval + maxDays.
+  const mode = body.mode === 'per_news_window' ? 'per_news_window'
+    : (body.mode === 'production' ? 'production' : undefined);
+  if (mode) out.mode = mode;
+
   // Duration + type. 'unlimited' => no durationMinutes required (internal curve window).
-  if (body.durationType === 'unlimited') {
+  if (mode === 'per_news_window') {
+    const iv = Number(body.intervalMinutes);
+    if (!Number.isInteger(iv) || iv < 1 || iv > 1440) errors.push('intervalMinutes must be an integer 1..1440');
+    else out.intervalMinutes = iv;
+    const days = Number(body.maxDays);
+    if (!Number.isInteger(days) || days < 1 || days > 365) errors.push('maxDays must be an integer 1..365');
+    else { out.durationMinutes = days * 1440; out.durationType = 'finite'; }
+  } else if (body.durationType === 'unlimited') {
     out.durationType = 'unlimited';
     out.durationMinutes = UNLIMITED_CURVE_MINUTES;
   } else if (!partial || body.durationMinutes !== undefined || body.durationType !== undefined) {

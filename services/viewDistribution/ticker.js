@@ -27,6 +27,7 @@
 const queue = require('./queue');
 const worker = require('./worker');
 const applier = require('./applier');
+const cycleDispatcher = require('./cycleDispatcher');
 const leader = require('./leader');
 const ViewCampaign = require('./models/ViewCampaign');
 const { LOG_PREFIX } = require('./constants');
@@ -151,7 +152,8 @@ function start(io) {
 
   // Bootstrap the consumer on this (leader) instance.
   worker.start({
-    handler: applier.processCycle,
+    // Dispatch by campaign.mode: per_news_window => windowApplier, else applier (unchanged).
+    handler: cycleDispatcher.processCycle,
     consumerName: leader.instanceId()
   });
 
