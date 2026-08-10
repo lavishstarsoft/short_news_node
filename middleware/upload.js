@@ -89,7 +89,16 @@ const createMulterR2Interface = (options = {}) => {
             const middleware = multerInstance.single(fieldName);
             return (req, res, next) => {
                 middleware(req, res, async (err) => {
-                    if (err) return res.status(400).json({ error: err.message });
+                    if (err) {
+                        // Clear, user-facing message when the file exceeds the configured limit.
+                        if (err.code === 'LIMIT_FILE_SIZE') {
+                            const mb = Math.round(limitSize / (1024 * 1024));
+                            return res.status(400).json({
+                                error: `Video size exceeds the ${mb} MB limit. Please select a video smaller than ${mb} MB.`
+                            });
+                        }
+                        return res.status(400).json({ error: err.message });
+                    }
                     if (!req.file) return next();
 
                     try {
@@ -240,7 +249,7 @@ const uploadMedia = createMulterR2Interface({
     width: 1080,
     height: 900,
     resize: true,
-    limitSize: 50 * 1024 * 1024
+    limitSize: 180 * 1024 * 1024 // 180 MB (Viral Videos); enforced server-side
 });
 
 const uploadAdMedia = createMulterR2Interface({

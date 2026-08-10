@@ -70,7 +70,7 @@ const viewDistributionStateSchema = new mongoose.Schema(
 viewDistributionStateSchema.index({ campaignId: 1, newsId: 1 }, { unique: true });
 // Cooldown + eligibility scans within a campaign.
 viewDistributionStateSchema.index({ campaignId: 1, cooldownUntilCycle: 1 });
-// Active (incomplete) news for per_news_window delivery.
-viewDistributionStateSchema.index({ campaignId: 1, completedAt: 1 });
+// Active (incomplete) news, keyset-batched by _id for per_news_window delivery.
+viewDistributionStateSchema.index({ campaignId: 1, completedAt: 1, _id: 1 });
 
 module.exports = mongoose.model('ViewDistributionState', viewDistributionStateSchema);

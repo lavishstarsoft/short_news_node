@@ -60,6 +60,34 @@ async function verifySyntheticViews() {
   };
 }
 
+/**
+ * Drop indexes whose key spec changed, so createIndexes() can rebuild them.
+ * MongoDB errors if you createIndexes() with the same name but a different key
+ * (e.g. the ViewCycleLog unique guard gained `batchNo`). We drop-by-key-signature
+ * and let createEngineIndexes() re-provision. Safe/idempotent: a missing index or
+ * empty collection is a no-op.
+ */
+async function dropStaleIndexes() {
+  const dropped = [];
+  // Old unique guards that must be superseded, keyed by exact legacy key spec.
+  const stale = [
+    // ViewCycleLog: {campaignId,cycleIndex} unique → now {campaignId,cycleIndex,batchNo}.
+    [ViewCycleLog, { campaignId: 1, cycleIndex: 1 }],
+    // ViewDistributionState: {campaignId,completedAt} → now includes _id for keyset paging.
+    [ViewDistributionState, { campaignId: 1, completedAt: 1 }]
+  ];
+  for (const [Model, keySpec] of stale) {
+    const existing = await Model.collection.indexes().catch(() => []);
+    const keyStr = JSON.stringify(keySpec);
+    const match = existing.find((i) => JSON.stringify(i.key) === keyStr);
+    if (match) {
+      await Model.collection.dropIndex(match.name).catch(() => {});
+      dropped.push(`${Model.modelName}.${match.name}`);
+    }
+  }
+  return dropped;
+}
+
 /** Explicitly build the engine indexes (idempotent — only missing ones are created). */
 async function createEngineIndexes() {
   const models = [
@@ -89,11 +117,14 @@ async function run() {
       throw new Error('News.syntheticViews schema path missing — deploy the Phase-2 field first');
     }
 
+    const droppedIndexes = await dropStaleIndexes();
+    if (droppedIndexes.length) console.log(`${LOG_PREFIX} dropped stale indexes:`, droppedIndexes);
+
     const indexes = await createEngineIndexes();
     console.log(`${LOG_PREFIX} engine indexes ensured:`, indexes);
 
     console.log(`${LOG_PREFIX} migration complete — engine remains ${flag.enabled ? 'ON' : 'OFF'}.`);
-    return { flag, syntheticViews: sv, indexes };
+    return { flag, syntheticViews: sv, droppedIndexes, indexes };
   } finally {
     await mongoose.disconnect();
   }

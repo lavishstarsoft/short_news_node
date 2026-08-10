@@ -89,6 +89,12 @@ const adminSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  /** Monthly salary — Admin/Super Admin set only; null = not set. Shown on Staff Record PDF. */
+  salary: {
+    type: Number,
+    default: null,
+    min: 0
+  },
   lastLogin: {
     type: Date
   },

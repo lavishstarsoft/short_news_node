@@ -12,6 +12,7 @@ const mongoose = require('mongoose');
 const News = require('../models/News');
 const Location = require('../models/Location');
 const Category = require('../models/Category');
+const StaffCategory = require('../models/StaffCategory');
 const newsController = require('./newsController');
 const {
   normalizeNewsLanguage,
@@ -1566,6 +1567,14 @@ async function renderEditorsPage(req, res) {
       .sort({ createdAt: -1 })
       .lean();
 
+    // Display Role categories (admin-managed). Seed defaults once, then load active
+    // ones for the dropdown + a name->pdfEligible map for the Staff Record button.
+    await StaffCategory.seedDefaults();
+    const staffCategories = await StaffCategory.find({ isActive: true })
+      .sort({ sortOrder: 1, name: 1 }).lean();
+    const pdfEligibleByName = {};
+    staffCategories.forEach((c) => { pdfEligibleByName[c.name.trim().toLowerCase()] = !!c.pdfEligible; });
+
     const editorIds = editors.map(editor => editor._id.toString());
 
     let statsByEditor = {};
@@ -1714,18 +1723,24 @@ async function renderEditorsPage(req, res) {
     const editorsWithStats = editors.map(editor => {
       // P6: `editor` is already a plain lean object (no .toObject() needed).
       const editorObj = editor;
+      const stats = statsByEditor[editor._id.toString()] || {
+        submitted: 0,
+        published: 0,
+        pending: 0,
+        rejected: 0,
+        today: 0,
+        weekly: 0,
+        totalViews: 0,
+        monthlyTrend: []
+      };
+      const roleKey = (editor.displayRole || '').trim().toLowerCase();
       return {
         ...editorObj,
-        newsStats: statsByEditor[editor._id.toString()] || {
-          submitted: 0,
-          published: 0,
-          pending: 0,
-          rejected: 0,
-          today: 0,
-          weekly: 0,
-          totalViews: 0,
-          monthlyTrend: []
-        },
+        newsStats: stats,
+        // Approved Posts = published (isActive:true) only — never pending/rejected/draft.
+        approvedPosts: stats.published || 0,
+        // Staff Record PDF eligibility (Sub Editor / Bureau by default, admin-configurable).
+        pdfEligible: !!pdfEligibleByName[roleKey],
         latestRejection: latestRejectByEditor[editor._id.toString()] || null
       };
     });
@@ -1738,6 +1753,7 @@ async function renderEditorsPage(req, res) {
       admin,
       editors: editorsWithStats,
       locations,
+      staffCategories,
       ...languageViewData
     });
   } catch (error) {
@@ -2234,7 +2250,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, username, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canSendNotifications, sidebar, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds } = req.body;
+    const { name, username, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canSendNotifications, sidebar, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds, salary } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -2307,6 +2323,16 @@ async function updateEditor(req, res) {
       }
     }
     if (mobileNumber !== undefined) editor.mobileNumber = mobileNumber || null;
+    // Salary — admin/superadmin only (this handler already 403s non-admins above).
+    // Empty string / null clears it; otherwise store a non-negative number.
+    if (salary !== undefined) {
+      if (salary === null || salary === '') {
+        editor.salary = null;
+      } else {
+        const s = Number(salary);
+        editor.salary = Number.isFinite(s) && s >= 0 ? s : editor.salary;
+      }
+    }
     if (profileImage !== undefined) editor.profileImage = profileImage || '/images/default_user_icon.png';
     if (workingLanguage !== undefined) editor.workingLanguage = normalizeNewsLanguage(workingLanguage);
 
@@ -2613,7 +2639,12 @@ async function renderRegisterEditorPage(req, res) {
     const locations = await Location.find().sort({ name: 1 });
     const languageViewData = await getLanguageViewData();
 
-    res.render('register-editor', { admin, locations, ...languageViewData });
+    // Display Role dropdown source (admin-managed).
+    await StaffCategory.seedDefaults();
+    const staffCategories = await StaffCategory.find({ isActive: true })
+      .sort({ sortOrder: 1, name: 1 }).lean();
+
+    res.render('register-editor', { admin, locations, staffCategories, ...languageViewData });
   } catch (error) {
     console.error('Register editor page error:', error);
     res.status(500).send('Error loading register editor page');

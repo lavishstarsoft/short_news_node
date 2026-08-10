@@ -252,7 +252,7 @@
             <!-- Team & Roles Group -->
             <% 
                 const showTeamGroup = isAdmin; 
-                const teamGroupActive = ['editors', 'register-editor'].includes(activePage);
+                const teamGroupActive = ['editors', 'register-editor', 'staff-categories'].includes(activePage);
             %>
             <% if (showTeamGroup) { %>
             <li class="nav-item">
@@ -269,6 +269,9 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'register-editor' ? 'active' : '' %>" href="/register-editor">Register New Staff</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'staff-categories' ? 'active' : '' %>" href="/staff-categories">Staff Categories</a>
                         </li>
                         <% } else if (canView('editors')) { %>
                             <li class="nav-item">

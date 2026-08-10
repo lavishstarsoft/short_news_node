@@ -353,7 +353,12 @@
                                     <div class="col-md-6"><div class="editor-field"><label for="addName">Full Name *</label><input type="text" id="addName" required placeholder="e.g. Ravi Kumar"></div></div>
                                     <div class="col-md-6"><div class="editor-field"><label for="addDisplayRole">Display Role *
                                         <span class="info-tip">?<span class="info-tip-text">Title shown next to articles in the app. Example: "Senior Reporter", "Khammam Correspondent"</span></span>
-                                    </label><input type="text" id="addDisplayRole" required placeholder="e.g. Senior Reporter"></div></div>
+                                    </label><select id="addDisplayRole" required>
+                                        <option value="">Select display role…</option>
+                                        <% (typeof staffCategories !== 'undefined' ? staffCategories : []).forEach(function(c){ %>
+                                            <option value="<%= c.name %>"><%= c.name %></option>
+                                        <% }); %>
+                                    </select></div></div>
                                     <div class="col-md-6"><div class="editor-field"><label for="addMobile">Mobile *</label><input type="text" id="addMobile" required placeholder="+91 98765 43210"></div></div>
                                     <div class="col-md-6 reporter-only-section"><div class="editor-field"><label for="addWorkingLanguage">News Language *
                                         <span class="info-tip">?<span class="info-tip-text">The language this reporter writes news in. Their news will appear in this language section of the app.</span></span>

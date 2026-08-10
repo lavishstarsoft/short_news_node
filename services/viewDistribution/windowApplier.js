@@ -33,6 +33,11 @@ const { LOG_PREFIX } = require('./constants');
 
 const WORKER_ID = `${process.env.NODE_APP_INSTANCE ?? process.env.pm_id ?? ''}:${process.pid}`;
 
+// Keyset batch size for delivery — bounds per-cycle memory/writes regardless of how
+// many news a campaign holds. Each batch is an independently-idempotent ledger unit
+// ({campaignId, cycleIndex, batchNo}). 500 keeps bulkWrite payloads small and safe.
+const BATCH_SIZE = Math.max(50, parseInt(process.env.VIEW_ENGINE_WINDOW_BATCH_SIZE, 10) || 500);
+
 // ---- deterministic seeded RNG --------------------------------------------
 
 /** FNV-1a 32-bit hash of a string. */
@@ -173,85 +178,107 @@ async function processCycle(job) {
     // 1. Onboard newly-eligible news (frozen target + own window).
     await onboard(campaign, now);
 
-    // 2. Active (incomplete) news only.
-    const states = await ViewDistributionState.find({ campaignId: campaign._id, completedAt: null })
-      .select('newsId cap deliveredTotal startedAt windowMinutes')
-      .lean();
-    if (!states.length) return { status: 'no_active', cycleIndex };
+    // 2-6. Keyset-batched delivery: never loads the whole active set into memory.
+    // Bounded reads/writes per batch; `now` (captured at cycle start) is reused for
+    // every batch so minuteIndex/expectedCumulative are identical across batches.
+    let lastId = null;
+    let totalIncrement = 0;
+    let itemsAffected = 0;
+    let batchNo = 0;
 
-    // 3. Per-news deltas (time-anchored, seeded, never exceeds target).
-    const deltas = [];
-    for (const s of states) {
-      const target = Number(s.cap) || 0;
-      const win = Math.max(1, Number(s.windowMinutes) || Number(campaign.intervalMinutes) || 1);
-      const startedMs = s.startedAt ? new Date(s.startedAt).getTime() : now;
-      const minuteIndex = Math.max(0, Math.floor((now - startedMs) / 60000));
-      const delivered = Number(s.deliveredTotal) || 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const q = { campaignId: campaign._id, completedAt: null };
+      if (lastId) q._id = { $gt: lastId };
+      const states = await ViewDistributionState.find(q)
+        .select('newsId cap deliveredTotal startedAt windowMinutes')
+        .sort({ _id: 1 })
+        .limit(BATCH_SIZE)
+        .lean();
+      if (!states.length) break;
+      lastId = states[states.length - 1]._id;
 
-      const expected = expectedCumulative(String(s.newsId), String(campaign._id), target, win, minuteIndex);
-      let delta = expected - delivered;
-      if (delta < 0) delta = 0;
+      // Per-news deltas (time-anchored, seeded, never exceeds target).
+      const deltas = [];
+      for (const s of states) {
+        const target = Number(s.cap) || 0;
+        const win = Math.max(1, Number(s.windowMinutes) || Number(campaign.intervalMinutes) || 1);
+        const startedMs = s.startedAt ? new Date(s.startedAt).getTime() : now;
+        const minuteIndex = Math.max(0, Math.floor((now - startedMs) / 60000));
+        const delivered = Number(s.deliveredTotal) || 0;
 
-      const windowEnded = minuteIndex >= win;
-      let newDelivered = delivered + delta;
-      let completed = false;
-      if (windowEnded || newDelivered >= target) {
-        newDelivered = target;            // land EXACTLY on the frozen target
-        delta = Math.max(0, target - delivered);
-        completed = true;                 // freeze permanently
+        const expected = expectedCumulative(String(s.newsId), String(campaign._id), target, win, minuteIndex);
+        let delta = expected - delivered;
+        if (delta < 0) delta = 0;
+
+        const windowEnded = minuteIndex >= win;
+        let newDelivered = delivered + delta;
+        let completed = false;
+        if (windowEnded || newDelivered >= target) {
+          newDelivered = target;          // land EXACTLY on the frozen target
+          delta = Math.max(0, target - delivered);
+          completed = true;               // freeze permanently
+        }
+        deltas.push({ newsId: s.newsId, delta, newDelivered, completed });
       }
-      deltas.push({ newsId: s.newsId, delta, newDelivered, completed });
-    }
 
-    const boosted = deltas.filter((d) => d.delta > 0);
-    const totalIncrement = boosted.reduce((a, d) => a + d.delta, 0);
+      const boosted = deltas.filter((d) => d.delta > 0);
+      const batchIncrement = boosted.reduce((a, d) => a + d.delta, 0);
 
-    // 4. LEDGER-FIRST — exactly-once guard (reused).
-    try {
-      await ViewCycleLog.create({
-        campaignId: campaign._id,
-        cycleIndex,
-        dryRun: !!campaign.dryRun,
-        itemsAffected: boosted.length,
-        totalIncrement,
-        perItemDeltas: boosted.map((d) => ({ newsId: d.newsId, delta: d.delta })),
-        decisionSnapshot: { mode: 'per_news_window', itemsAffected: boosted.length, totalIncrement },
-        workerId: WORKER_ID
-      });
-    } catch (err) {
-      if (err && err.code === 11000) return { status: 'duplicate', cycleIndex };
-      throw err;
-    }
+      // LEDGER-FIRST per batch — exactly-once guard {campaignId, cycleIndex, batchNo}.
+      try {
+        await ViewCycleLog.create({
+          campaignId: campaign._id,
+          cycleIndex,
+          batchNo,
+          dryRun: !!campaign.dryRun,
+          itemsAffected: boosted.length,
+          totalIncrement: batchIncrement,
+          decisionSnapshot: { mode: 'per_news_window', batchNo },
+          workerId: WORKER_ID
+        });
+      } catch (err) {
+        if (err && err.code === 11000) {
+          // This batch already applied (retry) — skip, advance to the next range.
+          batchNo++;
+          if (states.length < BATCH_SIZE) break;
+          continue;
+        }
+        throw err;
+      }
 
-    // 5. Apply synthetic views + claim (skip in dryRun). Organic `views` untouched.
-    if (!campaign.dryRun && boosted.length) {
-      const newsOps = boosted.map((d) => ({
+      if (!campaign.dryRun && boosted.length) {
+        await bulkWriteChunked(News, boosted.map((d) => ({
+          updateOne: {
+            filter: { _id: d.newsId },
+            update: { $inc: { syntheticViews: d.delta }, $set: { viewEngineCampaignId: campaign._id } }
+          }
+        })));
+      }
+
+      await bulkWriteChunked(ViewDistributionState, deltas.map((d) => ({
         updateOne: {
-          filter: { _id: d.newsId },
-          update: { $inc: { syntheticViews: d.delta }, $set: { viewEngineCampaignId: campaign._id } }
+          filter: { campaignId: campaign._id, newsId: d.newsId },
+          update: {
+            $set: Object.assign(
+              { deliveredTotal: d.newDelivered, lastCycleIndex: cycleIndex },
+              d.completed ? { completedAt: new Date(now) } : {}
+            )
+          }
         }
-      }));
-      await bulkWriteChunked(News, newsOps);
+      })));
+
+      totalIncrement += batchIncrement;
+      itemsAffected += boosted.length;
+      batchNo++;
+      if (states.length < BATCH_SIZE) break;
     }
 
-    // 6. State update: delivered + freeze completed.
-    const stateOps = deltas.map((d) => ({
-      updateOne: {
-        filter: { campaignId: campaign._id, newsId: d.newsId },
-        update: {
-          $set: Object.assign(
-            { deliveredTotal: d.newDelivered, lastCycleIndex: cycleIndex },
-            d.completed ? { completedAt: new Date(now) } : {}
-          )
-        }
-      }
-    }));
-    await bulkWriteChunked(ViewDistributionState, stateOps);
-
-    if (boosted.length) {
-      console.log(`${LOG_PREFIX} windowApplier: campaign ${campaign._id} cycle ${cycleIndex} — +${totalIncrement} across ${boosted.length} news`);
+    if (batchNo === 0) return { status: 'no_active', cycleIndex };
+    if (itemsAffected) {
+      console.log(`${LOG_PREFIX} windowApplier: campaign ${campaign._id} cycle ${cycleIndex} — +${totalIncrement} across ${itemsAffected} news in ${batchNo} batch(es)`);
     }
-    return { status: campaign.dryRun ? 'dry_run' : 'applied', cycleIndex, itemsAffected: boosted.length, totalIncrement };
+    return { status: campaign.dryRun ? 'dry_run' : 'applied', cycleIndex, itemsAffected, totalIncrement };
   } catch (err) {
     console.error(`${LOG_PREFIX} windowApplier error (campaign ${job.campaignId} cycle ${cycleIndex}):`, err.message);
     throw err;

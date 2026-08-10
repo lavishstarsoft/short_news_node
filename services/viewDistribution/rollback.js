@@ -1,37 +1,30 @@
 'use strict';
 
 /**
- * rollback.js — reverse a campaign's synthetic contribution, ledger-driven.
+ * rollback.js — reverse a campaign's synthetic contribution using the DURABLE
+ * per-news counter ViewDistributionState.deliveredTotal (NOT the ledger). This
+ * makes reversal independent of ViewCycleLog, so ViewCycleLog can safely
+ * TTL-expire (60 min) without ever corrupting a reversal.
  *
- * Reads ViewCycleLog.perItemDeltas and subtracts them back out of
- * News.syntheticViews. It NEVER touches organic `views`.
- *
- * Idempotency / retry-safety (no MongoDB transactions available):
- *   Each cycle is CLAIMED atomically via findOneAndUpdate({reversedAt:null} -> now)
- *   before its deltas are applied. So:
- *     - a cycle can be reversed AT MOST ONCE  => no double-subtraction (idempotent);
- *     - two reversers (PM2) claim different cycles => PM2-safe;
- *     - re-running after completion finds no unclaimed cycles => safe no-op.
- *   On an apply error the claim is released (reversedAt -> null) so a retry
- *   reprocesses it. The only lossy window is a hard crash BETWEEN claim and apply,
- *   which leaves residual synthetic (fail-safe: never over-subtracts). With a
- *   replica set, claim+apply could be wrapped in a transaction to close it.
- *
- * Clamp-at-zero: the $inc is expressed as a pipeline update using
- *   syntheticViews = max(0, syntheticViews - delta)
- * so syntheticViews can never go negative even if campaigns overlapped.
+ * Idempotent + crash-safe (no MongoDB transactions available):
+ *   Each news is CLAIMED atomically by zeroing deliveredTotal (findOneAndUpdate
+ *   returns the pre-image amount) BEFORE subtracting from News.syntheticViews. So:
+ *     - re-run finds no deliveredTotal>0 => no double-subtraction (idempotent);
+ *     - two reversers claim different news (PM2-safe);
+ *     - crash BETWEEN claim and subtract => residual synthetic (fail-safe: never
+ *       over-subtracts). On a subtract error the claim is restored for retry.
+ *   syntheticViews is clamped at 0; organic `views` is never touched; the
+ *   viewEngineCampaignId claim is released so the news can be re-used.
  */
 
 const News = require('../../models/News');
 const ViewCampaign = require('./models/ViewCampaign');
-const ViewCycleLog = require('./models/ViewCycleLog');
 const ViewDistributionState = require('./models/ViewDistributionState');
-const { bulkWriteChunked } = require('./applier'); // reuse — no duplicate logic
 const { LOG_PREFIX } = require('./constants');
 
 /**
- * Reverse all applied (non-dryRun) cycles of a campaign.
  * @returns {Promise<{ok:boolean, error?:string, cyclesReversed?:number, totalReversed?:number, status?:string}>}
+ *          (field `cyclesReversed` = number of NEWS items reversed; name kept for the API/audit).
  */
 async function reverseCampaign(campaignId) {
   const campaign = await ViewCampaign.findById(campaignId);
@@ -42,52 +35,39 @@ async function reverseCampaign(campaignId) {
   let cyclesReversed = 0;
   let totalReversed = 0;
 
-  // Claim-then-apply, one cycle at a time (campaigns have <= durationMinutes cycles).
+  // Claim-then-subtract, one news at a time (bounded by the campaign's item set).
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const cycle = await ViewCycleLog.findOneAndUpdate(
-      { campaignId: campaign._id, dryRun: { $ne: true }, reversedAt: null },
-      { $set: { reversedAt: new Date() } },
-      { new: true, sort: { cycleIndex: 1 } }
+    const claimed = await ViewDistributionState.findOneAndUpdate(
+      { campaignId: campaign._id, deliveredTotal: { $gt: 0 } },
+      { $set: { deliveredTotal: 0 } },
+      { new: false } // pre-image => the amount to subtract
     );
-    if (!cycle) break; // nothing left to reverse
+    if (!claimed) break;
+    const amount = Number(claimed.deliveredTotal) || 0;
+    if (amount <= 0) continue;
 
     try {
-      const deltas = (cycle.perItemDeltas || []).filter((d) => d && d.newsId && d.delta > 0);
-      if (deltas.length) {
-        const ops = deltas.map((d) => ({
-          updateOne: {
-            filter: { _id: d.newsId },
-            // syntheticViews = max(0, syntheticViews - delta) — clamped, organic `views` untouched.
-            update: [
-              {
-                $set: {
-                  syntheticViews: {
-                    $max: [0, { $subtract: [{ $ifNull: ['$syntheticViews', 0] }, d.delta] }]
-                  }
-                }
-              },
-              { $unset: ['viewEngineCampaignId'] }
-            ]
-          }
-        }));
-        await bulkWriteChunked(News, ops);
-        totalReversed += deltas.reduce((s, d) => s + d.delta, 0);
-      }
+      await News.updateOne(
+        { _id: claimed.newsId },
+        [
+          // syntheticViews = max(0, syntheticViews - amount) — clamped; organic `views` untouched.
+          { $set: { syntheticViews: { $max: [0, { $subtract: [{ $ifNull: ['$syntheticViews', 0] }, amount] }] } } },
+          { $unset: ['viewEngineCampaignId'] }
+        ]
+      );
+      totalReversed += amount;
       cyclesReversed++;
     } catch (err) {
-      // Release the claim so this cycle can be retried; then surface the error.
-      await ViewCycleLog.updateOne({ _id: cycle._id }, { $set: { reversedAt: null } }).catch(() => {});
-      console.error(`${LOG_PREFIX} rollback: cycle ${cycle._id} failed, released claim:`, err.message);
+      // Restore the claim so this news can be retried; then surface the error.
+      await ViewDistributionState.updateOne(
+        { _id: claimed._id },
+        { $set: { deliveredTotal: amount } }
+      ).catch(() => {});
+      console.error(`${LOG_PREFIX} rollback: news ${claimed.newsId} failed, claim restored:`, err.message);
       throw err;
     }
   }
-
-  // Best-effort: zero the live delivered counters (idempotent), then mark reversed.
-  await ViewDistributionState.updateMany(
-    { campaignId: campaign._id },
-    { $set: { deliveredTotal: 0 } }
-  ).catch(() => {});
 
   if (campaign.status !== 'reversed') {
     campaign.status = 'reversed';
@@ -95,7 +75,7 @@ async function reverseCampaign(campaignId) {
   }
 
   console.log(
-    `${LOG_PREFIX} rollback: campaign ${campaign._id} reversed — ${cyclesReversed} cycle(s), -${totalReversed} synthetic`
+    `${LOG_PREFIX} rollback: campaign ${campaign._id} reversed — ${cyclesReversed} item(s), -${totalReversed} synthetic`
   );
   return { ok: true, cyclesReversed, totalReversed, status: 'reversed' };
 }

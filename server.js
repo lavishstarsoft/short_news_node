@@ -927,6 +927,7 @@ app.use('/viral-videos', viralVideosRoutes);
 app.use('/long-videos', longVideosRoutes);
 app.use('/locations', locationRoutes);
 app.use('/languages', languageRoutes);
+app.use('/staff-categories', require('./routes/staffCategoryRoutes')); // Admin-managed Display Role categories
 app.use('/ads', adRoutes); // Add this line for ads routes
 app.use('/intelligent-ads', intelligentAdRoutes); // Add this line for intelligent ads routes
 app.use('/cache', cacheRoutes); // Cache management routes

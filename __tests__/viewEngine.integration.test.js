@@ -9,12 +9,14 @@
 
 const mongoose = require('mongoose');
 
-jest.mock('../models/News', () => ({ bulkWrite: jest.fn() }));
+jest.mock('../models/News', () => ({ bulkWrite: jest.fn(), updateOne: jest.fn() }));
 jest.mock('../services/viewDistribution/models/ViewCampaign', () => ({ findById: jest.fn() }));
 jest.mock('../services/viewDistribution/models/ViewDistributionState', () => ({
   find: jest.fn(),
   countDocuments: jest.fn(),
   updateMany: jest.fn(),
+  updateOne: jest.fn(),
+  findOneAndUpdate: jest.fn(),
   bulkWrite: jest.fn()
 }));
 jest.mock('../services/viewDistribution/models/ViewCycleLog', () => ({
@@ -22,6 +24,7 @@ jest.mock('../services/viewDistribution/models/ViewCycleLog', () => ({
   findOneAndUpdate: jest.fn(),
   updateOne: jest.fn()
 }));
+jest.mock('../services/viewDistribution/signalProvider', () => ({ fetchCandidates: jest.fn() }));
 
 const News = require('../models/News');
 const ViewCampaign = require('../services/viewDistribution/models/ViewCampaign');
@@ -29,15 +32,41 @@ const ViewDistributionState = require('../services/viewDistribution/models/ViewD
 const ViewCycleLog = require('../services/viewDistribution/models/ViewCycleLog');
 const applier = require('../services/viewDistribution/applier');
 const rollback = require('../services/viewDistribution/rollback');
+const signalProvider = require('../services/viewDistribution/signalProvider');
+const windowApplier = require('../services/viewDistribution/windowApplier');
 
 const oid = () => new mongoose.Types.ObjectId().toString();
 const findLean = (docs) => ({ select: () => ({ lean: () => Promise.resolve(docs) }) });
 
+/**
+ * Keyset-aware find() mock for windowApplier: returns docs whose _id > q._id.$gt
+ * in ascending _id order, capped at `limit`. Chain: find().select().sort().limit().lean().
+ */
+function keysetFind(allDocs) {
+  return (q = {}) => {
+    const gt = q && q._id && q._id.$gt;
+    let rows = allDocs.slice();
+    rows.sort((a, b) => (a._id < b._id ? -1 : a._id > b._id ? 1 : 0));
+    if (gt != null) rows = rows.filter((d) => d._id > gt);
+    let lim = rows.length;
+    const chain = {
+      select: () => chain,
+      sort: () => chain,
+      limit: (n) => { lim = n; return chain; },
+      lean: () => Promise.resolve(rows.slice(0, lim))
+    };
+    return chain;
+  };
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   News.bulkWrite.mockResolvedValue({ modifiedCount: 1, upsertedCount: 0, insertedCount: 0 });
+  News.updateOne.mockResolvedValue({ modifiedCount: 1 });
   ViewDistributionState.bulkWrite.mockResolvedValue({ modifiedCount: 1 });
   ViewDistributionState.updateMany.mockResolvedValue({ modifiedCount: 1 });
+  ViewDistributionState.updateOne.mockResolvedValue({ modifiedCount: 1 });
+  signalProvider.fetchCandidates.mockResolvedValue([]); // default: no onboarding/rebalance
 });
 
 function activeCampaign(extra = {}) {
@@ -111,51 +140,170 @@ describe('applier — ledger-first idempotency', () => {
   });
 });
 
-describe('rollback — reverse', () => {
-  test('reverses one cycle: clamped $max on syntheticViews only, marks reversed', async () => {
+describe('windowApplier — keyset batching (per_news_window)', () => {
+  const BATCH = 500;
+
+  function windowCampaign(extra = {}) {
+    const now = Date.now();
+    return {
+      _id: oid(),
+      status: 'active',
+      mode: 'per_news_window',
+      dryRun: false,
+      intervalMinutes: 60,
+      minViews: 1000,
+      maxViews: 2000,
+      startAt: new Date(now - 5 * 60000),
+      ...extra
+    };
+  }
+
+  // n active states, each with headroom so this cycle produces a positive delta.
+  function activeStates(n) {
+    const started = new Date(Date.now() - 60000); // ~1 minute in => growing
+    return Array.from({ length: n }, () => ({
+      _id: oid(),
+      newsId: oid(),
+      cap: 1500,
+      deliveredTotal: 0,
+      startedAt: started,
+      windowMinutes: 60,
+      completedAt: null
+    }));
+  }
+
+  beforeEach(() => {
+    signalProvider.fetchCandidates.mockResolvedValue([]); // no onboarding noise
+  });
+
+  test('501 active news => 2 batches, distinct batchNo, News written per batch', async () => {
+    const campaign = windowCampaign();
+    ViewCampaign.findById.mockResolvedValue(campaign);
+    ViewDistributionState.find.mockImplementation(keysetFind(activeStates(BATCH + 1)));
+    ViewCycleLog.create.mockResolvedValue({});
+
+    const res = await windowApplier.processCycle({ campaignId: campaign._id, cycleIndex: 3 });
+
+    expect(res.status).toBe('applied');
+    // one ledger row per batch, batchNo 0 then 1
+    expect(ViewCycleLog.create).toHaveBeenCalledTimes(2);
+    const batchNos = ViewCycleLog.create.mock.calls.map((c) => c[0].batchNo);
+    expect(batchNos).toEqual([0, 1]);
+    // every ledger row carries this cycleIndex + campaign
+    ViewCycleLog.create.mock.calls.forEach((c) => {
+      expect(c[0].cycleIndex).toBe(3);
+      expect(String(c[0].campaignId)).toBe(String(campaign._id));
+    });
+    // News written once per batch, syntheticViews only
+    expect(News.bulkWrite).toHaveBeenCalledTimes(2);
+    News.bulkWrite.mock.calls.flatMap((c) => c[0]).forEach((op) => {
+      expect(op.updateOne.update.$inc.syntheticViews).toBeGreaterThan(0);
+      expect(op.updateOne.update.$inc.views).toBeUndefined();
+    });
+  });
+
+  test('retry after partial: batch 0 already committed (11000) => only batch 1 applies', async () => {
+    const campaign = windowCampaign();
+    ViewCampaign.findById.mockResolvedValue(campaign);
+    ViewDistributionState.find.mockImplementation(keysetFind(activeStates(BATCH + 1)));
+    ViewCycleLog.create
+      .mockRejectedValueOnce({ code: 11000 }) // batch 0 was done in the prior attempt
+      .mockResolvedValue({});                  // batch 1 is fresh
+
+    const res = await windowApplier.processCycle({ campaignId: campaign._id, cycleIndex: 4 });
+
+    expect(res.status).toBe('applied');
+    expect(ViewCycleLog.create).toHaveBeenCalledTimes(2);
+    // batch 0 skipped => News written exactly once (batch 1 only) => no double $inc
+    expect(News.bulkWrite).toHaveBeenCalledTimes(1);
+    expect(res.itemsAffected).toBe(1);
+  });
+
+  test('full retry: every batch duplicate (11000) => no News writes at all', async () => {
+    const campaign = windowCampaign();
+    ViewCampaign.findById.mockResolvedValue(campaign);
+    ViewDistributionState.find.mockImplementation(keysetFind(activeStates(BATCH + 1)));
+    ViewCycleLog.create.mockRejectedValue({ code: 11000 });
+
+    const res = await windowApplier.processCycle({ campaignId: campaign._id, cycleIndex: 5 });
+
+    expect(ViewCycleLog.create).toHaveBeenCalledTimes(2); // both batches probed
+    expect(res.itemsAffected).toBe(0);
+    expect(News.bulkWrite).not.toHaveBeenCalled(); // idempotent: nothing re-applied
+  });
+
+  test('no active news => status no_active, no ledger, no writes', async () => {
+    const campaign = windowCampaign();
+    ViewCampaign.findById.mockResolvedValue(campaign);
+    ViewDistributionState.find.mockImplementation(keysetFind([]));
+
+    const res = await windowApplier.processCycle({ campaignId: campaign._id, cycleIndex: 6 });
+
+    expect(res.status).toBe('no_active');
+    expect(ViewCycleLog.create).not.toHaveBeenCalled();
+    expect(News.bulkWrite).not.toHaveBeenCalled();
+  });
+
+  test('dryRun window cycle logs ledger but never writes News', async () => {
+    const campaign = windowCampaign({ dryRun: true });
+    ViewCampaign.findById.mockResolvedValue(campaign);
+    ViewDistributionState.find.mockImplementation(keysetFind(activeStates(3)));
+    ViewCycleLog.create.mockResolvedValue({});
+
+    const res = await windowApplier.processCycle({ campaignId: campaign._id, cycleIndex: 7 });
+
+    expect(res.status).toBe('dry_run');
+    expect(ViewCycleLog.create).toHaveBeenCalledTimes(1);
+    expect(News.bulkWrite).not.toHaveBeenCalled();
+  });
+});
+
+describe('rollback — reverse (durable deliveredTotal, no ledger dependency)', () => {
+  test('reverses one news via deliveredTotal: clamped $max on syntheticViews only, marks reversed', async () => {
     const campaign = { _id: oid(), status: 'paused', save: jest.fn().mockResolvedValue(true) };
     ViewCampaign.findById.mockResolvedValue(campaign);
     const n1 = oid();
-    const cycle = { _id: oid(), perItemDeltas: [{ newsId: n1, delta: 50 }] };
-    // first claim returns a cycle, second returns null (done)
-    ViewCycleLog.findOneAndUpdate.mockResolvedValueOnce(cycle).mockResolvedValue(null);
+    // first claim returns a state (deliveredTotal 50, zeroed), second returns null (done)
+    ViewDistributionState.findOneAndUpdate
+      .mockResolvedValueOnce({ _id: oid(), newsId: n1, deliveredTotal: 50 })
+      .mockResolvedValue(null);
 
     const r = await rollback.reverseCampaign(campaign._id);
 
     expect(r.ok).toBe(true);
     expect(r.cyclesReversed).toBe(1);
     expect(r.totalReversed).toBe(50);
-    // claim query excludes dryRun cycles and unreversed only
-    const claimFilter = ViewCycleLog.findOneAndUpdate.mock.calls[0][0];
-    expect(claimFilter.reversedAt).toBeNull();
-    expect(claimFilter.dryRun).toEqual({ $ne: true });
-    // clamped subtract on syntheticViews, not views
-    const ops = News.bulkWrite.mock.calls[0][0];
-    const set = ops[0].updateOne.update[0].$set;
+    // claim query: this campaign's states with deliveredTotal>0, zeroed atomically
+    const claimFilter = ViewDistributionState.findOneAndUpdate.mock.calls[0][0];
+    expect(claimFilter.deliveredTotal).toEqual({ $gt: 0 });
+    expect(ViewDistributionState.findOneAndUpdate.mock.calls[0][1]).toEqual({ $set: { deliveredTotal: 0 } });
+    // clamped subtract on syntheticViews only, never organic views; claim released
+    const pipeline = News.updateOne.mock.calls[0][1];
+    const set = pipeline[0].$set;
     expect(set.syntheticViews.$max[0]).toBe(0);
-    expect(JSON.stringify(set)).toContain('$syntheticViews');
-    expect(JSON.stringify(set)).not.toContain('$views"'); // no organic field
+    expect(JSON.stringify(pipeline)).toContain('$syntheticViews');
+    expect(JSON.stringify(pipeline)).not.toContain('$views"');
+    expect(JSON.stringify(pipeline)).toContain('viewEngineCampaignId');
     expect(campaign.status).toBe('reversed');
     expect(campaign.save).toHaveBeenCalled();
   });
 
-  test('idempotent re-run: nothing left to reverse => no News writes', async () => {
+  test('idempotent re-run: nothing left (deliveredTotal all 0) => no News writes', async () => {
     const campaign = { _id: oid(), status: 'reversed', save: jest.fn() };
     ViewCampaign.findById.mockResolvedValue(campaign);
-    ViewCycleLog.findOneAndUpdate.mockResolvedValue(null); // all already reversed
+    ViewDistributionState.findOneAndUpdate.mockResolvedValue(null);
 
     const r = await rollback.reverseCampaign(campaign._id);
 
-    expect(r.ok).toBe(true);
     expect(r.cyclesReversed).toBe(0);
-    expect(News.bulkWrite).not.toHaveBeenCalled();
+    expect(News.updateOne).not.toHaveBeenCalled();
   });
 
   test('active campaign is guarded', async () => {
     ViewCampaign.findById.mockResolvedValue({ _id: oid(), status: 'active' });
     const r = await rollback.reverseCampaign('x');
     expect(r).toEqual({ ok: false, error: 'active_must_pause_first' });
-    expect(News.bulkWrite).not.toHaveBeenCalled();
+    expect(News.updateOne).not.toHaveBeenCalled();
   });
 
   test('not found', async () => {
@@ -164,18 +312,17 @@ describe('rollback — reverse', () => {
     expect(r).toEqual({ ok: false, error: 'not_found' });
   });
 
-  test('retry-safe: apply error releases the claim (reversedAt -> null) and throws', async () => {
+  test('retry-safe: subtract error restores the claimed deliveredTotal and throws', async () => {
     const campaign = { _id: oid(), status: 'paused', save: jest.fn() };
     ViewCampaign.findById.mockResolvedValue(campaign);
-    const cycle = { _id: oid(), perItemDeltas: [{ newsId: oid(), delta: 10 }] };
-    ViewCycleLog.findOneAndUpdate.mockResolvedValueOnce(cycle).mockResolvedValue(null);
-    News.bulkWrite.mockRejectedValueOnce(new Error('db down'));
-    ViewCycleLog.updateOne.mockResolvedValue({});
+    const st = { _id: oid(), newsId: oid(), deliveredTotal: 10 };
+    ViewDistributionState.findOneAndUpdate.mockResolvedValueOnce(st).mockResolvedValue(null);
+    News.updateOne.mockRejectedValueOnce(new Error('db down'));
 
     await expect(rollback.reverseCampaign(campaign._id)).rejects.toThrow('db down');
-    expect(ViewCycleLog.updateOne).toHaveBeenCalledWith(
-      { _id: cycle._id },
-      { $set: { reversedAt: null } }
+    expect(ViewDistributionState.updateOne).toHaveBeenCalledWith(
+      { _id: st._id },
+      { $set: { deliveredTotal: 10 } }
     );
   });
 });

@@ -23,6 +23,8 @@ const viewCycleLogSchema = new mongoose.Schema(
     },
     // Minute number since campaign.startAt — deterministic, wall-clock anchored.
     cycleIndex: { type: Number, required: true },
+    // Keyset batch number within a cycle (per_news_window). 0 = production/single-batch.
+    batchNo: { type: Number, default: 0 },
 
     // dryRun cycles are logged but applied nothing to News (validation runs).
     dryRun: { type: Boolean, default: false },
@@ -58,8 +60,27 @@ const viewCycleLogSchema = new mongoose.Schema(
 );
 
 // Idempotency guard — one committed cycle per (campaign, cycleIndex).
-viewCycleLogSchema.index({ campaignId: 1, cycleIndex: 1 }, { unique: true });
-viewCycleLogSchema.index({ createdAt: -1 });
+// Exactly-once per (campaign, cycle, batch). batchNo default 0 => production mode
+// keeps its {campaignId,cycleIndex} guarantee. (Migration drops the old 2-field unique.)
+viewCycleLogSchema.index({ campaignId: 1, cycleIndex: 1, batchNo: 1 }, { unique: true });
+
+// Retention (TTL) — bounds storage on long-running campaigns.
+// SAFE because: (a) a cycle can only be re-enqueued within the queue's 10-min dedup
+// window and cycleIndex is wall-clock monotonic, so rows older than that are NEVER
+// reprocessed (idempotency intact); (b) reversal (rollback) of any cycle is possible
+// within this window. Beyond it, per-news totals still live in
+// ViewDistributionState.deliveredTotal (which rollback now uses). Default 60 min.
+// NOTE: TTL replaces the old {createdAt:-1} index and also serves createdAt sorts.
+// Changing retention requires dropping this index and re-running migrate (collMod).
+const LEDGER_RETENTION_MINUTES = Math.max(
+  15, // must exceed the queue reprocess window (~10 min dedup + retry) for idempotency
+  parseInt(process.env.VIEW_ENGINE_LEDGER_RETENTION_MINUTES, 10) || 60
+);
+viewCycleLogSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: LEDGER_RETENTION_MINUTES * 60 }
+);
+
 // Rollback scan: find unreversed cycles for a campaign.
 viewCycleLogSchema.index({ campaignId: 1, reversedAt: 1 });
 

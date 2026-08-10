@@ -286,6 +286,7 @@
                                             <div class="d-flex gap-2">
                                                 <button id="btnMultiReportPdf" class="btn btn-sm btn-outline-primary" disabled><i class="fas fa-file-pdf"></i> Download PDF</button>
                                                 <button id="btnMultiReportImage" class="btn btn-sm btn-outline-success" disabled><i class="fas fa-file-image"></i> Download Image</button>
+                                                <button id="btnStaffReportPdf" class="btn btn-sm btn-outline-danger" disabled title="Selected Sub Editor / Bureau staff only. No date range needed."><i class="fas fa-id-card"></i> Download Staff Report PDF</button>
                                             </div>
                                         </div>
 
@@ -455,15 +456,29 @@
                                     <div class="col-md-6">
                                         <div class="editor-field">
                                             <label for="editDisplayRole">Display Role
-                                                <span class="info-tip">?<span class="info-tip-text">This title appears next to their articles in the app. Example: "Senior Reporter", "Khammam Correspondent"</span></span>
+                                                <span class="info-tip">?<span class="info-tip-text">Managed under Team → Staff Categories. Controls the title shown in the app and Staff Record eligibility.</span></span>
                                             </label>
-                                            <input type="text" id="editDisplayRole" placeholder="e.g. Senior Reporter">
+                                            <select id="editDisplayRole"
+                                                data-categories='<%- JSON.stringify((typeof staffCategories !== "undefined" ? staffCategories : []).map(function(c){ return c.name; })) %>'>
+                                                <option value="">Select display role…</option>
+                                                <% (typeof staffCategories !== 'undefined' ? staffCategories : []).forEach(function(c){ %>
+                                                    <option value="<%= c.name %>"><%= c.name %></option>
+                                                <% }); %>
+                                            </select>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="editor-field">
                                             <label for="editMobile">Mobile Number</label>
                                             <input type="text" id="editMobile" placeholder="+91 98765 43210">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="editor-field">
+                                            <label for="editSalary">Salary (₹ / month)
+                                                <span class="info-tip">?<span class="info-tip-text">Admin only. Shown on the Official Staff Record PDF. Leave empty for "Not set".</span></span>
+                                            </label>
+                                            <input type="number" id="editSalary" min="0" step="1" placeholder="e.g. 25000">
                                         </div>
                                     </div>
                                 </div>
@@ -2315,7 +2330,19 @@
                         setRoleCards('editRoleCards', role);
                         applyEditSubEditorVisibility(role);
 
-                        document.getElementById('editDisplayRole').value = editor.displayRole || '';
+                        // Display Role dropdown — backward-compat: if this staff member's
+                        // saved displayRole is not in the managed category list (legacy/disabled),
+                        // inject it as a temporary option so nothing is lost on save.
+                        const displayRoleSel = document.getElementById('editDisplayRole');
+                        const currentRole = editor.displayRole || '';
+                        if (currentRole && !Array.from(displayRoleSel.options).some(o => o.value === currentRole)) {
+                            const opt = document.createElement('option');
+                            opt.value = currentRole;
+                            opt.textContent = currentRole + ' (legacy)';
+                            displayRoleSel.appendChild(opt);
+                        }
+                        displayRoleSel.value = currentRole;
+                        document.getElementById('editSalary').value = (editor.salary === null || editor.salary === undefined) ? '' : editor.salary;
                         const assignedLocations = editor.assignedLocations || (editor.location ? [editor.location] : []);
                         const selectEl = document.getElementById('editAssignedLocations');
                         Array.from(selectEl.options).forEach(opt => {
@@ -2401,6 +2428,7 @@
                                 : document.getElementById('editWorkingLanguage').value,
                             constituency: document.getElementById('editConstituency').value,
                             mobileNumber: document.getElementById('editMobile').value,
+                            salary: document.getElementById('editSalary').value === '' ? null : Number(document.getElementById('editSalary').value),
                             profileImage: document.getElementById('editProfileImageUrl').value,
                             displaySettings: {
                                 showProfileImage: document.getElementById('editShowProfileImage').checked,
@@ -2906,6 +2934,13 @@
         </div>
     </div>
 
+    <!-- Staff Report Template (A4): selected Sub Editor / Bureau staff only.
+         Pages are built by JS into #staffReportPages so the branded header + table
+         header repeat on every A4 page and every selected member appears. -->
+    <div id="staffReportTemplateContainer" style="display: none;">
+        <div id="staffReportPages" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #222; background: #fff;"></div>
+    </div>
+
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
@@ -2971,6 +3006,9 @@
                     btnPdf.disabled = true;
                     btnImg.disabled = true;
                 }
+                // Staff Report needs a selection only (no date range) — it is not time-scoped.
+                const btnStaff = document.getElementById('btnStaffReportPdf');
+                if (btnStaff) btnStaff.disabled = count === 0;
             }
 
             async function generateMultiReport(format) {
@@ -3190,6 +3228,173 @@
             }
             if (document.getElementById('btnMultiReportImage')) {
                 document.getElementById('btnMultiReportImage').addEventListener('click', () => generateMultiReport('image'));
+            }
+
+            // ---- Staff Report PDF: selected Sub Editor + Bureau staff (A4 table) ----
+            // Eligibility is based on the ACTUAL role, not the free-text displayRole
+            // (which defaults to "Reporter"): every Sub Editor is role==='subeditor',
+            // and Bureau members are marked via displayRole==='bureau'.
+            function isStaffReportEligible(e) {
+                if (!e) return false;
+                if (e.role === 'subeditor') return true;
+                return String(e.displayRole || '').trim().toLowerCase() === 'bureau';
+            }
+
+            // Truthful label for the "Display Role" column.
+            function staffRoleLabel(e) {
+                const dr = String(e.displayRole || '').trim();
+                if (dr.toLowerCase() === 'bureau') return 'Bureau';
+                if (dr.toLowerCase() === 'sub editor') return 'Sub Editor';
+                if (e.role === 'subeditor') return 'Sub Editor'; // subeditor with default/other displayRole
+                return dr || '—';
+            }
+
+            // Returns { records: eligible[], selectedTotal, skipped } — never drops silently.
+            function getSelectedStaffRecords() {
+                // Source data from the admin-only serialized JSON (already on the page).
+                let all = [];
+                try { all = JSON.parse(document.getElementById('editorsData').textContent) || []; }
+                catch (e) { all = []; }
+                const byId = {};
+                all.forEach(e => { byId[String(e._id)] = e; });
+
+                const selected = Array.from(document.querySelectorAll('.editor-select-checkbox:checked'))
+                    .map(cb => byId[String(cb.value)])
+                    .filter(Boolean);
+                const records = selected.filter(isStaffReportEligible);
+                return { records, selectedTotal: selected.length, skipped: selected.length - records.length };
+            }
+
+            async function generateStaffReport() {
+                const { records, skipped } = getSelectedStaffRecords();
+                if (records.length === 0) {
+                    alert('None of the selected members are Sub Editor or Bureau staff. This report includes only Sub Editors and Bureau members.');
+                    return;
+                }
+                // Never drop silently: tell the admin how many selected rows were skipped.
+                if (skipped > 0 && !confirm(`${skipped} selected member(s) are neither Sub Editor nor Bureau and will be skipped.\n\nGenerate the report for the ${records.length} eligible member(s)?`)) {
+                    return;
+                }
+
+                const btn = document.getElementById('btnStaffReportPdf');
+                const original = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+                const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                const areaOf = (e) => e.assignedState
+                    || (Array.isArray(e.assignedStates) && e.assignedStates[0])
+                    || (Array.isArray(e.assignedLocations) && e.assignedLocations[0])
+                    || e.location
+                    || e.constituency
+                    || 'Pan India';
+                // Blank cell when salary is not set — never the text "Not set".
+                const salaryOf = (e) => (e.salary === null || e.salary === undefined || e.salary === '')
+                    ? ''
+                    : '₹ ' + Number(e.salary).toLocaleString('en-IN');
+                const approvedOf = (e) => Number(e.approvedPosts != null ? e.approvedPosts : (e.newsStats && e.newsStats.published) || 0);
+
+                const esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+                // Column widths (sum 100%): narrower Approved Posts, wider Salary.
+                const colgroup = `<colgroup>
+                    <col style="width:24%"><col style="width:14%"><col style="width:13%">
+                    <col style="width:19%"><col style="width:20%"><col style="width:10%">
+                </colgroup>`;
+                const theadHtml = `<thead style="display: table-header-group;">
+                    <tr style="background-color: #f1f3f5;">
+                        <th style="padding: 8px 9px; border: 1px solid #dee2e6; text-align: left; font-weight: bold; color: #343a40;">Name</th>
+                        <th style="padding: 8px 9px; border: 1px solid #dee2e6; text-align: left; font-weight: bold; color: #343a40;">Display Role</th>
+                        <th style="padding: 8px 9px; border: 1px solid #dee2e6; text-align: left; font-weight: bold; color: #343a40;">Joining Date</th>
+                        <th style="padding: 8px 9px; border: 1px solid #dee2e6; text-align: left; font-weight: bold; color: #343a40;">State/Bureau</th>
+                        <th style="padding: 8px 9px; border: 1px solid #dee2e6; text-align: right; font-weight: bold; color: #343a40;">Salary</th>
+                        <th style="padding: 8px 9px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; color: #343a40;">Approved</th>
+                    </tr>
+                </thead>`;
+                const rowHtml = (e, idx) => `
+                    <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+                        <td style="padding: 7px 9px; border: 1px solid #dee2e6; font-weight: 600;">${esc(e.name || e.username || '—')}</td>
+                        <td style="padding: 7px 9px; border: 1px solid #dee2e6;">${esc(staffRoleLabel(e))}</td>
+                        <td style="padding: 7px 9px; border: 1px solid #dee2e6; white-space: nowrap;">${fmtDate(e.createdAt)}</td>
+                        <td style="padding: 7px 9px; border: 1px solid #dee2e6;">${esc(areaOf(e))}</td>
+                        <td style="padding: 7px 9px; border: 1px solid #dee2e6; text-align: right; white-space: nowrap;">${esc(salaryOf(e))}</td>
+                        <td style="padding: 7px 9px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; color: #0d6efd;">${approvedOf(e).toLocaleString('en-IN')}</td>
+                    </tr>`;
+                const brandHeader = `
+                    <div style="display: flex; align-items: center; border-bottom: 3px solid #E31E24; padding-bottom: 12px; margin-bottom: 16px;">
+                        <img src="/images/logo.png" alt="Tehelka News" style="max-height: 56px; width: auto; margin-right: 16px;">
+                        <div>
+                            <h1 style="margin: 0; color: #E31E24; font-size: 22px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Official Staff Report</h1>
+                            <p style="margin: 3px 0 0 0; font-size: 13px; color: #555; font-weight: 600;">Tehelka News</p>
+                        </div>
+                    </div>`;
+                const genLine = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                try {
+                    // Paginate: repeat the brand + table header on each A4 page. First page
+                    // carries the header block so it holds a few less rows than the rest.
+                    const ROWS_FIRST = 16, ROWS_REST = 22;
+                    const pages = [];
+                    let i = 0;
+                    while (i < records.length) {
+                        const size = pages.length === 0 ? ROWS_FIRST : ROWS_REST;
+                        pages.push(records.slice(i, i + size));
+                        i += size;
+                    }
+
+                    // Join page blocks with html2pdf's NATIVE break element so every page
+                    // is emitted (inline `page-break-before` is NOT reliably honored and
+                    // caused later pages/records to be clipped).
+                    const pagesHtml = pages.map((chunk, pIdx) => {
+                        const startIdx = pIdx === 0 ? 0 : ROWS_FIRST + (pIdx - 1) * ROWS_REST;
+                        const rows = chunk.map((e, k) => rowHtml(e, startIdx + k)).join('');
+                        return `
+                            <div style="padding: 24px 28px;">
+                                ${brandHeader}
+                                <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
+                                    ${colgroup}
+                                    ${theadHtml}
+                                    <tbody>${rows}</tbody>
+                                </table>
+                                <div style="margin-top: 14px; text-align: right; color: #999; font-size: 11px;">
+                                    Generated on ${genLine} · Page ${pIdx + 1} of ${pages.length} · Tehelka News (confidential)
+                                </div>
+                            </div>`;
+                    }).join('<div class="html2pdf__page-break"></div>');
+
+                    document.getElementById('staffReportPages').innerHTML = pagesHtml;
+
+                    const element = document.getElementById('staffReportTemplateContainer').cloneNode(true);
+                    element.style.display = 'block';
+                    const holder = document.createElement('div');
+                    holder.style.position = 'absolute';
+                    holder.style.left = '-9999px';
+                    holder.appendChild(element);
+                    document.body.appendChild(holder);
+
+                    try {
+                        await html2pdf().set({
+                            margin: [0.35, 0.25, 0.35, 0.25], // top,left,bottom,right (in) — tighter sides
+                            filename: `Staff_Report_${new Date().toISOString().slice(0, 10)}.pdf`,
+                            image: { type: 'jpeg', quality: 0.98 },
+                            html2canvas: { scale: 2, useCORS: true },
+                            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+                            // 'legacy' detects .html2pdf__page-break; 'avoid-all' keeps rows/tables intact.
+                            pagebreak: { mode: ['avoid-all', 'legacy'], before: '.html2pdf__page-break' }
+                        }).from(element).save();
+                    } finally {
+                        document.body.removeChild(holder);
+                    }
+                } catch (err) {
+                    alert('Error generating staff report: ' + err.message);
+                } finally {
+                    btn.innerHTML = original;
+                    checkButtons();
+                }
+            }
+
+            if (document.getElementById('btnStaffReportPdf')) {
+                document.getElementById('btnStaffReportPdf').addEventListener('click', generateStaffReport);
             }
         });
     </script>
