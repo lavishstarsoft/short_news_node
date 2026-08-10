@@ -33,6 +33,7 @@ router.get('/editors/:id/news-list', adminController.requireAdmin, adminControll
 router.get('/editors/:id/custom-news-count', adminController.requireAdmin, adminController.getImpersonatedNewsCount);
 router.post('/editors/multi-report', adminController.requireAdmin, adminController.getMultiEditorReportData);
 router.get('/editors/:id/report', adminController.requireAdmin, adminController.getEditorReport);
+router.get('/editors/:id/managed-reporters', adminController.requireAdmin, adminController.getEditorManagedReporters);
 router.get('/performance-analytics', adminController.requireAuth, adminController.renderPerformanceAnalyticsPage);
 router.put('/editors/:id', adminController.requireAuth, adminController.updateEditor);
 router.put('/editors/:id/status', adminController.requireAuth, adminController.toggleEditorStatus);

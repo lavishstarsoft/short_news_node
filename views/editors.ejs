@@ -733,6 +733,14 @@
                                                     <label>Managed Constituencies</label>
                                                     <div class="editor-chip-wrap"><div class="editor-chip-grid" id="editManagedConstituencyChips"><span class="text-muted small">Select districts first...</span></div></div>
                                                 </div>
+                                                <!-- Read-only: actual reporters currently in this approval scope (resolved by backend). -->
+                                                <div class="editor-field">
+                                                    <label>Reporters in this approval scope <span id="editScopeReporterCount" class="badge bg-secondary">0</span></label>
+                                                    <div id="editScopeReporterList" style="max-height:240px;overflow:auto;border:1px solid #e5e5e2;border-radius:8px;padding:8px;background:#fafafa;font-size:13px;">
+                                                        <span class="text-muted small">Loading current reporters…</span>
+                                                    </div>
+                                                    <small class="text-muted">Live from the database — these are the reporters this sub-editor can currently see &amp; approve.</small>
+                                                </div>
                                             </div>
 
                                             <div id="editManagedReportersWrapper" style="display:none">
@@ -2061,6 +2069,11 @@
                         if (reps) reps.style.display = scope === 'reporters' ? 'block' : 'none';
                         if (scope === 'geography') refreshManagedGeography(prefix);
                         if (scope === 'reporters') renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', getSelectedFromHidden(prefix + 'ManagedReporterIds'));
+                        // Edit modal: refresh the read-only "reporters in scope" list when geography is selected.
+                        if (prefix === 'edit' && scope === 'geography') {
+                            const idEl = document.getElementById('editEditorId');
+                            if (idEl && idEl.value) loadScopeReporters(idEl.value);
+                        }
                     }
 
                     function syncApprovalScopeSectionVisibility(prefix) {
@@ -2148,7 +2161,50 @@
                         renderChipGrid(prefix + 'ManagedConstituencyChips', prefix + 'ManagedConstituencies', getConstituenciesForDistricts(mDistricts), mConst, constEmptyMsg);
                         
                         renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', perms.managedReporterIds || []);
-                        syncApprovalScopeUI(prefix);
+                        syncApprovalScopeUI(prefix); // triggers loadScopeReporters for edit+geography (backend source of truth)
+                    }
+
+                    // Fetch + render the reporters the backend resolves for this sub-editor's
+                    // current saved approval scope (State → District → Reporter). Read-only.
+                    async function loadScopeReporters(editorId) {
+                        const listEl = document.getElementById('editScopeReporterList');
+                        const countEl = document.getElementById('editScopeReporterCount');
+                        if (!listEl || !editorId) return;
+                        listEl.innerHTML = '<span class="text-muted small">Loading current reporters…</span>';
+                        try {
+                            const res = await fetch('/admin/editors/' + editorId + '/managed-reporters');
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error || 'Failed to load');
+
+                            if (data.unrestricted) {
+                                countEl.textContent = 'ALL';
+                                listEl.innerHTML = '<div class="text-muted small">This sub-editor can view/approve <strong>all reporters</strong> (Can View All News is on).</div>';
+                                return;
+                            }
+                            countEl.textContent = data.total;
+                            if (!data.total) {
+                                listEl.innerHTML = '<div class="text-warning small">No reporters currently fall in this scope. Adjust the managed areas above, or reporters may not be tagged to these districts yet.</div>';
+                                return;
+                            }
+                            const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                            let html = '';
+                            Object.keys(data.grouped).sort().forEach((state) => {
+                                html += `<div style="margin-bottom:6px;"><div style="font-weight:700;color:#E31E24;">${esc(state)}</div>`;
+                                const districts = data.grouped[state];
+                                Object.keys(districts).sort().forEach((district) => {
+                                    html += `<div style="margin:2px 0 2px 10px;"><span style="font-weight:600;">${esc(district)}</span> <span class="text-muted">(${districts[district].length})</span>`;
+                                    districts[district].forEach((r) => {
+                                        const cons = r.constituency && r.constituency !== district ? ` · ${esc(r.constituency)}` : '';
+                                        html += `<div style="margin-left:16px;">• ${esc(r.name)}${r.email ? ` <span class="text-muted">&lt;${esc(r.email)}&gt;</span>` : ''}${cons}</div>`;
+                                    });
+                                    html += '</div>';
+                                });
+                                html += '</div>';
+                            });
+                            listEl.innerHTML = html;
+                        } catch (err) {
+                            listEl.innerHTML = '<span class="text-danger small">Could not load reporters: ' + (err.message || 'error') + '</span>';
+                        }
                     }
 
                     async function loadEditorLocationHierarchy(editor) {

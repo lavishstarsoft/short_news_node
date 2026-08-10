@@ -33,6 +33,7 @@ const {
   buildPendingNewsFilterForSubEditor,
   getManagedReporterIds,
   getSubEditorManagedCoverage,
+  getReporterCoverage,
   normalizeApprovalScope,
   uniqueStrings
 } = require('../utils/editorCoverageHelper');
@@ -2622,6 +2623,93 @@ async function deleteEditor(req, res) {
     res.status(500).json({ error: 'An error occurred while deleting editor' });
   }
 }
+/**
+ * GET /editors/:id/managed-reporters
+ * Read-only: returns the reporters CURRENTLY inside a sub-editor's approval scope,
+ * resolved by the SAME authoritative helper used for news filtering
+ * (getManagedReporterIds) — the DB is the source of truth, not the client.
+ * Grouped State → District → Reporter for the Approval Mode UI.
+ */
+async function getEditorManagedReporters(req, res) {
+  try {
+    const requester = await Admin.findById(req.admin.id).select('role').lean();
+    if (!requester || (requester.role !== 'admin' && requester.role !== 'superadmin')) {
+      return res.status(403).json({ error: 'Admins only.' });
+    }
+
+    const subEditor = await Admin.findById(req.params.id);
+    if (!subEditor) return res.status(404).json({ error: 'Sub-editor not found' });
+
+    const perms = subEditor.permissions || {};
+    const scope = normalizeApprovalScope(perms.approvalScope);
+
+    // Authoritative resolution (null = unrestricted via canViewAllNews).
+    const ids = await getManagedReporterIds(Admin, subEditor);
+    const unrestricted = ids === null;
+
+    let reporters = [];
+    if (!unrestricted && ids.length) {
+      const docs = await Admin.find({ _id: { $in: ids } })
+        .select('name username email assignedStates assignedState assignedDistricts assignedConstituencies assignedLocations location constituency')
+        .sort({ name: 1 }).lean();
+
+      // A reporter's district may live in assignedDistricts, constituency, or location
+      // (project data reality). Pick the first present, then resolve its STATE from the
+      // authoritative Location hierarchy (district.parentName) — not the reporter's tags.
+      const pickDistrict = (r) => {
+        const cov = getReporterCoverage(r);
+        return cov.districts[0] || r.constituency || r.location || cov.constituencies[0] || '';
+      };
+      const districtNames = [...new Set(docs.map(pickDistrict).filter(Boolean))];
+      const districtDocs = districtNames.length
+        ? await Location.find({ locationType: 'district', name: { $in: districtNames } })
+            .select('name parentName').lean()
+        : [];
+      const districtToState = {};
+      districtDocs.forEach((d) => { districtToState[d.name] = d.parentName; });
+
+      reporters = docs.map((r) => {
+        const cov = getReporterCoverage(r);
+        const district = pickDistrict(r) || '-';
+        return {
+          id: String(r._id),
+          name: r.name || r.username || '-',
+          email: r.email || '',
+          state: districtToState[district] || cov.states[0] || r.assignedState || '-',
+          district: district,
+          constituency: r.constituency || cov.constituencies[0] || '-'
+        };
+      });
+    }
+
+    // Group State → District → [reporters]
+    const grouped = {};
+    reporters.forEach((r) => {
+      grouped[r.state] = grouped[r.state] || {};
+      grouped[r.state][r.district] = grouped[r.state][r.district] || [];
+      grouped[r.state][r.district].push(r);
+    });
+
+    res.json({
+      approvalScope: scope,
+      canApproveNews: perms.canApproveNews === true,
+      canViewAllNews: perms.canViewAllNews === true,
+      unrestricted,
+      total: reporters.length,
+      managed: {
+        states: perms.managedStates || [],
+        districts: perms.managedDistricts || [],
+        constituencies: perms.managedConstituencies || []
+      },
+      reporters,
+      grouped
+    });
+  } catch (error) {
+    console.error('getEditorManagedReporters error:', error);
+    res.status(500).json({ error: 'Failed to resolve managed reporters' });
+  }
+}
+
 // Render register editor page
 async function renderRegisterEditorPage(req, res) {
   try {
@@ -10217,5 +10305,6 @@ module.exports = {
   updateReporterEarningAdmin,
   getReporterEarning,
   uploadReporterEarningImage,
-  getEditorReport
+  getEditorReport,
+  getEditorManagedReporters
 };
