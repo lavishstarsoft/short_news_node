@@ -19,7 +19,10 @@
       <h1 class="h2 page-title mb-1">Withdrawals Queue</h1>
       <p class="text-muted mb-0">Approve or reject reporter payout requests. Every action is audit-logged.</p>
     </div>
-    <button type="button" class="btn btn-outline-primary fw-bold" id="refreshBtn"><i class="fas fa-sync-alt me-2"></i>Refresh</button>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-danger fw-bold" id="downloadPdfBtn"><i class="fas fa-file-pdf me-2"></i>Download PDF (Accounts)</button>
+      <button type="button" class="btn btn-outline-primary fw-bold" id="refreshBtn"><i class="fas fa-sync-alt me-2"></i>Refresh</button>
+    </div>
   </div>
 
   <div class="row mb-4">
@@ -235,8 +238,153 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('refreshBtn').addEventListener('click', load);
+
+  // ---- Accounts Department PDF (up to 500 records, A4 landscape, multi-page) ----
+  const dateOnly = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '-';
+  const statusLabel = { pending:'PENDING', approved:'PAID', rejected:'REJECTED' };
+
+  async function downloadWithdrawalsPdf() {
+    const btn = document.getElementById('downloadPdfBtn');
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Preparing...';
+    try {
+      // Fetch up to 500 for the current status filter.
+      const res = await fetch(`/admin/api/wallet/withdrawals?status=${currentStatus}&limit=500`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load withdrawals');
+      const list = data.withdrawals || [];
+      if (!list.length) { alert('No withdrawal records to export for this filter.'); return; }
+
+      // Today's totals (requests created today) — "eroju entha amount vachindi".
+      const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
+      let todayCount = 0, todayAmount = 0, totalAmount = 0;
+      list.forEach(w => {
+        totalAmount += Number(w.amount) || 0;
+        if (w.createdAt && new Date(w.createdAt) >= startOfToday) { todayCount++; todayAmount += Number(w.amount) || 0; }
+      });
+
+      const statusText = currentStatus === 'all' ? 'All' : (statusLabel[currentStatus] || currentStatus);
+      const genOn = new Date().toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+      const brand = `
+        <div style="display:flex;align-items:center;border-bottom:3px solid #E31E24;padding-bottom:10px;margin-bottom:12px;">
+          <img src="/images/logo.png" alt="Tehelka News" style="max-height:52px;width:auto;margin-right:16px;">
+          <div style="flex:1;">
+            <h1 style="margin:0;color:#E31E24;font-size:20px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;">Withdrawal Payout Report</h1>
+            <p style="margin:2px 0 0;font-size:12px;color:#555;font-weight:600;">Tehelka News · Accounts Department</p>
+          </div>
+          <div style="text-align:right;font-size:11px;color:#444;">
+            <div><strong>Status:</strong> ${esc(statusText)}</div>
+            <div><strong>Generated:</strong> ${esc(genOn)}</div>
+          </div>
+        </div>`;
+
+      const summary = `
+        <div style="display:flex;gap:10px;margin-bottom:12px;font-size:11.5px;">
+          <div style="flex:1;border:1px solid #e5e5e2;border-radius:6px;padding:8px 10px;"><div style="color:#777;">Total Requests</div><div style="font-weight:bold;font-size:15px;">${list.length}</div></div>
+          <div style="flex:1;border:1px solid #e5e5e2;border-radius:6px;padding:8px 10px;"><div style="color:#777;">Total Amount</div><div style="font-weight:bold;font-size:15px;color:#198754;">${inr(totalAmount)}</div></div>
+          <div style="flex:1;border:1px solid #e5e5e2;border-radius:6px;padding:8px 10px;"><div style="color:#777;">Today's Requests</div><div style="font-weight:bold;font-size:15px;">${todayCount}</div></div>
+          <div style="flex:1;border:1px solid #e5e5e2;border-radius:6px;padding:8px 10px;"><div style="color:#777;">Today's Amount</div><div style="font-weight:bold;font-size:15px;color:#0d6efd;">${inr(todayAmount)}</div></div>
+        </div>`;
+
+      const colgroup = `<colgroup>
+        <col style="width:4%"><col style="width:16%"><col style="width:11%"><col style="width:10%">
+        <col style="width:23%"><col style="width:9%"><col style="width:8%"><col style="width:19%">
+      </colgroup>`;
+      const thead = `<thead style="display:table-header-group;">
+        <tr style="background:#f1f3f5;">
+          <th style="padding:6px 7px;border:1px solid #dee2e6;text-align:center;font-weight:bold;">#</th>
+          <th style="padding:6px 7px;border:1px solid #dee2e6;text-align:left;font-weight:bold;">Reporter / Mobile</th>
+          <th style="padding:6px 7px;border:1px solid #dee2e6;text-align:left;font-weight:bold;">Joined On</th>
+          <th style="padding:6px 7px;border:1px solid #dee2e6;text-align:right;font-weight:bold;">Amount</th>
+          <th style="padding:6px 7px;border:1px solid #dee2e6;text-align:left;font-weight:bold;">Payment Details</th>
+          <th style="padding:6px 7px;border:1px solid #dee2e6;text-align:left;font-weight:bold;">Type</th>
+          <th style="padding:6px 7px;border:1px solid #dee2e6;text-align:center;font-weight:bold;">Status</th>
+          <th style="padding:6px 7px;border:1px solid #dee2e6;text-align:left;font-weight:bold;">Requested / UTR</th>
+        </tr>
+      </thead>`;
+
+      const rowHtml = (w, i) => {
+        const r = w.reporter || {};
+        const utr = [w.utr ? 'UTR: ' + esc(w.utr) : '', w.remarks ? esc(w.remarks) : ''].filter(Boolean).join(' · ') || '-';
+        return `<tr style="background:${i % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+          <td style="padding:5px 7px;border:1px solid #dee2e6;text-align:center;">${i + 1}</td>
+          <td style="padding:5px 7px;border:1px solid #dee2e6;"><div style="font-weight:600;">${esc(r.name || 'Unknown')}</div><div style="color:#777;">${esc(r.mobileNumber || '')}</div></td>
+          <td style="padding:5px 7px;border:1px solid #dee2e6;white-space:nowrap;">${dateOnly(r.joinedAt)}</td>
+          <td style="padding:5px 7px;border:1px solid #dee2e6;text-align:right;font-weight:bold;color:#198754;white-space:nowrap;">${inr(w.amount)}</td>
+          <td style="padding:5px 7px;border:1px solid #dee2e6;font-size:10.5px;word-break:break-word;">${esc(w.paymentDetails)}</td>
+          <td style="padding:5px 7px;border:1px solid #dee2e6;text-transform:uppercase;">${esc(w.payoutType || '-')}</td>
+          <td style="padding:5px 7px;border:1px solid #dee2e6;text-align:center;font-weight:bold;">${esc(statusLabel[w.status] || w.status)}</td>
+          <td style="padding:5px 7px;border:1px solid #dee2e6;font-size:10.5px;"><div>${dt(w.createdAt)}</div><div style="color:#777;">${utr}</div></td>
+        </tr>`;
+      };
+
+      // Paginate: first page carries brand+summary (fewer rows), rest more.
+      const ROWS_FIRST = 14, ROWS_REST = 20;
+      const pages = [];
+      let idx = 0;
+      while (idx < list.length) {
+        const size = pages.length === 0 ? ROWS_FIRST : ROWS_REST;
+        pages.push(list.slice(idx, idx + size));
+        idx += size;
+      }
+
+      const pagesHtml = pages.map((chunk, pIdx) => {
+        const startIdx = pIdx === 0 ? 0 : ROWS_FIRST + (pIdx - 1) * ROWS_REST;
+        const rows = chunk.map((w, k) => rowHtml(w, startIdx + k)).join('');
+        return `<div style="padding:22px 24px;">
+          ${brand}
+          ${pIdx === 0 ? summary : ''}
+          <table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;">
+            ${colgroup}${thead}<tbody>${rows}</tbody>
+          </table>
+          <div style="margin-top:10px;display:flex;justify-content:space-between;color:#999;font-size:10px;">
+            <span>Confidential · For Accounts Department use only</span>
+            <span>Page ${pIdx + 1} of ${pages.length}</span>
+          </div>
+        </div>`;
+      }).join('<div class="html2pdf__page-break"></div>');
+
+      document.getElementById('withdrawalReportPages').innerHTML = pagesHtml;
+
+      const element = document.getElementById('withdrawalReportContainer').cloneNode(true);
+      element.style.display = 'block';
+      const holder = document.createElement('div');
+      holder.style.position = 'absolute';
+      holder.style.left = '-9999px';
+      holder.appendChild(element);
+      document.body.appendChild(holder);
+      try {
+        await html2pdf().set({
+          margin: [0.3, 0.3, 0.3, 0.3],
+          filename: `Withdrawals_${statusText}_${new Date().toISOString().slice(0,10)}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
+          pagebreak: { mode: ['avoid-all', 'legacy'], before: '.html2pdf__page-break' }
+        }).from(element).save();
+      } finally {
+        document.body.removeChild(holder);
+      }
+    } catch (err) {
+      alert('Error generating PDF: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+    }
+  }
+
+  document.getElementById('downloadPdfBtn').addEventListener('click', downloadWithdrawalsPdf);
   load();
 });
 </script>
+
+<!-- Hidden A4 (landscape) report for the Accounts Department. Pages built by JS. -->
+<div id="withdrawalReportContainer" style="display:none;">
+  <div id="withdrawalReportPages" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#222;background:#fff;"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <%- include('partials/footer') %>

@@ -3972,7 +3972,7 @@ async function renderPendingNewsPage(req, res) {
 
     const baseTeamQuery = {
       isActive: false,
-      aiStatus: 'none',
+      aiStatus: { $in: ['none', 'processing', 'review_required', 'failed'] },
       authorId: { $ne: String(req.admin.id) },
       isDeactivated: { $ne: true },
       $or: [
@@ -6785,13 +6785,15 @@ async function listWalletWithdrawals(req, res) {
     const status = req.query.status || 'pending';
     const WithdrawalRequest = require('../models/WithdrawalRequest');
     const filter = status === 'all' ? {} : { status };
+    // Default 200 for the on-screen table; the Accounts PDF export requests up to 500.
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 200));
 
     const [withdrawals, counts] = await Promise.all([
       WithdrawalRequest.find(filter)
-        .populate('adminId', 'username name displayRole mobileNumber email walletBalance')
+        .populate('adminId', 'username name displayRole mobileNumber email walletBalance createdAt')
         .populate('processedBy', 'username name')
         .sort({ createdAt: -1 })
-        .limit(200)
+        .limit(limit)
         .lean(),
       WithdrawalRequest.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 }, amount: { $sum: '$amount' } } }
@@ -6826,7 +6828,8 @@ async function listWalletWithdrawals(req, res) {
           username: w.adminId.username,
           mobileNumber: w.adminId.mobileNumber || '',
           email: w.adminId.email || '',
-          walletBalance: w.adminId.walletBalance ?? 0
+          walletBalance: w.adminId.walletBalance ?? 0,
+          joinedAt: w.adminId.createdAt || null // account join date (for Accounts PDF)
         } : null
       }))
     });

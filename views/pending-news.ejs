@@ -169,7 +169,7 @@
                                                 <% pendingNews.forEach((news) => { %>
                                                     <%- include('partials/pending-news-card', {
                                                         news: news,
-                                                        isAIQueue: false,
+                                                        isAIQueue: news.aiStatus !== 'none',
                                                         pendingLangLabels: pendingLangLabels,
                                                         showFullDetails: showFullDetails,
                                                         canApproveNews: canApproveNews,
