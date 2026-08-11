@@ -809,11 +809,35 @@ async function renderEditNewsPage(req, res) {
 async function validatePostingArea(reqAdmin, scope, location) {
   if (!reqAdmin || reqAdmin.role !== 'subeditor') return null;
 
-  const adminDoc = await Admin.findById(reqAdmin.id).select('assignedDistricts allowedScopes').lean();
+  const adminDoc = await Admin.findById(reqAdmin.id)
+    .select('assignedDistricts allowedScopes permissions.managedStates').lean();
 
   const allowedScopes = (adminDoc?.allowedScopes || []).filter(Boolean);
   if (allowedScopes.length && !allowedScopes.includes(scope)) {
     return `You are not allowed to post ${scope} news.`;
+  }
+
+  // Per-state guard: a sub-editor who is district-restricted in a given state (has
+  // assignedDistricts there) must not post STATE-level news for THAT state — they must
+  // post under their assigned districts instead. It activates ONLY when the sub-editor
+  // has an explicit managed-state approval scope (permissions.managedStates non-empty),
+  // which is the mixed per-state config (e.g. district-only in UP, state-level elsewhere).
+  // State-level sub-editors (managedStates empty) are intentionally unaffected, so no
+  // existing user's behaviour changes. Other states (where they have no assignedDistricts)
+  // remain state-level allowed.
+  if (scope === 'state') {
+    const managedStates = (adminDoc?.permissions?.managedStates || []).filter(Boolean);
+    const stateDistricts = (adminDoc?.assignedDistricts || []).filter(Boolean);
+    const stateName = (location || '').trim();
+    if (managedStates.length && stateDistricts.length && stateName) {
+      const restrictedHere = await Location.exists({
+        locationType: 'district', parentName: stateName, name: { $in: stateDistricts }
+      });
+      if (restrictedHere) {
+        return `You are restricted to district-level posting in ${stateName}. Please post under your assigned districts.`;
+      }
+    }
+    return null;
   }
 
   if (scope !== 'district') return null;
@@ -2201,6 +2225,7 @@ module.exports = {
   getAllNews,
   getNewsById,
   createNews,
+  validatePostingArea, // exported for scope-guard verification (no behavioural change)
   toggleNewsStatus,
   updateNews,
   resubmitNews,

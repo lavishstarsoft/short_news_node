@@ -2010,6 +2010,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 const constEl = document.getElementById('addConstituency');
                 if (constEl) { constEl.value = loc; constEl.dispatchEvent(new Event('input', {bubbles: true})); }
             }
+            // Pre-select a default Display Role (a REQUIRED field). Without this, the
+            // application-onboarding flow leaves this hidden-tab select empty, and native
+            // form validation silently blocks Save (the field is not focusable while its
+            // tab is display:none), so nothing is submitted/saved. Admin can still change it.
+            const drEl = document.getElementById('addDisplayRole');
+            if (drEl && !drEl.value) {
+                const opts = Array.from(drEl.options);
+                const rep = opts.find(o => o.value && o.value.trim().toLowerCase() === 'reporter');
+                const pick = rep || opts.find(o => o.value);
+                if (pick) { drEl.value = pick.value; drEl.dispatchEvent(new Event('change', {bubbles: true})); }
+            }
         }, 100);
 
         // Set default password to DDMMYYYY

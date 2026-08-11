@@ -1064,6 +1064,16 @@
                         } else if (stateSelect.options.length === 2) {
                             stateSelect.selectedIndex = 1;
                         }
+
+                        // District-restricted sub editor: the parent state is auto-resolved to a
+                        // single fixed state, so the State option must NOT be shown/selectable —
+                        // only the assigned districts are offered. (Backend still enforces scope.)
+                        window._stateDistrictLocked = !_isAdminOrSuper && _isSubEditor
+                            && scope === 'district' && _editorAssignedDistricts.length > 0
+                            && stateSelect.options.length === 2; // placeholder + single parent state
+                        const _stateWrap = document.getElementById('locationStateWrapper');
+                        if (_stateWrap && window._stateDistrictLocked) _stateWrap.style.display = 'none';
+
                         onStateChange();
                     }
 
@@ -1183,7 +1193,9 @@
                         }
 
                         if (scope === 'district') {
-                            stateW.style.display = '';
+                            // Keep the State selector hidden for district-restricted sub editors
+                            // (state is auto-resolved); everyone else picks the state normally.
+                            stateW.style.display = window._stateDistrictLocked ? 'none' : '';
                             distW.style.display = '';
                             onDistrictChange();
                         } else if (scope === 'state') {
