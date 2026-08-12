@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<%- include('partials/header', { title: 'Security Center' }) %>
+
+<body>
+    <%- include('partials/top-nav', { pageTitle: 'Security Center', backButton: true, backUrl: '/' }) %>
+
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar', { activePage: 'security-center' }) %>
+
+            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+                <div class="content-area py-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h3 class="mb-1">Security Center — Threat Monitor</h3>
+                            <p class="text-muted mb-0">Behaviour-based detection from the Security Alert Engine. Mode:
+                                <span class="badge <%= data.enforce ? 'bg-danger' : 'bg-secondary' %>"><%= data.enforce ? 'ENFORCING' : 'DETECT-ONLY' %></span>
+                            </p>
+                        </div>
+                        <button class="btn btn-outline-primary btn-sm" onclick="refresh()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                    </div>
+
+                    <!-- severity tiles -->
+                    <div class="row g-2 mb-3" id="sevTiles">
+                        <% const sevColors={CRITICAL:'#7f1d1d',HIGH:'#dc3545',MEDIUM:'#fd7e14',LOW:'#0d6efd',INFO:'#6c757d'}; %>
+                        <% ['CRITICAL','HIGH','MEDIUM','LOW','INFO'].forEach(function(s){ %>
+                        <div class="col">
+                            <div class="card text-white" style="background:<%= sevColors[s] %>;">
+                                <div class="card-body py-2 px-3">
+                                    <div style="font-size:11px;opacity:.85;"><%= s %></div>
+                                    <div style="font-size:22px;font-weight:700;"><%= data.severity[s] || 0 %></div>
+                                </div>
+                            </div>
+                        </div>
+                        <% }); %>
+                        <div class="col">
+                            <div class="card border"><div class="card-body py-2 px-3">
+                                <div style="font-size:11px;color:#777;">UNRESOLVED</div>
+                                <div style="font-size:22px;font-weight:700;"><%= data.unresolved %></div>
+                            </div></div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-lg-6">
+                            <div class="card"><div class="card-header fw-bold py-2">Top Suspicious IPs (24h)</div>
+                                <div class="table-responsive"><table class="table table-sm mb-0">
+                                    <thead class="table-light"><tr><th>IP</th><th>Events</th><th>Max Sev</th><th></th></tr></thead>
+                                    <tbody>
+                                    <% (data.topIps||[]).forEach(function(r){ %>
+                                        <tr><td><code><%= r._id %></code></td><td><%= r.c %></td><td><%= r.sev %></td>
+                                            <td class="text-end"><button class="btn btn-outline-danger btn-sm py-0" onclick="unblock('<%= r._id %>')">Unblock</button></td></tr>
+                                    <% }); %>
+                                    <% if(!(data.topIps||[]).length){ %><tr><td colspan="4" class="text-muted text-center py-3">No events</td></tr><% } %>
+                                    </tbody>
+                                </table></div>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="card"><div class="card-header fw-bold py-2">Top Attacked Endpoints (24h)</div>
+                                <div class="table-responsive"><table class="table table-sm mb-0">
+                                    <thead class="table-light"><tr><th>Endpoint</th><th>Events</th></tr></thead>
+                                    <tbody>
+                                    <% (data.topEndpoints||[]).forEach(function(r){ %>
+                                        <tr><td style="word-break:break-all;"><%= r._id %></td><td><%= r.c %></td></tr>
+                                    <% }); %>
+                                    <% if(!(data.topEndpoints||[]).length){ %><tr><td colspan="2" class="text-muted text-center py-3">No events</td></tr><% } %>
+                                    </tbody>
+                                </table></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- live alerts -->
+                    <div class="card">
+                        <div class="card-header fw-bold py-2">Live Alerts (latest 100)</div>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm align-middle mb-0" style="font-size:13px;">
+                                <thead class="table-light"><tr>
+                                    <th>Time</th><th>Severity</th><th>Type</th><th>IP</th><th>Endpoint</th>
+                                    <th>Account</th><th>Count</th><th>Action</th><th>Status</th><th></th>
+                                </tr></thead>
+                                <tbody id="alertBody">
+                                    <% (data.recent||[]).forEach(function(a){ %>
+                                    <tr>
+                                        <td class="text-nowrap"><%= new Date(a.createdAt).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) %></td>
+                                        <td><span class="badge" style="background:<%= sevColors[a.severity]||'#6c757d' %>;"><%= a.severity %></span></td>
+                                        <td><%= a.type %></td>
+                                        <td><code><%= a.ip || '-' %></code></td>
+                                        <td style="max-width:220px;word-break:break-all;"><%= a.endpoint || '-' %></td>
+                                        <td><%= a.account || '-' %></td>
+                                        <td><%= a.count %></td>
+                                        <td><%= a.actionTaken !== 'none' ? a.actionTaken : '-' %></td>
+                                        <td><span class="badge <%= a.resolved ? 'bg-success' : 'bg-warning text-dark' %>"><%= a.resolved ? 'Resolved' : 'Open' %></span></td>
+                                        <td class="text-end"><% if(!a.resolved){ %><button class="btn btn-outline-success btn-sm py-0" onclick="resolveAlert('<%= a._id %>')">Resolve</button><% } %></td>
+                                    </tr>
+                                    <% }); %>
+                                    <% if(!(data.recent||[]).length){ %><tr><td colspan="10" class="text-muted text-center py-4">No alerts recorded.</td></tr><% } %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <p class="text-muted small mt-2">Generated: <%= new Date(data.generatedAt).toLocaleString('en-IN') %>. Detection is behaviour-based; no geographic blocking. Response actions auto-expire (TTL) and can be rolled back above.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function refresh(){ location.reload(); }
+        async function resolveAlert(id){
+            try{ const r=await fetch('/admin/security-center/alerts/'+id+'/resolve',{method:'POST'}); if(r.ok) location.reload(); else alert('Failed'); }catch(e){ alert('Failed'); }
+        }
+        async function unblock(ip){
+            if(!confirm('Unblock '+ip+'?'))return;
+            try{ const r=await fetch('/admin/security-center/unblock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip})}); const d=await r.json(); alert(d.success?'Unblocked':'Failed'); }catch(e){ alert('Failed'); }
+        }
+    </script>
+
+    <%- include('partials/footer') %>
+</body>
+
+</html>

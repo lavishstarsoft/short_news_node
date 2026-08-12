@@ -101,6 +101,40 @@ const createMulterR2Interface = (options = {}) => {
                     }
                     if (!req.file) return next();
 
+                    // ── Phase-2 secure-upload inspection (magic bytes / disguised exe / SVG-script).
+                    // ALERT-ONLY by default: suspicious files are logged to the Security Alert
+                    // Engine but STILL processed, so valid uploads never break. Set
+                    // SECURITY_UPLOAD_ENFORCE=true to actively reject. Fail-open on any error.
+                    try {
+                        const verdict = require('../services/security/uploadValidator')
+                            .inspect(req.file.buffer, req.file.originalname, req.file.mimetype);
+                        if (!verdict.ok) {
+                            try {
+                                require('../services/security/alertEngine').record({
+                                    type: 'suspicious_upload',
+                                    severity: verdict.severity,
+                                    ip: require('request-ip').getClientIp(req) || req.ip,
+                                    endpoint: req.path,
+                                    method: req.method,
+                                    account: (req.admin && req.admin.username) || '',
+                                    userAgent: req.headers['user-agent'],
+                                    message: `Suspicious upload: ${verdict.reasons.join('; ')}`,
+                                    details: {
+                                        filename: req.file.originalname,
+                                        declaredMime: req.file.mimetype,
+                                        detected: verdict.detectedType,
+                                        size: req.file.size,
+                                        reasons: verdict.reasons
+                                    }
+                                });
+                            } catch (_) { /* alerting must not affect upload */ }
+
+                            if (process.env.SECURITY_UPLOAD_ENFORCE === 'true') {
+                                return res.status(400).json({ error: 'This file failed security validation and was blocked.' });
+                            }
+                        }
+                    } catch (_) { /* fail-open: inspection never breaks a valid upload */ }
+
                     try {
                         let buffer = req.file.buffer;
                         let mimetype = req.file.mimetype;

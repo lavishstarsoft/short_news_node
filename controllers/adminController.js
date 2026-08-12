@@ -360,6 +360,17 @@ const login = async (req, res) => {
     }
 
     if (!isMatch) {
+      // Feed the Security Alert Engine (brute-force / credential-stuffing detection).
+      // Fire-and-forget, fail-open — must never delay or break the login response.
+      try {
+        require('../services/security/alertEngine').record({
+          type: 'login_failed',
+          ip: requestIp.getClientIp(req) || req.ip,
+          account: (username || '').toString().slice(0, 200),
+          userAgent: req.headers['user-agent'],
+          endpoint: req.path
+        });
+      } catch (_) { /* ignore */ }
       return res.render('login', { error: 'Invalid credentials' });
     }
 

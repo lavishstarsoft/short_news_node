@@ -301,6 +301,29 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
+// Content-Security-Policy — OFF by default. Set SECURITY_CSP_MODE=report-only to
+// observe violations (nothing is blocked) or =enforce after review (Phase 4).
+// 'unsafe-inline' is retained because the EJS dashboards use inline scripts/styles;
+// report-only still surfaces unexpected EXTERNAL sources without breaking anything.
+(() => {
+  const mode = (process.env.SECURITY_CSP_MODE || 'off').toLowerCase();
+  if (mode !== 'report-only' && mode !== 'enforce') return;
+  const policy = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.quilljs.com https://unpkg.com https://www.google.com https://www.gstatic.com",
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.quilljs.com https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' blob: https:",
+    "connect-src 'self' https: wss: ws:",
+    "frame-src https://www.youtube.com https://player.vimeo.com https://www.google.com",
+    "object-src 'none'", "base-uri 'self'",
+    'report-uri /api/security/csp-report'
+  ].join('; ');
+  const header = mode === 'enforce' ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only';
+  app.use((req, res, next) => { res.setHeader(header, policy); next(); });
+})();
+
 app.use(compression()); // Compress all responses
 
 // CORS: native mobile apps send no Origin header (and so are unaffected by
@@ -380,6 +403,16 @@ app.use(mongoSanitize());
 app.use(hpp());
 
 app.use(cookieParser()); // Add cookie parser middleware
+
+// Security Alert Engine monitor — fail-open; observes 4xx/5xx + optional temp IP block.
+app.use(require('./middleware/securityMonitor')());
+
+// Origin-based CSRF guard for cookie-authenticated browser requests (detect-only
+// unless SECURITY_CSRF_ENFORCE=true). Mobile/API (Authorization header) untouched.
+app.use(require('./middleware/csrfGuard')());
+
+// CSP violation report sink → Security Alert Engine (no auth; browsers post here).
+app.use(require('./routes/securityReportRoutes'));
 
 // 🚀 Explicit route for Android Digital Asset Links (MUST be an Array)
 app.get(['/.well-known/assetlinks.json', '/assetlinks.json'], (req, res) => {

@@ -191,6 +191,13 @@ router.post('/api/zodiac', adminController.requireAuth, adminController.requireS
 router.get('/security', adminController.requireAdmin, securityController.renderSecurityPage);
 router.post('/security/block', adminController.requireAdmin, securityController.blockIdentifier);
 router.post('/security/clear', adminController.requireAdmin, securityController.clearDeviceLogs);
+
+// Security Center (Threat Monitor) — Security Alert Engine dashboard (admin only).
+const securityAlertController = require('../controllers/securityAlertController');
+router.get('/security-center', adminController.requireAdmin, securityAlertController.renderSecurityCenter);
+router.get('/security-center/data', adminController.requireAdmin, securityAlertController.securityData);
+router.post('/security-center/alerts/:id/resolve', adminController.requireAdmin, securityAlertController.resolveAlert);
+router.post('/security-center/unblock', adminController.requireAdmin, securityAlertController.unblockIp);
 // Reporter Wallet / Stats API
 router.get('/api/reporter/daily-stats', adminController.requireAuth, adminController.getReporterDailyStats);
 router.get('/api/reporter/period-stats', adminController.requireAuth, adminController.getReporterPeriodStats);

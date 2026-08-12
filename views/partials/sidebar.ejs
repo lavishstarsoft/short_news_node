@@ -397,7 +397,7 @@
 
                 const canSendNotif = isAdmin || (typeof admin !=='undefined' && admin.role==='subeditor' && admin.permissions && admin.permissions.canSendNotifications);
                 const showSystemGroup = isAdmin || canSendNotif;
-                const systemGroupActive = ['command-center', 'security', 'notifications', 'app-settings', 'r2-usage'].includes(activePage);
+                const systemGroupActive = ['command-center', 'security', 'security-center', 'notifications', 'app-settings', 'r2-usage'].includes(activePage);
 
                 const showFinanceGroup = isAdmin || isReporter;
                 const financeActive = ['wallet-settings', 'my-wallet', 'withdrawals-queue', 'wallet-transactions', 'audit-logs', 'monthly-report'].includes(activePage); 
@@ -457,6 +457,9 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'security' ? 'active' : '' %>" href="/admin/security">Security & Fraud</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'security-center' ? 'active' : '' %>" href="/admin/security-center">Security Center</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'app-settings' ? 'active' : '' %>" href="/admin/app-settings">App Settings</a>
