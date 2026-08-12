@@ -39,6 +39,13 @@ const locationSchema = new mongoose.Schema({
     ref: 'Location',
     default: null
   },
+  // True administrative state, preserved when a district's app-hierarchy parent
+  // differs from its legal state (e.g. NCR districts shown under "Delhi").
+  // Display/grouping uses parentName; this retains the real state for audit/truth.
+  administrativeState: {
+    type: String,
+    default: null
+  },
   parentName: {
     type: String,
     default: null
