@@ -10,9 +10,10 @@ const Admin = require('../models/Admin');
 router.get('/', requireAuth, async (req, res) => {
     try {
         if (req.admin && req.admin.id) {
-            const adminData = await Admin.findById(req.admin.id).select('workingLanguage').lean();
-            if (adminData && adminData.workingLanguage) {
-                req.admin.workingLanguage = adminData.workingLanguage;
+            const adminData = await Admin.findById(req.admin.id).select('workingLanguage allowedLanguages').lean();
+            if (adminData) {
+                if (adminData.workingLanguage) req.admin.workingLanguage = adminData.workingLanguage;
+                if (adminData.allowedLanguages) req.admin.allowedLanguages = adminData.allowedLanguages;
             }
         }
         const languages = await Language.getActiveLanguages();

@@ -130,17 +130,26 @@
                                 <% } %>
                                 <div class="mb-0">
                                     <label class="vv-form-label" for="videoLanguage">Language</label>
-                                    <select class="form-control vv-form-control" id="videoLanguage" <%= admin.role === 'subeditor' ? 'disabled' : '' %>>
-                                        <option value="" disabled <%= admin.role !== 'subeditor' ? 'selected' : '' %>>Select Language</option>
+                                    <% 
+                                        let allowedLangs = null;
+                                        if (admin.role === 'subeditor' && admin.allowedLanguages && admin.allowedLanguages.length > 0) {
+                                            allowedLangs = admin.allowedLanguages.includes('all') ? null : admin.allowedLanguages;
+                                        }
+                                        const isSingleLang = allowedLangs && allowedLangs.length === 1;
+                                    %>
+                                    <select class="form-control vv-form-control" id="videoLanguage" <%= isSingleLang ? 'disabled' : '' %>>
+                                        <option value="" disabled <%= !isSingleLang ? 'selected' : '' %>>Select Language</option>
                                         <% if (typeof languages !== 'undefined' && languages.length > 0) { %>
                                             <% languages.forEach(function(lang) { %>
-                                                <option value="<%= lang.code %>" <%= (admin.role === 'subeditor' && admin.workingLanguage === lang.code) ? 'selected' : '' %>><%= lang.name %></option>
+                                                <% if (!allowedLangs || allowedLangs.includes(lang.code)) { %>
+                                                    <option value="<%= lang.code %>" <%= (admin.workingLanguage === lang.code) ? 'selected' : '' %>><%= lang.name %></option>
+                                                <% } %>
                                             <% }); %>
                                         <% } else { %>
-                                            <option value="te" <%= (admin.role === 'subeditor' && admin.workingLanguage === 'te') ? 'selected' : '' %>>Telugu</option>
-                                            <option value="hi" <%= (admin.role === 'subeditor' && admin.workingLanguage === 'hi') ? 'selected' : '' %>>Hindi</option>
-                                            <option value="en" <%= (admin.role === 'subeditor' && admin.workingLanguage === 'en') ? 'selected' : '' %>>English</option>
-                                            <option value="ta" <%= (admin.role === 'subeditor' && admin.workingLanguage === 'ta') ? 'selected' : '' %>>Tamil</option>
+                                            <% if (!allowedLangs || allowedLangs.includes('te')) { %><option value="te" <%= (admin.workingLanguage === 'te') ? 'selected' : '' %>>Telugu</option><% } %>
+                                            <% if (!allowedLangs || allowedLangs.includes('hi')) { %><option value="hi" <%= (admin.workingLanguage === 'hi') ? 'selected' : '' %>>Hindi</option><% } %>
+                                            <% if (!allowedLangs || allowedLangs.includes('en')) { %><option value="en" <%= (admin.workingLanguage === 'en') ? 'selected' : '' %>>English</option><% } %>
+                                            <% if (!allowedLangs || allowedLangs.includes('ta')) { %><option value="ta" <%= (admin.workingLanguage === 'ta') ? 'selected' : '' %>>Tamil</option><% } %>
                                         <% } %>
                                     </select>
                                 </div>
