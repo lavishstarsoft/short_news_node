@@ -28,8 +28,15 @@ function getTransport() {
   _transport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT, 10) || 587,
-    secure: process.env.SMTP_SECURE === 'true', // true=465, false=587(STARTTLS)
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+    secure: process.env.SMTP_SECURE === 'true', // true=465(SSL), false=587(STARTTLS)
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    // Never hang the app if the SMTP provider is slow/unreachable.
+    connectionTimeout: parseInt(process.env.SMTP_CONN_TIMEOUT_MS, 10) || 10000,
+    greetingTimeout: parseInt(process.env.SMTP_GREET_TIMEOUT_MS, 10) || 10000,
+    socketTimeout: parseInt(process.env.SMTP_SOCKET_TIMEOUT_MS, 10) || 20000,
+    // Keep TLS strong — do NOT disable verification just to pass a test.
+    requireTLS: process.env.SMTP_SECURE !== 'true', // enforce STARTTLS on 587
+    tls: { minVersion: 'TLSv1.2', servername: process.env.SMTP_HOST }
   });
   return _transport;
 }

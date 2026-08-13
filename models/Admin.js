@@ -89,6 +89,12 @@ const adminSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  /** State In-Charge agreement lifecycle (additive; default null = not started). */
+  agreementStatus: {
+    type: String,
+    enum: ['invited', 'otp_verified', 'agreement_accepted', 'approved', 'appointed', null],
+    default: null
+  },
   /** Monthly salary — Admin/Super Admin set only; null = not set. Shown on Staff Record PDF. */
   salary: {
     type: Number,

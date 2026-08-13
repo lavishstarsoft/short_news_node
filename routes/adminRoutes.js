@@ -194,6 +194,16 @@ router.post('/security/clear', adminController.requireAdmin, securityController.
 
 // Security Center (Threat Monitor) — Security Alert Engine dashboard (admin only).
 const securityAlertController = require('../controllers/securityAlertController');
+// State In-Charge Agreement — T&C management (Super Admin enforced in controller) + status.
+const agreementTermsController = require('../controllers/agreementTermsController');
+router.get('/agreement-terms', adminController.requireAdmin, agreementTermsController.renderTermsAdmin);
+router.get('/agreement-terms/api', adminController.requireAdmin, agreementTermsController.list);
+router.post('/agreement-terms/api', adminController.requireAdmin, agreementTermsController.createDraft);
+router.get('/agreement-terms/api/:id', adminController.requireAdmin, agreementTermsController.getVersion);
+router.put('/agreement-terms/api/:id', adminController.requireAdmin, agreementTermsController.updateDraft);
+router.post('/agreement-terms/api/:id/publish', adminController.requireAdmin, agreementTermsController.publishDraft);
+router.get('/agreement-status', adminController.requireAdmin, agreementTermsController.renderAgreementStatus);
+
 router.get('/security-center', adminController.requireAdmin, securityAlertController.renderSecurityCenter);
 router.get('/security-center/data', adminController.requireAdmin, securityAlertController.securityData);
 router.post('/security-center/alerts/:id/resolve', adminController.requireAdmin, securityAlertController.resolveAlert);

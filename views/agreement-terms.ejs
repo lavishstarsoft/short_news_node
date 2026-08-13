@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Agreement Terms' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Agreement Terms', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'agreement-terms' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div><h3 class="mb-1">Agreement / Terms &amp; Conditions</h3>
+            <p class="text-muted mb-0">Super Admin only. Published versions are immutable — create a new version to change terms.</p></div>
+          <button class="btn btn-danger" onclick="openCreate()"><i class="fas fa-plus me-1"></i>Create New Version</button>
+        </div>
+
+        <% const published=(versions||[]).filter(v=>v.status==='published'); const drafts=(versions||[]).filter(v=>v.status==='draft'); const archived=(versions||[]).filter(v=>v.status==='archived'); %>
+
+        <div class="card mb-3"><div class="card-header fw-bold">Current Published Version</div><div class="card-body">
+          <% if(published.length){ const p=published[0]; %>
+            <div><b>v<%= p.version %></b> — <span class="badge bg-success">ACTIVE</span></div>
+            <div class="small text-muted">Published: <%= p.publishedAt ? new Date(p.publishedAt).toLocaleString('en-IN') : '-' %> · Hash: <code><%= (p.contentHash||'').slice(0,16) %>…</code></div>
+            <button class="btn btn-sm btn-outline-secondary mt-2" onclick="viewVer('<%= p._id %>')">View</button>
+          <% } else { %><span class="text-muted">No published version yet. Create + publish one.</span><% } %>
+        </div></div>
+
+        <div class="card mb-3"><div class="card-header fw-bold">Draft Versions</div><div class="table-responsive"><table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Version</th><th>Title</th><th>Change Summary</th><th class="text-end">Actions</th></tr></thead><tbody>
+          <% drafts.forEach(function(d){ %><tr>
+            <td>v<%= d.version %> <span class="badge bg-warning text-dark">DRAFT</span></td><td><%= d.title %></td><td class="small text-muted"><%= d.changeSummary||'-' %></td>
+            <td class="text-end"><button class="btn btn-sm btn-outline-primary" onclick="editVer('<%= d._id %>')">Edit</button>
+              <button class="btn btn-sm btn-outline-danger" onclick="publishVer('<%= d._id %>','<%= d.version %>')">Publish</button></td></tr><% }); %>
+          <% if(!drafts.length){ %><tr><td colspan="4" class="text-muted text-center py-3">No drafts</td></tr><% } %>
+        </tbody></table></div></div>
+
+        <div class="card"><div class="card-header fw-bold">Previous / Archived Versions</div><div class="table-responsive"><table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Version</th><th>Published</th><th>Hash</th><th></th></tr></thead><tbody>
+          <% archived.forEach(function(a){ %><tr><td>v<%= a.version %> <span class="badge bg-secondary">ARCHIVED</span></td>
+            <td class="small"><%= a.publishedAt?new Date(a.publishedAt).toLocaleString('en-IN'):'-' %></td><td><code><%= (a.contentHash||'').slice(0,16) %>…</code></td>
+            <td class="text-end"><button class="btn btn-sm btn-outline-secondary" onclick="viewVer('<%= a._id %>')">View</button></td></tr><% }); %>
+          <% if(!archived.length){ %><tr><td colspan="4" class="text-muted text-center py-3">None</td></tr><% } %>
+        </tbody></table></div></div>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- Editor modal -->
+  <div class="modal fade" id="tncModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="tncModalTitle">New Version</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="tncId">
+      <div class="row g-2 mb-2"><div class="col-md-4"><label class="form-label">Version *</label><input id="tncVersion" class="form-control" placeholder="1.1"></div>
+        <div class="col-md-8"><label class="form-label">Title</label><input id="tncTitle" class="form-control" value="State In-Charge Appointment — Terms & Conditions"></div></div>
+      <div class="mb-2"><label class="form-label">English Terms &amp; Conditions</label><textarea id="tncEn" class="form-control" rows="8"></textarea></div>
+      <div class="mb-2"><label class="form-label">Telugu Terms &amp; Conditions</label><textarea id="tncTe" class="form-control" rows="8"></textarea></div>
+      <div class="mb-2"><label class="form-label">Change Summary (internal)</label><input id="tncSummary" class="form-control"></div>
+      <div id="tncErr" class="text-danger small"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button class="btn btn-primary" id="tncSaveBtn" onclick="saveDraft()">Save Draft</button></div>
+  </div></div></div>
+
+  <script>
+    let _m; function modal(){if(!_m)_m=new bootstrap.Modal(document.getElementById('tncModal'));return _m;}
+    function openCreate(){['tncId','tncVersion','tncEn','tncTe','tncSummary'].forEach(i=>document.getElementById(i).value='');document.getElementById('tncTitle').value='State In-Charge Appointment — Terms & Conditions';document.getElementById('tncModalTitle').textContent='New Version';document.getElementById('tncErr').textContent='';modal().show();}
+    async function editVer(id){const r=await fetch('/admin/agreement-terms/api/'+id);const d=await r.json();if(d.error){alert(d.error);return;}
+      document.getElementById('tncId').value=id;document.getElementById('tncVersion').value=d.version;document.getElementById('tncTitle').value=d.title||'';document.getElementById('tncEn').value=d.bodyEnglish||'';document.getElementById('tncTe').value=d.bodyTelugu||'';document.getElementById('tncSummary').value=d.changeSummary||'';document.getElementById('tncModalTitle').textContent='Edit Draft v'+d.version;document.getElementById('tncErr').textContent='';modal().show();}
+    async function viewVer(id){const r=await fetch('/admin/agreement-terms/api/'+id);const d=await r.json();alert('v'+d.version+' ['+d.status+']\\nHash: '+(d.contentHash||'(draft)')+'\\n\\n--- English ---\\n'+(d.bodyEnglish||'').slice(0,1500));}
+    async function saveDraft(){const id=document.getElementById('tncId').value;
+      const body={version:document.getElementById('tncVersion').value.trim(),title:document.getElementById('tncTitle').value,bodyEnglish:document.getElementById('tncEn').value,bodyTelugu:document.getElementById('tncTe').value,changeSummary:document.getElementById('tncSummary').value};
+      if(!body.version){document.getElementById('tncErr').textContent='Version required';return;}
+      const url=id?'/admin/agreement-terms/api/'+id:'/admin/agreement-terms/api';const res=await fetch(url,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await res.json();
+      if(!res.ok){document.getElementById('tncErr').textContent=d.error||'Failed';return;}location.reload();}
+    async function publishVer(id,ver){if(!confirm('You are publishing T&C Version '+ver+'.\\nFuture agreements will use this version.\\nExisting accepted agreements remain unchanged.'))return;
+      const res=await fetch('/admin/agreement-terms/api/'+id+'/publish',{method:'POST'});const d=await res.json();if(!res.ok){alert(d.error||'Failed');return;}location.reload();}
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>

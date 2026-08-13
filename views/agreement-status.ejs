@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Agreement Status' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Agreement Status', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'agreement-status' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <div class="mb-3"><h3 class="mb-1">State In-Charge — Agreement Status</h3>
+          <p class="text-muted mb-0">Read-only record of accepted appointment agreements. Each row references the exact T&amp;C version &amp; hash active when it was accepted.</p></div>
+
+        <%
+          function maskEmail(e){ e=String(e||''); var p=e.split('@'); if(p.length<2) return '***'; return p[0].charAt(0)+'***@'+p[1]; }
+          var list = acceptances || [];
+        %>
+        <div class="card"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr>
+            <th>Name</th><th>State</th><th>Email</th><th>Status</th><th>T&amp;C</th>
+            <th>Accepted</th><th>IP</th><th>Location</th><th>Sign</th><th>Acceptance Hash</th>
+          </tr></thead><tbody>
+          <% if(!list.length){ %><tr><td colspan="10" class="text-center text-muted py-4">No agreements accepted yet.</td></tr><% } %>
+          <% list.forEach(function(a){ %>
+            <tr>
+              <td><%= a.name || '—' %><% if(a.typedName && a.typedName!==a.name){ %><div class="small text-muted">signed: <%= a.typedName %></div><% } %></td>
+              <td><%= a.state || '—' %></td>
+              <td class="small"><%= maskEmail(a.email) %></td>
+              <td><span class="badge bg-success">Accepted</span></td>
+              <td>v<%= a.tncVersion %><div class="small text-muted"><code><%= (a.tncHash||'').slice(0,12) %>…</code></div></td>
+              <td class="small"><%= a.acceptedAt ? new Date(a.acceptedAt).toLocaleString('en-IN') : '—' %></td>
+              <td class="small"><%= a.ip || '—' %></td>
+              <td class="small">
+                <% if(a.locationPermission==='granted' && a.latitude!=null){ %>
+                  <span class="text-success">Shared</span><div class="text-muted"><%= Number(a.latitude).toFixed(3) %>, <%= Number(a.longitude).toFixed(3) %></div>
+                <% } else if(a.locationPermission==='denied'){ %><span class="text-muted">Declined</span>
+                <% } else { %><span class="text-muted">—</span><% } %>
+              </td>
+              <td><% if(a.signatureRef){ %><a href="<%= a.signatureRef %>" target="_blank" rel="noopener">View</a><% } else { %><span class="text-muted">—</span><% } %></td>
+              <td><code class="small"><%= (a.acceptanceHash||'').slice(0,16) %>…</code></td>
+            </tr>
+          <% }); %>
+        </tbody></table></div></div>
+        <p class="text-muted small mt-2">IP / GPS / device are supporting audit evidence only — not proof of identity. Identity is established by registered-email OTP verification.</p>
+      </div>
+    </div>
+  </div></div>
+  <%- include('partials/footer') %>
+</body>
+</html>

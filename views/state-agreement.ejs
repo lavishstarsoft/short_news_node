@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>State In-Charge Agreement — Tehelka News</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body{background:#f4f5f7;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+    .agr-wrap{max-width:640px;margin:24px auto;padding:0 14px;}
+    .agr-card{background:#fff;border-radius:14px;box-shadow:0 2px 14px rgba(0,0,0,.07);padding:22px;}
+    .agr-brand{color:#E31E24;font-weight:800;letter-spacing:.5px;}
+    .agr-step{display:none;} .agr-step.active{display:block;}
+    .tnc-box{max-height:320px;overflow:auto;border:1px solid #e5e5e2;border-radius:8px;padding:12px;font-size:13.5px;white-space:pre-wrap;background:#fafafa;}
+    #sigPad{border:1px dashed #bbb;border-radius:8px;width:100%;height:150px;touch-action:none;background:#fff;}
+    .muted{color:#777;font-size:12.5px;}
+    .err{color:#dc3545;font-size:13px;}
+  </style>
+</head>
+<body>
+  <div class="agr-wrap">
+    <div class="text-center mb-3"><span class="agr-brand">TEHELKA NEWS</span><div class="muted">State In-Charge — Appointment Agreement</div></div>
+    <div class="agr-card">
+
+      <!-- Step 1: email -->
+      <div class="agr-step active" id="s-email">
+        <h5>Verify your identity</h5>
+        <p class="muted">Enter the email address registered with your State In-Charge account. A one-time code will be sent to that email.</p>
+        <input type="email" id="email" class="form-control mb-2" placeholder="registered email address" autocomplete="email">
+        <div class="err mb-2" id="emailErr"></div>
+        <button class="btn btn-danger w-100" id="btnSendOtp">Send Verification Code</button>
+      </div>
+
+      <!-- Step 2: otp -->
+      <div class="agr-step" id="s-otp">
+        <h5>Enter verification code</h5>
+        <p class="muted" id="otpHint">We sent a 6-digit code to your registered email. Check inbox & spam.</p>
+        <input type="text" id="otp" inputmode="numeric" maxlength="6" class="form-control mb-2" placeholder="6-digit code">
+        <div class="err mb-2" id="otpErr"></div>
+        <button class="btn btn-danger w-100 mb-2" id="btnVerify">Verify</button>
+        <button class="btn btn-link w-100 p-0 muted" id="btnBackEmail">Change email</button>
+      </div>
+
+      <!-- Step 3: identity + terms -->
+      <div class="agr-step" id="s-terms">
+        <div class="alert alert-success py-2">Identity Verified ✓</div>
+        <div class="mb-2" id="identityBox"></div>
+        <h6 class="mb-1">Terms &amp; Conditions <span class="muted" id="tncVer"></span></h6>
+        <div class="btn-group btn-group-sm mb-2" role="group">
+          <button class="btn btn-outline-secondary active" id="langTe">తెలుగు</button>
+          <button class="btn btn-outline-secondary" id="langEn">English</button>
+        </div>
+        <div class="tnc-box" id="tncBox">Loading…</div>
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" id="agree" disabled>
+          <label class="form-check-label" for="agree">I have read and agree to the Terms &amp; Conditions.</label>
+        </div>
+        <div class="muted" id="scrollHint">Please scroll to the end of the terms to enable acceptance.</div>
+        <button class="btn btn-danger w-100 mt-2" id="btnToSign" disabled>Continue</button>
+      </div>
+
+      <!-- Step 4: sign + accept -->
+      <div class="agr-step" id="s-sign">
+        <h6>Confirm &amp; sign</h6>
+        <label class="form-label mb-1">Full Name</label>
+        <input type="text" id="typedName" class="form-control mb-2">
+        <label class="form-label mb-1">Signature <span class="muted">(optional)</span></label>
+        <canvas id="sigPad"></canvas>
+        <div class="d-flex justify-content-between mb-2"><span class="muted">Draw with finger/mouse</span><button class="btn btn-sm btn-link p-0" id="clearSig">Clear</button></div>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="locConsent">
+          <label class="form-check-label muted" for="locConsent">Share my location (optional — helps verify where I signed). You can decline.</label>
+        </div>
+        <div class="err mb-2" id="signErr"></div>
+        <button class="btn btn-danger w-100" id="btnAccept">Accept Agreement</button>
+      </div>
+
+      <!-- Done -->
+      <div class="agr-step" id="s-done">
+        <div class="text-center py-3">
+          <div style="font-size:44px">✅</div>
+          <h5>Agreement Completed</h5>
+          <p class="muted" id="doneMsg">Thank you. Your acceptance has been recorded. Our team will review and confirm your appointment.</p>
+        </div>
+      </div>
+
+    </div>
+    <p class="text-center muted mt-2">Secure · Your data is used only for this appointment agreement.</p>
+  </div>
+
+<script>
+(function(){
+  var email='', tnc=null, lang='te';
+  function show(id){document.querySelectorAll('.agr-step').forEach(function(e){e.classList.remove('active')});document.getElementById(id).classList.add('active');}
+  function post(url,body){return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})}).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})});}
+
+  document.getElementById('btnSendOtp').onclick=function(){
+    email=document.getElementById('email').value.trim();
+    document.getElementById('emailErr').textContent='';
+    if(!email){document.getElementById('emailErr').textContent='Please enter your email.';return;}
+    this.disabled=true;var b=this;
+    post('/state-agreement/request-otp',{email:email}).then(function(){
+      b.disabled=false; document.getElementById('otpHint').textContent='If your email is registered, a 6-digit code was sent to it. Check inbox & spam.'; show('s-otp');
+    }).catch(function(){b.disabled=false;document.getElementById('emailErr').textContent='Network error.';});
+  };
+  document.getElementById('btnBackEmail').onclick=function(){show('s-email');};
+
+  document.getElementById('btnVerify').onclick=function(){
+    var otp=document.getElementById('otp').value.trim();document.getElementById('otpErr').textContent='';
+    if(otp.length!==6){document.getElementById('otpErr').textContent='Enter the 6-digit code.';return;}
+    this.disabled=true;var b=this;
+    post('/state-agreement/verify-otp',{email:email,otp:otp}).then(function(res){
+      b.disabled=false;
+      if(!res.ok||!res.j.ok){document.getElementById('otpErr').textContent=res.j.error||'Invalid code.';return;}
+      var id=res.j.identity;
+      document.getElementById('identityBox').innerHTML='<div><b>Name:</b> '+esc(id.name)+'</div><div><b>Email:</b> '+esc(id.emailMasked)+'</div><div><b>Designation:</b> '+esc(id.designation)+'</div><div><b>State:</b> '+esc(id.state||'—')+'</div>';
+      document.getElementById('typedName').value=id.name||'';
+      loadTerms();
+    }).catch(function(){b.disabled=false;document.getElementById('otpErr').textContent='Network error.';});
+  };
+
+  function loadTerms(){
+    fetch('/state-agreement/terms').then(function(r){return r.json()}).then(function(j){
+      if(j.error){document.getElementById('tncBox').textContent=j.error;show('s-terms');return;}
+      tnc=j; document.getElementById('tncVer').textContent='(Version '+j.version+')';
+      renderTnc(); show('s-terms');
+    });
+  }
+  function renderTnc(){document.getElementById('tncBox').textContent=(lang==='te'?(tnc.bodyTelugu||tnc.bodyEnglish):(tnc.bodyEnglish||tnc.bodyTelugu))||'(No content)';}
+  document.getElementById('langTe').onclick=function(){lang='te';this.classList.add('active');document.getElementById('langEn').classList.remove('active');renderTnc();};
+  document.getElementById('langEn').onclick=function(){lang='en';this.classList.add('active');document.getElementById('langTe').classList.remove('active');renderTnc();};
+  var box=document.getElementById('tncBox');
+  box.addEventListener('scroll',function(){if(box.scrollTop+box.clientHeight>=box.scrollHeight-16){document.getElementById('agree').disabled=false;document.getElementById('scrollHint').textContent='You may now accept.';}});
+  document.getElementById('agree').onchange=function(){document.getElementById('btnToSign').disabled=!this.checked;};
+  document.getElementById('btnToSign').onclick=function(){show('s-sign');fitSig();};
+
+  // signature pad
+  var cv=document.getElementById('sigPad'),ctx=cv.getContext('2d'),drawing=false,dirty=false;
+  function fitSig(){cv.width=cv.offsetWidth;cv.height=150;ctx.lineWidth=2;ctx.lineCap='round';ctx.strokeStyle='#111';}
+  function pos(e){var r=cv.getBoundingClientRect();var t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top};}
+  function start(e){drawing=true;dirty=true;var p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);e.preventDefault();}
+  function move(e){if(!drawing)return;var p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();e.preventDefault();}
+  function end(){drawing=false;}
+  ['mousedown','touchstart'].forEach(function(ev){cv.addEventListener(ev,start);});
+  ['mousemove','touchmove'].forEach(function(ev){cv.addEventListener(ev,move);});
+  ['mouseup','mouseleave','touchend'].forEach(function(ev){cv.addEventListener(ev,end);});
+  document.getElementById('clearSig').onclick=function(){ctx.clearRect(0,0,cv.width,cv.height);dirty=false;};
+
+  document.getElementById('btnAccept').onclick=function(){
+    document.getElementById('signErr').textContent='';
+    var typedName=document.getElementById('typedName').value.trim();
+    if(!typedName){document.getElementById('signErr').textContent='Please type your full name.';return;}
+    var b=this;b.disabled=true;
+    var payload={acceptedVersion:tnc?tnc.version:'',agree:true,typedName:typedName,
+      device:{platform:navigator.platform,language:navigator.language,timezone:(Intl.DateTimeFormat().resolvedOptions().timeZone||''),screen:(screen.width+'x'+screen.height)},
+      signatureData: dirty? cv.toDataURL('image/png') : '',
+      locationPermission:'unavailable'};
+    function done(){post('/state-agreement/accept',payload).then(function(res){b.disabled=false;
+      if(!res.ok||!res.j.ok){document.getElementById('signErr').textContent=res.j.error||'Could not record.';return;}
+      document.getElementById('doneMsg').textContent='Thank you. Agreement v'+res.j.version+' recorded on '+new Date(res.j.acceptedAt).toLocaleString()+'.';show('s-done');
+    }).catch(function(){b.disabled=false;document.getElementById('signErr').textContent='Network error.';});}
+    if(document.getElementById('locConsent').checked && navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(function(p){payload.locationPermission='granted';payload.latitude=p.coords.latitude;payload.longitude=p.coords.longitude;done();},
+        function(){payload.locationPermission='denied';done();},{timeout:8000});
+    } else { payload.locationPermission='denied'; done(); }
+  };
+  function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+})();
+</script>
+</body>
+</html>

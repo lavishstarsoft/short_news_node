@@ -954,6 +954,7 @@ app.use('/', publicRoutes); // Public API routes (already have /api/public prefi
 // Smart View Distribution Engine — isolated superadmin admin API (mounted before /admin so the prefix wins)
 app.use('/admin/view-engine', requireAuth, require('./services/viewDistribution/admin/viewEngineRoutes'));
 app.use('/admin', adminRoutes); // Admin routes with /admin prefix
+app.use('/state-agreement', require('./routes/agreementRoutes')); // Public State In-Charge agreement flow
 app.use('/news', newsRoutes); // News routes with /news prefix
 app.use('/categories', categoryRoutes);
 app.use('/viral-videos', viralVideosRoutes);
