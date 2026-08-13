@@ -29,6 +29,7 @@ const { getDisplayConfigForCode, refreshCache: refreshLanguageCache } = require(
 const {
   applyReporterCoverageFields,
   applySubEditorCoveragePermissions,
+  syncApprovalScopeToAssigned,
   buildSubEditorAuthorFilter,
   buildPendingNewsFilterForSubEditor,
   getManagedReporterIds,
@@ -2462,6 +2463,9 @@ async function updateEditor(req, res) {
       }
     }
 
+    // Keep approval geography aligned to the allocated areas (geography scope only).
+    await syncApprovalScopeToAssigned(Location, editor);
+
     await editor.save();
 
     res.json({
@@ -2842,6 +2846,8 @@ async function registerEditor(req, res) {
       approvalScope, managedLocations, managedStates, managedDistricts,
       managedConstituencies, managedReporterIds
     });
+    // Keep approval geography aligned to the allocated areas (geography scope only).
+    await syncApprovalScopeToAssigned(Location, newEditor);
 
     if (selectedRole === 'subeditor' && newEditor.allowedLanguages?.length && !newEditor.allowedLanguages.includes('all')) {
       newEditor.workingLanguage = newEditor.allowedLanguages[0];
@@ -4653,6 +4659,36 @@ async function approveNews(req, res) {
       }
     }
 
+    // --- Late-approval accountability gate (reporter news only; backend-enforced) ---
+    // >30 min after submission OR crossing the submission day requires a genuine,
+    // typed reason before approval can proceed. Same-day-late does NOT freeze earning;
+    // day-late keeps the existing Day-Level hold. Never bypassable from the client.
+    let _lateApprovalInfo = null;
+    if (existingNews.authorId && String(existingNews.authorId) !== String(adminId)) {
+      const lateSvc = require('../services/earning/lateApprovalService');
+      const _submissionDate = existingNews._id.getTimestamp();
+      const _attemptAt = new Date();
+      const _cls = lateSvc.classifyLateness(_submissionDate, _attemptAt);
+      if (_cls.late) {
+        const _reason = ((req.body && req.body.lateApprovalReason) || '').toString().trim();
+        if (!lateSvc.isValidReason(_reason)) {
+          return res.status(428).json({
+            lateApprovalRequired: true,
+            lateApprovalType: _cls.type,
+            delayMinutes: _cls.delayMinutes,
+            reasonProvided: !!_reason,
+            warning: _cls.type === 'day_late'
+              ? "WARNING: You are approving this news after the submission day. Your delayed approval has affected the Reporter's earning. The Reporter's earning will remain pending until Super Admin review. Please provide a clear and genuine reason for the delay."
+              : 'This news is being approved more than 30 minutes after submission. Please provide a clear, genuine reason for the delay before approving.',
+            message: _reason
+              ? 'The reason is too short or unclear. Please type a proper explanation (at least 15 characters, a real sentence).'
+              : 'A late-approval reason is required to approve this news.'
+          });
+        }
+        _lateApprovalInfo = { type: _cls.type, submissionDate: _submissionDate, attemptAt: _attemptAt, reason: _reason };
+      }
+    }
+
     const actionHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
     actionHistory.push(
       buildAdminNewsHistory(
@@ -4748,10 +4784,24 @@ async function approveNews(req, res) {
     }
 
     if (existingNews.authorId) {
-       const { checkAndCreditWallet } = require('../utils/walletHelpers');
        // Reward belongs to the reporter's SUBMISSION day (immutable _id creation time,
-       // Asia/Kolkata) — never the approval day. Re-evaluate THIS article's submission day.
-       checkAndCreditWallet(existingNews.authorId, existingNews._id.getTimestamp()).catch(err => console.error(err));
+       // Asia/Kolkata) — never the approval day. Same-day approval → credit as before;
+       // late/next-day approval → HOLD the day-reward for Super Admin review (accountability).
+       const lateSvc2 = require('../services/earning/lateApprovalService');
+       const _approvedAt = (updatedNews.approvalStatus && updatedNews.approvalStatus.approvedAt) || new Date();
+       lateSvc2.handleApprovalEarning({
+         news: existingNews,
+         approvedAt: _approvedAt,
+         approver: { id: adminId, name: adminName, role: (admin && admin.role) || adminRole }
+       }).catch(err => console.error('handleApprovalEarning error:', err));
+       // Record the immutable late-approval reason (only when the gate flagged it late).
+       if (_lateApprovalInfo) {
+         lateSvc2.recordLateApprovalReason({
+           news: existingNews, approver: { id: adminId, name: adminName, role: (admin && admin.role) || adminRole },
+           submittedAt: _lateApprovalInfo.submissionDate, attemptAt: _lateApprovalInfo.attemptAt,
+           approvedAt: _approvedAt, type: _lateApprovalInfo.type, reason: _lateApprovalInfo.reason
+         }).catch(err => console.error('recordLateApprovalReason error:', err));
+       }
     }
 
     res.json({

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Reporter District Assignment' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Reporter District Assignment', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'reporter-district-assignment' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <div class="mb-3">
+          <h3 class="mb-1">Reporter District Assignment</h3>
+          <p class="text-muted mb-0">Assign a <b>canonical</b> district (from the Location master) to a reporter. Districts are the routing key for State In-Charge approval — a reporter with no district is <b>District Unassigned</b>. Conflicts are never auto-resolved.</p>
+        </div>
+
+        <div class="card mb-3"><div class="card-body">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3"><label class="form-label mb-1">State</label>
+              <select id="fState" class="form-select form-select-sm"><option>Uttar Pradesh</option></select></div>
+            <div class="col-md-3"><label class="form-label mb-1">Status</label>
+              <select id="fStatus" class="form-select form-select-sm">
+                <option value="all">All</option>
+                <option value="manual_review" selected>District Unassigned / Manual Review</option>
+                <option value="assigned">Assigned</option>
+              </select></div>
+            <div class="col-md-4"><label class="form-label mb-1">Search (name / email / phone)</label>
+              <input id="fQ" class="form-control form-control-sm" placeholder="type & press Enter"></div>
+            <div class="col-md-2"><button class="btn btn-sm btn-danger w-100" onclick="loadReporters()">Apply</button></div>
+          </div>
+        </div></div>
+
+        <div class="card"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr>
+            <th>Reporter</th><th>Email</th><th>State</th><th>Current District</th><th>Constituency</th><th>Application District</th><th>Status</th><th class="text-end">Actions</th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="8" class="text-center text-muted py-4">Loading…</td></tr></tbody>
+        </table></div></div>
+        <p class="text-muted small mt-2" id="countLine"></p>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- Assign modal -->
+  <div class="modal fade" id="assignModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Assign District</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="mb-2"><b id="amName"></b><div class="small text-muted" id="amEmail"></div></div>
+      <div class="mb-2"><label class="form-label mb-1">Canonical District (<span id="amState">Uttar Pradesh</span>)</label>
+        <select id="amDistrict" class="form-select"></select></div>
+      <div class="mb-2 small text-muted">Current: <span id="amCurrent"></span></div>
+      <div id="amErr" class="text-danger small"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      <button class="btn btn-danger" id="amSave">Save Assignment</button></div>
+  </div></div></div>
+
+  <!-- Evidence modal -->
+  <div class="modal fade" id="evidenceModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Reporter Evidence</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><pre id="evBody" style="white-space:pre-wrap;font-size:13px"></pre></div>
+  </div></div></div>
+
+  <script>
+    var districtsCache = {};
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+    async function getDistricts(state){
+      if(districtsCache[state]) return districtsCache[state];
+      const r = await fetch('/admin/reporter-district-assignment/api/districts?state='+encodeURIComponent(state));
+      const d = await r.json(); districtsCache[state] = d.districts||[]; return districtsCache[state];
+    }
+    async function loadReporters(){
+      const state=document.getElementById('fState').value, status=document.getElementById('fStatus').value, q=document.getElementById('fQ').value.trim();
+      document.getElementById('rows').innerHTML='<tr><td colspan="8" class="text-center text-muted py-4">Loading…</td></tr>';
+      const r=await fetch('/admin/reporter-district-assignment/api/reporters?state='+encodeURIComponent(state)+'&status='+status+'&q='+encodeURIComponent(q));
+      const d=await r.json();
+      if(!d.reporters||!d.reporters.length){document.getElementById('rows').innerHTML='<tr><td colspan="8" class="text-center text-muted py-4">No reporters.</td></tr>';document.getElementById('countLine').textContent='';return;}
+      document.getElementById('rows').innerHTML=d.reporters.map(function(rep){
+        var cur=(rep.currentDistricts||[]).length?rep.currentDistricts.map(esc).join(', '):'<span class="text-danger">District Unassigned</span>';
+        var badge=rep.status==='assigned'?'<span class="badge bg-success">Assigned</span>':'<span class="badge bg-warning text-dark">Manual Review</span>';
+        var j=encodeURIComponent(JSON.stringify({id:rep.id,name:rep.name,email:rep.email,state:rep.state,current:rep.currentDistricts}));
+        return '<tr>'+
+          '<td>'+esc(rep.name)+'<div class="small text-muted">'+esc(rep.phone||'')+'</div></td>'+
+          '<td class="small">'+esc(rep.email)+'</td>'+
+          '<td class="small">'+esc(rep.state||'—')+'</td>'+
+          '<td class="small">'+cur+'</td>'+
+          '<td class="small">'+esc(rep.constituency||'—')+'</td>'+
+          '<td class="small">'+esc(rep.applicationDistrict||'—')+'</td>'+
+          '<td>'+badge+'</td>'+
+          '<td class="text-end text-nowrap">'+
+            '<button class="btn btn-sm btn-outline-secondary" onclick="viewEvidence(\''+rep.id+'\')">Evidence</button> '+
+            '<button class="btn btn-sm btn-outline-danger" onclick="openAssign(\''+j+'\')">Assign</button>'+
+          '</td></tr>';
+      }).join('');
+      document.getElementById('countLine').textContent=d.count+' reporter(s) · State: '+d.state;
+    }
+    async function viewEvidence(id){
+      const r=await fetch('/admin/reporter-district-assignment/api/evidence/'+id); const d=await r.json();
+      document.getElementById('evBody').textContent=JSON.stringify(d,null,2);
+      new bootstrap.Modal(document.getElementById('evidenceModal')).show();
+    }
+    var _am, _cur;
+    async function openAssign(j){
+      _cur=JSON.parse(decodeURIComponent(j));
+      document.getElementById('amName').textContent=_cur.name;
+      document.getElementById('amEmail').textContent=_cur.email;
+      document.getElementById('amCurrent').textContent=(_cur.current||[]).join(', ')||'(none)';
+      var state=document.getElementById('fState').value; document.getElementById('amState').textContent=state;
+      document.getElementById('amErr').textContent='';
+      var ds=await getDistricts(state);
+      document.getElementById('amDistrict').innerHTML=ds.map(function(x){return '<option value="'+esc(x.name)+'">'+esc(x.name)+'</option>';}).join('');
+      if(!_am)_am=new bootstrap.Modal(document.getElementById('assignModal')); _am.show();
+    }
+    document.getElementById('amSave').onclick=async function(){
+      var district=document.getElementById('amDistrict').value, state=document.getElementById('fState').value;
+      if(!confirm('ఈ Reporter "'+_cur.name+'" ను "'+district+'" కి assign చేయాలా?\n\nAssign reporter "'+_cur.name+'" to "'+district+'"?'))return;
+      this.disabled=true; var b=this;
+      try{
+        var r=await fetch('/admin/reporter-district-assignment/api/assign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reporterId:_cur.id,district:district,state:state})});
+        var d=await r.json(); b.disabled=false;
+        if(!r.ok){document.getElementById('amErr').textContent=d.error||'Failed';return;}
+        _am.hide(); loadReporters();
+      }catch(e){b.disabled=false;document.getElementById('amErr').textContent='Network error.';}
+    };
+    document.getElementById('fQ').addEventListener('keydown',function(e){if(e.key==='Enter')loadReporters();});
+    loadReporters();
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>

@@ -204,6 +204,25 @@ router.put('/agreement-terms/api/:id', adminController.requireAdmin, agreementTe
 router.post('/agreement-terms/api/:id/publish', adminController.requireAdmin, agreementTermsController.publishDraft);
 router.get('/agreement-status', adminController.requireAdmin, agreementTermsController.renderAgreementStatus);
 
+// Reporter District Assignment (Admin/Super-Admin; enforced again in controller).
+const reporterDistrictController = require('../controllers/reporterDistrictController');
+router.get('/reporter-district-assignment', adminController.requireAdmin, reporterDistrictController.renderPage);
+router.get('/reporter-district-assignment/api/districts', adminController.requireAdmin, reporterDistrictController.districts);
+router.get('/reporter-district-assignment/api/reporters', adminController.requireAdmin, reporterDistrictController.listReporters);
+router.get('/reporter-district-assignment/api/evidence/:id', adminController.requireAdmin, reporterDistrictController.evidence);
+router.post('/reporter-district-assignment/api/assign', adminController.requireAdmin, reporterDistrictController.assign);
+router.post('/reporter-district-assignment/api/remove', adminController.requireAdmin, reporterDistrictController.remove);
+
+// Late-Approval Earning — Super Admin release queue + accountability (enforced in controller).
+const lateEarningController = require('../controllers/lateEarningController');
+router.get('/late-earnings', adminController.requireAdmin, lateEarningController.renderQueue);
+router.get('/late-earnings/api/pending', adminController.requireAdmin, lateEarningController.listPending);
+router.get('/late-earnings/api/reasons', adminController.requireAdmin, lateEarningController.listReasons);
+router.post('/late-earnings/api/:id/release', adminController.requireAdmin, lateEarningController.release);
+router.post('/late-earnings/api/:id/send-back', adminController.requireAdmin, lateEarningController.sendBack);
+router.get('/late-earnings/api/incharge-stats', adminController.requireAdmin, lateEarningController.inchargeStats);
+router.get('/api/reporter/late-earnings', adminController.requireAuth, lateEarningController.reporterPending);
+
 router.get('/security-center', adminController.requireAdmin, securityAlertController.renderSecurityCenter);
 router.get('/security-center/data', adminController.requireAdmin, securityAlertController.securityData);
 router.post('/security-center/alerts/:id/resolve', adminController.requireAdmin, securityAlertController.resolveAlert);

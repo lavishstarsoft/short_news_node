@@ -397,7 +397,7 @@
 
                 const canSendNotif = isAdmin || (typeof admin !=='undefined' && admin.role==='subeditor' && admin.permissions && admin.permissions.canSendNotifications);
                 const showSystemGroup = isAdmin || canSendNotif;
-                const systemGroupActive = ['command-center', 'security', 'security-center', 'notifications', 'app-settings', 'r2-usage', 'agreement-terms', 'agreement-status'].includes(activePage);
+                const systemGroupActive = ['command-center', 'security', 'security-center', 'notifications', 'app-settings', 'r2-usage', 'agreement-terms', 'agreement-status', 'reporter-district-assignment', 'late-earnings'].includes(activePage);
 
                 const showFinanceGroup = isAdmin || isReporter;
                 const financeActive = ['wallet-settings', 'my-wallet', 'withdrawals-queue', 'wallet-transactions', 'audit-logs', 'monthly-report'].includes(activePage); 
@@ -470,10 +470,16 @@
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'agreement-status' ? 'active' : '' %>" href="/admin/agreement-status">Agreement Status</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'reporter-district-assignment' ? 'active' : '' %>" href="/admin/reporter-district-assignment">Reporter District Assign</a>
+                        </li>
                         <% } %>
                         <% if (isSuperAdminOnly) { %>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'agreement-terms' ? 'active' : '' %>" href="/admin/agreement-terms">Agreement T&amp;C</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'late-earnings' ? 'active' : '' %>" href="/admin/late-earnings">Late Earnings</a>
                         </li>
                         <% } %>
                     </ul>

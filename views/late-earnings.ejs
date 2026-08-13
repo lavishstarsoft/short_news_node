@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Late Earnings' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Late Earnings', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'late-earnings' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <div class="mb-3">
+          <h3 class="mb-1">Late Approval — Pending Reporter Earnings</h3>
+          <p class="text-muted mb-0">Rewards HELD because the State In-Charge approved the news on a later day than submission. Reporter is never penalized; release credits the unchanged daily reward <b>once</b>. Original submitted/approved dates are never rewritten.</p>
+        </div>
+        <div class="mb-2">
+          <select id="fStatus" class="form-select form-select-sm w-auto d-inline-block" onchange="load()">
+            <option value="pending_superadmin_review" selected>Pending Super Admin Review</option>
+            <option value="released">Released</option>
+            <option value="sent_back">Sent Back</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+        <div class="card"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr>
+            <th>Reporter</th><th>News ID</th><th>Submitted</th><th>Approved</th><th>Delay</th><th>Type</th><th>State In-Charge</th><th>Reason</th><th>Amount</th><th>Status</th><th class="text-end">Action</th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="11" class="text-center text-muted py-4">Loading…</td></tr></tbody>
+        </table></div></div>
+        <p class="text-muted small mt-2" id="countLine"></p>
+      </div>
+    </div>
+  </div></div>
+  <script>
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+    function dt(s){try{return new Date(s).toLocaleString('en-IN');}catch(e){return s;}}
+    async function load(){
+      var status=document.getElementById('fStatus').value;
+      document.getElementById('rows').innerHTML='<tr><td colspan="9" class="text-center text-muted py-4">Loading…</td></tr>';
+      var r=await fetch('/admin/late-earnings/api/pending?status='+status); var d=await r.json();
+      if(!d.items||!d.items.length){document.getElementById('rows').innerHTML='<tr><td colspan="9" class="text-center text-muted py-4">None.</td></tr>';document.getElementById('countLine').textContent='';return;}
+      document.getElementById('rows').innerHTML=d.items.map(function(x){
+        var badge=x.earningStatus==='released'?'<span class="badge bg-success">Released</span>':x.earningStatus==='sent_back'?'<span class="badge bg-secondary">Sent Back</span>':'<span class="badge bg-warning text-dark">Pending</span>';
+        var act=x.earningStatus==='pending_superadmin_review'
+          ? '<button class="btn btn-sm btn-danger" onclick="act(\''+x._id+'\',\'release\')">Release</button> <button class="btn btn-sm btn-outline-secondary" onclick="act(\''+x._id+'\',\'send-back\')">Send back</button>'
+          : (x.earningReleasedAt? '<span class="small text-muted">'+dt(x.earningReleasedAt)+'</span>' : '—');
+        var typeBadge=x.lateApprovalType==='day_late'?'<span class="badge bg-danger">Day-Late</span>':'<span class="badge bg-warning text-dark">Same-Day</span>';
+        return '<tr>'+
+          '<td>'+esc(x.reporterName)+(x.newsTitle?'<div class="small text-muted">'+esc(x.newsTitle)+'</div>':'')+'</td>'+
+          '<td class="small">'+esc(x.newsId)+'</td>'+
+          '<td class="small">'+dt(x.submittedAt)+'</td>'+
+          '<td class="small">'+dt(x.approvedAt)+'</td>'+
+          '<td class="small">'+esc(x.approvalDelayMinutes)+' min</td>'+
+          '<td>'+typeBadge+'</td>'+
+          '<td class="small">'+esc(x.stateInchargeName||'—')+'</td>'+
+          '<td class="small" style="max-width:220px">'+esc(x.lateApprovalReason||'—')+'</td>'+
+          '<td>₹'+esc(x.earningAmount)+'</td>'+
+          '<td>'+badge+'</td>'+
+          '<td class="text-end text-nowrap">'+act+'</td>'+
+        '</tr>';
+      }).join('');
+      document.getElementById('countLine').textContent=d.count+' record(s)';
+    }
+    async function act(id,kind){
+      var msg=kind==='release'?'Release this held reward and credit the reporter (once)?':'Send this back for review (no credit)?';
+      if(!confirm(msg))return;
+      var r=await fetch('/admin/late-earnings/api/'+id+'/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+      var d=await r.json(); if(!r.ok){alert(d.error||'Failed');return;} load();
+    }
+    load();
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>

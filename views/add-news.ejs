@@ -537,13 +537,25 @@
                                         if (wantsToApprove) {
                                             try {
                                                 showLoader('Approving news...');
-                                                await fetch(`/admin/api/news/${newsId}/approve`, {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ ignoreLanguageWarning: true })
-                                                });
-                                                hideLoader();
-                                                showFeedback('News updated and approved successfully!', 'success');
+                                                let _lateReason;
+                                                for (let _try = 0; _try < 3; _try++) {
+                                                    const _r = await fetch(`/admin/api/news/${newsId}/approve`, {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ ignoreLanguageWarning: true, lateApprovalReason: _lateReason || undefined })
+                                                    });
+                                                    if (_r.status === 428) {
+                                                        const _info = await _r.json();
+                                                        hideLoader();
+                                                        _lateReason = window.prompt((_info.warning || 'Late approval — reason required.') + '\n\nType a clear reason (min 15 characters):', _lateReason || '');
+                                                        if (!_lateReason || _lateReason.trim().length < 15) { showFeedback('Approval cancelled — a valid late-approval reason is required.', 'warning'); break; }
+                                                        showLoader('Approving news...');
+                                                        continue;
+                                                    }
+                                                    hideLoader();
+                                                    showFeedback('News updated and approved successfully!', 'success');
+                                                    break;
+                                                }
                                             } catch(e) {
                                                 console.error(e);
                                                 hideLoader();

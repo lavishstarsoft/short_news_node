@@ -340,9 +340,62 @@ function applySubEditorCoveragePermissions(editor, body = {}) {
   });
 }
 
+/**
+ * Mirror a sub-editor's APPROVAL geography onto the areas they were actually
+ * allocated (assigned* fields), so "the districts I gave = the districts whose
+ * reporters they can approve".
+ *
+ * Rule (only applied when approvalScope resolves to 'geography'):
+ *   - managedDistricts      := assignedDistricts
+ *   - managedConstituencies := assignedConstituencies (+ legacy `constituency`)
+ *   - managedStates         := assignedStates that own NO assigned district
+ *       (a state with specific districts is covered at district level only, so it
+ *        never widens to the whole state; a state with no districts stays whole-state)
+ *   - managedLocations      := union of the above
+ *
+ * 'all' and 'reporters' scopes are left untouched. Requires the Location model to
+ * map each assigned district → its parent state (read-only).
+ */
+async function syncApprovalScopeToAssigned(Location, editorDoc) {
+  if (!editorDoc || editorDoc.role !== 'subeditor') return;
+  if (!editorDoc.permissions) editorDoc.permissions = {};
+  if (normalizeApprovalScope(editorDoc.permissions.approvalScope) !== 'geography') return;
+
+  const districts = uniqueStrings(editorDoc.assignedDistricts || []);
+  const constituencies = uniqueStrings([
+    ...(editorDoc.assignedConstituencies || []),
+    ...(editorDoc.constituency ? [editorDoc.constituency] : [])
+  ]);
+  const states = uniqueStrings([
+    ...(editorDoc.assignedStates || []),
+    ...(editorDoc.assignedState ? [editorDoc.assignedState] : [])
+  ]);
+
+  // States that already have district-level coverage must not become whole-state.
+  let statesWithDistricts = new Set();
+  if (districts.length && Location) {
+    const rows = await Location.find({ locationType: 'district', name: { $in: districts } })
+      .select('parentName').lean();
+    statesWithDistricts = new Set(rows.map(r => r.parentName).filter(Boolean));
+  }
+  const managedStates = states.filter(s => !statesWithDistricts.has(s));
+
+  editorDoc.permissions.managedDistricts = districts;
+  editorDoc.permissions.managedConstituencies = constituencies;
+  editorDoc.permissions.managedStates = managedStates;
+  editorDoc.permissions.managedLocations = computeAssignedLocations({
+    states: managedStates,
+    districts,
+    constituencies,
+    legacyLocations: []
+  });
+  if (editorDoc.markModified) editorDoc.markModified('permissions');
+}
+
 module.exports = {
   uniqueStrings,
   normalizeApprovalScope,
+  syncApprovalScopeToAssigned,
   getAdminId,
   getSubEditorManagedCoverage,
   getSubEditorApprovalCoverage,

@@ -986,13 +986,38 @@
                 }
             }
 
-            function executeApproval(newsId, newsTitle, ignoreLanguageWarning) {
+            function executeApproval(newsId, newsTitle, ignoreLanguageWarning, lateApprovalReason) {
                 fetch(`/admin/api/news/${newsId}/approve`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ignoreLanguageWarning })
+                    body: JSON.stringify({ ignoreLanguageWarning, lateApprovalReason: lateApprovalReason || undefined })
                 })
                 .then(async res => {
+                    if (res.status === 428) {
+                        const info = await res.json();
+                        const strong = info.lateApprovalType === 'day_late';
+                        Swal.fire({
+                            title: strong ? '⚠️ Day-Late Approval' : '⏱️ Late Approval — Reason Required',
+                            html: '<div style="text-align:left;font-size:14px">' + (info.warning || '') + '</div>',
+                            input: 'textarea',
+                            inputLabel: 'Reason for delay (required, be specific)',
+                            inputPlaceholder: 'Type a clear, genuine explanation…',
+                            inputValue: lateApprovalReason || '',
+                            icon: strong ? 'warning' : 'info',
+                            showCancelButton: true,
+                            confirmButtonColor: strong ? '#d33' : '#3085d6',
+                            confirmButtonText: 'Approve with Reason',
+                            cancelButtonText: 'Cancel',
+                            inputValidator: (v) => {
+                                if (!v || v.trim().length < 15) return 'Please type a proper explanation (at least 15 characters).';
+                            }
+                        }).then((result) => {
+                            if (result.isConfirmed && result.value) {
+                                executeApproval(newsId, newsTitle, ignoreLanguageWarning, result.value.trim());
+                            }
+                        });
+                        return null;
+                    }
                     if (res.status === 409) {
                         const errorData = await res.json();
                         Swal.fire({
