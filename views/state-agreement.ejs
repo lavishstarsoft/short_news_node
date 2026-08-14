@@ -99,8 +99,10 @@
     document.getElementById('emailErr').textContent='';
     if(!email){document.getElementById('emailErr').textContent='Please enter your email.';return;}
     this.disabled=true;var b=this;
-    post('/state-agreement/request-otp',{email:email}).then(function(){
-      b.disabled=false; document.getElementById('otpHint').textContent='If your email is registered, a 6-digit code was sent to it. Check inbox & spam.'; show('s-otp');
+    post('/state-agreement/request-otp',{email:email}).then(function(res){
+      b.disabled=false;
+      if(res && res.ok===false){ document.getElementById('emailErr').textContent=(res.j&&res.j.error)||'Could not send the code right now. Please try again shortly.'; return; }
+      document.getElementById('otpHint').textContent='If your email is registered, a 6-digit code was sent to it. Check inbox & spam.'; show('s-otp');
     }).catch(function(){b.disabled=false;document.getElementById('emailErr').textContent='Network error.';});
   };
   document.getElementById('btnBackEmail').onclick=function(){show('s-email');};

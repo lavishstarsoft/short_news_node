@@ -18,6 +18,7 @@ const AgreementAcceptance = require('../models/AgreementAcceptance');
 const otpService = require('../services/agreement/otpService');
 const emailService = require('../services/agreement/emailService');
 const agreementSession = require('../services/agreement/session');
+const { isRedisAvailable } = require('../config/redis');
 
 const WORKER_ID = `${process.env.NODE_APP_INSTANCE ?? process.env.pm_id ?? ''}:${process.pid}`;
 const GENERIC = { message: 'If this is a registered State In-Charge email, a verification code has been sent.' };
@@ -44,6 +45,13 @@ exports.renderStart = (req, res) => {
 // POST /request-otp — ALWAYS returns the same generic response (no enumeration).
 exports.requestOtp = async (req, res) => {
   try {
+    // OTP storage/rate-limiting requires Redis. If it is down, the code can never be
+    // generated or emailed — say so plainly. This check runs BEFORE the email lookup,
+    // so the response is identical for registered and unregistered addresses (no
+    // enumeration leak) while no longer masking an outage as "code sent".
+    if (!isRedisAvailable()) {
+      return res.status(503).json({ error: 'Verification service is temporarily unavailable. Please try again in a few minutes.' });
+    }
     const ic = await findInCharge(req.body && req.body.email);
     if (ic) {
       const r = await otpService.requestOtp({ adminId: ic._id, ip: clientIp(req) });

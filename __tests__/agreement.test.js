@@ -150,6 +150,16 @@ describe('agreementController — request/verify OTP', () => {
     expect(JSON.stringify(res1.body)).not.toContain('123456'); // OTP never leaks to client
   });
 
+  test('when Redis is down → 503 (email-independent, no enumeration leak, not silently "sent")', async () => {
+    redisMock.__setAvailable(false);
+    const res = mockRes();
+    await agreementController.requestOtp({ body: { email: 'ravi@example.com' }, headers: {}, ip: '9.9.9.9' }, res);
+    expect(res.statusCode).toBe(503);
+    expect(res.body.error).toMatch(/temporarily unavailable/i);
+    expect(Admin.findOne).not.toHaveBeenCalled(); // returns before the email lookup → no leak
+    expect(otpService.requestOtp).not.toHaveBeenCalled();
+  });
+
   test('lookup is scoped to role subeditor + active (non-subeditor cannot receive OTP)', async () => {
     otpService.requestOtp.mockResolvedValue({ status: 'sent', otp: '123456' });
     Admin.findOne.mockReturnValue(selectResolves(null));
