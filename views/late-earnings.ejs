@@ -26,6 +26,24 @@
           <tbody id="rows"><tr><td colspan="11" class="text-center text-muted py-4">Loading…</td></tr></tbody>
         </table></div></div>
         <p class="text-muted small mt-2" id="countLine"></p>
+
+        <hr class="my-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div><h4 class="mb-1">Late Approval Accountability Log</h4>
+            <p class="text-muted mb-0 small">Every late approval (both &gt;30-min same-day and next-day), with the exact reason the State In-Charge typed. Same-day-late reasons appear here (their earning was auto-credited, so they have no pending-hold row above).</p></div>
+          <select id="rType" class="form-select form-select-sm w-auto" onchange="loadReasons()">
+            <option value="all" selected>All late types</option>
+            <option value="same_day_late">Same-Day Late (&gt;30 min)</option>
+            <option value="day_late">Day-Late (next day)</option>
+          </select>
+        </div>
+        <div class="card"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr>
+            <th>Reporter</th><th>News ID</th><th>Submitted</th><th>Approved At</th><th>Delay</th><th>Late Approval</th><th>State In-Charge</th><th>Late Approval Reason</th><th>Earning</th>
+          </tr></thead>
+          <tbody id="reasonRows"><tr><td colspan="9" class="text-center text-muted py-4">Loading…</td></tr></tbody>
+        </table></div></div>
+        <p class="text-muted small mt-2" id="reasonCount"></p>
       </div>
     </div>
   </div></div>
@@ -65,7 +83,32 @@
       var r=await fetch('/admin/late-earnings/api/'+id+'/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
       var d=await r.json(); if(!r.ok){alert(d.error||'Failed');return;} load();
     }
+    async function loadReasons(){
+      var type=document.getElementById('rType').value;
+      document.getElementById('reasonRows').innerHTML='<tr><td colspan="9" class="text-center text-muted py-4">Loading…</td></tr>';
+      var r=await fetch('/admin/late-earnings/api/reasons'+(type!=='all'?('?type='+type):''));
+      var d=await r.json();
+      if(!d.items||!d.items.length){document.getElementById('reasonRows').innerHTML='<tr><td colspan="9" class="text-center text-muted py-4">No late approvals recorded.</td></tr>';document.getElementById('reasonCount').textContent='';return;}
+      document.getElementById('reasonRows').innerHTML=d.items.map(function(x){
+        var typeBadge=x.lateApprovalType==='day_late'?'<span class="badge bg-danger">Day-Late</span>':'<span class="badge bg-warning text-dark">Same-Day &gt;30m</span>';
+        var reason=(x.lateApprovalReason&&x.lateApprovalReason.trim())?esc(x.lateApprovalReason):'<span class="text-muted fst-italic">Reason not provided</span>';
+        var earn=x.earningStatus==='pending_superadmin_review'?'<span class="badge bg-warning text-dark">Pending</span>':x.earningStatus==='released'?'<span class="badge bg-success">Released</span>':x.earningStatus==='auto_credited'?'<span class="badge bg-success">Auto-credited</span>':esc(x.earningStatus||'—');
+        return '<tr>'+
+          '<td>'+esc(x.reporterName||'—')+(x.newsTitle?'<div class="small text-muted">'+esc(x.newsTitle)+'</div>':'')+'</td>'+
+          '<td class="small">'+esc(x.newsId)+'</td>'+
+          '<td class="small">'+dt(x.submittedAt)+'</td>'+
+          '<td class="small">'+dt(x.approvedAt)+'</td>'+
+          '<td class="small">'+esc(x.approvalDelayMinutes)+' min</td>'+
+          '<td>'+typeBadge+'</td>'+
+          '<td class="small">'+esc(x.stateInchargeName||'—')+'</td>'+
+          '<td class="small" style="max-width:280px">'+reason+'</td>'+
+          '<td>'+earn+'</td>'+
+        '</tr>';
+      }).join('');
+      document.getElementById('reasonCount').textContent=d.count+' late approval(s)';
+    }
     load();
+    loadReasons();
   </script>
   <%- include('partials/footer') %>
 </body>
