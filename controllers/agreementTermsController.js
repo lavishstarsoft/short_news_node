@@ -8,11 +8,69 @@
  * Hiding UI buttons is not enough.
  */
 
+const mongoose = require('mongoose');
 const TncDocument = require('../models/TncDocument');
 const AgreementAcceptance = require('../models/AgreementAcceptance');
 
 function isSuperAdmin(req) { return req.admin && req.admin.role === 'superadmin'; }
 function isAdmin(req) { return req.admin && (req.admin.role === 'admin' || req.admin.role === 'superadmin'); }
+
+// POST /admin/agreement-terms/api/:id/delete — Super-Admin, password-gated.
+// Referenced-by-acceptances → ARCHIVE/UNPUBLISH (never hard-delete). Unreferenced → delete.
+exports.deletePublishedVersion = async (req, res) => {
+  if (!isSuperAdmin(req)) return res.status(403).json({ error: 'Super Admin only.' });
+
+  // Reuse the existing reject-news delete password mechanism (server-side; never logged).
+  const envPassword = process.env.REJECTED_NEWS_DELETE_PASSWORD;
+  if (!envPassword) return res.status(500).json({ error: 'Delete password not configured in .env' });
+  const password = req.body && req.body.password;
+  if (password !== envPassword) return res.status(401).json({ error: 'Invalid password' });
+
+  const id = String(req.params.id || '');
+  if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid version id.' });
+  const doc = await TncDocument.findById(id);
+  if (!doc) return res.status(404).json({ error: 'Version not found.' });
+
+  const refs = await AgreementAcceptance.countDocuments({ tncVersion: doc.version });
+  const AuditLog = require('../models/AuditLog');
+  const audit = (action, details) => { try { AuditLog.create({ actorId: req.admin.id || req.admin._id || null, actorName: req.admin.username || req.admin.name || '', actorRole: req.admin.role, action, entityType: 'TncDocument', entityId: id, description: `v${doc.version} — ${action} (references=${refs})`, before: { status: doc.status }, after: details || {} }); } catch (_) {} };
+
+  if (refs > 0) {
+    // LEGAL SAFETY: accepted agreements reference this version → keep it immutable,
+    // just unpublish/archive it. Historical acceptances keep resolving their frozen T&C.
+    if (doc.status !== 'archived') { doc.status = 'archived'; await doc.save(); }
+    audit('tnc_version_unpublished', { status: 'archived', references: refs });
+    return res.json({ ok: true, action: 'archived', references: refs, message: 'This version is referenced by accepted agreements, so it was unpublished/archived — not deleted. Historical accepted agreements are unaffected.' });
+  }
+
+  // Unreferenced → controlled hard delete (bypasses the append-only guard intentionally, Super-Admin + password gated).
+  await TncDocument.collection.deleteOne({ _id: doc._id });
+  audit('tnc_version_deleted', { status: 'deleted', references: 0 });
+  return res.json({ ok: true, action: 'deleted', references: 0, message: 'Version deleted — no accepted agreements referenced it.' });
+};
+
+// GET /admin/agreement-status/:acceptanceId — read-only evidence detail (admin/superadmin).
+exports.renderAcceptanceDetail = async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).send('Access denied. Admins only.');
+  const id = String(req.params.acceptanceId || '');
+  if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).send('Invalid acceptance id.');
+  const acc = await AgreementAcceptance.findById(id).lean();
+  if (!acc) return res.status(404).send('Acceptance record not found.');
+
+  const { buildEvidence } = require('../services/agreement/evidence');
+  const evidence = await buildEvidence(acc);
+
+  try {
+    require('../models/AuditLog').create({
+      actorId: req.admin.id || req.admin._id || null, actorName: req.admin.username || req.admin.name || '', actorRole: req.admin.role,
+      action: 'agreement_evidence_viewed', entityType: 'AgreementAcceptance', entityId: id,
+      targetId: acc.adminId, targetName: acc.name || '',
+      description: `Viewed agreement evidence (v${acc.tncVersion})`
+    });
+  } catch (_) {}
+
+  res.render('agreement-detail', { admin: req.admin, activePage: 'agreement-status', evidence, generatedAt: new Date() });
+};
 
 // GET /admin/agreement-terms — management page (Super Admin only).
 exports.renderTermsAdmin = async (req, res) => {
@@ -45,7 +103,7 @@ exports.createDraft = async (req, res) => {
       version,
       title: (req.body.title || 'State In-Charge Appointment — Terms & Conditions').trim(),
       bodyEnglish: req.body.bodyEnglish || '',
-      bodyTelugu: req.body.bodyTelugu || '',
+      bodyTelugu: '', // English-only architecture: new versions never store Telugu content.
       changeSummary: req.body.changeSummary || '',
       status: 'draft',
       createdBy: req.admin.id || req.admin._id

@@ -21,7 +21,7 @@
           </tr></thead><tbody>
           <% if(!list.length){ %><tr><td colspan="10" class="text-center text-muted py-4">No agreements accepted yet.</td></tr><% } %>
           <% list.forEach(function(a){ %>
-            <tr>
+            <tr style="cursor:pointer" onclick="location.href='/admin/agreement-status/<%= a._id %>'" title="Open full evidence">
               <td><%= a.name || '—' %><% if(a.typedName && a.typedName!==a.name){ %><div class="small text-muted">signed: <%= a.typedName %></div><% } %></td>
               <td><%= a.state || '—' %></td>
               <td class="small"><%= maskEmail(a.email) %></td>
@@ -35,7 +35,7 @@
                 <% } else if(a.locationPermission==='denied'){ %><span class="text-muted">Declined</span>
                 <% } else { %><span class="text-muted">—</span><% } %>
               </td>
-              <td><% if(a.signatureRef){ %><a href="<%= a.signatureRef %>" target="_blank" rel="noopener">View</a><% } else { %><span class="text-muted">—</span><% } %></td>
+              <td><% if(a.signatureRef){ %><a href="<%= a.signatureRef %>" target="_blank" rel="noopener" onclick="event.stopPropagation()">View</a><% } else { %><span class="text-muted">—</span><% } %></td>
               <td><code class="small"><%= (a.acceptanceHash||'').slice(0,16) %>…</code></td>
             </tr>
           <% }); %>

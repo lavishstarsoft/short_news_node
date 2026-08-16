@@ -84,6 +84,14 @@
         </div>
       </div>
 
+      <!-- Already completed -->
+      <div class="agr-step" id="s-already">
+        <div class="text-center mb-2"><div style="font-size:40px">📄</div><h5 class="mb-0">Agreement Already Completed</h5>
+          <p class="muted">This agreement has already been completed. No new acceptance is needed.</p></div>
+        <div id="alreadyBox" style="font-size:14px"></div>
+        <button class="btn btn-danger w-100 mt-3" id="btnViewCompleted">View / Print My Agreement</button>
+      </div>
+
     </div>
     <p class="text-center muted mt-2">Secure · Your data is used only for this appointment agreement.</p>
   </div>
@@ -115,10 +123,50 @@
       b.disabled=false;
       if(!res.ok||!res.j.ok){document.getElementById('otpErr').textContent=res.j.error||'Invalid code.';return;}
       var id=res.j.identity;
+      // Already completed → show summary (only after successful OTP verification).
+      if(res.j.alreadyCompleted){
+        var s=res.j.summary||{};
+        document.getElementById('alreadyBox').innerHTML=
+          '<div><b>Name:</b> '+esc(id.name)+'</div>'+
+          '<div><b>Email:</b> '+esc(id.emailMasked)+'</div>'+
+          '<div><b>State:</b> '+esc(id.state||'—')+'</div>'+
+          '<div><b>Status:</b> Completed / Accepted</div>'+
+          '<div><b>T&C version accepted:</b> v'+esc(s.tncVersion||'—')+'</div>'+
+          '<div><b>Accepted on:</b> '+(s.acceptedAt?new Date(s.acceptedAt).toLocaleString():'—')+'</div>'+
+          '<div><b>Signature:</b> '+(s.hasSignature?'Captured':'Not captured')+'</div>'+
+          '<div><b>Captured GPS:</b> '+(s.gpsCaptured?'Yes (with consent)':'Not captured')+'</div>'+
+          '<div><b>IP evidence:</b> '+(s.ipCaptured?'Recorded':'—')+'</div>';
+        show('s-already'); return;
+      }
       document.getElementById('identityBox').innerHTML='<div><b>Name:</b> '+esc(id.name)+'</div><div><b>Email:</b> '+esc(id.emailMasked)+'</div><div><b>Designation:</b> '+esc(id.designation)+'</div><div><b>State:</b> '+esc(id.state||'—')+'</div>';
       document.getElementById('typedName').value=id.name||'';
       loadTerms();
     }).catch(function(){b.disabled=false;document.getElementById('otpErr').textContent='Network error.';});
+  };
+
+  // View / print the verified subeditor's OWN completed agreement (session-scoped).
+  document.getElementById('btnViewCompleted').onclick=function(){
+    fetch('/state-agreement/my-acceptance').then(function(r){return r.json();}).then(function(d){
+      if(!d.ok||!d.evidence){alert('Could not load your agreement.');return;}
+      var e=d.evidence;
+      var w=window.open('','_blank');
+      if(!w){alert('Please allow pop-ups to view/print.');return;}
+      var content=(e.agreement.content||'').replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});
+      w.document.write('<html><head><title>Agreement Evidence</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:20px auto;padding:0 16px}h2{color:#b91c1c}pre{white-space:pre-wrap;font-size:13px;border:1px solid #eee;padding:12px;background:#fafafa}.k{color:#666}@media print{@page{size:A4;margin:14mm}}</style></head><body>'+
+        '<h2>TEHELKA NEWS — State In-Charge Agreement Evidence</h2>'+
+        '<p><span class="k">Name:</span> '+esc(e.identity.name)+' &nbsp; <span class="k">Email:</span> '+esc(e.identity.emailMasked)+'<br>'+
+        '<span class="k">State:</span> '+esc(e.identity.state||'—')+' &nbsp; <span class="k">Status:</span> Accepted<br>'+
+        '<span class="k">T&C Version:</span> v'+esc(e.agreement.tncVersion)+' &nbsp; <span class="k">T&C Hash:</span> '+esc(e.agreement.tncHash)+'<br>'+
+        '<span class="k">Accepted At:</span> '+(e.evidence.acceptedAt?new Date(e.evidence.acceptedAt).toLocaleString():'—')+'</p>'+
+        '<h3>Terms &amp; Conditions Accepted (frozen v'+esc(e.agreement.tncVersion)+')</h3><pre>'+content+'</pre>'+
+        '<h3>Acceptance Evidence</h3><p><span class="k">OTP verified:</span> '+(e.evidence.otpVerified?'Yes':'No')+'<br>'+
+        '<span class="k">IP:</span> '+esc(e.evidence.ip||'—')+'<br>'+
+        '<span class="k">Captured GPS:</span> '+(e.location.hasGps?(e.location.latitude+', '+e.location.longitude):'Not captured')+'<br>'+
+        '<span class="k">Acceptance Hash:</span> '+esc(e.evidence.acceptanceHash||'—')+'</p>'+
+        '<p style="font-size:11px;color:#666">System-generated copy of the immutable acceptance record.</p>'+
+        '</body></html>');
+      w.document.close(); setTimeout(function(){w.print();},400);
+    }).catch(function(){alert('Network error.');});
   };
 
   function loadTerms(){
@@ -159,6 +207,7 @@
       locationPermission:'unavailable'};
     function done(){post('/state-agreement/accept',payload).then(function(res){b.disabled=false;
       if(!res.ok||!res.j.ok){document.getElementById('signErr').textContent=res.j.error||'Could not record.';return;}
+      if(res.j.alreadyCompleted){ document.getElementById('doneMsg').textContent='This agreement was already completed earlier (v'+res.j.version+'). No new acceptance was created.'; show('s-done'); return; }
       document.getElementById('doneMsg').textContent='Thank you. Agreement v'+res.j.version+' recorded on '+new Date(res.j.acceptedAt).toLocaleString()+'.';show('s-done');
     }).catch(function(){b.disabled=false;document.getElementById('signErr').textContent='Network error.';});}
     if(document.getElementById('locConsent').checked && navigator.geolocation){

@@ -202,7 +202,9 @@ router.post('/agreement-terms/api', adminController.requireAdmin, agreementTerms
 router.get('/agreement-terms/api/:id', adminController.requireAdmin, agreementTermsController.getVersion);
 router.put('/agreement-terms/api/:id', adminController.requireAdmin, agreementTermsController.updateDraft);
 router.post('/agreement-terms/api/:id/publish', adminController.requireAdmin, agreementTermsController.publishDraft);
+router.post('/agreement-terms/api/:id/delete', adminController.requireAdmin, agreementTermsController.deletePublishedVersion);
 router.get('/agreement-status', adminController.requireAdmin, agreementTermsController.renderAgreementStatus);
+router.get('/agreement-status/:acceptanceId', adminController.requireAdmin, agreementTermsController.renderAcceptanceDetail);
 
 // Reporter District Assignment (Admin/Super-Admin; enforced again in controller).
 const reporterDistrictController = require('../controllers/reporterDistrictController');

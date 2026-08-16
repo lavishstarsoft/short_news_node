@@ -170,6 +170,7 @@ describe('agreementController — request/verify OTP', () => {
   test('verify-otp success issues a session and returns masked identity', async () => {
     Admin.findOne.mockReturnValue(selectResolves(IC));
     otpService.verifyOtp.mockResolvedValue({ ok: true, adminId: 'admin1' });
+    AgreementAcceptance.findOne.mockReturnValue({ sort: () => ({ lean: () => Promise.resolve(null) }) }); // no prior acceptance
     const res = mockRes();
     await agreementController.verifyOtp({ body: { email: 'ravi@example.com', otp: '123456' }, headers: {}, ip: '9.9.9.9' }, res);
     expect(res.body.ok).toBe(true);
@@ -197,7 +198,8 @@ describe('agreementController — accept', () => {
   beforeEach(() => {
     Admin.findById.mockReturnValue(selectResolves(IC));
     TncDocument.findOne.mockReturnValue({ sort: () => ({ lean: () => Promise.resolve(publishedTnc) }) });
-    AgreementAcceptance.findOne.mockReturnValue({ sort: () => ({ select: () => ({ lean: () => Promise.resolve(null) }) }) });
+    // Supports BOTH the new duplicate-check (sort().lean()) and the prev-hash lookup (sort().select().lean()).
+    AgreementAcceptance.findOne.mockReturnValue({ sort: () => ({ lean: () => Promise.resolve(null), select: () => ({ lean: () => Promise.resolve(null) }) }) });
     AgreementAcceptance.computeHash.mockReturnValue('ACC_HASH_1');
     AgreementAcceptance.create.mockResolvedValue({ _id: 'acc1' });
   });

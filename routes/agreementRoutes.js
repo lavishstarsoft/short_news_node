@@ -27,5 +27,6 @@ router.post('/request-otp', otpLimiter, c.requestOtp);
 router.post('/verify-otp', otpLimiter, c.verifyOtp);
 router.get('/terms', requireAgreementSession, c.getTerms);
 router.post('/accept', requireAgreementSession, c.accept);
+router.get('/my-acceptance', requireAgreementSession, c.getMyAcceptance);
 
 module.exports = router;

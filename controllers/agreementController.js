@@ -80,16 +80,46 @@ exports.verifyOtp = async (req, res) => {
 
     agreementSession.issue(res, { adminId: ic._id, otpVerified: true });
     Admin.updateOne({ _id: ic._id }, { $set: { agreementStatus: 'otp_verified' } }).catch(() => {});
-    return res.json({
-      ok: true,
-      identity: {
-        name: ic.name || '',
-        emailMasked: maskEmail(ic.email),
-        designation: ic.displayRole || 'State In-Charge',
-        state: (ic.assignedStates && ic.assignedStates[0]) || ic.assignedState || ''
-      }
-    });
+
+    const identity = {
+      name: ic.name || '',
+      emailMasked: maskEmail(ic.email),
+      designation: ic.displayRole || 'State In-Charge',
+      state: (ic.assignedStates && ic.assignedStates[0]) || ic.assignedState || ''
+    };
+
+    // Already-completed detection — ONLY revealed AFTER successful OTP verification
+    // (never before), so it cannot be used to enumerate accounts. Scoped to this
+    // verified identity; no acceptanceId is exposed to the client here.
+    const existing = await AgreementAcceptance.findOne({ adminId: ic._id }).sort({ createdAt: -1 }).lean();
+    if (existing) {
+      return res.json({
+        ok: true, alreadyCompleted: true, identity,
+        summary: {
+          status: 'Completed',
+          tncVersion: existing.tncVersion,
+          acceptedAt: existing.acceptedAt,
+          hasSignature: !!existing.signatureRef,
+          gpsCaptured: existing.locationPermission === 'granted' && existing.latitude != null,
+          ipCaptured: !!existing.ip
+        }
+      });
+    }
+    return res.json({ ok: true, identity });
   } catch (_) { return res.status(500).json({ error: 'Verification failed.' }); }
+};
+
+// GET /my-acceptance — the verified subeditor's OWN completed agreement (session-scoped,
+// no id param → cannot be used to view anyone else's record).
+exports.getMyAcceptance = async (req, res) => {
+  try {
+    const { adminId } = req.agreement || {};
+    if (!adminId) return res.status(401).json({ error: 'Session required.' });
+    const acc = await AgreementAcceptance.findOne({ adminId }).sort({ createdAt: -1 }).lean();
+    if (!acc) return res.status(404).json({ error: 'No completed agreement found.' });
+    const { buildEvidence } = require('../services/agreement/evidence');
+    return res.json({ ok: true, evidence: await buildEvidence(acc) });
+  } catch (_) { return res.status(500).json({ error: 'Could not load your agreement.' }); }
 };
 
 // GET /terms — current published T&C (session required).
@@ -112,6 +142,15 @@ exports.accept = async (req, res) => {
 
     const ic = await Admin.findById(adminId).select('_id name email displayRole assignedState assignedStates role isActive');
     if (!ic || ic.role !== 'subeditor' || ic.isActive === false) return res.status(403).json({ error: 'Account not eligible.' });
+
+    // DUPLICATE PROTECTION — if a completed acceptance already exists for this admin,
+    // never create a second one. The original immutable record (and its hash chain)
+    // is preserved untouched.
+    const existingAcc = await AgreementAcceptance.findOne({ adminId: ic._id }).sort({ createdAt: -1 }).lean();
+    if (existingAcc) {
+      agreementSession.clear(res);
+      return res.json({ ok: true, alreadyCompleted: true, version: existingAcc.tncVersion, acceptedAt: existingAcc.acceptedAt });
+    }
 
     const tnc = await TncDocument.findOne({ status: 'published' }).sort({ publishedAt: -1 }).lean();
     if (!tnc) return res.status(409).json({ error: 'No published Terms available.' });

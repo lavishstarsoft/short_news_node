@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Agreement Evidence' }) %>
+<style>
+  .evidence-doc{max-width:900px;margin:0 auto;background:#fff;}
+  .ev-card{border:1px solid #e5e7eb;border-radius:10px;margin-bottom:16px;overflow:hidden;}
+  .ev-card h5{background:#f8fafc;border-bottom:1px solid #e5e7eb;margin:0;padding:10px 14px;font-size:15px;color:#111827;}
+  .ev-body{padding:14px;}
+  .ev-row{display:flex;gap:10px;padding:4px 0;border-bottom:1px dashed #f1f1f1;font-size:14px;}
+  .ev-row .k{width:190px;min-width:190px;color:#6b7280;}
+  .ev-row .v{color:#111827;word-break:break-word;}
+  .tnc-frozen{white-space:pre-wrap;font-size:13px;line-height:1.55;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:14px;max-height:520px;overflow:auto;}
+  .map-static{position:relative;max-width:100%;border:1px solid #ddd;border-radius:8px;}
+  .map-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);pointer-events:none;}
+  .map-pin i{display:block;width:18px;height:18px;background:#22c55e;border:2px solid #166534;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 3px rgba(0,0,0,.4);}
+  .badge-int-ok{background:#dcfce7;color:#166534;}
+  .badge-int-bad{background:#fee2e2;color:#991b1b;}
+  .doc-title{text-align:center;border-bottom:2px solid #b91c1c;padding-bottom:8px;margin-bottom:16px;}
+  .doc-title .brand{color:#b91c1c;font-weight:800;letter-spacing:.5px;}
+  @media print {
+    body * { visibility: hidden !important; }
+    .evidence-doc, .evidence-doc * { visibility: visible !important; }
+    .evidence-doc { position: absolute; left: 0; top: 0; width: 100%; margin:0; }
+    .no-print { display: none !important; }
+    .ev-card { break-inside: avoid; page-break-inside: avoid; }
+    .tnc-frozen { max-height: none !important; overflow: visible !important; border:none; background:#fff; }
+    #gpsMap { break-inside: avoid; page-break-inside: avoid; }
+    #gpsMap img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    a[href] { color:#000 !important; text-decoration: underline; }
+    @page { size: A4; margin: 14mm; }
+  }
+</style>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Agreement Evidence', backButton: true, backUrl: '/admin/agreement-status' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'agreement-status' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+
+        <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+          <a href="/admin/agreement-status" class="btn btn-sm btn-outline-secondary">&larr; Back to Agreement Status</a>
+          <div>
+            <button class="btn btn-sm btn-outline-primary" onclick="window.print()">🖨️ Print</button>
+            <button class="btn btn-sm btn-danger" onclick="window.print()">⬇️ Download / Save as PDF</button>
+          </div>
+        </div>
+
+        <% const ev = evidence; %>
+        <div class="evidence-doc">
+          <div class="doc-title">
+            <div class="brand">TEHELKA NEWS</div>
+            <div style="font-weight:700">STATE IN-CHARGE AGREEMENT — ACCEPTANCE EVIDENCE</div>
+            <div class="text-muted" style="font-size:12px">Evidence ID: <%= ev.id %> · Generated: <%= new Date(generatedAt).toLocaleString('en-IN') %></div>
+          </div>
+
+          <!-- 1. Person & Status -->
+          <div class="ev-card"><h5>1. Person &amp; Status</h5><div class="ev-body">
+            <div class="ev-row"><div class="k">Full name</div><div class="v"><%= ev.identity.name || '—' %></div></div>
+            <div class="ev-row"><div class="k">Email (masked)</div><div class="v"><%= ev.identity.emailMasked %></div></div>
+            <div class="ev-row"><div class="k">Role / Designation</div><div class="v"><%= ev.identity.designation %></div></div>
+            <div class="ev-row"><div class="k">State</div><div class="v"><%= ev.identity.state || '—' %></div></div>
+            <div class="ev-row"><div class="k">Admin / Reporter ID</div><div class="v"><code><%= ev.identity.adminId %></code></div></div>
+            <div class="ev-row"><div class="k">Acceptance status</div><div class="v"><span class="badge bg-success"><%= ev.identity.status %></span></div></div>
+          </div></div>
+
+          <!-- 2. Agreement Version -->
+          <div class="ev-card"><h5>2. Agreement Version</h5><div class="ev-body">
+            <div class="ev-row"><div class="k">T&amp;C version</div><div class="v"><b>v<%= ev.agreement.tncVersion %></b></div></div>
+            <div class="ev-row"><div class="k">T&amp;C SHA-256 hash</div><div class="v"><code><%= ev.agreement.tncHash %></code></div></div>
+            <div class="ev-row"><div class="k">Title</div><div class="v"><%= ev.agreement.title || '—' %></div></div>
+            <div class="ev-row"><div class="k">Published at</div><div class="v"><%= ev.agreement.publishedAt ? new Date(ev.agreement.publishedAt).toLocaleString('en-IN') : '—' %></div></div>
+            <div class="ev-row"><div class="k">Frozen snapshot integrity</div><div class="v">
+              <% if (ev.agreement.integrity) { %><span class="badge badge-int-ok">VERIFIED — content hash matches the accepted hash</span>
+              <% } else if (!ev.agreement.contentAvailable) { %><span class="badge badge-int-bad">Version content not found</span>
+              <% } else { %><span class="badge badge-int-bad">MISMATCH — investigate</span><% } %>
+            </div></div>
+          </div></div>
+
+          <!-- 3. Exact T&C Accepted (frozen, immutable) -->
+          <div class="ev-card"><h5>3. Terms &amp; Conditions Accepted (frozen v<%= ev.agreement.tncVersion %> — exact content)</h5><div class="ev-body">
+            <% if (ev.agreement.contentAvailable) { %>
+              <div class="tnc-frozen"><%= ev.agreement.content %></div>
+            <% } else { %><div class="text-danger">The exact version content for this acceptance could not be located.</div><% } %>
+            <div class="text-muted mt-2" style="font-size:12px">This is the immutable content of the exact version the person accepted, reproduced from the version record and verified against the frozen hash. It is not the latest editable T&amp;C.</div>
+          </div></div>
+
+          <!-- 4. Acceptance Timeline -->
+          <div class="ev-card"><h5>4. Acceptance Timeline</h5><div class="ev-body">
+            <div class="ev-row"><div class="k">OTP verified</div><div class="v"><%= ev.evidence.otpVerified ? 'Yes' : 'No' %></div></div>
+            <div class="ev-row"><div class="k">Accepted at</div><div class="v"><%= ev.evidence.acceptedAt ? new Date(ev.evidence.acceptedAt).toLocaleString('en-IN') : '—' %></div></div>
+            <div class="ev-row"><div class="k">Record created (server)</div><div class="v"><%= ev.evidence.createdAt ? new Date(ev.evidence.createdAt).toLocaleString('en-IN') : '—' %></div></div>
+            <div class="ev-row"><div class="k">OTP requested / opened time</div><div class="v text-muted">Not recorded</div></div>
+          </div></div>
+
+          <!-- 5. Signature -->
+          <div class="ev-card"><h5>5. Signature</h5><div class="ev-body">
+            <% if (ev.evidence.hasSignature) { %>
+              <img src="<%= ev.evidence.signatureRef %>" alt="signature" style="max-width:320px;border:1px solid #ddd;border-radius:6px;background:#fff;padding:6px">
+              <div class="text-muted mt-1" style="font-size:12px">Signature captured at acceptance (<%= ev.evidence.acceptedAt ? new Date(ev.evidence.acceptedAt).toLocaleString('en-IN') : '—' %>).</div>
+            <% } else { %><span class="text-muted">Signature not captured.</span><% } %>
+          </div></div>
+
+          <!-- 6. Technical Evidence -->
+          <div class="ev-card"><h5>6. Technical Evidence</h5><div class="ev-body">
+            <div class="ev-row"><div class="k">Typed name</div><div class="v"><%= ev.evidence.typedName || '—' %></div></div>
+            <div class="ev-row"><div class="k">Network IP (approx. region only)</div><div class="v"><%= ev.evidence.ip || '—' %></div></div>
+            <div class="ev-row"><div class="k">User agent / device</div><div class="v" style="font-size:12.5px"><%= ev.evidence.userAgent || '—' %></div></div>
+            <% if (ev.evidence.device) { %><div class="ev-row"><div class="k">Device metadata</div><div class="v" style="font-size:12.5px">platform: <%= ev.evidence.device.platform || '—' %> · screen: <%= ev.evidence.device.screen || '—' %> · tz: <%= ev.evidence.device.timezone || '—' %> · lang: <%= ev.evidence.device.language || '—' %></div></div><% } %>
+            <div class="ev-row"><div class="k">Worker / process</div><div class="v"><code><%= ev.evidence.workerId || '—' %></code></div></div>
+          </div></div>
+
+          <!-- 7. GPS / Location Evidence + Registered Address (kept separate) -->
+          <div class="ev-card"><h5>7. Location Evidence</h5><div class="ev-body">
+            <div class="ev-row"><div class="k">Registered Address</div><div class="v"><%= ev.registeredAddress ? ev.registeredAddress : 'Not available' %></div></div>
+            <div class="ev-row"><div class="k">Location consent</div><div class="v"><%= ev.location.permission %></div></div>
+            <% if (ev.location.hasGps) { %>
+              <div class="ev-row"><div class="k">Captured GPS Location</div><div class="v">Browser Geolocation at Acceptance (with consent)</div></div>
+              <div class="ev-row"><div class="k">Latitude</div><div class="v"><%= ev.location.latitude %></div></div>
+              <div class="ev-row"><div class="k">Longitude</div><div class="v"><%= ev.location.longitude %></div></div>
+              <div class="ev-row"><div class="k">Accuracy / radius</div><div class="v text-muted">Not recorded</div></div>
+              <div class="ev-row no-print"><div class="k">Open in Maps</div><div class="v"><a href="https://www.google.com/maps?q=<%= ev.location.latitude %>,<%= ev.location.longitude %>" target="_blank" rel="noopener">Open in Google Maps</a></div></div>
+            <% } else { %>
+              <div class="ev-row"><div class="k">Captured GPS Location</div><div class="v text-muted">Not captured</div></div>
+            <% } %>
+            <div class="text-muted mt-2" style="font-size:12px">GPS is browser geolocation captured with user consent — it is not a verified postal address.</div>
+          </div></div>
+
+          <!-- 8. Map — Captured GPS (keyless OSM static image: prints in the PDF) -->
+          <% if (ev.location.hasGps) { %>
+          <div class="ev-card"><h5>8. Map — Captured GPS Location</h5><div class="ev-body">
+            <div id="gpsMap" class="map-static" data-lat="<%= ev.location.latitude %>" data-lng="<%= ev.location.longitude %>"
+                 style="width:600px;height:360px;overflow:hidden;background:#e8eef3;position:relative">
+              <!-- OSM raster tiles injected by JS; centre pin marks the exact captured point -->
+              <div class="map-pin" title="Captured GPS point" style="z-index:5"><i></i></div>
+              <div style="position:absolute;right:3px;bottom:2px;font-size:9px;color:#333;background:rgba(255,255,255,.7);padding:0 3px;border-radius:3px;z-index:5">© OpenStreetMap</div>
+            </div>
+            <div id="mapFallback" class="alert alert-secondary py-2 small mt-2" style="display:none">Map tiles could not be loaded. The captured coordinates are recorded below.</div>
+            <div class="mt-2" style="font-size:13px">
+              <div><b>Captured GPS Location — Browser Geolocation at Acceptance (with consent)</b></div>
+              <div><b>Coordinates:</b> <%= ev.location.latitude %>, <%= ev.location.longitude %> &nbsp;<span class="text-muted">(green marker = captured point)</span></div>
+              <div><b>Open in Google Maps:</b> <a href="https://www.google.com/maps?q=<%= ev.location.latitude %>,<%= ev.location.longitude %>" target="_blank" rel="noopener">https://www.google.com/maps?q=<%= ev.location.latitude %>,<%= ev.location.longitude %></a></div>
+            </div>
+          </div></div>
+          <% } else { %>
+          <div class="ev-card"><h5>8. Map — Captured GPS Location</h5><div class="ev-body">
+            <span class="text-muted">GPS location was not captured.</span>
+          </div></div>
+          <% } %>
+
+          <!-- 9. Hash / Integrity Evidence -->
+          <div class="ev-card"><h5>9. Digital Integrity Evidence</h5><div class="ev-body">
+            <div class="ev-row"><div class="k">Acceptance hash (SHA-256)</div><div class="v"><code><%= ev.evidence.acceptanceHash || '—' %></code></div></div>
+            <div class="ev-row"><div class="k">Previous hash (chain)</div><div class="v"><code><%= ev.evidence.previousHash || '(genesis / none)' %></code></div></div>
+            <div class="ev-row"><div class="k">T&amp;C hash (SHA-256)</div><div class="v"><code><%= ev.agreement.tncHash %></code></div></div>
+            <div class="ev-row"><div class="k">Evidence ID</div><div class="v"><code><%= ev.id %></code></div></div>
+            <div class="ev-row"><div class="k">Generated at</div><div class="v"><%= new Date(generatedAt).toLocaleString('en-IN') %></div></div>
+          </div></div>
+
+          <p class="text-muted" style="font-size:11.5px;border-top:1px solid #eee;padding-top:8px">This is a system-generated copy of the immutable agreement acceptance record. The authoritative record remains stored in the application database. This document does not assert a verified postal address; GPS (if present) is browser geolocation captured with consent, and IP indicates approximate network region only.</p>
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+  <script>
+    // Static OSM tile-grid map (keyless, prints reliably). Centres the captured point
+    // and overlays the green pin at the container centre.
+    (function(){
+      var el=document.getElementById('gpsMap'); if(!el) return;
+      var lat=parseFloat(el.dataset.lat), lng=parseFloat(el.dataset.lng);
+      if(isNaN(lat)||isNaN(lng)) return;
+      var Z=16, TS=256, W=el.clientWidth||600, H=el.clientHeight||360, n=Math.pow(2,Z), subs=['a','b','c'];
+      var px=(lng+180)/360*n*TS, latRad=lat*Math.PI/180;
+      var py=(1-Math.log(Math.tan(latRad)+1/Math.cos(latRad))/Math.PI)/2*n*TS;
+      var cx=Math.floor(px/TS), cy=Math.floor(py/TS), ox=px-cx*TS, oy=py-cy*TS;
+      var originX=W/2-ox, originY=H/2-oy, loaded=0;
+      for(var dx=-2;dx<=2;dx++){ for(var dy=-2;dy<=2;dy++){
+        var tx=cx+dx, ty=cy+dy; if(tx<0||ty<0||tx>=n||ty>=n) continue;
+        var left=originX+dx*TS, top=originY+dy*TS;
+        if(left>W||top>H||left+TS<0||top+TS<0) continue;
+        var img=document.createElement('img');
+        img.src='https://'+subs[Math.abs(tx+ty)%3]+'.tile.openstreetmap.org/'+Z+'/'+tx+'/'+ty+'.png';
+        img.alt=''; img.style.cssText='position:absolute;left:'+left+'px;top:'+top+'px;width:256px;height:256px;user-select:none;pointer-events:none';
+        img.onload=function(){loaded++;};
+        img.onerror=function(){this.style.display='none';};
+        el.insertBefore(img, el.firstChild);
+      }}
+      setTimeout(function(){ if(loaded===0){ var f=document.getElementById('mapFallback'); if(f) f.style.display='block'; } }, 3500);
+    })();
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>
