@@ -50,7 +50,7 @@
           <div class="doc-title">
             <div class="brand">TEHELKA NEWS</div>
             <div style="font-weight:700">STATE IN-CHARGE AGREEMENT — ACCEPTANCE EVIDENCE</div>
-            <div class="text-muted" style="font-size:12px">Evidence ID: <%= ev.id %> · Generated: <%= new Date(generatedAt).toLocaleString('en-IN') %></div>
+            <div class="text-muted" style="font-size:12px">Evidence ID: <%= ev.id %> · Generated: <%= new Date(generatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) %></div>
           </div>
 
           <!-- 1. Person & Status -->
@@ -68,7 +68,7 @@
             <div class="ev-row"><div class="k">T&amp;C version</div><div class="v"><b>v<%= ev.agreement.tncVersion %></b></div></div>
             <div class="ev-row"><div class="k">T&amp;C SHA-256 hash</div><div class="v"><code><%= ev.agreement.tncHash %></code></div></div>
             <div class="ev-row"><div class="k">Title</div><div class="v"><%= ev.agreement.title || '—' %></div></div>
-            <div class="ev-row"><div class="k">Published at</div><div class="v"><%= ev.agreement.publishedAt ? new Date(ev.agreement.publishedAt).toLocaleString('en-IN') : '—' %></div></div>
+            <div class="ev-row"><div class="k">Published at</div><div class="v"><%= ev.agreement.publishedAt ? new Date(ev.agreement.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—' %></div></div>
             <div class="ev-row"><div class="k">Frozen snapshot integrity</div><div class="v">
               <% if (ev.agreement.integrity) { %><span class="badge badge-int-ok">VERIFIED — content hash matches the accepted hash</span>
               <% } else if (!ev.agreement.contentAvailable) { %><span class="badge badge-int-bad">Version content not found</span>
@@ -131,8 +131,8 @@
           <!-- 4. Acceptance Timeline -->
           <div class="ev-card"><h5>4. Acceptance Timeline</h5><div class="ev-body">
             <div class="ev-row"><div class="k">OTP verified</div><div class="v"><%= ev.evidence.otpVerified ? 'Yes' : 'No' %></div></div>
-            <div class="ev-row"><div class="k">Accepted at</div><div class="v"><%= ev.evidence.acceptedAt ? new Date(ev.evidence.acceptedAt).toLocaleString('en-IN') : '—' %></div></div>
-            <div class="ev-row"><div class="k">Record created (server)</div><div class="v"><%= ev.evidence.createdAt ? new Date(ev.evidence.createdAt).toLocaleString('en-IN') : '—' %></div></div>
+            <div class="ev-row"><div class="k">Accepted at</div><div class="v"><%= ev.evidence.acceptedAt ? new Date(ev.evidence.acceptedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—' %></div></div>
+            <div class="ev-row"><div class="k">Record created (server)</div><div class="v"><%= ev.evidence.createdAt ? new Date(ev.evidence.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—' %></div></div>
             <div class="ev-row"><div class="k">OTP requested / opened time</div><div class="v text-muted">Not recorded</div></div>
           </div></div>
 
@@ -140,7 +140,7 @@
           <div class="ev-card"><h5>5. Signature</h5><div class="ev-body">
             <% if (ev.evidence.hasSignature) { %>
               <img src="<%= ev.evidence.signatureRef %>" alt="signature" style="max-width:320px;border:1px solid #ddd;border-radius:6px;background:#fff;padding:6px">
-              <div class="text-muted mt-1" style="font-size:12px">Signature captured at acceptance (<%= ev.evidence.acceptedAt ? new Date(ev.evidence.acceptedAt).toLocaleString('en-IN') : '—' %>).</div>
+              <div class="text-muted mt-1" style="font-size:12px">Signature captured at acceptance (<%= ev.evidence.acceptedAt ? new Date(ev.evidence.acceptedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—' %>).</div>
             <% } else { %><span class="text-muted">Signature not captured.</span><% } %>
           </div></div>
 
@@ -197,7 +197,7 @@
             <div class="ev-row"><div class="k">Previous hash (chain)</div><div class="v"><code><%= ev.evidence.previousHash || '(genesis / none)' %></code></div></div>
             <div class="ev-row"><div class="k">T&amp;C hash (SHA-256)</div><div class="v"><code><%= ev.agreement.tncHash %></code></div></div>
             <div class="ev-row"><div class="k">Evidence ID</div><div class="v"><code><%= ev.id %></code></div></div>
-            <div class="ev-row"><div class="k">Generated at</div><div class="v"><%= new Date(generatedAt).toLocaleString('en-IN') %></div></div>
+            <div class="ev-row"><div class="k">Generated at</div><div class="v"><%= new Date(generatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) %></div></div>
           </div></div>
 
           <p class="text-muted" style="font-size:11.5px;border-top:1px solid #eee;padding-top:8px">This is a system-generated copy of the immutable agreement acceptance record. The authoritative record remains stored in the application database. This document does not assert a verified postal address; GPS (if present) is browser geolocation captured with consent, and IP indicates approximate network region only.</p>

@@ -28,7 +28,7 @@
               <td class="small"><%= maskEmail(a.email) %></td>
               <td><span class="badge bg-success">Accepted</span></td>
               <td>v<%= a.tncVersion %><div class="small text-muted"><code><%= (a.tncHash||'').slice(0,12) %>…</code></div></td>
-              <td class="small"><%= a.acceptedAt ? new Date(a.acceptedAt).toLocaleString('en-IN') : '—' %></td>
+              <td class="small"><%= a.acceptedAt ? new Date(a.acceptedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—' %></td>
               <td class="small"><%= a.ip || '—' %></td>
               <td class="small">
                 <% if(a.locationPermission==='granted' && a.latitude!=null){ %>
