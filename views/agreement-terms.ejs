@@ -41,6 +41,16 @@
             <td class="text-end"><button class="btn btn-sm btn-outline-secondary" onclick="viewVer('<%= a._id %>')">View</button></td></tr><% }); %>
           <% if(!archived.length){ %><tr><td colspan="4" class="text-muted text-center py-3">None</td></tr><% } %>
         </tbody></table></div></div>
+
+        <% if (admin && admin.role === 'superadmin') { %>
+        <div class="card border-danger mt-4">
+          <div class="card-header bg-danger text-white fw-bold"><i class="fas fa-triangle-exclamation me-1"></i>DANGER ZONE — Agreement / T&amp;C Data Management</div>
+          <div class="card-body">
+            <p class="mb-2 small">Permanently delete <b>all</b> Agreement/T&amp;C data — T&amp;C versions, user acceptance/evidence records, digital signatures, hashes and agreement audit logs. A fresh OTP is sent to the authorized Super Admin email and must be verified. <b>This action cannot be undone.</b></p>
+            <button class="btn btn-outline-danger" onclick="openPurge()"><i class="fas fa-trash me-1"></i>Delete Agreement Data</button>
+          </div>
+        </div>
+        <% } %>
       </div>
     </div>
   </div></div>
@@ -52,7 +62,21 @@
       <input type="hidden" id="tncId">
       <div class="row g-2 mb-2"><div class="col-md-4"><label class="form-label">Version *</label><input id="tncVersion" class="form-control" placeholder="1.1"></div>
         <div class="col-md-8"><label class="form-label">Title</label><input id="tncTitle" class="form-control" value="State In-Charge Appointment — Terms & Conditions"></div></div>
-      <div class="mb-2"><label class="form-label">English Terms &amp; Conditions</label><textarea id="tncEn" class="form-control" rows="10"></textarea></div>
+      <div class="mb-2"><label class="form-label">English Terms &amp; Conditions</label>
+        <div class="small text-muted mb-1">Add an acceptance checkbox with its own line: <code>[[ACCEPT]] label</code> (required) or <code>[[ACCEPT:optional]] label</code>. The full text stays intact.</div>
+        <textarea id="tncEn" class="form-control" rows="10" oninput="refreshPoints()"></textarea>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-md-6">
+          <div class="fw-bold small mb-1">Detected Acceptance Points: <span id="tncPointsCount">0</span></div>
+          <div id="tncPointsErr" class="text-danger small mb-1"></div>
+          <ol id="tncPointsList" class="small mb-0" style="max-height:190px;overflow:auto;padding-left:18px"></ol>
+        </div>
+        <div class="col-md-6">
+          <div class="fw-bold small mb-1">Live Preview (as the user will see)</div>
+          <div id="tncPreview" style="max-height:210px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:10px;font-size:12.5px;white-space:pre-wrap;background:#fafafa"></div>
+        </div>
+      </div>
       <div class="mb-2"><label class="form-label">Change Summary (internal)</label><input id="tncSummary" class="form-control"></div>
       <div id="tncErr" class="text-danger small"></div>
     </div>
@@ -61,9 +85,36 @@
 
   <script>
     let _m; function modal(){if(!_m)_m=new bootstrap.Modal(document.getElementById('tncModal'));return _m;}
-    function openCreate(){['tncId','tncVersion','tncEn','tncSummary'].forEach(i=>document.getElementById(i).value='');document.getElementById('tncTitle').value='State In-Charge Appointment — Terms & Conditions';document.getElementById('tncModalTitle').textContent='New Version';document.getElementById('tncErr').textContent='';modal().show();}
+    function escHtml(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+    var _ppTimer=null;
+    function refreshPoints(){ clearTimeout(_ppTimer); _ppTimer=setTimeout(doRefreshPoints,250); }
+    async function doRefreshPoints(){
+      var body=document.getElementById('tncEn').value||'';
+      try{
+        var r=await fetch('/admin/agreement-terms/api/parse-points',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bodyEnglish:body})});
+        var d=await r.json();
+        if(!r.ok){ document.getElementById('tncPointsErr').textContent=d.error||'Parse failed'; return; }
+        document.getElementById('tncPointsCount').textContent=d.count;
+        document.getElementById('tncPointsErr').innerHTML=(d.errors||[]).map(function(e){return '⚠ '+escHtml(e);}).join('<br>');
+        document.getElementById('tncPointsList').innerHTML=(d.points||[]).map(function(p){return '<li><code>'+escHtml(p.key)+'</code> '+(p.required?'<span class="badge bg-secondary">required</span>':'<span class="badge bg-light text-dark">optional</span>')+' '+escHtml(p.label)+'</li>';}).join('');
+        renderPreview(body, d.points||[]);
+      }catch(e){ document.getElementById('tncPointsErr').textContent='Preview unavailable.'; }
+    }
+    function renderPreview(body, points){
+      var MARKER=/^[ \t]*\[\[ACCEPT(:optional)?\]\][ \t]*(.*?)[ \t]*$/i;
+      var lines=String(body).split('\n'), html='', idx=0;
+      for(var i=0;i<lines.length;i++){
+        var m=MARKER.exec(lines[i]);
+        if(m){ var p=points[idx]; idx++; var req=p?p.required:!m[1]; var label=p?p.label:(m[2]||'');
+          html+='<label style="display:flex;gap:6px;align-items:flex-start;margin:6px 0;padding:6px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;white-space:normal"><input type="checkbox" disabled><span>'+escHtml(label)+(req?'':' (optional)')+'</span></label>';
+        } else { html+='<span>'+escHtml(lines[i])+'</span>\n'; }
+      }
+      html+='<div style="margin-top:8px;border-top:1px solid #eee;padding-top:6px"><label><input type="checkbox" disabled> I have read and agree to the Terms &amp; Conditions.</label></div>';
+      document.getElementById('tncPreview').innerHTML=html;
+    }
+    function openCreate(){['tncId','tncVersion','tncEn','tncSummary'].forEach(i=>document.getElementById(i).value='');document.getElementById('tncTitle').value='State In-Charge Appointment — Terms & Conditions';document.getElementById('tncModalTitle').textContent='New Version';document.getElementById('tncErr').textContent='';doRefreshPoints();modal().show();}
     async function editVer(id){const r=await fetch('/admin/agreement-terms/api/'+id);const d=await r.json();if(d.error){alert(d.error);return;}
-      document.getElementById('tncId').value=id;document.getElementById('tncVersion').value=d.version;document.getElementById('tncTitle').value=d.title||'';document.getElementById('tncEn').value=d.bodyEnglish||'';document.getElementById('tncSummary').value=d.changeSummary||'';document.getElementById('tncModalTitle').textContent='Edit Draft v'+d.version;document.getElementById('tncErr').textContent='';modal().show();}
+      document.getElementById('tncId').value=id;document.getElementById('tncVersion').value=d.version;document.getElementById('tncTitle').value=d.title||'';document.getElementById('tncEn').value=d.bodyEnglish||'';document.getElementById('tncSummary').value=d.changeSummary||'';document.getElementById('tncModalTitle').textContent='Edit Draft v'+d.version;document.getElementById('tncErr').textContent='';doRefreshPoints();modal().show();}
     async function viewVer(id){const r=await fetch('/admin/agreement-terms/api/'+id);const d=await r.json();alert('v'+d.version+' ['+d.status+']\\nHash: '+(d.contentHash||'(draft)')+'\\n\\n--- English ---\\n'+(d.bodyEnglish||'').slice(0,1500));}
     async function saveDraft(){const id=document.getElementById('tncId').value;
       const body={version:document.getElementById('tncVersion').value.trim(),title:document.getElementById('tncTitle').value,bodyEnglish:document.getElementById('tncEn').value,changeSummary:document.getElementById('tncSummary').value};
@@ -71,7 +122,7 @@
       const url=id?'/admin/agreement-terms/api/'+id:'/admin/agreement-terms/api';const res=await fetch(url,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await res.json();
       if(!res.ok){document.getElementById('tncErr').textContent=d.error||'Failed';return;}location.reload();}
     async function publishVer(id,ver){if(!confirm('You are publishing T&C Version '+ver+'.\\nFuture agreements will use this version.\\nExisting accepted agreements remain unchanged.'))return;
-      const res=await fetch('/admin/agreement-terms/api/'+id+'/publish',{method:'POST'});const d=await res.json();if(!res.ok){alert(d.error||'Failed');return;}location.reload();}
+      const res=await fetch('/admin/agreement-terms/api/'+id+'/publish',{method:'POST'});const d=await res.json();if(!res.ok){alert((d.error||'Failed')+(d.pointErrors&&d.pointErrors.length?('\n\n'+d.pointErrors.join('\n')):''));return;}location.reload();}
 
     // Password-protected unpublish/delete (Super Admin only; verified server-side).
     var _delId=null, _dm;
@@ -108,6 +159,103 @@
     <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
       <button class="btn btn-danger" id="delConfirmBtn" onclick="confirmDelete()">Confirm</button></div>
   </div></div></div>
+  <% if (admin && admin.role === 'superadmin') { %>
+  <!-- DANGER ZONE: Agreement/T&C data purge (Super Admin + fresh OTP + explicit confirm) -->
+  <div class="modal fade" id="purgeModal" tabindex="-1" data-bs-backdrop="static"><div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header bg-danger text-white"><h5 class="modal-title"><i class="fas fa-triangle-exclamation me-1"></i>Delete Agreement / T&amp;C Data</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="alert alert-danger py-2"><b>WARNING:</b> This permanently deletes agreement/T&amp;C records, user acceptance records, signatures, hashes and associated digital evidence. <b>This action cannot be undone.</b></div>
+
+      <div class="row g-2 mb-2" id="purgeCounts"><div class="col-12 text-muted small">Loading preview…</div></div>
+
+      <div class="row">
+        <div class="col-md-6"><div class="small"><b>Will be deleted:</b><ul class="small mb-2" id="purgeDelList"></ul></div></div>
+        <div class="col-md-6"><div class="small"><b>Will be preserved:</b><ul class="small mb-2" id="purgeKeepList"></ul></div></div>
+      </div>
+      <div id="purgeMismatch" class="alert alert-warning py-2 small d-none"></div>
+
+      <!-- Step 1: send OTP -->
+      <div id="purgeStepOtpSend" class="border-top pt-2 mt-1">
+        <p class="small mb-2">A fresh 6-digit code will be sent to the authorized Super Admin email <b id="purgeOtpDest">—</b>. The destination is fixed and cannot be changed.</p>
+        <button class="btn btn-warning" id="purgeSendOtpBtn" onclick="purgeSendOtp()"><i class="fas fa-paper-plane me-1"></i>Send Verification Code</button>
+      </div>
+
+      <!-- Step 2: enter OTP + acknowledge + delete -->
+      <div id="purgeStepConfirm" class="border-top pt-2 mt-2 d-none">
+        <div class="alert alert-success py-2 small" id="purgeOtpSentMsg"></div>
+        <label class="form-label mb-1">Enter verification code</label>
+        <input type="text" id="purgeOtp" inputmode="numeric" maxlength="6" class="form-control mb-2" placeholder="6-digit code" oninput="purgeGate()" style="max-width:220px">
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="purgeAck" onchange="purgeGate()">
+          <label class="form-check-label small" for="purgeAck">I understand that this action permanently deletes the selected agreement data.</label>
+        </div>
+        <button class="btn btn-danger" id="purgeDeleteBtn" onclick="purgeExecute()" disabled><i class="fas fa-trash me-1"></i>PERMANENTLY DELETE AGREEMENT DATA</button>
+        <button class="btn btn-link btn-sm" onclick="purgeSendOtp()">Resend code</button>
+      </div>
+
+      <div class="text-danger small mt-2" id="purgeErr"></div>
+      <div class="text-success small mt-2" id="purgeOk"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button></div>
+  </div></div></div>
+
+  <script>
+    var _pm;
+    function purgeModal(){ if(!_pm)_pm=new bootstrap.Modal(document.getElementById('purgeModal')); return _pm; }
+    function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+    async function openPurge(){
+      // reset
+      document.getElementById('purgeStepConfirm').classList.add('d-none');
+      document.getElementById('purgeStepOtpSend').classList.remove('d-none');
+      document.getElementById('purgeOtp').value=''; document.getElementById('purgeAck').checked=false;
+      document.getElementById('purgeErr').textContent=''; document.getElementById('purgeOk').textContent='';
+      document.getElementById('purgeDeleteBtn').disabled=true;
+      document.getElementById('purgeMismatch').classList.add('d-none');
+      purgeModal().show();
+      try{
+        var r=await fetch('/admin/agreement-terms/api/purge/preview'); var d=await r.json();
+        if(!r.ok){ document.getElementById('purgeCounts').innerHTML='<div class="col-12 text-danger small">'+esc(d.error||'Failed to load preview')+'</div>'; return; }
+        var c=d.counts||{};
+        var cells=[['T&C documents',c.tncDocuments],['Acceptance records',c.acceptances],['Digital signatures',c.signatureFiles],['Agreement audit logs',c.auditLogs]];
+        document.getElementById('purgeCounts').innerHTML=cells.map(function(x){return '<div class="col-6 col-md-3"><div class="border rounded p-2 text-center"><div class="h4 mb-0">'+(x[1]||0)+'</div><div class="small text-muted">'+esc(x[0])+'</div></div></div>';}).join('');
+        document.getElementById('purgeDelList').innerHTML=['T&C versions (draft/published/archived)','Acceptance / consent / point-by-point records','Signatures, hashes, IP, GPS, device evidence','Only agreement-action audit logs','Linked R2 signature files'].map(function(t){return '<li>'+esc(t)+'</li>';}).join('');
+        document.getElementById('purgeKeepList').innerHTML=(d.preserved||[]).map(function(t){return '<li>'+esc(t)+'</li>';}).join('');
+        document.getElementById('purgeOtpDest').textContent=d.otpDestination||'—';
+        if(d.configMismatch){ var mm=document.getElementById('purgeMismatch'); mm.classList.remove('d-none'); mm.innerHTML='Note: the logged-in Super Admin account email differs from the fixed authorized OTP address. The code is still sent ONLY to '+esc(d.otpDestination||'')+'.'; }
+      }catch(e){ document.getElementById('purgeCounts').innerHTML='<div class="col-12 text-danger small">Network error loading preview.</div>'; }
+    }
+    async function purgeSendOtp(){
+      document.getElementById('purgeErr').textContent=''; document.getElementById('purgeOk').textContent='';
+      var b=document.getElementById('purgeSendOtpBtn'); b.disabled=true;
+      try{
+        var r=await fetch('/admin/agreement-terms/api/purge/send-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+        var d=await r.json(); b.disabled=false;
+        if(!r.ok){ document.getElementById('purgeErr').textContent=d.error||'Could not send code.'; return; }
+        document.getElementById('purgeStepConfirm').classList.remove('d-none');
+        document.getElementById('purgeOtpSentMsg').textContent='A 6-digit code was sent to '+(d.sentTo||'the authorized Super Admin email')+'. It expires shortly.';
+        purgeGate();
+      }catch(e){ b.disabled=false; document.getElementById('purgeErr').textContent='Network error.'; }
+    }
+    function purgeGate(){
+      var otp=(document.getElementById('purgeOtp').value||'').trim();
+      var ok=/^\d{6}$/.test(otp) && document.getElementById('purgeAck').checked;
+      document.getElementById('purgeDeleteBtn').disabled=!ok;
+    }
+    async function purgeExecute(){
+      document.getElementById('purgeErr').textContent=''; document.getElementById('purgeOk').textContent='';
+      var otp=(document.getElementById('purgeOtp').value||'').trim();
+      var b=document.getElementById('purgeDeleteBtn'); b.disabled=true;
+      try{
+        var r=await fetch('/admin/agreement-terms/api/purge/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({otp:otp,confirm:true,acknowledge:true})});
+        var d=await r.json();
+        if(!r.ok){ document.getElementById('purgeErr').textContent=d.error||'Deletion failed.'; b.disabled=false; purgeGate(); return; }
+        var del=d.deleted||{};
+        document.getElementById('purgeOk').textContent='Deleted — T&C: '+(del.tncDocuments||0)+', acceptances: '+(del.acceptances||0)+', audit logs: '+(del.auditLogs||0)+', signature files: '+(del.signatureFilesDeleted||0)+'. Reloading…';
+        setTimeout(function(){location.reload();},1800);
+      }catch(e){ document.getElementById('purgeErr').textContent='Network error.'; b.disabled=false; purgeGate(); }
+    }
+  </script>
+  <% } %>
   <%- include('partials/footer') %>
 </body>
 </html>

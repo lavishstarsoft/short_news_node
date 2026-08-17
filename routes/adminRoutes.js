@@ -198,11 +198,21 @@ const securityAlertController = require('../controllers/securityAlertController'
 const agreementTermsController = require('../controllers/agreementTermsController');
 router.get('/agreement-terms', adminController.requireAdmin, agreementTermsController.renderTermsAdmin);
 router.get('/agreement-terms/api', adminController.requireAdmin, agreementTermsController.list);
+router.post('/agreement-terms/api/parse-points', adminController.requireAdmin, agreementTermsController.parsePoints);
 router.post('/agreement-terms/api', adminController.requireAdmin, agreementTermsController.createDraft);
 router.get('/agreement-terms/api/:id', adminController.requireAdmin, agreementTermsController.getVersion);
 router.put('/agreement-terms/api/:id', adminController.requireAdmin, agreementTermsController.updateDraft);
 router.post('/agreement-terms/api/:id/publish', adminController.requireAdmin, agreementTermsController.publishDraft);
 router.post('/agreement-terms/api/:id/delete', adminController.requireAdmin, agreementTermsController.deletePublishedVersion);
+
+// Individual agreement status deletion via OTP (Super Admin)
+router.post('/agreement-terms/api/delete-single/:id/send-otp', adminController.requireAdmin, agreementTermsController.sendDeleteSingleOtp);
+router.post('/agreement-terms/api/delete-single/:id/execute', adminController.requireAdmin, agreementTermsController.executeDeleteSingle);
+
+// Agreement/T&C DATA PURGE (Super-Admin only; enforced in controller). Fresh-OTP gated.
+router.get('/agreement-terms/api/purge/preview', adminController.requireAdmin, agreementTermsController.previewPurge);
+router.post('/agreement-terms/api/purge/send-otp', adminController.requireAdmin, agreementTermsController.sendPurgeOtp);
+router.post('/agreement-terms/api/purge/execute', adminController.requireAdmin, agreementTermsController.executePurge);
 router.get('/agreement-status', adminController.requireAdmin, agreementTermsController.renderAgreementStatus);
 router.get('/agreement-status/:acceptanceId', adminController.requireAdmin, agreementTermsController.renderAcceptanceDetail);
 

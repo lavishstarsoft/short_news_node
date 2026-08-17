@@ -58,7 +58,7 @@ async function sendOtpEmail(toEmail, otp, opts = {}) {
   const info = await getTransport().sendMail({
     from: process.env.MAIL_FROM,
     to: toEmail,
-    subject: 'Your State In-Charge Agreement verification code',
+    subject: opts.subject || 'Your State In-Charge Agreement verification code',
     text: `Dear ${name},\n\nYour one-time verification code is: ${otp}\n\nIt is valid for a few minutes. Do not share this code with anyone.\n\nIf you did not request this, you can ignore this email.\n\n— Tehelka News`,
     html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">
       <p>Dear ${name},</p>

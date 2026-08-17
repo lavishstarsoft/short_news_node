@@ -18,6 +18,7 @@
           <thead class="table-light"><tr>
             <th>Name</th><th>State</th><th>Email</th><th>Status</th><th>T&amp;C</th>
             <th>Accepted</th><th>IP</th><th>Location</th><th>Sign</th><th>Acceptance Hash</th>
+            <% if (admin.role === 'superadmin') { %><th>Action</th><% } %>
           </tr></thead><tbody>
           <% if(!list.length){ %><tr><td colspan="10" class="text-center text-muted py-4">No agreements accepted yet.</td></tr><% } %>
           <% list.forEach(function(a){ %>
@@ -37,6 +38,11 @@
               </td>
               <td><% if(a.signatureRef){ %><a href="<%= a.signatureRef %>" target="_blank" rel="noopener" onclick="event.stopPropagation()">View</a><% } else { %><span class="text-muted">—</span><% } %></td>
               <td><code class="small"><%= (a.acceptanceHash||'').slice(0,16) %>…</code></td>
+              <% if (admin.role === 'superadmin') { %>
+                <td>
+                  <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); requestDeleteSingle('<%= a._id %>', '<%= a.name || 'User' %>')">Delete</button>
+                </td>
+              <% } %>
             </tr>
           <% }); %>
         </tbody></table></div></div>
@@ -44,6 +50,97 @@
       </div>
     </div>
   </div></div>
+
+  <!-- OTP Modal for Individual Delete -->
+  <div class="modal fade" id="deleteSingleModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title text-danger">Verify Deletion</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-warning">
+            You are permanently deleting the agreement status for <strong id="deleteSingleName"></strong>.
+          </div>
+          <p id="deleteSingleOtpMsg" class="text-success small"></p>
+          <div class="mb-3">
+            <label class="form-label">Verification Code (OTP)</label>
+            <input type="text" id="deleteSingleOtp" class="form-control" placeholder="6-digit code">
+          </div>
+          <div id="deleteSingleErr" class="text-danger small mb-2"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="btnConfirmDeleteSingle" onclick="confirmDeleteSingle()">Delete Agreement</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <%- include('partials/footer') %>
+  <script>
+    let currentDeleteId = null;
+    let delModal = null;
+    
+    function requestDeleteSingle(id, name) {
+      if (!confirm('Are you sure you want to delete the agreement status for ' + name + '?')) return;
+      currentDeleteId = id;
+      document.getElementById('deleteSingleName').textContent = name;
+      document.getElementById('deleteSingleOtp').value = '';
+      document.getElementById('deleteSingleErr').textContent = '';
+      document.getElementById('deleteSingleOtpMsg').textContent = 'Requesting OTP...';
+      
+      if (!delModal) delModal = new bootstrap.Modal(document.getElementById('deleteSingleModal'));
+      delModal.show();
+      
+      fetch('/admin/agreement-terms/api/delete-single/' + id + '/send-otp', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          document.getElementById('deleteSingleOtpMsg').textContent = 'OTP sent to authorized email: ' + data.sentTo;
+        } else {
+          document.getElementById('deleteSingleErr').textContent = data.error || 'Failed to send OTP.';
+          document.getElementById('deleteSingleOtpMsg').textContent = '';
+        }
+      })
+      .catch(err => {
+        document.getElementById('deleteSingleErr').textContent = 'Network error while requesting OTP.';
+      });
+    }
+
+    function confirmDeleteSingle() {
+      const otp = document.getElementById('deleteSingleOtp').value.trim();
+      if (!otp || otp.length !== 6) {
+        document.getElementById('deleteSingleErr').textContent = 'Please enter a valid 6-digit OTP.';
+        return;
+      }
+      
+      const btn = document.getElementById('btnConfirmDeleteSingle');
+      btn.disabled = true;
+      document.getElementById('deleteSingleErr').textContent = '';
+      
+      fetch('/admin/agreement-terms/api/delete-single/' + currentDeleteId + '/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otp: otp })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          window.location.reload();
+        } else {
+          btn.disabled = false;
+          document.getElementById('deleteSingleErr').textContent = data.error || 'Failed to delete agreement.';
+        }
+      })
+      .catch(err => {
+        btn.disabled = false;
+        document.getElementById('deleteSingleErr').textContent = 'Network error while verifying OTP.';
+      });
+    }
+  </script>
 </body>
 </html>

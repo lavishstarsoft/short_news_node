@@ -20,6 +20,20 @@ const tncSchema = new mongoose.Schema(
     title: { type: String, default: 'State In-Charge Appointment — Terms & Conditions' },
     bodyEnglish: { type: String, default: '' },
     bodyTelugu: { type: String, default: '' },
+    // Structured point-by-point acceptance metadata DERIVED from [[ACCEPT]] markers in
+    // the body. Additive + optional: legacy versions have [] and behave exactly as before.
+    // Frozen at publish (see pre-save guard) so an accepted version's points are immutable.
+    acceptancePoints: {
+      type: [{
+        _id: false,
+        key: { type: String, required: true },      // stable, order-based: accept_001…
+        label: { type: String, default: '' },        // canonical label (server truth)
+        required: { type: Boolean, default: true },
+        order: { type: Number, default: 0 },
+        anchor: { type: Number, default: -1 }         // source line index in the body
+      }],
+      default: []
+    },
     // SHA-256 of the exact published content (set at publish; never changes after).
     contentHash: { type: String, default: '' },
     status: { type: String, enum: ['draft', 'published', 'archived'], default: 'draft', index: true },
@@ -43,7 +57,7 @@ tncSchema.statics.computeHash = function (version, en, te) {
 tncSchema.pre('save', function (next) {
   if (this.isNew) return next();
   if (this.status === 'published' && !this.isModified('status')) {
-    const frozen = ['bodyEnglish', 'bodyTelugu', 'contentHash', 'version'];
+    const frozen = ['bodyEnglish', 'bodyTelugu', 'contentHash', 'version', 'acceptancePoints'];
     if (frozen.some((f) => this.isModified(f))) {
       return next(new Error('Published T&C is immutable — create a new version instead.'));
     }

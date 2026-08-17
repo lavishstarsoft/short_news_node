@@ -2784,6 +2784,42 @@ async function registerEditor(req, res) {
       return res.status(400).json({ error: 'Username or email already exists' });
     }
 
+    // Server-side location security: Validate States and Districts
+    const incomingStates = uniqueStrings(assignedStates);
+    if (assignedState && !incomingStates.includes(assignedState)) {
+      incomingStates.unshift(assignedState);
+    }
+    const incomingDistricts = uniqueStrings(assignedDistricts);
+
+    if (incomingStates.length > 0) {
+      const validStateRecords = await Location.find({
+        locationType: 'state',
+        name: { $in: incomingStates }
+      }).select('name').lean();
+      
+      const validStateNames = validStateRecords.map(s => s.name);
+      const invalidStates = incomingStates.filter(s => !validStateNames.includes(s));
+      if (invalidStates.length > 0) {
+        return res.status(400).json({ error: `Invalid states selected: ${invalidStates.join(', ')}` });
+      }
+
+      if (incomingDistricts.length > 0) {
+        const validDistrictRecords = await Location.find({
+          locationType: 'district',
+          parentName: { $in: validStateNames },
+          name: { $in: incomingDistricts }
+        }).select('name').lean();
+        
+        const validDistrictNames = validDistrictRecords.map(d => d.name);
+        const invalidDistricts = incomingDistricts.filter(d => !validDistrictNames.includes(d));
+        if (invalidDistricts.length > 0) {
+          return res.status(400).json({ error: `Invalid districts for selected states: ${invalidDistricts.join(', ')}` });
+        }
+      }
+    } else if (incomingDistricts.length > 0) {
+      return res.status(400).json({ error: 'Cannot assign districts without assigning states.' });
+    }
+
     // Create new editor
     const newEditor = new Admin({
       username,

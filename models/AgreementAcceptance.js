@@ -29,6 +29,22 @@ const acceptanceSchema = new mongoose.Schema(
     typedName: { type: String, default: '' },
     signatureRef: { type: String, default: '' }, // R2 key of drawn signature (optional)
 
+    // Point-by-point acceptance (additive + optional). Denormalized with the CANONICAL
+    // label/required from the accepted T&C version, so evidence survives even if that
+    // version is later removed. Empty for legacy / non-point-aware acceptances.
+    acceptedPoints: {
+      type: [{
+        _id: false,
+        key: { type: String, required: true },
+        label: { type: String, default: '' },
+        required: { type: Boolean, default: true },
+        acceptedAt: { type: Date, default: null }
+      }],
+      default: []
+    },
+    // Canonical required-key set of the version at acceptance time (server truth), for audit.
+    requiredPointKeys: { type: [String], default: [] },
+
     // Corroborating evidence (NOT identity proof).
     ip: { type: String, default: '' },
     userAgent: { type: String, default: '' },
@@ -47,12 +63,15 @@ const acceptanceSchema = new mongoose.Schema(
 
 /** Deterministic hash of the acceptance facts + the previous record's hash. */
 acceptanceSchema.statics.computeHash = function (fields, previousHash) {
-  const canonical = [
+  const base = [
     fields.adminId, fields.tncVersion, fields.tncHash,
     new Date(fields.acceptedAt).toISOString(), fields.ip || '', fields.typedName || '',
     fields.otpVerified ? '1' : '0', previousHash || ''
-  ].join('|');
-  return crypto.createHash('sha256').update(canonical).digest('hex');
+  ];
+  // BACKWARD-COMPATIBLE: only point-aware records append the canonical point binding, so
+  // legacy/non-point acceptances hash EXACTLY as before (no chain break).
+  if (fields.acceptedPointsCanonical) base.push('pts=' + fields.acceptedPointsCanonical);
+  return crypto.createHash('sha256').update(base.join('|')).digest('hex');
 };
 
 // APPEND-ONLY: forbid every mutation/deletion path at the schema level.

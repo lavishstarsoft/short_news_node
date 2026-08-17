@@ -379,7 +379,7 @@
                                     <div><strong>Step 3: Sub-Editor's base location</strong><br>This is for record-keeping. The areas they manage are set in the <strong>Permissions</strong> tab.</div>
                                 </div>
 
-                                <div class="editor-field"><label><strong>① Select State(s) *</strong>
+                                <div class="editor-field"><label><strong>① Select State(s)</strong>
                                     <span class="info-tip">?<span class="info-tip-text">Click to select one or more states. This filters the districts below.</span></span>
                                 </label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addStateChips"><span class="text-muted small">Loading...</span></div></div></div>
                                 <div class="editor-field"><label><strong>② Select District(s)</strong>
@@ -388,7 +388,7 @@
                                 <div class="editor-field"><label><strong>③ Select Constituency (optional)</strong></label><div class="editor-chip-wrap"><div class="editor-chip-grid" id="addConstituencyChips"><span class="text-muted small">Select districts first...</span></div></div></div>
 
                                 <div class="editor-field" id="addAllowedScopesSection">
-                                    <label><strong>④ What type of news can they write? *</strong>
+                                    <label><strong>④ What type of news can they write?</strong>
                                         <span class="info-tip">?<span class="info-tip-text"><b>Local</b> = District-level news<br><b>State</b> = State-wide news<br><b>National</b> = Country-level<br><b>International</b> = World news<br><br>Select one or more.</span></span>
                                     </label>
                                     <div class="editor-scope-row" id="addScopeCards">
@@ -398,9 +398,9 @@
                                         <div class="editor-scope-card" data-scope="international"><strong>🌍 International</strong><div class="te">World news</div></div>
                                     </div>
                                 </div>
-                                <div class="editor-field"><label for="addConstituency">Primary Constituency *
-                                    <span class="info-tip">?<span class="info-tip-text">Shown next to their name in the app. Example: "Malakpet Correspondent"</span></span>
-                                </label><input type="text" id="addConstituency" required placeholder="e.g. Malakpet"></div>
+                                <div class="editor-field"><label for="addConstituency">Primary Constituency
+                                    <span class="info-tip">?<span class="info-tip-text">Optional. Shown next to their name in the app. Example: "Malakpet Correspondent"</span></span>
+                                </label><input type="text" id="addConstituency" placeholder="e.g. Malakpet (optional)"></div>
                             </div>
 
                             <!-- Add Tab 4: Permissions -->
@@ -553,6 +553,14 @@
                                 if (!root) return;
                                 const tabs = Array.from(root.querySelectorAll('.editor-tab-btn'));
                                 const currentIdx = tabs.findIndex(btn => btn.classList.contains('active'));
+                                
+                                if (currentIdx !== -1) {
+                                    const currentTabId = tabs[currentIdx].dataset.tab;
+                                    if (!validateTab(currentTabId)) {
+                                        return; // Stop if validation fails
+                                    }
+                                }
+                                
                                 if (currentIdx !== -1 && currentIdx < tabs.length - 1) {
                                     const nextTabId = tabs[currentIdx + 1].dataset.tab;
                                     switchEditorTab('addEditorTabs', nextTabId);
@@ -842,26 +850,11 @@
                             if (!document.getElementById('addMobile').value.trim()) showError('addMobile', 'Mobile Number is required');
                             if (!document.getElementById('addWorkingLanguage').value) showError('addWorkingLanguage', 'Language is required');
                         } else if (tabId === 'add-tab-location') {
-                            if (!document.getElementById('addConstituency').value.trim()) showError('addConstituency', 'Primary Constituency is required');
-
-                            const roleType = document.getElementById('addRole').value;
-                            if (roleType === 'editor') {
-                                const scopes = document.getElementById('addAllowedScopes').options;
-                                let hasScope = false;
-                                for(let i=0; i<scopes.length; i++) if(scopes[i].selected) hasScope = true;
-                                if (!hasScope) {
-                                    if (typeof showFeedback === 'function') showFeedback('Please select at least one type of news they can write.', 'error');
-                                    isValid = false;
-                                }
-
-                                const states = document.getElementById('addAssignedStates').options;
-                                let hasState = false;
-                                for(let i=0; i<states.length; i++) if(states[i].selected) hasState = true;
-                                if (!hasState) {
-                                    if (typeof showFeedback === 'function') showFeedback('Please select at least one state.', 'error');
-                                    isValid = false;
-                                }
-                            }
+                            // Location (State / District / Constituency) and Scope are OPTIONAL.
+                            // The Super Admin may intentionally leave them empty. The server is
+                            // authoritative for the State<->District relationship rules
+                            // (district requires a state; district must belong to that state),
+                            // so this step never hard-blocks navigation.
                         }
 
                         if (firstErrorInput) firstErrorInput.focus();
@@ -921,6 +914,31 @@
                                 }
                             }
                         }
+                    }
+
+                    function validateTab(tabId) {
+                        const panel = document.getElementById(tabId);
+                        if (!panel) return true;
+                        
+                        // Check native HTML5 validity
+                        const inputs = panel.querySelectorAll('input, select, textarea');
+                        for (let i = 0; i < inputs.length; i++) {
+                            const input = inputs[i];
+                            // Skip hidden inputs unless they are explicitly required in our custom UI
+                            if (input.type === 'hidden' || input.classList.contains('d-none')) continue;
+                            if (input.style.display === 'none') continue;
+                            
+                            if (!input.checkValidity()) {
+                                input.reportValidity();
+                                return false;
+                            }
+                        }
+
+                        // Location (State / District / Constituency) is OPTIONAL — the
+                        // Super Admin may leave it empty. The server enforces the
+                        // State<->District relationship, so nothing is blocked here.
+
+                        return true;
                     }
 
                     function initEditorTabButtons(tabsRootId) {
@@ -1367,7 +1385,15 @@
 
                     async function loadAddEditorLocationHierarchy() {
                         await ensureEditorHierarchy();
-                        loadReporterCoverage('add', null);
+                        let fakeEditor = null;
+                        if (window._appPrefill) {
+                            fakeEditor = {
+                                assignedStates: window._appPrefill.state ? [window._appPrefill.state] : [],
+                                assignedDistricts: window._appPrefill.district ? [window._appPrefill.district] : []
+                            };
+                            window._appPrefill = null;
+                        }
+                        loadReporterCoverage('add', fakeEditor);
                         const scopesEl = document.getElementById('addAllowedScopes');
                         Array.from(scopesEl.options).forEach(opt => { opt.selected = false; });
                         syncScopeCardsFromSelect('addScopeCards', 'addAllowedScopes');
@@ -1584,11 +1610,15 @@
                         new bootstrap.Modal(document.getElementById('editEditorModal')).show();
                     }
 
-                    document.getElementById('editRole').addEventListener('change', function () {
+                    // These elements exist only on the editors modal page, not on this
+                    // standalone Register page. Optional-chaining prevents a null-ref throw
+                    // here from aborting the script before the addEditorForm submit handler
+                    // (below) is bound — which was silently breaking ADD MEMBER.
+                    document.getElementById('editRole')?.addEventListener('change', function () {
                         applyEditSubEditorVisibility(this.value);
                     });
 
-                    document.getElementById('editCanApproveNews').addEventListener('change', function () {
+                    document.getElementById('editCanApproveNews')?.addEventListener('change', function () {
                         syncApprovalScopeSectionVisibility('edit');
                     });
 
@@ -1717,7 +1747,7 @@ if (editFormEl) editFormEl.addEventListener('submit', function (e) {
                     // Initialize Cropper Variables
                     let cropper;
                     const cropImageModalElement = document.getElementById('cropImageModal');
-                    const cropImageModal = new bootstrap.Modal(cropImageModalElement);
+                    const cropImageModal = cropImageModalElement ? new bootstrap.Modal(cropImageModalElement) : null;
                     const cropImageSource = document.getElementById('cropImageSource');
 
                     // Handle Profile Image Selection for Cropping
@@ -1737,7 +1767,7 @@ if (editImgEl) editImgEl.addEventListener('change', function(e) {
                         reader.readAsDataURL(file);
                     });
 
-                    cropImageModalElement.addEventListener('shown.bs.modal', function () {
+                    cropImageModalElement?.addEventListener('shown.bs.modal', function () {
                         if (cropper) {
                             cropper.destroy();
                         }
@@ -1756,7 +1786,7 @@ if (editImgEl) editImgEl.addEventListener('change', function(e) {
                         });
                     });
 
-                    cropImageModalElement.addEventListener('hidden.bs.modal', function () {
+                    cropImageModalElement?.addEventListener('hidden.bs.modal', function () {
                         if (cropper) {
                             cropper.destroy();
                             cropper = null;
@@ -1764,7 +1794,7 @@ if (editImgEl) editImgEl.addEventListener('change', function(e) {
                     });
 
                     // Handle Crop and Upload
-                    document.getElementById('btnCropAndSave').addEventListener('click', async function() {
+                    document.getElementById('btnCropAndSave')?.addEventListener('click', async function() {
                         if (!cropper) return;
                         
                         // Show loading state
@@ -1879,7 +1909,7 @@ if (editImgEl) editImgEl.addEventListener('change', function(e) {
                     }
 
                     // Handle password change form
-                    document.getElementById('changePasswordForm').addEventListener('submit', function (e) {
+                    document.getElementById('changePasswordForm')?.addEventListener('submit', function (e) {
                         e.preventDefault();
 
                         const editorId = document.getElementById('passwordEditorId').value;
@@ -1914,7 +1944,17 @@ if (editImgEl) editImgEl.addEventListener('change', function(e) {
                     });
 
                     function showFeedback(message, type) {
-                        const feedback = document.getElementById('feedbackMessage');
+                        // The standalone Register-Team-Member page has no #feedbackMessage
+                        // element (that lives in the editors modal page). Create one on demand
+                        // so a missing element never throws — otherwise validation errors are
+                        // swallowed AND a successful save throws before its redirect.
+                        let feedback = document.getElementById('feedbackMessage');
+                        if (!feedback) {
+                            feedback = document.createElement('div');
+                            feedback.id = 'feedbackMessage';
+                            feedback.className = 'feedback-message';
+                            document.body.appendChild(feedback);
+                        }
                         feedback.textContent = message;
                         feedback.className = 'feedback-message ' + type + ' show';
                         setTimeout(() => feedback.classList.remove('show'), 3000);
@@ -1985,10 +2025,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // 2. Auto-fill from URL parameters (if source=application)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('source') === 'application') {
+        const bannerContainer = document.querySelector('.wizard-header');
+        if (bannerContainer && !document.getElementById('appPrefillBanner')) {
+            const banner = document.createElement('div');
+            banner.id = 'appPrefillBanner';
+            banner.className = 'alert alert-info mt-3 text-start';
+            banner.style.borderRadius = '10px';
+            banner.innerHTML = '<i class="fas fa-info-circle me-2"></i><strong>Prefilled from Application &mdash;</strong> Review and modify any information before creating this member.';
+            bannerContainer.appendChild(banner);
+        }
         const email = urlParams.get('email');
         const name = urlParams.get('name');
         const mobile = urlParams.get('mobile');
         const loc = urlParams.get('location');
+        const prefillState = urlParams.get('state');
+        const prefillDistrict = urlParams.get('district');
+        if (prefillState || prefillDistrict) {
+            window._appPrefill = { state: prefillState, district: prefillDistrict };
+        }
 
         // Delay slightly to ensure no other scripts clear it
         setTimeout(() => {
@@ -2023,18 +2077,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 100);
 
-        // Set default password to DDMMYYYY
-        const today = new Date();
-        const dd = String(today.getDate()).padStart(2, '0');
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const yyyy = today.getFullYear();
-        if (addPassword) {
-            addPassword.value = dd + mm + yyyy;
-            // Also trigger change event to remove red border if it exists
-            addPassword.dispatchEvent(new Event('input'));
-        }
+        // Note: Password must NOT come from ReporterApplication.
+        // Super Admin must manually enter the password. We intentionally do not set a default here.
         
-        // Select reporter role by default (optional, user didn't explicitly ask but makes sense)
+        // Select reporter role by default
         const repCard = document.querySelector('.editor-role-card[data-role="reporter"]');
         if (repCard) {
             repCard.click();

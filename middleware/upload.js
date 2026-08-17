@@ -1,6 +1,6 @@
 const multer = require('multer');
 const sharp = require('sharp');
-const { PutObjectCommand } = require('@aws-sdk/client-s3');
+const { PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const { s3Client, bucketName, publicUrl } = require('../config/cloudflare');
 const path = require('path');
@@ -305,11 +305,34 @@ const uploadCategoryMedia = createMulterR2Interface({
     resize: true
 });
 
+/**
+ * Delete a single object from Cloudflare R2. SAFE: only deletes objects that belong
+ * to THIS bucket's public URL — a foreign/unknown URL is skipped, never touched.
+ * Best-effort: returns a status object and never throws.
+ */
+const deleteFromR2 = async (fileUrl) => {
+    if (!fileUrl || typeof fileUrl !== 'string') return { ok: false, skipped: true };
+    let key = fileUrl;
+    if (publicUrl && fileUrl.startsWith(publicUrl + '/')) {
+        key = fileUrl.slice(publicUrl.length + 1);
+    } else if (/^https?:\/\//i.test(fileUrl)) {
+        return { ok: false, skipped: true }; // foreign URL — never delete
+    }
+    if (!key) return { ok: false, skipped: true };
+    try {
+        await s3Client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
+        return { ok: true, key };
+    } catch (error) {
+        return { ok: false, key, error: error.message };
+    }
+};
+
 module.exports = {
     upload,
     uploadMedia,
     uploadAdMedia,
     uploadCategoryMedia,
     uploadRegistrationMedia,
-    uploadToR2
+    uploadToR2,
+    deleteFromR2
 };

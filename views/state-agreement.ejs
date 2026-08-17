@@ -6,15 +6,33 @@
   <title>State In-Charge Agreement — Tehelka News</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body{background:#f4f5f7;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
-    .agr-wrap{max-width:640px;margin:24px auto;padding:0 14px;}
-    .agr-card{background:#fff;border-radius:14px;box-shadow:0 2px 14px rgba(0,0,0,.07);padding:22px;}
-    .agr-brand{color:#E31E24;font-weight:800;letter-spacing:.5px;}
+    body{background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:#333;line-height:1.6;}
+    .agr-wrap{max-width:960px;margin:40px auto;padding:0 20px;}
+    .agr-card{background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.05);padding:40px;border:1px solid #e0e0e0;}
+    .agr-brand{color:#b91c1c;font-weight:800;letter-spacing:1px;font-size:24px;text-transform:uppercase;}
     .agr-step{display:none;} .agr-step.active{display:block;}
-    .tnc-box{max-height:320px;overflow:auto;border:1px solid #e5e5e2;border-radius:8px;padding:12px;font-size:13.5px;white-space:pre-wrap;background:#fafafa;}
-    #sigPad{border:1px dashed #bbb;border-radius:8px;width:100%;height:150px;touch-action:none;background:#fff;}
-    .muted{color:#777;font-size:12.5px;}
-    .err{color:#dc3545;font-size:13px;}
+    .tnc-header{text-align:center;margin-bottom:30px;border-bottom:2px solid #333;padding-bottom:15px;}
+    .tnc-header h4{font-weight:700;margin:0;font-size:22px;letter-spacing:0.5px;}
+    .tnc-header .tnc-version{color:#666;font-size:14px;margin-top:5px;}
+    .tnc-box{font-size:15px;white-space:pre-wrap;background:#fff;}
+    #sigPad{border:1px dashed #bbb;border-radius:4px;width:100%;height:150px;touch-action:none;background:#fafafa;}
+    .muted{color:#6b7280;font-size:13px;}
+    .err{color:#dc3545;font-size:14px;font-weight:500;}
+    .tnc-text{display:block;margin-bottom:12px;color:#1f2937;}
+    .tnc-point-row{display:flex;gap:12px;align-items:flex-start;margin:20px 0;padding:16px 20px;border:1px solid #d1d5db;border-radius:8px;background:#f9fafb;white-space:normal;cursor:pointer;transition:all 0.2s ease;}
+    .tnc-point-row input{margin:4px 0 0;width:20px;height:20px;flex:0 0 auto;cursor:pointer;accent-color:#16a34a;}
+    .tnc-point-row span{font-size:15px;color:#111827;line-height:1.5;font-weight:500;}
+    .tnc-point-row:has(input:checked){background:#f0fdf4;border-color:#22c55e;box-shadow:0 2px 8px rgba(34,197,94,0.15);}
+    .tnc-point-row:hover:not(:has(input:checked)){border-color:#9ca3af;background:#f3f4f6;}
+    #tncProgress{font-size:14px;font-weight:600;margin-top:10px;}
+    .identity-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:16px;margin-bottom:30px;}
+    .identity-box .row > div {margin-bottom:8px;font-size:14px;}
+    
+    @media (max-width: 768px) {
+      .agr-wrap{margin:16px auto;padding:0 12px;}
+      .agr-card{padding:24px 16px;}
+      .tnc-point-row{padding:12px 14px;}
+    }
   </style>
 </head>
 <body>
@@ -43,36 +61,61 @@
 
       <!-- Step 3: identity + terms -->
       <div class="agr-step" id="s-terms">
-        <div class="alert alert-success py-2">Identity Verified ✓</div>
-        <div class="mb-2" id="identityBox"></div>
-        <h6 class="mb-1">Terms &amp; Conditions <span class="muted" id="tncVer"></span></h6>
-        <div class="btn-group btn-group-sm mb-2" role="group">
-          <button class="btn btn-outline-secondary active" id="langTe">తెలుగు</button>
-          <button class="btn btn-outline-secondary" id="langEn">English</button>
+        <div class="alert alert-success py-2 fw-semibold" style="font-size:14px;">Identity Verified ✓</div>
+        <div id="identityBox" class="identity-box"></div>
+        
+        <div class="tnc-header">
+          <h4>TERMS &amp; CONDITIONS</h4>
+          <div class="tnc-version" id="tncVer"></div>
         </div>
+        
         <div class="tnc-box" id="tncBox">Loading…</div>
-        <div class="form-check mt-2">
-          <input class="form-check-input" type="checkbox" id="agree" disabled>
-          <label class="form-check-label" for="agree">I have read and agree to the Terms &amp; Conditions.</label>
+        
+        <div class="p-4 mt-4" style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
+          <div id="tncProgress" class="text-primary mb-2"></div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="agree" disabled style="width:20px;height:20px;margin-top:2px;">
+            <label class="form-check-label fw-bold ms-2" for="agree" style="font-size:15px;color:#111827;">I have read and agree to the Terms &amp; Conditions.</label>
+          </div>
+          <div class="muted fw-semibold" id="scrollHint">Select every required item and scroll to the end of the document to continue.</div>
+          <button class="btn btn-primary btn-lg w-100 mt-3 fw-bold" id="btnToSign" disabled>Continue</button>
         </div>
-        <div class="muted" id="scrollHint">Please scroll to the end of the terms to enable acceptance.</div>
-        <button class="btn btn-danger w-100 mt-2" id="btnToSign" disabled>Continue</button>
       </div>
 
       <!-- Step 4: sign + accept -->
       <div class="agr-step" id="s-sign">
-        <h6>Confirm &amp; sign</h6>
-        <label class="form-label mb-1">Full Name</label>
-        <input type="text" id="typedName" class="form-control mb-2">
-        <label class="form-label mb-1">Signature <span class="muted">(optional)</span></label>
-        <canvas id="sigPad"></canvas>
-        <div class="d-flex justify-content-between mb-2"><span class="muted">Draw with finger/mouse</span><button class="btn btn-sm btn-link p-0" id="clearSig">Clear</button></div>
-        <div class="form-check mb-2">
-          <input class="form-check-input" type="checkbox" id="locConsent">
-          <label class="form-check-label muted" for="locConsent">Share my location (optional — helps verify where I signed). You can decline.</label>
+        <div class="text-center mb-4">
+          <h4 style="font-weight:700;">Final Confirmation</h4>
+          <p class="text-muted">Please complete the final steps to record your acceptance.</p>
         </div>
-        <div class="err mb-2" id="signErr"></div>
-        <button class="btn btn-danger w-100" id="btnAccept">Accept Agreement</button>
+        
+        <div class="mb-4">
+          <label class="form-label fw-bold mb-1">Full Name</label>
+          <input type="text" id="typedName" class="form-control form-control-lg mb-2" placeholder="Type your full name">
+        </div>
+        
+        <div class="mb-4">
+          <label class="form-label fw-bold mb-1">Digital Signature</label>
+          <div class="text-muted mb-2" style="font-size:13px;">Draw your signature below to confirm your acceptance.</div>
+          <canvas id="sigPad"></canvas>
+          <div class="d-flex justify-content-between mt-1">
+            <span class="text-muted" style="font-size:12px;">Use finger or mouse</span>
+            <button class="btn btn-sm btn-outline-secondary py-0" id="clearSig">Clear Signature</button>
+          </div>
+        </div>
+        
+        <div class="mb-4 p-3" style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
+          <label class="form-label fw-bold mb-1">Location Permission</label>
+          <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" id="locConsent" style="width:18px;height:18px;margin-top:2px;">
+            <label class="form-check-label ms-2" for="locConsent" style="font-size:14px;color:#374151;">
+              Allow location access to complete the digital acceptance record.
+            </label>
+          </div>
+        </div>
+        
+        <div class="err mb-3 text-center" id="signErr"></div>
+        <button class="btn btn-primary btn-lg w-100 fw-bold" id="btnAccept" disabled>Submit Final Acceptance</button>
       </div>
 
       <!-- Done -->
@@ -98,8 +141,8 @@
 
 <script>
 (function(){
-  var email='', tnc=null, lang='te';
-  function show(id){document.querySelectorAll('.agr-step').forEach(function(e){e.classList.remove('active')});document.getElementById(id).classList.add('active');}
+  var email='', tnc=null;
+  function show(id){document.querySelectorAll('.agr-step').forEach(function(e){e.classList.remove('active')});document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
   function post(url,body){return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})}).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})});}
 
   document.getElementById('btnSendOtp').onclick=function(){
@@ -138,7 +181,13 @@
           '<div><b>IP evidence:</b> '+(s.ipCaptured?'Recorded':'—')+'</div>';
         show('s-already'); return;
       }
-      document.getElementById('identityBox').innerHTML='<div><b>Name:</b> '+esc(id.name)+'</div><div><b>Email:</b> '+esc(id.emailMasked)+'</div><div><b>Designation:</b> '+esc(id.designation)+'</div><div><b>State:</b> '+esc(id.state||'—')+'</div>';
+      document.getElementById('identityBox').innerHTML=
+        '<div class="row">' +
+        '<div class="col-sm-6"><strong>Name:</strong> '+esc(id.name)+'</div>' +
+        '<div class="col-sm-6"><strong>Email:</strong> '+esc(id.emailMasked)+'</div>' +
+        '<div class="col-sm-6"><strong>Designation:</strong> '+esc(id.designation)+'</div>' +
+        '<div class="col-sm-6"><strong>State:</strong> '+esc(id.state||'—')+'</div>' +
+        '</div>';
       document.getElementById('typedName').value=id.name||'';
       loadTerms();
     }).catch(function(){b.disabled=false;document.getElementById('otpErr').textContent='Network error.';});
@@ -151,14 +200,52 @@
       var e=d.evidence;
       var w=window.open('','_blank');
       if(!w){alert('Please allow pop-ups to view/print.');return;}
-      var content=(e.agreement.content||'').replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});
+      var points = (e.acceptancePoints && e.acceptancePoints.list) || [];
+      var pointIndex = 0;
+      var lines = (e.agreement.content||'').split('\n');
+      var content = '';
+      var MARKER_RE = /^[ \t]*\[\[ACCEPT(:optional)?\]\][ \t]*(.*?)[ \t]*$/i;
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var mm = MARKER_RE.exec(line);
+        if (mm) {
+          var p = points[pointIndex++] || {};
+          var label = p.label || mm[2] || '';
+          content += '<div style="margin-bottom: 4px;">' + esc(label) + '</div>';
+          if (p.accepted) {
+            content += '<div style="margin: 4px 0 16px 0; color: #166534; font-weight: bold; font-size: 14px;">✓ Accepted</div>';
+          } else if (p.required) {
+            content += '<div style="margin: 4px 0 16px 0; color: #991b1b; font-weight: bold; font-size: 14px;">✗ NOT accepted (Required)</div>';
+          } else {
+            content += '<div style="margin: 4px 0 16px 0; color: #6b7280; font-weight: bold; font-size: 14px;">— Not accepted (Optional)</div>';
+          }
+        } else {
+          var lm = /^\s*[☐☑☒]\s?(.*)$/.exec(line);
+          if (lm && points.length === 0) {
+            content += '<div style="margin-bottom: 4px;">' + esc(lm[1]) + '</div>';
+            content += '<div style="margin: 4px 0 16px 0; color: #166534; font-weight: bold; font-size: 14px;">✓ Accepted</div>';
+          } else {
+            if (line.trim() === '') {
+              content += '<br>';
+            } else {
+              content += '<div style="margin-bottom: 6px;">' + esc(line) + '</div>';
+            }
+          }
+        }
+      }
+      
+      var summaryHtml = '';
+      if (e.acceptancePoints && e.acceptancePoints.hasPoints) {
+        summaryHtml = '<div style="margin-top:20px;padding:12px;background:#f9fafb;border:1px solid #eee;border-radius:6px;"><strong>Acceptance Summary</strong><br>Required terms accepted: ' + e.acceptancePoints.acceptedRequiredCount + ' / ' + e.acceptancePoints.requiredCount + '<br>Final acceptance: Confirmed</div>';
+      }
+
       w.document.write('<html><head><title>Agreement Evidence</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:20px auto;padding:0 16px}h2{color:#b91c1c}pre{white-space:pre-wrap;font-size:13px;border:1px solid #eee;padding:12px;background:#fafafa}.k{color:#666}@media print{@page{size:A4;margin:14mm}}</style></head><body>'+
         '<h2>TEHELKA NEWS — State In-Charge Agreement Evidence</h2>'+
         '<p><span class="k">Name:</span> '+esc(e.identity.name)+' &nbsp; <span class="k">Email:</span> '+esc(e.identity.emailMasked)+'<br>'+
         '<span class="k">State:</span> '+esc(e.identity.state||'—')+' &nbsp; <span class="k">Status:</span> Accepted<br>'+
         '<span class="k">T&C Version:</span> v'+esc(e.agreement.tncVersion)+' &nbsp; <span class="k">T&C Hash:</span> '+esc(e.agreement.tncHash)+'<br>'+
         '<span class="k">Accepted At:</span> '+(e.evidence.acceptedAt?new Date(e.evidence.acceptedAt).toLocaleString():'—')+'</p>'+
-        '<h3>Terms &amp; Conditions Accepted (frozen v'+esc(e.agreement.tncVersion)+')</h3><pre>'+content+'</pre>'+
+        '<h3>Terms &amp; Conditions Accepted (frozen v'+esc(e.agreement.tncVersion)+')</h3><div style="font-size:13px;border:1px solid #eee;padding:12px;background:#fafafa;font-family:Arial,sans-serif">'+content+'</div>'+summaryHtml+
         '<h3>Acceptance Evidence</h3><p><span class="k">OTP verified:</span> '+(e.evidence.otpVerified?'Yes':'No')+'<br>'+
         '<span class="k">IP:</span> '+esc(e.evidence.ip||'—')+'<br>'+
         '<span class="k">Captured GPS:</span> '+(e.location.hasGps?(e.location.latitude+', '+e.location.longitude):'Not captured')+'<br>'+
@@ -172,16 +259,79 @@
   function loadTerms(){
     fetch('/state-agreement/terms').then(function(r){return r.json()}).then(function(j){
       if(j.error){document.getElementById('tncBox').textContent=j.error;show('s-terms');return;}
-      tnc=j; document.getElementById('tncVer').textContent='(Version '+j.version+')';
+      tnc=j; document.getElementById('tncVer').textContent='Version '+j.version;
       renderTnc(); show('s-terms');
     });
   }
-  function renderTnc(){document.getElementById('tncBox').textContent=(lang==='te'?(tnc.bodyTelugu||tnc.bodyEnglish):(tnc.bodyEnglish||tnc.bodyTelugu))||'(No content)';}
-  document.getElementById('langTe').onclick=function(){lang='te';this.classList.add('active');document.getElementById('langEn').classList.remove('active');renderTnc();};
-  document.getElementById('langEn').onclick=function(){lang='en';this.classList.add('active');document.getElementById('langTe').classList.remove('active');renderTnc();};
   var box=document.getElementById('tncBox');
-  box.addEventListener('scroll',function(){if(box.scrollTop+box.clientHeight>=box.scrollHeight-16){document.getElementById('agree').disabled=false;document.getElementById('scrollHint').textContent='You may now accept.';}});
-  document.getElementById('agree').onchange=function(){document.getElementById('btnToSign').disabled=!this.checked;};
+  var scrolledEnd=false;
+  var tncMismatch=false;
+  var MARKER_RE = /^[ \t]*\[\[ACCEPT(:optional)?\]\][ \t]*(.*?)[ \t]*$/i;
+  function renderTnc(){
+    var text=tnc.bodyEnglish||tnc.bodyTelugu||'(No content)';
+    var meta=(tnc.acceptancePoints||[]);
+    var lines=text.split('\n'), html='', markerIdx=0;
+    tncMismatch=false;
+    for(var i=0;i<lines.length;i++){
+      var line=lines[i];
+      var mm=MARKER_RE.exec(line);
+      if(mm){
+        var pm=meta[markerIdx]; markerIdx++;
+        if(meta.length>0 && !pm){ tncMismatch=true; }
+        var key=pm?pm.key:'';
+        var required=pm?!!pm.required:!mm[1];
+        var label=pm?pm.label:(mm[2]||'');
+        html+='<label class="tnc-point-row"><input type="checkbox" class="tnc-point" data-key="'+esc(key)+'" data-required="'+(required?'1':'0')+'"><span>'+esc(label)+(required?'':' <em style="color:#6b7280;font-weight:normal;font-size:13px;">(optional)</em>')+'</span></label>';
+      } else {
+        var lm=/^\s*[☐☑☒]\s?(.*)$/.exec(line);
+        if(lm && meta.length===0){
+          html+='<label class="tnc-point-row"><input type="checkbox" class="tnc-point" data-required="1"><span>'+esc(lm[1])+'</span></label>';
+        } else {
+          html+='<span class="tnc-text">'+esc(line)+'</span>\n';
+        }
+      }
+    }
+    if(meta.length>0 && markerIdx!==meta.length){ tncMismatch=true; }
+    box.innerHTML=html;
+    scrolledEnd=false;
+    onScroll();
+    updateGate();
+  }
+  function reqTotal(){return box.querySelectorAll('.tnc-point[data-required="1"]').length;}
+  function reqChecked(){return box.querySelectorAll('.tnc-point[data-required="1"]:checked').length;}
+  function collectAcceptedKeys(){ return Array.prototype.map.call(box.querySelectorAll('.tnc-point[data-key]:checked'), function(cb){return cb.getAttribute('data-key');}).filter(function(k){return !!k;}); }
+  function updateGate(){
+    var agree=document.getElementById('agree'), toBtn=document.getElementById('btnToSign');
+    var hint=document.getElementById('scrollHint'), prog=document.getElementById('tncProgress');
+    if(tncMismatch){
+      agree.disabled=true; agree.checked=false; toBtn.disabled=true; prog.textContent='';
+      hint.textContent='Please refresh the agreement and try again.';
+      return;
+    }
+    var rt=reqTotal(), rc=reqChecked();
+    var ready=(rt===0 || rc>=rt) && scrolledEnd;
+    agree.disabled=!ready; if(!ready && agree.checked){ agree.checked=false; }
+    toBtn.disabled=!(ready && agree.checked);
+    prog.textContent = rt>0 ? ('Required items accepted: '+rc+' / '+rt) : '';
+    if(rt>0 && rc<rt){ hint.textContent='Select every required item and scroll to the end of the document to continue.'; }
+    else if(!scrolledEnd){ hint.textContent='Please scroll to the end of the document to continue.'; }
+    else { hint.textContent='You may now accept and continue.'; }
+  }
+  
+  // Track scroll on the window instead of inner box
+  function onScroll(){ 
+    var agreeRect = document.getElementById('btnToSign').getBoundingClientRect();
+    // If the continue button is visible in viewport or window is scrolled to bottom
+    if(agreeRect.top <= (window.innerHeight || document.documentElement.clientHeight) + 100 || 
+       (window.innerHeight + window.scrollY) >= document.body.offsetHeight - 50) { 
+      scrolledEnd=true; updateGate(); 
+    } 
+  }
+  
+  window.addEventListener('scroll',onScroll);
+  window.addEventListener('resize',onScroll);
+  box.addEventListener('change',function(e){ if(e.target&&e.target.classList&&e.target.classList.contains('tnc-point')){ updateGate(); } });
+  document.getElementById('agree').onchange=function(){ updateGate(); };
   document.getElementById('btnToSign').onclick=function(){show('s-sign');fitSig();};
 
   // signature pad
@@ -190,18 +340,29 @@
   function pos(e){var r=cv.getBoundingClientRect();var t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top};}
   function start(e){drawing=true;dirty=true;var p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);e.preventDefault();}
   function move(e){if(!drawing)return;var p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();e.preventDefault();}
-  function end(){drawing=false;}
+  function end(){drawing=false; updateFinalGate();}
   ['mousedown','touchstart'].forEach(function(ev){cv.addEventListener(ev,start);});
   ['mousemove','touchmove'].forEach(function(ev){cv.addEventListener(ev,move);});
   ['mouseup','mouseleave','touchend'].forEach(function(ev){cv.addEventListener(ev,end);});
-  document.getElementById('clearSig').onclick=function(){ctx.clearRect(0,0,cv.width,cv.height);dirty=false;};
+  document.getElementById('clearSig').onclick=function(){ctx.clearRect(0,0,cv.width,cv.height);dirty=false;updateFinalGate();};
+
+  function updateFinalGate() {
+    var typedName = document.getElementById('typedName').value.trim();
+    var hasConsent = document.getElementById('locConsent').checked;
+    var btn = document.getElementById('btnAccept');
+    btn.disabled = !(typedName && dirty && hasConsent);
+  }
+  document.getElementById('typedName').addEventListener('input', updateFinalGate);
+  document.getElementById('locConsent').addEventListener('change', updateFinalGate);
 
   document.getElementById('btnAccept').onclick=function(){
     document.getElementById('signErr').textContent='';
     var typedName=document.getElementById('typedName').value.trim();
     if(!typedName){document.getElementById('signErr').textContent='Please type your full name.';return;}
     var b=this;b.disabled=true;
-    var payload={acceptedVersion:tnc?tnc.version:'',agree:true,typedName:typedName,
+    var payload={acceptedVersion:tnc?tnc.version:'',tncHash:tnc?tnc.contentHash:'',agree:true,typedName:typedName,
+      // Only point KEYS are sent; the server re-derives labels/required and re-validates.
+      acceptedPoints: collectAcceptedKeys(),
       device:{platform:navigator.platform,language:navigator.language,timezone:(Intl.DateTimeFormat().resolvedOptions().timeZone||''),screen:(screen.width+'x'+screen.height)},
       signatureData: dirty? cv.toDataURL('image/png') : '',
       locationPermission:'unavailable'};

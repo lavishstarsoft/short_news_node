@@ -42,6 +42,19 @@ async function buildEvidence(acc) {
   const lat = (typeof acc.latitude === 'number') ? acc.latitude : null;
   const lng = (typeof acc.longitude === 'number') ? acc.longitude : null;
 
+  // ── Point-by-point acceptance (evidence only; the full legal text is NEVER altered) ──
+  const acceptedPts = Array.isArray(acc.acceptedPoints) ? acc.acceptedPoints : [];
+  const acceptedKeys = new Set(acceptedPts.map(p => p.key));
+  const fromVersion = !!(tnc && Array.isArray(tnc.acceptancePoints) && tnc.acceptancePoints.length);
+  // Prefer the exact accepted VERSION's canonical points; if the version was removed,
+  // fall back to the denormalized snapshot stored on the acceptance record.
+  const pointDefs = fromVersion
+    ? tnc.acceptancePoints.map(p => ({ key: p.key, label: p.label, required: p.required, order: p.order }))
+    : acceptedPts.map((p, i) => ({ key: p.key, label: p.label, required: p.required, order: i + 1 }));
+  const pointsList = pointDefs
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+    .map(p => ({ key: p.key, label: p.label, required: !!p.required, order: p.order, accepted: acceptedKeys.has(p.key) }));
+
   return {
     id: String(acc._id),
     identity: {
@@ -62,6 +75,13 @@ async function buildEvidence(acc) {
       content: tnc ? String(tnc.bodyEnglish || tnc.bodyTelugu || '') : '',
       contentAvailable,
       integrity
+    },
+    acceptancePoints: {
+      hasPoints: pointsList.length > 0,
+      sourceFromVersion: fromVersion,
+      requiredCount: pointsList.filter(p => p.required).length,
+      acceptedRequiredCount: pointsList.filter(p => p.required && p.accepted).length,
+      list: pointsList
     },
     evidence: {
       otpVerified: acc.otpVerified === true,

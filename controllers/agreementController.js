@@ -129,7 +129,11 @@ exports.getTerms = async (req, res) => {
     if (!tnc) return res.status(404).json({ error: 'No published Terms & Conditions available yet.' });
     res.json({
       version: tnc.version, title: tnc.title, effectiveFrom: tnc.effectiveFrom,
-      contentHash: tnc.contentHash, bodyEnglish: tnc.bodyEnglish, bodyTelugu: tnc.bodyTelugu
+      contentHash: tnc.contentHash, bodyEnglish: tnc.bodyEnglish, bodyTelugu: tnc.bodyTelugu,
+      // Canonical acceptance points (server truth). The client renders checkboxes for these
+      // but can NEVER define them — accept validation re-derives required points from the DB.
+      acceptancePoints: (Array.isArray(tnc.acceptancePoints) ? tnc.acceptancePoints : [])
+        .map(p => ({ key: p.key, label: p.label, required: p.required, order: p.order }))
     });
   } catch (_) { res.status(500).json({ error: 'Failed to load terms.' }); }
 };
@@ -159,6 +163,41 @@ exports.accept = async (req, res) => {
     if (b.acceptedVersion && b.acceptedVersion !== tnc.version) {
       return res.status(409).json({ error: 'Terms have been updated. Please reload and read the latest version.' });
     }
+
+    // ── POINT-BY-POINT server-side validation (SOURCE OF TRUTH = published version) ──
+    // The client's checkbox state is NEVER trusted. The server independently derives the
+    // required points from the DB and validates the submitted key set. Fail-closed.
+    const AP = require('../services/agreement/acceptancePoints');
+    const canonicalPoints = Array.isArray(tnc.acceptancePoints) ? tnc.acceptancePoints : [];
+    const isPointAware = canonicalPoints.length > 0;
+    let acceptedPointsRecord = [];
+    let requiredKeys = [];
+    let acceptedPointsCanonical = '';
+    if (isPointAware) {
+      // Bind to the exact version's hash: a hash that doesn't match this version → refuse.
+      if (b.tncHash && String(b.tncHash) !== String(tnc.contentHash)) {
+        return res.status(409).json({ error: 'Please refresh the agreement and try again.' });
+      }
+      const byKey = new Map(canonicalPoints.map(p => [p.key, p]));
+      requiredKeys = canonicalPoints.filter(p => p.required).map(p => p.key);
+      // Client submits ONLY keys (string or {key}); labels/required come from the server.
+      let submitted = Array.isArray(b.acceptedPoints) ? b.acceptedPoints : [];
+      submitted = submitted.map(x => (x && typeof x === 'object') ? String(x.key || '') : String(x || '')).filter(Boolean);
+      if (new Set(submitted).size !== submitted.length) {
+        return res.status(400).json({ error: 'Please refresh the agreement and try again.' }); // duplicate keys
+      }
+      for (const k of submitted) {
+        if (!byKey.has(k)) return res.status(400).json({ error: 'Please refresh the agreement and try again.' }); // unknown key
+      }
+      const missing = requiredKeys.filter(rk => !submitted.includes(rk));
+      if (missing.length) {
+        return res.status(400).json({ error: 'You must accept all required points before continuing.' });
+      }
+      const at0 = new Date();
+      acceptedPointsRecord = submitted.map(k => { const p = byKey.get(k); return { key: p.key, label: p.label, required: p.required, acceptedAt: at0 }; });
+      acceptedPointsCanonical = AP.canonicalForHash({ tncVersion: tnc.version, tncHash: tnc.contentHash, required: requiredKeys, accepted: submitted });
+    }
+
     if (b.agree !== true && b.agree !== 'true') return res.status(400).json({ error: 'You must accept the Terms & Conditions.' });
     const typedName = String(b.typedName || '').trim();
     if (!typedName) return res.status(400).json({ error: 'Full name is required.' });
@@ -192,13 +231,17 @@ exports.accept = async (req, res) => {
       ip: clientIp(req), userAgent: (req.headers['user-agent'] || '').slice(0, 400),
       deviceMetadata: sanitizeDevice(b.device),
       locationPermission: ['granted', 'denied', 'unavailable'].includes(b.locationPermission) ? b.locationPermission : 'unavailable',
-      latitude: numOrNull(b.latitude), longitude: numOrNull(b.longitude)
+      latitude: numOrNull(b.latitude), longitude: numOrNull(b.longitude),
+      // Point-by-point acceptance (server-canonical; empty for legacy/non-point versions).
+      acceptedPoints: acceptedPointsRecord,
+      requiredPointKeys: requiredKeys
     };
 
-    // Tamper-evident hash chain (append-only).
+    // Tamper-evident hash chain (append-only). Point-aware records also bind the canonical
+    // point set; legacy records pass no canonical → identical hash to before (no chain break).
     const prev = await AgreementAcceptance.findOne({}).sort({ createdAt: -1 }).select('acceptanceHash').lean();
     const previousHash = prev ? prev.acceptanceHash : '';
-    const acceptanceHash = AgreementAcceptance.computeHash(fields, previousHash);
+    const acceptanceHash = AgreementAcceptance.computeHash({ ...fields, acceptedPointsCanonical }, previousHash);
 
     const doc = await AgreementAcceptance.create({ ...fields, previousHash, acceptanceHash, workerId: WORKER_ID });
     Admin.updateOne({ _id: ic._id }, { $set: { agreementStatus: 'agreement_accepted' } }).catch(() => {});

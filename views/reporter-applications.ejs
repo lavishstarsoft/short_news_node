@@ -157,9 +157,11 @@
                                             const locationStr = (typeof raPickString === 'function') ? raPickString(appData, ['district', 'District', 'mandal', 'Mandal', 'village', 'Village', 'constituency', 'Constituency', 'city', 'City', 'location', 'Location']) : ''; 
                                             const finalEmail = email || appData['email'] || appData['Email'] || appData['email_address'] || '';
                                             const finalPhone = phone || appData['phone_number'] || appData['Mobile'] || appData['mobile'] || appData['mobile_number'] || '';
+                                            const finalState = appData['state'] || appData['State'] || '';
+                                            const finalDistrict = appData['district'] || appData['District'] || '';
                                         %>
                                         <% if (app.status === 'pending') { %>
-                                        <a href="/register-editor?source=application&email=<%= encodeURIComponent(finalEmail) %>&name=<%= encodeURIComponent(name || '') %>&mobile=<%= encodeURIComponent(finalPhone) %>&location=<%= encodeURIComponent(locationStr || '') %>"
+                                        <a href="/register-editor?source=application&email=<%= encodeURIComponent(finalEmail) %>&name=<%= encodeURIComponent(name || '') %>&mobile=<%= encodeURIComponent(finalPhone) %>&location=<%= encodeURIComponent(locationStr || '') %>&state=<%= encodeURIComponent(finalState) %>&district=<%= encodeURIComponent(finalDistrict) %>"
                                            class="ra-action-btn" style="color: #059669; border-color: #a7f3d0; background: #ecfdf5; text-decoration: none;"
                                            title="Register as Member" target="_blank">
                                             <i class="fas fa-user-plus"></i> Onboard
