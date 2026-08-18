@@ -381,8 +381,13 @@ const login = async (req, res) => {
     // Get user agent
     const userAgent = req.headers['user-agent'] || 'Unknown';
 
-    // Get advanced location information
-    const locationDetails = await detectAdvancedLocation(ip);
+    // Get advanced location information. Bound the external IP-geolocation lookup so a slow
+    // provider can never stall the login (it was taking up to ~18s). Fall back to a minimal
+    // object on timeout/error — login must not depend on this corroborating data.
+    const locationDetails = await Promise.race([
+      Promise.resolve().then(() => detectAdvancedLocation(ip)),
+      new Promise((resolve) => setTimeout(() => resolve({}), 3500))
+    ]).catch(() => ({}));
 
     // Use client-side location data (highest priority)
     const clientLat = parseFloat(latitude);
@@ -441,8 +446,12 @@ const login = async (req, res) => {
         id: isConnectedToMongoDB ? admin._id : admin.id, 
         username: admin.username, 
         name: admin.name,
-        role: admin.role,
-        permissions: admin.permissions || {}
+        role: admin.role
+        // NOTE: `permissions` are intentionally NOT embedded in the JWT anymore. Whole-state
+        // Bureau/Sub-Editor accounts have huge managedLocations/managedConstituencies/
+        // managedDistricts arrays which made the token (and the Set-Cookie header) ~30KB, and
+        // the reverse proxy rejected the oversized header → 502. Permissions are now loaded
+        // fresh from the DB by the auth middleware on each request (small, always-current).
       },
       getJwtSecret(),
       { expiresIn: '24h' }
@@ -3600,8 +3609,33 @@ const requireAuth = (req, res, next) => {
   }
 };
 
+// ── Slim-JWT permission loading ──────────────────────────────────────────────
+// The JWT no longer carries the (potentially huge) permissions object. These lighter
+// role-check middlewares attach the member's CURRENT permissions from the DB, cached
+// briefly per adminId so we never hit the DB on every single request. Failure is
+// fail-safe: permissions default to {} (permission checks then deny), role is still
+// verified from the already-trusted token.
+const _permCache = new Map(); // adminId -> { val, exp }
+const PERM_CACHE_TTL_MS = 15 * 1000;
+async function loadAdminAuthContext(adminId) {
+  const id = String(adminId || '');
+  if (!id) return null;
+  const now = Date.now();
+  const hit = _permCache.get(id);
+  if (hit && hit.exp > now) return hit.val;
+  let val = null;
+  try {
+    const a = await Admin.findById(id).select('permissions role name isActive').lean();
+    if (a) val = { permissions: a.permissions || {}, role: a.role, name: a.name, isActive: a.isActive !== false };
+  } catch (_) { val = null; }
+  _permCache.set(id, { val, exp: now + PERM_CACHE_TTL_MS });
+  return val;
+}
+// Call after any change to a member's permissions/role so slim-JWT routes see it immediately.
+function invalidateAdminAuthCache(adminId) { try { _permCache.delete(String(adminId || '')); } catch (_) {} }
+
 // Check if admin is super admin
-const requireSuperAdmin = (req, res, next) => {
+const requireSuperAdmin = async (req, res, next) => {
   const token = req.cookies?.token;
 
   if (!token) {
@@ -3615,6 +3649,8 @@ const requireSuperAdmin = (req, res, next) => {
       return res.status(403).send('Access denied. Super admin only.');
     }
 
+    const ctx = await loadAdminAuthContext(decoded.id);
+    decoded.permissions = (ctx && ctx.permissions) || {}; // from DB, never from the token
     req.admin = decoded;
     res.locals.admin = decoded;
     next();
@@ -3645,7 +3681,7 @@ const requireSidebarMenu = (menu) => (req, res, next) => {
 };
 
 // Check if user is admin or superadmin
-const requireAdmin = (req, res, next) => {
+const requireAdmin = async (req, res, next) => {
   const token = req.cookies?.token;
 
   if (!token) {
@@ -3659,6 +3695,8 @@ const requireAdmin = (req, res, next) => {
       return res.status(403).send('Access denied. Admins only.');
     }
 
+    const ctx = await loadAdminAuthContext(decoded.id);
+    decoded.permissions = (ctx && ctx.permissions) || {}; // from DB, never from the token
     req.admin = decoded;
     res.locals.admin = decoded;
     next();
@@ -3668,7 +3706,7 @@ const requireAdmin = (req, res, next) => {
 };
 
 // Check if user is editor
-const requireEditor = (req, res, next) => {
+const requireEditor = async (req, res, next) => {
   const token = req.cookies?.token;
 
   if (!token) {
@@ -3682,6 +3720,8 @@ const requireEditor = (req, res, next) => {
       return res.status(403).send('Access denied. Editors only.');
     }
 
+    const ctx = await loadAdminAuthContext(decoded.id);
+    decoded.permissions = (ctx && ctx.permissions) || {}; // from DB, never from the token
     req.admin = decoded;
     res.locals.admin = decoded;
     next();
