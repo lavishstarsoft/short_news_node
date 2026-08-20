@@ -12,6 +12,8 @@ function uniqueStrings(arr) {
 function normalizeApprovalScope(scope) {
   if (!scope || scope === 'all') return 'all';
   if (scope === 'reporters') return 'reporters';
+  // Combined: geography coverage AND individually-selected reporters (union).
+  if (scope === 'geography_and_reporters') return 'geography_and_reporters';
   // legacy "locations" and new "geography" behave the same
   return 'geography';
 }
@@ -146,8 +148,12 @@ function subEditorHasTeamScope(subEditorDoc) {
   }
 
   const coverage = getSubEditorManagedCoverage(subEditorDoc);
-  return !!(coverage.states.length || coverage.districts.length ||
+  const hasGeo = !!(coverage.states.length || coverage.districts.length ||
     coverage.constituencies.length || coverage.locations.length);
+  if (scope === 'geography_and_reporters') {
+    return hasGeo || uniqueStrings(perms.managedReporterIds || []).length > 0;
+  }
+  return hasGeo;
 }
 
 /**
@@ -171,17 +177,24 @@ async function getManagedReporterIds(Admin, subEditorDoc, options = {}) {
     return uniqueStrings(perms.managedReporterIds || []);
   }
 
+  const explicitIds = uniqueStrings(perms.managedReporterIds || []);
   const coverage = getSubEditorManagedCoverage(subEditorDoc);
-  if (!coverage.states.length && !coverage.districts.length &&
-      !coverage.constituencies.length && !coverage.locations.length) {
-    return [];
+  const hasGeo = !!(coverage.states.length || coverage.districts.length ||
+    coverage.constituencies.length || coverage.locations.length);
+
+  // Pure geography with no coverage → nobody. (Combined scope still uses explicitIds.)
+  if (!hasGeo) {
+    return scope === 'geography_and_reporters' ? explicitIds : [];
   }
 
   const reporters = await Admin.find({ role: 'editor', isActive: { $ne: false } })
     .select('_id assignedStates assignedState assignedDistricts assignedConstituencies assignedLocations location constituency')
     .lean();
+  const geoIds = reporters.filter(r => reporterMatchesCoverage(r, coverage)).map(r => r._id.toString());
 
-  return reporters.filter(r => reporterMatchesCoverage(r, coverage)).map(r => r._id.toString());
+  // Combined = geography-matched reporters UNION the individually-selected reporters.
+  if (scope === 'geography_and_reporters') return uniqueStrings([...geoIds, ...explicitIds]);
+  return geoIds;
 }
 
 function buildSubEditorTabQuery(tab, adminId, reporterIds, options = {}) {
@@ -245,7 +258,7 @@ async function buildPendingNewsFilterForSubEditor(Admin, subEditorDoc, baseQuery
   const scope = normalizeApprovalScope(perms.approvalScope);
   const orClauses = [{ authorId: { $in: reporterIds } }];
 
-  if (scope === 'geography') {
+  if (scope === 'geography' || scope === 'geography_and_reporters') {
     const coverage = getSubEditorManagedCoverage(subEditorDoc);
     const locationNames = uniqueStrings([
       ...coverage.states,

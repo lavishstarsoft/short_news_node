@@ -713,6 +713,7 @@
                                                     <option value="all">All Reporters (can approve anyone's news)</option>
                                                     <option value="geography">By Geography (only reporters from selected areas)</option>
                                                     <option value="reporters">Specific Reporters (pick by name)</option>
+                                                    <option value="geography_and_reporters">Geography + Specific Reporters (both together)</option>
                                                 </select>
                                             </div>
 
@@ -1015,6 +1016,7 @@
                                             <option value="all">All Reporters (can approve anyone's news)</option>
                                             <option value="geography">By Geography (only reporters from selected areas)</option>
                                             <option value="reporters" selected>Specific Reporters (pick by name)</option>
+                                            <option value="geography_and_reporters">Geography + Specific Reporters (both together)</option>
                                         </select>
                                     </div>
                                     <div id="addManagedGeographyWrapper" style="display:none;margin-left:12px;padding-left:12px;border-left:3px solid #4f46e5">
@@ -2021,38 +2023,60 @@
                         const sel = document.getElementById(hiddenSelectId);
                         const searchEl = searchId ? document.getElementById(searchId) : null;
                         if (!listEl || !sel) return;
+                        // Preserve selections across search re-renders: union incoming ids with
+                        // whatever is currently selected in the hidden <select>. (Fixes multi-select loss.)
                         const selected = new Set((selectedIds || []).map(String));
+                        Array.from(sel.selectedOptions).forEach(o => selected.add(o.value));
                         const q = (searchEl?.value || '').trim().toLowerCase();
+                        const all = getReporterList();
+                        const byId = new Map(all.map(r => [String(r._id), r]));
 
-                        sel.innerHTML = '';
-                        listEl.innerHTML = '';
-                        const reporters = getReporterList().filter(r => {
+                        const matchIds = new Set(all.filter(r => {
                             if (!q) return true;
                             const hay = [r.name, r.username, r.location, ...(r.assignedDistricts || []), ...(r.assignedStates || []), r.constituency].join(' ').toLowerCase();
                             return hay.includes(q);
-                        });
+                        }).map(r => String(r._id)));
+                        selected.forEach(id => matchIds.add(id)); // always show already-selected reporters
 
-                        if (!reporters.length) {
-                            listEl.innerHTML = '<span class="text-muted small">No reporters found</span>';
-                            return;
-                        }
+                        // Rebuild hidden <select> so it keeps an option for EVERY selected id (even if
+                        // filtered out or not in the loaded list) → nothing is lost on save.
+                        sel.innerHTML = '';
+                        const ensureOption = (id) => {
+                            let o = Array.from(sel.options).find(x => x.value === String(id));
+                            if (!o) { o = document.createElement('option'); o.value = String(id); sel.appendChild(o); }
+                            return o;
+                        };
+                        selected.forEach(id => { ensureOption(id).selected = true; });
 
-                        reporters.forEach(r => {
-                            const id = r._id;
-                            const opt = document.createElement('option');
-                            opt.value = id;
-                            opt.selected = selected.has(String(id));
-                            sel.appendChild(opt);
-
+                        listEl.innerHTML = '';
+                        // Live summary of who is added (visible even after search / on reopen).
+                        const sumEl = document.createElement('div');
+                        sumEl.className = 'mb-2 pb-2 small';
+                        sumEl.style.borderBottom = '1px solid #eee';
+                        listEl.appendChild(sumEl);
+                        const renderSummary = () => {
+                            const names = [...selected].map(x => { const rr = byId.get(x); return (rr && (rr.name || rr.username)) || x; });
+                            sumEl.innerHTML = names.length
+                                ? '<strong>Added reporters (' + names.length + '):</strong> ' + names.map(n => '<span class="badge bg-primary" style="margin:2px 3px 2px 0;font-weight:500">' + String(n).replace(/</g,'&lt;') + '</span>').join('')
+                                : '<span class="text-muted">No reporters added yet.</span>';
+                        };
+                        renderSummary();
+                        const rows = [...matchIds].map(id => byId.get(id)).filter(Boolean)
+                            .sort((a, b) => (selected.has(String(b._id)) ? 1 : 0) - (selected.has(String(a._id)) ? 1 : 0));
+                        if (!rows.length) return;
+                        rows.forEach(r => {
+                            const id = String(r._id);
+                            ensureOption(id).selected = selected.has(id);
                             const districts = (r.assignedDistricts || []).slice(0, 2).join(', ') || r.location || '—';
                             const row = document.createElement('label');
                             row.className = 'd-flex align-items-start gap-2 mb-2';
                             row.style.cursor = 'pointer';
-                            row.innerHTML = `<input type="checkbox" class="form-check-input mt-1" value="${id}" ${selected.has(String(id)) ? 'checked' : ''}>
-                                <span><strong>${r.name || r.username}</strong><br><small class="text-muted">${districts}</small></span>`;
+                            row.innerHTML = `<input type="checkbox" class="form-check-input mt-1" value="${id}" ${selected.has(id) ? 'checked' : ''}>
+                                <span><strong>${(r.name || r.username || '').replace(/</g,'&lt;')}</strong><br><small class="text-muted">${String(districts).replace(/</g,'&lt;')}</small></span>`;
                             row.querySelector('input').addEventListener('change', (e) => {
-                                const o = Array.from(sel.options).find(x => x.value === id);
-                                if (o) o.selected = e.target.checked;
+                                if (e.target.checked) { selected.add(id); ensureOption(id).selected = true; }
+                                else { selected.delete(id); const o = Array.from(sel.options).find(x => x.value === id); if (o) o.selected = false; }
+                                renderSummary();
                             });
                             listEl.appendChild(row);
                         });
@@ -2063,14 +2087,16 @@
                         if (!scopeEl) return;
                         let scope = scopeEl.value;
                         if (scope === 'locations') scope = 'geography';
+                        const showGeo = (scope === 'geography' || scope === 'geography_and_reporters');
+                        const showReps = (scope === 'reporters' || scope === 'geography_and_reporters');
                         const geo = document.getElementById(prefix + 'ManagedGeographyWrapper');
                         const reps = document.getElementById(prefix + 'ManagedReportersWrapper');
-                        if (geo) geo.style.display = scope === 'geography' ? 'block' : 'none';
-                        if (reps) reps.style.display = scope === 'reporters' ? 'block' : 'none';
-                        if (scope === 'geography') refreshManagedGeography(prefix);
-                        if (scope === 'reporters') renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', getSelectedFromHidden(prefix + 'ManagedReporterIds'));
-                        // Edit modal: refresh the read-only "reporters in scope" list when geography is selected.
-                        if (prefix === 'edit' && scope === 'geography') {
+                        if (geo) geo.style.display = showGeo ? 'block' : 'none';
+                        if (reps) reps.style.display = showReps ? 'block' : 'none';
+                        if (showGeo) refreshManagedGeography(prefix);
+                        if (showReps) renderReporterPicker(prefix + 'ManagedReporterList', prefix + 'ManagedReporterIds', prefix + 'ReporterSearch', getSelectedFromHidden(prefix + 'ManagedReporterIds'));
+                        // Edit modal: refresh the read-only "reporters in scope" list when geography is involved.
+                        if (prefix === 'edit' && showGeo) {
                             const idEl = document.getElementById('editEditorId');
                             if (idEl && idEl.value) loadScopeReporters(idEl.value);
                         }

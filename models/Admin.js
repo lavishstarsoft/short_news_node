@@ -195,7 +195,7 @@ const adminSchema = new mongoose.Schema({
     aiCheckEnabled: { type: Boolean, default: true },
     approvalScope: { 
       type: String, 
-      enum: ['all', 'locations', 'geography', 'reporters'],
+      enum: ['all', 'locations', 'geography', 'reporters', 'geography_and_reporters'],
       default: 'all'
     },
     managedStates: [{
