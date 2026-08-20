@@ -99,10 +99,10 @@
                                     /* Panels grid */
                                     .sd-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; max-width: 100%; }
                                     @media (max-width: 1100px) { .sd-grid { grid-template-columns:1fr; } }
-                                    .sd-panel { padding:20px 24px; box-sizing: border-box; max-width: 100%; }
+                                    .sd-panel { padding:20px 24px; box-sizing: border-box; max-width: 100%; min-width: 0; overflow-x: hidden; }
                                     @media (max-width: 600px) {
                                         .sd-grid { gap: 16px; }
-                                        .sd-panel { padding: 16px 12px; overflow-x: hidden; }
+                                        .sd-panel { padding: 16px 12px; }
                                         .sd-bar-label { width: 90px !important; font-size: 11px !important; }
                                         .sd-table th, .sd-table td { padding: 8px 6px !important; font-size: 11px !important; }
                                     }
@@ -124,10 +124,11 @@
                                     .sd-loc-state.open .sd-loc-state-body { display:block; }
                                     .sd-loc-state.open .sd-loc-caret { transform:rotate(180deg); }
                                     .sd-loc-caret { transition:.15s; color:var(--text-muted); font-size:11px; }
-                                    .sd-loc-dist { font-size:13px; font-weight:500; color:var(--text-primary); display:flex; align-items:center; gap:6px; margin:7px 0 3px; }
-                                    .sd-loc-dist i { color:var(--emerald-500); font-size:11px; }
-                                    .sd-loc-acs { display:flex; flex-wrap:wrap; gap:6px; margin-left:18px; }
-                                    .sd-loc-ac { font-size:11px; font-weight:500; background:var(--slate-100); color:var(--text-secondary); padding:2px 10px; border-radius:var(--radius-full); border:1px solid var(--border-subtle); }
+                                    .sd-loc-grid { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+                                    .sd-loc-dist-chip { font-size: 12px; font-weight: 500; color: var(--text-primary); background: var(--slate-50); border: 1px solid var(--border-subtle); padding: 6px 12px; border-radius: var(--radius-full); display: inline-flex; align-items: center; gap: 6px; transition: .15s; cursor: default; }
+                                    .sd-loc-dist-chip:hover { background: var(--slate-100); border-color: var(--border-strong); }
+                                    .sd-loc-dist-chip i { color: var(--emerald-500); font-size: 11px; }
+                                    .sd-loc-acs-count { color: var(--text-muted); font-size: 11px; background: #e2e8f0; padding: 1px 6px; border-radius: 10px; margin-left: 2px; }
 
                                     /* Donut + legend */
                                     .sd-donut-wrap { display:flex; align-items:center; gap:24px; padding: 12px 0; }
@@ -264,7 +265,7 @@
                                             </div>
                                             <div class="sd-card sd-panel sd-scrollable-panel" id="sdReporterPanel" style="display:none">
                                                 <div class="sd-panel-head">
-                                                    <h4><i class="fas fa-users" style="color:var(--sd-blue)"></i> Reporter-wise Breakdown</h4>
+                                                    <h4><i class="fas fa-users" style="color:var(--sd-blue)"></i> All Reporters</h4>
                                                 </div>
                                                 <div class="sd-scroll-content" id="sdReporterWrap"></div>
                                             </div>
@@ -351,10 +352,14 @@
                                                     </span>
                                                 </div>
                                                 <div class="sd-loc-state-body">
+                                                    <div class="sd-loc-grid">
                                                     ${st.districts.map(d => `
-                                                        <div class="sd-loc-dist"><i class="fas fa-location-dot"></i> ${esc(d.name)}</div>
-                                                        ${d.constituencies.length ? `<div class="sd-loc-acs">${d.constituencies.map(c => `<span class="sd-loc-ac">${esc(c)}</span>`).join('')}</div>` : ''}
+                                                        <div class="sd-loc-dist-chip" title="${esc(d.name)}">
+                                                            <i class="fas fa-location-dot"></i> ${esc(d.name)}
+                                                            ${d.constituencies.length ? `<span class="sd-loc-acs-count" title="${d.constituencies.length} constituencies">${d.constituencies.length}</span>` : ''}
+                                                        </div>
                                                     `).join('')}
+                                                    </div>
                                                 </div>
                                             </div>`).join('');
                                         box.querySelectorAll('[data-loc-toggle]').forEach(head => {
@@ -498,10 +503,14 @@
                                         if (!show) return;
                                         document.getElementById('sdReporterWrap').innerHTML = `
                                             <table class="sd-table">
-                                                <thead><tr><th>Reporter</th><th>Total</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>Views</th></tr></thead>
+                                                <thead><tr><th>Reporter</th><th>Email</th><th>Mobile</th><th>State</th><th>District</th><th>Total</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>Views</th></tr></thead>
                                                 <tbody>
                                                 ${reporters.map(r => `<tr>
                                                     <td>${esc(r.author)}</td>
+                                                    <td>${esc(r.email || '-')}</td>
+                                                    <td>${esc(r.mobile || '-')}</td>
+                                                    <td>${esc(r.state || '-')}</td>
+                                                    <td><div style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${esc(r.district || '-')}">${esc(r.district || '-')}</div></td>
                                                     <td>${num(r.total)}</td>
                                                     <td style="color:#16a34a">${num(r.approved)}</td>
                                                     <td style="color:#ef4444">${num(r.rejected)}</td>

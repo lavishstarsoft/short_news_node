@@ -965,27 +965,38 @@ function resolveAnalyticsDateRange(query) {
 /** Sub-editor/reporter assigned locations tree (State → District → Constituency) */
 async function buildAssignedLocationTree(adminDoc) {
   const perms = adminDoc.permissions || {};
-  const states = uniqueStrings([
+  
+  // Collect all possible location strings assigned/managed by this admin
+  const allLocationStrings = uniqueStrings([
+    ...(adminDoc.assignedState ? [adminDoc.assignedState] : []),
     ...(adminDoc.assignedStates || []),
-    ...(perms.managedStates || [])
-  ]);
-  const districts = uniqueStrings([
     ...(adminDoc.assignedDistricts || []),
-    ...(perms.managedDistricts || [])
-  ]);
-  const constituencies = uniqueStrings([
     ...(adminDoc.assignedConstituencies || []),
-    ...(perms.managedConstituencies || [])
+    ...(adminDoc.assignedLocations || []),
+    ...(perms.managedStates || []),
+    ...(perms.managedDistricts || []),
+    ...(perms.managedConstituencies || []),
+    ...(perms.managedLocations || [])
   ]);
 
-  if (!states.length && !districts.length && !constituencies.length) return [];
+  if (!allLocationStrings.length) return [];
 
-  // Parent resolve cheyadaniki Location docs okesari techukuntam
+  // Fetch all Location documents for these strings
   const locDocs = await Location.find({
-    name: { $in: [...districts, ...constituencies] }
+    name: { $in: allLocationStrings }
   }).select('name locationType parentName').lean();
+
+  const states = [];
+  const districts = [];
+  const constituencies = [];
   const parentByName = {};
-  locDocs.forEach(l => { parentByName[l.name] = l.parentName || null; });
+
+  locDocs.forEach(l => {
+    parentByName[l.name] = l.parentName || null;
+    if (l.locationType === 'state') states.push(l.name);
+    else if (l.locationType === 'district') districts.push(l.name);
+    else if (l.locationType === 'constituency') constituencies.push(l.name);
+  });
 
   const tree = {};
   const ensureState = (name) => {
@@ -1236,6 +1247,46 @@ async function getScopedAnalytics(req, res) {
       }));
     }
 
+    // Enrich reporters with details
+    // Start with the reporters who have news activity in the current date range
+    let activeReporterIds = facets.byReporter.map(r => String(r._id)).filter(Boolean);
+    const activeReporterMap = {};
+    facets.byReporter.forEach(r => { activeReporterMap[String(r._id)] = r; });
+
+    // Fetch ALL managed reporters for the scope (so sub-editors see their full team)
+    const managedReporterIds = await getManagedReporterIds(Admin, scopeAdmin);
+    let allIdsToFetch = new Set(activeReporterIds);
+    if (managedReporterIds !== null) { // Restricted scope (sub-editor)
+      managedReporterIds.forEach(id => allIdsToFetch.add(String(id)));
+    }
+
+    let enrichedReporters = [];
+    if (allIdsToFetch.size > 0) {
+      const repDocs = await Admin.find({ _id: { $in: Array.from(allIdsToFetch) } })
+        .select('name username email mobileNumber assignedState assignedStates assignedDistricts location')
+        .lean();
+      
+      enrichedReporters = repDocs.map(d => {
+        const idStr = String(d._id);
+        const r = activeReporterMap[idStr] || { total: 0, approved: 0, rejected: 0, pending: 0, views: 0 };
+        return {
+          authorId: d._id,
+          author: d.name || d.username || r.author || 'Unknown',
+          email: d.email || '',
+          mobile: d.mobileNumber || '',
+          state: d.assignedState || (d.assignedStates && d.assignedStates.length ? d.assignedStates.join(', ') : ''),
+          district: (d.assignedDistricts && d.assignedDistricts.length) ? d.assignedDistricts.join(', ') : (d.location || ''),
+          total: r.total || 0,
+          approved: r.approved || 0,
+          rejected: r.rejected || 0,
+          pending: r.pending || 0,
+          views: r.views || 0
+        };
+      });
+      // Sort by total descending
+      enrichedReporters.sort((a, b) => b.total - a.total);
+    }
+
     res.json({
       range: { from, to, label },
       scope: {
@@ -1248,15 +1299,7 @@ async function getScopedAnalytics(req, res) {
       allTime,
       categories,
       dailyTrend: facets.dailyTrend.map(d => ({ date: d._id, count: d.count })),
-      reporters: facets.byReporter.map(r => ({
-        authorId: r._id,
-        author: r.author || 'Unknown',
-        total: r.total,
-        approved: r.approved,
-        rejected: r.rejected,
-        pending: r.pending || 0,
-        views: r.views
-      })),
+      reporters: enrichedReporters,
       locations: facets.byLocation.map(l => ({ name: l._id, count: l.count })),
       assignedLocations,
       viewTargets
