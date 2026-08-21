@@ -180,6 +180,47 @@ router.put('/api/polls/:id', adminController.requireAuth, adminController.update
 // Reporter Applications routes
 router.put('/api/reporter-applications/:id', adminController.requireAuth, adminController.updateReporterApplication);
 
+// Deterministic server-side PDF (images fetched + converted + embedded server-side).
+router.get('/api/reporter-applications/:id/pdf', adminController.requireAuth, async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).send('Invalid id');
+    const app = await require('../models/ReporterApplication').findById(req.params.id).lean();
+    if (!app) return res.status(404).send('Application not found');
+    await require('../utils/reporterApplicationPdf').buildApplicationPdf(app, res);
+  } catch (e) {
+    console.error('Reporter application PDF error:', e.message);
+    if (!res.headersSent) res.status(500).send('PDF generation failed');
+  }
+});
+
+// Same-origin image proxy for client-side PDF export (avoids cross-origin canvas taint
+// that produced blank PDFs). SSRF-guarded to the known media hosts; images only.
+router.get('/api/pdf-image-proxy', adminController.requireAuth, async (req, res) => {
+  try {
+    let u;
+    try { u = new URL(String(req.query.url || '')); } catch (_) { return res.status(400).end(); }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return res.status(400).end();
+    const allowed = (h) => h === 'media.yellowsingam.com' || h.endsWith('.r2.dev') || h.endsWith('.r2.cloudflarestorage.com');
+    if (!allowed(u.hostname)) return res.status(403).end();
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
+    const r = await fetch(u.href, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+    if (!r.ok) return res.status(r.status).end();
+    // R2 often serves images as application/octet-stream — derive the real image
+    // type from the URL extension so the browser treats it as an image.
+    const rawCt = r.headers.get('content-type') || '';
+    const ext = ((u.pathname.match(/\.(jpe?g|png|webp|gif)$/i) || [, ''])[1] || '').toLowerCase();
+    const extMime = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' }[ext];
+    const outCt = /^image\//i.test(rawCt) ? rawCt : extMime;
+    if (!outCt) return res.status(415).end(); // genuinely not an image
+    const buf = Buffer.from(await r.arrayBuffer());
+    res.set('Content-Type', outCt);
+    res.set('Cache-Control', 'private, max-age=300');
+    return res.send(buf);
+  } catch (_) { return res.status(502).end(); }
+});
+
 // Users route
 router.delete('/api/users/:id', adminController.requireAuth, adminController.deleteUserById);
 

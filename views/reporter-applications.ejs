@@ -706,26 +706,11 @@
                         }
                     }
 
-                    window.downloadApplicationPDF = async function (appId) {
-                        const element = document.getElementById('print-area-' + appId);
-                        if (!element) return;
-                        const opt = {
-                            margin: [10, 10, 10, 10],
-                            filename: 'Reporter_Application_' + appId + '.pdf',
-                            image: { type: 'jpeg', quality: 0.98 },
-                            html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
-                            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                            pagebreak: { mode: 'avoid-all' }
-                        };
-                        element.classList.add('printing');
-                        try {
-                            await html2pdf().set(opt).from(element).save();
-                        } catch (err) {
-                            console.error('PDF Export Error:', err);
-                            alert('Failed to generate PDF. Please check if all images loaded.');
-                        } finally {
-                            element.classList.remove('printing');
-                        }
+                    // Deterministic PDF: generated entirely SERVER-SIDE (images are fetched,
+                    // converted webp->png with sharp, and embedded with pdfkit). No browser,
+                    // no CORS, no html2canvas race conditions. One bad image => placeholder.
+                    window.downloadApplicationPDF = function (appId) {
+                        window.location.href = '/admin/api/reporter-applications/' + appId + '/pdf';
                     };
 
                     window.deleteApp = async function (applicationId) {
