@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Coverage Map' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Coverage Map', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'coverage-map' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <style>
+          .cm-crumb{font-size:14px;color:#6b7280;margin-bottom:10px}
+          .cm-crumb a{color:#2563eb;text-decoration:none;cursor:pointer} .cm-crumb b{color:#111}
+          .cm-kpis{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+          .cm-kpi{flex:1 1 110px;min-width:100px;border:1px solid #eef0f3;border-radius:10px;padding:10px 12px;background:#fff}
+          .cm-kpi .v{font-size:20px;font-weight:800}.cm-kpi .l{font-size:11px;text-transform:uppercase;color:#8a94a6;letter-spacing:.03em}
+          .cm-kpi.danger .v{color:#c62828}.cm-kpi.warn .v{color:#e65100}.cm-kpi.ok .v{color:#2e7d32}
+          .cm-layout{display:grid;grid-template-columns:minmax(260px,1fr) 1.7fr;gap:16px}
+          .cm-map{border:1px solid #eef0f3;border-radius:12px;padding:14px;background:#fbfcfe}
+          .cm-map h4{font-size:14px;font-weight:800;margin:0 0 10px}
+          .cm-states{display:flex;flex-wrap:wrap;gap:8px}
+          .cm-state{border:1px solid #dfe3ea;border-radius:8px;padding:8px 10px;font-size:13px;cursor:pointer;background:#eceff3;color:#8a94a6}
+          .cm-state.assigned{background:#e3f2fd;color:#1565c0;border-color:#bbdefb;font-weight:700}
+          .cm-state:hover{outline:2px solid #90caf9}.cm-state .n{display:block;font-size:10px;color:#9aa3b2}
+          .cm-panel{border:1px solid #eef0f3;border-radius:12px;padding:14px;background:#fff;min-height:220px}
+          .cm-dcard{border:1px solid #eef0f3;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+          .cm-dcard:hover{background:#fafbff;border-color:#bbdefb}
+          .cm-dcard .h{display:flex;justify-content:space-between;align-items:center}
+          .cm-dcard .nm{font-weight:800}.cm-dcard .meta{font-size:12px;color:#6b7280;margin-top:4px;display:flex;flex-wrap:wrap;gap:10px}
+          .cm-ic{background:#e0f2f1;border:1px solid #b2dfdb;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:13px}.cm-ic b{color:#00695c}
+          .cm-dic{background:#f6f4ff;border:1px solid #e0d7fb;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:13px}.cm-dic b{color:#5e35b1}
+          .cm-tabs{display:flex;gap:6px;margin:6px 0 12px;flex-wrap:wrap}
+          .cm-tab{border:1px solid #dfe3ea;background:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;font-weight:600}
+          .cm-tab.active{background:#1565c0;color:#fff;border-color:#1565c0}
+          table.cm-tbl{width:100%;border-collapse:collapse;font-size:13px}
+          table.cm-tbl th{text-align:left;background:#f4f6f9;padding:6px 8px;font-size:11px;text-transform:uppercase;color:#6b7280;position:sticky;top:0}
+          table.cm-tbl td{padding:6px 8px;border-top:1px solid #f1f3f6;vertical-align:top}
+          .cm-b{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700}
+          .cm-b-active{background:#e8f5e9;color:#2e7d32}.cm-b-locked{background:#eceff1;color:#546e7a}
+          .cm-b-assigned{background:#e8f5e9;color:#2e7d32}.cm-b-missing{background:#fdecea;color:#c62828}
+          .cm-search{border:1px solid #dfe3ea;border-radius:8px;padding:7px 10px;font-size:13px;width:220px;margin:0 8px 10px 0}
+          .cm-pending{color:#c62828;font-weight:700}
+          .cm-gap{border:1px solid #eef0f3;border-left:4px solid #e65100;border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;background:#fff8f2}
+          .cm-gap:hover{background:#fff1e6}.cm-gap .g-v{font-size:20px;font-weight:800;color:#e65100}
+          .cm-gap.ok{border-left-color:#2e7d32;background:#f2fbf4}.cm-gap.ok .g-v{color:#2e7d32}
+          .cm-scroll{max-height:60vh;overflow:auto}
+          @media(max-width:900px){.cm-layout{grid-template-columns:1fr}}
+        </style>
+
+        <div class="mb-2"><h3 class="mb-1">Coverage Intelligence Map</h3>
+          <p class="text-muted mb-0" id="cmScopeNote">Loading your coverage…</p></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+          <div class="cm-crumb" id="cmCrumb" style="margin-bottom:0"></div>
+          <div style="display:flex;gap:8px">
+            <button class="cm-tab" id="cmBackBtn" onclick="cmBack()" title="Go back one step">◀ Back</button>
+            <button class="cm-tab" onclick="cmRefresh()" title="Reload this view">⟳ Refresh</button>
+          </div>
+        </div>
+        <div class="cm-kpis" id="cmKpis"></div>
+
+        <div class="cm-layout">
+          <div class="cm-map">
+            <h4><i class="fas fa-map-location-dot me-1 text-primary"></i> India — select a state</h4>
+            <div class="cm-states" id="cmStates"><span class="text-muted">Loading…</span></div>
+          </div>
+          <div class="cm-panel" id="cmPanel"><div class="text-muted">Select a state to drill in.</div></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+  <%- include('partials/footer') %>
+  <script>
+  (function(){
+    var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});};
+    var trail=[]; var curD=null; var curTab='overview'; var gapFilter=null;
+    var curLevel={type:'india'};
+    function updateBackBtn(){ var b=document.getElementById('cmBackBtn'); if(b) b.style.visibility=(curLevel.type==='india')?'hidden':'visible'; }
+    // Back = one step up (District → State → India).
+    window.cmBack=function(){
+      if(curLevel.type==='district') cmState(curLevel.encState);
+      else if(curLevel.type==='state') cmGoIndia();
+    };
+    // Refresh = reload the current level from the server.
+    window.cmRefresh=function(){
+      if(curLevel.type==='district') cmDistrict(curLevel.encState,curLevel.encDist);
+      else if(curLevel.type==='state') cmState(curLevel.encState);
+      else loadScope();
+    };
+    function kpiCards(k){
+      var cards=[['Reporters',k.reporters,''],['In-Charges',k.inCharges,'ok'],['Districts',k.districts,''],['Constituencies',k.constituencies,''],['Today',k.today,''],['7-Day',k.week,''],['30-Day',k.month,''],['Locked',k.locked,'danger'],['At-Limit',k.atLimit,'warn']];
+      document.getElementById('cmKpis').innerHTML=cards.filter(function(c){return c[1]!==undefined;}).map(function(c){return '<div class="cm-kpi '+c[2]+'"><div class="v">'+(c[1]||0)+'</div><div class="l">'+c[0]+'</div></div>';}).join('');
+    }
+    function crumb(){
+      var html='<a onclick="cmGoIndia()">India</a>';
+      trail.forEach(function(t,i){ html+=' / '+(i===trail.length-1?('<b>'+esc(t.label)+'</b>'):('<a onclick="cmGo('+i+')">'+esc(t.label)+'</a>')); });
+      document.getElementById('cmCrumb').innerHTML=html;
+    }
+    window.cmGoIndia=function(){trail=[];crumb();loadScope();document.getElementById('cmPanel').innerHTML='<div class="text-muted">Select a state to drill in.</div>';};
+    window.cmGo=function(i){ var t=trail[i]; trail=trail.slice(0,i+1); crumb(); t.render(); };
+
+    async function loadScope(){
+      curLevel={type:'india'}; updateBackBtn();
+      var r=await fetch('/admin/coverage-map/api/scope'); var d=await r.json();
+      if(!r.ok){document.getElementById('cmStates').innerHTML='<span class="text-danger">'+esc(d.error||'Failed')+'</span>';return;}
+      document.getElementById('cmScopeNote').textContent=d.isSuperAdmin?'All India (Super Admin).':'Your assigned coverage only.';
+      kpiCards(d.india);
+      document.getElementById('cmStates').innerHTML=d.states.map(function(s){
+        return '<div class="cm-state '+(s.assigned?'assigned':'')+'" onclick="cmState(\''+encodeURIComponent(s.name)+'\')">'+esc(s.name)+'<span class="n">'+(s.kpis.reporters||0)+' Reporters · '+(s.kpis.districts||0)+' Districts</span></div>';
+      }).join('') || '<span class="text-muted">No states in your coverage.</span>';
+    }
+
+    function inChargeBox(list){
+      return list && list.length
+        ? '<div class="cm-ic"><b>State/Bureau In-Charge:</b> '+list.map(function(x){return esc(x.name)+' ('+esc(x.designation)+(x.mobile?', '+esc(x.mobile):'')+')';}).join(' · ')+'</div>'
+        : '<div class="cm-ic">No State/Bureau In-Charge mapped to your coverage.</div>';
+    }
+
+    window.cmState=async function(encName){
+      curLevel={type:'state',encState:encName}; updateBackBtn();
+      var name=decodeURIComponent(encName);
+      var r=await fetch('/admin/coverage-map/api/state/'+encName); var d=await r.json();
+      if(!r.ok){document.getElementById('cmPanel').innerHTML='<div class="text-danger">'+esc(d.error||'Failed')+'</div>';return;}
+      kpiCards(d.kpis);
+      var render=function(){
+        var cards=d.districts.map(function(dd){
+          var dic=dd.districtInCharge&&dd.districtInCharge.length?esc(dd.districtInCharge[0].name):'<span class="cm-pending">Not Assigned</span>';
+          return '<div class="cm-dcard" onclick="cmDistrict(\''+encName+'\',\''+encodeURIComponent(dd.name)+'\')">'+
+            '<div class="h"><span class="nm">'+esc(dd.name)+'</span><span>▶</span></div>'+
+            '<div class="meta"><span>👤 '+dd.reporters+' Reporters</span><span>🗳 '+dd.constituencies+' Constituencies</span>'+
+            '<span>District In-Charge: '+dic+'</span><span>Today '+dd.today+' · 7d '+dd.week+'</span>'+
+            (dd.locked?'<span class="cm-pending">🔒 '+dd.locked+' Locked</span>':'')+'</div></div>';
+        }).join('');
+        document.getElementById('cmPanel').innerHTML='<h4 class="mb-2">'+esc(name)+' — Districts</h4>'+inChargeBox(d.inCharges)+'<div class="cm-scroll">'+cards+'</div>';
+      };
+      trail=[{label:name,render:render}]; crumb(); render();
+    };
+
+    // ── District: full Coverage Audit with tabs ──
+    window.cmDistrict=async function(encState,encDist){
+      curLevel={type:'district',encState:encState,encDist:encDist}; updateBackBtn();
+      var state=decodeURIComponent(encState), dist=decodeURIComponent(encDist);
+      var r=await fetch('/admin/coverage-map/api/district/'+encState+'/'+encDist); var d=await r.json();
+      if(!r.ok){document.getElementById('cmPanel').innerHTML='<div class="text-danger">'+esc(d.error||'Failed')+'</div>';return;}
+      curD=d; curTab='overview'; gapFilter=null; kpiCards(d.kpis);
+      var render=function(){ curD=d; kpiCards(d.kpis); renderDistrict(); };
+      trail.push({label:dist,render:render}); crumb(); renderDistrict();
+    };
+
+    window.cmTab=function(t){ curTab=t; if(t!=='constituencies'&&t!=='reporters') gapFilter=null; renderDistrict(); };
+
+    function renderDistrict(){
+      var d=curD; if(!d) return;
+      var tabs=[['overview','Overview'],['constituencies','Constituencies'],['reporters','Reporters'],['gaps','Coverage Gaps']];
+      var tabBar='<div class="cm-tabs">'+tabs.map(function(t){return '<span class="cm-tab '+(curTab===t[0]?'active':'')+'" onclick="cmTab(\''+t[0]+'\')">'+t[1]+(t[0]==='gaps'&&(d.gaps.zeroReporterConstituencies.length||d.gaps.reportersNoConstituency.length||d.gaps.noDistrictInCharge)?' ⚠':'')+'</span>';}).join('')+'</div>';
+      var dicBox='<div class="cm-dic"><b>District In-Charge:</b> '+(d.districtInCharge?d.districtInCharge.map(function(x){return esc(x.name)+(x.mobile?' ('+esc(x.mobile)+')':'');}).join(', '):'<span class="cm-pending">Not Assigned</span>')+'</div>';
+      var body='';
+      if(curTab==='overview'){
+        body=inChargeBox(d.inCharges)+dicBox+
+          '<table class="cm-tbl"><tr><th>State</th><td>'+esc(d.state)+'</td></tr><tr><th>District</th><td>'+esc(d.district)+'</td></tr>'+
+          '<tr><th>Reporters</th><td>'+d.kpis.reporters+'</td></tr><tr><th>Constituencies</th><td>'+d.kpis.constituencies+'</td></tr>'+
+          '<tr><th>News Today / 7d / 30d</th><td>'+d.kpis.today+' / '+d.kpis.week+' / '+d.kpis.month+'</td></tr>'+
+          '<tr><th>Locked</th><td>'+d.kpis.locked+'</td></tr></table>';
+      } else if(curTab==='constituencies'){
+        var rows=d.constituencies.filter(function(c){return !gapFilter||gapFilter==='zerorep'?(!gapFilter||c.reporterCount===0):true;}).map(function(c){
+          return '<tr class="cm-crow" data-s="'+esc(c.name.toLowerCase())+'" data-missing="'+(c.reporterCount===0?1:0)+'"><td><b>'+esc(c.name)+'</b></td><td>'+c.reporterCount+'</td><td>'+esc(c.reporterNames.join(', ')||'—')+'</td><td>'+(c.districtInCharge?esc(c.districtInCharge):'<span class="cm-pending">Not Assigned</span>')+'</td><td>'+c.today+'</td><td>'+c.week+'</td><td><span class="cm-b '+(c.status==='Assigned'?'cm-b-assigned':'cm-b-missing')+'">'+(c.status==='Assigned'?'Assigned':'⚠ Missing')+'</span></td></tr>';
+        }).join('');
+        body='<input class="cm-search" placeholder="Search constituency…" oninput="cmFilterRows(\'cm-crow\',this.value)"><label style="font-size:13px"><input type="checkbox" id="cmOnlyMissing" onchange="cmOnlyMissing(this.checked)"> Only Missing Assignments</label>'+
+          '<div class="cm-scroll"><table class="cm-tbl"><thead><tr><th>Constituency</th><th>Reporters</th><th>Reporter Names</th><th>District In-Charge</th><th>Today</th><th>7 Days</th><th>Status</th></tr></thead><tbody id="cmCRows">'+rows+'</tbody></table></div>';
+      } else if(curTab==='reporters'){
+        var rr=d.reporters.map(function(x){
+          var con=x.constituency?esc(x.constituency):'<span class="cm-pending">⚠ Not Assigned</span>';
+          return '<tr class="cm-rrow" data-s="'+esc((x.name+' '+x.mobile).toLowerCase())+'" data-missing="'+(x.constituency?0:1)+'"><td>'+esc(x.name)+'</td><td>'+esc(x.mobile)+'</td><td>'+esc(x.tier)+'</td><td>'+esc(x.state)+'</td><td>'+esc(x.district)+'</td><td>'+con+'</td><td>'+x.today+'</td><td>'+x.week+'</td><td><span class="cm-b '+(x.status==='Locked'?'cm-b-locked':'cm-b-active')+'">'+x.status+'</span></td></tr>';
+        }).join('')||'<tr><td colspan="9" class="text-muted py-3">No reporters assigned to this district.</td></tr>';
+        body='<input class="cm-search" placeholder="Search reporter…" oninput="cmFilterRows(\'cm-rrow\',this.value)"><label style="font-size:13px"><input type="checkbox" id="cmOnlyMissingR" onchange="cmOnlyMissingR(this.checked)"> Only Missing Constituency</label>'+
+          '<div class="cm-scroll"><table class="cm-tbl"><thead><tr><th>Name</th><th>Mobile</th><th>Tier</th><th>State</th><th>District</th><th>Assigned Constituency</th><th>Today</th><th>7 Days</th><th>Status</th></tr></thead><tbody>'+rr+'</tbody></table></div>';
+      } else if(curTab==='gaps'){
+        var g=d.gaps;
+        var mk=function(cls,v,label,onclick){return '<div class="cm-gap '+cls+'" '+(onclick||'')+'><div class="g-v">'+v+'</div><div>'+label+'</div></div>';};
+        body=
+          mk(g.zeroReporterConstituencies.length?'':'ok',g.zeroReporterConstituencies.length,'Constituencies with 0 reporters','onclick="cmGapTo(\'constituencies\',\'missing\')"')+
+          mk(g.reportersNoConstituency.length?'':'ok',g.reportersNoConstituency.length,'Reporters with district but NO constituency','onclick="cmGapTo(\'reporters\',\'missing\')"')+
+          mk(g.noDistrictInCharge?'':'ok',g.noDistrictInCharge?1:0,'District In-Charge missing','')+
+          (g.zeroReporterConstituencies.length?'<div class="text-muted small mt-2">Missing: '+g.zeroReporterConstituencies.map(esc).join(', ')+'</div>':'');
+      }
+      document.getElementById('cmPanel').innerHTML='<h4 class="mb-2">'+esc(d.district)+' — Coverage Audit</h4>'+tabBar+body;
+      if(gapFilter==='missing'){ if(curTab==='constituencies'){var cb=document.getElementById('cmOnlyMissing'); if(cb){cb.checked=true;cmOnlyMissing(true);} } if(curTab==='reporters'){var rb=document.getElementById('cmOnlyMissingR'); if(rb){rb.checked=true;cmOnlyMissingR(true);} } }
+    }
+    window.cmGapTo=function(tab,filter){ curTab=tab; gapFilter=filter; renderDistrict(); };
+    window.cmFilterRows=function(cls,q){q=(q||'').toLowerCase();document.querySelectorAll('.'+cls).forEach(function(tr){tr.style.display=(!q||tr.getAttribute('data-s').indexOf(q)>=0)?'':'none';});};
+    window.cmOnlyMissing=function(on){document.querySelectorAll('.cm-crow').forEach(function(tr){tr.style.display=(!on||tr.getAttribute('data-missing')==='1')?'':'none';});};
+    window.cmOnlyMissingR=function(on){document.querySelectorAll('.cm-rrow').forEach(function(tr){tr.style.display=(!on||tr.getAttribute('data-missing')==='1')?'':'none';});};
+
+    crumb(); loadScope();
+  })();
+  </script>
+</body>
+</html>

@@ -278,6 +278,14 @@ router.get('/api/reporter/late-earnings', adminController.requireAuth, lateEarni
 
 // P4 — Emergency daily-limit access override. Role checks live in the controller
 // (reporter may only request; State In-Charge/Super Admin grant/revoke, coverage-scoped).
+// Coverage Intelligence Map (read-only, coverage-scoped; role checks in controller).
+const coverageMapController = require('../controllers/coverageMapController');
+router.get('/coverage-map', adminController.requireAuth, coverageMapController.renderPage);
+router.get('/coverage-map/api/scope', adminController.requireAuth, coverageMapController.scope);
+router.get('/coverage-map/api/state/:state', adminController.requireAuth, coverageMapController.state);
+router.get('/coverage-map/api/district/:state/:district', adminController.requireAuth, coverageMapController.district);
+router.get('/coverage-map/api/constituency/:state/:district/:constituency', adminController.requireAuth, coverageMapController.constituency);
+
 const accessOverrideController = require('../controllers/accessOverrideController');
 router.post('/api/reporter/request-access', adminController.requireAuth, accessOverrideController.requestAccess);
 router.get('/reporter-access', adminController.requireAuth, accessOverrideController.renderPage);
