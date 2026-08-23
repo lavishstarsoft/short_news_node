@@ -23,7 +23,9 @@ const exec = util.promisify(require('child_process').exec);
 const axios = require('axios');
 const sharp = require('sharp');
 const { uploadToR2 } = require('../middleware/upload');
-const { buildSubEditorAuthorFilter, getManagedReporterIds, buildSubEditorTabQuery, resolveSubEditorNewsTab, getAdminId, subEditorHasTeamScope } = require('../utils/editorCoverageHelper');
+const { buildSubEditorAuthorFilter, getManagedReporterIds, buildSubEditorTabQuery, resolveSubEditorNewsTab, getAdminId, subEditorHasTeamScope, resolveReporterStateIncharge } = require('../utils/editorCoverageHelper');
+const { TIER_DAILY_LIMIT, LIMIT_MESSAGE: DAILY_LIMIT_MESSAGE, isTierLimited, countReporterDailySubmissions } = require('../utils/dailyLimitService');
+const { getActiveExtraAllowed } = require('../utils/accessOverrideService');
 
 // Import the Notification and User models
 const Notification = require('../models/Notification');
@@ -859,7 +861,7 @@ async function validatePostingArea(reqAdmin, scope, location) {
 // Create new news (include author information)
 async function createNews(req, res) {
   try {
-    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage allowedLanguages role permissions');
+    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage allowedLanguages role permissions reporterTier assignedStates assignedState assignedDistricts assignedConstituencies assignedLocations location');
     const articleLanguage = normalizeNewsLanguage(req.body.language || authorDetails?.workingLanguage);
 
     // Replay protection — same Idempotency-Key returns the first saved article (no second insert)
@@ -874,6 +876,31 @@ async function createNews(req, res) {
       });
       if (existingByKey) {
         return res.status(200).json(existingByKey);
+      }
+    }
+
+    // ── Tiered reporter daily submission cap (P2) ─────────────────────────────
+    // Applies ONLY to reporterTier stringer | district_incharge. reporterTier=null
+    // (every existing reporter) skips this entirely → 100% unchanged behaviour.
+    // Runs AFTER the idempotency short-circuit (replays never consume a slot) and
+    // BEFORE any News creation/save. Server-authoritative; keyed to the session
+    // identity only (never a client-supplied id).
+    if (authorDetails && isTierLimited(authorDetails.reporterTier)) {
+      const submittedToday = await countReporterDailySubmissions(req.admin.id);
+      // P4 — an active, today-only (IST) override raises the cap to 10 + extra.
+      // 0 when none (the common case) → P2 behaviour unchanged.
+      const extraAllowed = await getActiveExtraAllowed(req.admin.id);
+      if (submittedToday >= TIER_DAILY_LIMIT + extraAllowed) {
+        let stateInCharge = null;
+        try {
+          stateInCharge = await resolveReporterStateIncharge(Admin, authorDetails);
+        } catch (_) { stateInCharge = null; }
+        return res.status(429).json({
+          error: DAILY_LIMIT_MESSAGE,
+          limitReached: true,
+          dailyLimit: TIER_DAILY_LIMIT,
+          stateInCharge, // { name, mobileNumber } | null
+        });
       }
     }
 

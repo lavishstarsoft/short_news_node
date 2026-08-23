@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Reporter Access' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Reporter Access', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'reporter-access' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <div class="mb-3">
+          <h3 class="mb-1">Emergency Access — Daily Limit Override</h3>
+          <p class="text-muted mb-0">Tiered reporters (Stringer / District In-Charge) stop at 10 news per day. Grant temporary extra submissions for <b>today only</b> — it expires automatically tonight. Revoke restores the normal limit immediately.</p>
+        </div>
+        <div class="mb-2">
+          <button class="btn btn-sm btn-outline-secondary" onclick="loadRequests()">↻ Refresh</button>
+        </div>
+        <div class="card"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr>
+            <th>Reporter</th><th>Tier</th><th>District</th><th>Today</th><th>Current Extra Access</th><th class="text-end">Grant Extra / Revoke</th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="6" class="text-center text-muted py-4">Loading…</td></tr></tbody>
+        </table></div></div>
+        <p class="text-muted small mt-2" id="countLine"></p>
+      </div>
+    </div>
+  </div></div>
+  <%- include('partials/footer') %>
+  <script>
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    async function loadRequests() {
+      const rows = document.getElementById('rows');
+      rows.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Loading…</td></tr>';
+      try {
+        const resp = await fetch('/admin/reporter-access/api/requests');
+        const d = await resp.json();
+        if (!resp.ok) throw new Error(d.error || 'Failed');
+        if (!d.items || !d.items.length) {
+          rows.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No reporters at the limit right now.</td></tr>';
+          document.getElementById('countLine').textContent = '';
+          return;
+        }
+        rows.innerHTML = d.items.map(function (r) {
+          const grants = [1, 2, 5, 10].map(function (n) {
+            return '<button class="btn btn-sm btn-outline-primary me-1" onclick="grant(\'' + r.reporterId + '\',' + n + ')">+' + n + '</button>';
+          }).join('');
+          const revoke = r.extraAllowed > 0
+            ? '<button class="btn btn-sm btn-outline-danger" onclick="revoke(\'' + r.reporterId + '\')">Revoke</button>'
+            : '';
+          const tierLabel = r.tier === 'district_incharge' ? 'District In-Charge' : 'Stringer';
+          return '<tr>' +
+            '<td>' + esc(r.name) + '</td>' +
+            '<td>' + esc(tierLabel) + '</td>' +
+            '<td>' + esc(r.district) + '</td>' +
+            '<td>' + r.submittedToday + ' / ' + r.effectiveLimit + '</td>' +
+            '<td><b>' + r.extraAllowed + '</b></td>' +
+            '<td class="text-end">' + grants + ' ' + revoke + '</td>' +
+          '</tr>';
+        }).join('');
+        document.getElementById('countLine').textContent = d.count + ' reporter(s) shown.';
+      } catch (e) {
+        rows.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">' + esc(e.message) + '</td></tr>';
+      }
+    }
+
+    async function grant(reporterId, extra) {
+      try {
+        const resp = await fetch('/admin/reporter-access/api/grant', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reporterId: reporterId, extra: extra })
+        });
+        const d = await resp.json();
+        if (!resp.ok) return alert(d.error || 'Grant failed.');
+        loadRequests();
+      } catch (e) { alert('Network error.'); }
+    }
+
+    async function revoke(reporterId) {
+      if (!confirm('Revoke extra access for today? This restores the normal 10-news limit immediately.')) return;
+      try {
+        const resp = await fetch('/admin/reporter-access/api/revoke', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reporterId: reporterId })
+        });
+        const d = await resp.json();
+        if (!resp.ok) return alert(d.error || 'Revoke failed.');
+        loadRequests();
+      } catch (e) { alert('Network error.'); }
+    }
+
+    loadRequests();
+  </script>
+</body>
+</html>

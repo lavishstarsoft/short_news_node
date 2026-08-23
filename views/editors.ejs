@@ -198,6 +198,10 @@
         /* ── Reporter-only / SubEditor-only markers ── */
         .reporter-only-section, .subeditor-only-section { transition: .3s; }
         .role-hidden { display: none !important; }
+        /* Reporter Category = business classification, styled distinctly from the title/Designation field. */
+        .reporter-category-box { background:#f6f4ff; border:1px solid #e0d7fb; border-left:4px solid #7e57c2; border-radius:8px; padding:12px 14px; }
+        .reporter-category-box label { color:#5e35b1; font-weight:700; }
+        .reporter-category-box small { display:block; margin-top:6px; }
 
         @media (max-width: 768px) {
             .editor-role-cards, .editor-scope-row { grid-template-columns: 1fr; }
@@ -256,6 +260,166 @@
                                         </div>
                                     </div>
 
+                                    <% if (typeof admin !== 'undefined' && admin && ['superadmin','admin','subeditor'].includes(admin.role)) { %>
+                                    <!-- ===== Reporter Access — Daily Limits (P4/P6 reuse; read-only + existing grant/revoke API) ===== -->
+                                    <style>
+                                      .ra-wrap{border:1px solid #e6e8ec;border-radius:12px;margin-bottom:20px;background:#fff;overflow:hidden}
+                                      .ra-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;cursor:pointer;background:#fbfcfe;border-bottom:1px solid #eef0f3}
+                                      .ra-head h3{margin:0;font-size:16px;font-weight:800}
+                                      .ra-body{padding:16px}
+                                      .ra-cards{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+                                      .ra-card{flex:1 1 140px;min-width:120px;border:1px solid #eef0f3;border-radius:10px;padding:10px 12px}
+                                      .ra-card .v{font-size:20px;font-weight:800}
+                                      .ra-card .l{font-size:11px;text-transform:uppercase;color:#8a94a6;letter-spacing:.03em}
+                                      .ra-card.warn .v{color:#e65100}.ra-card.danger .v{color:#c62828}.ra-card.ok .v{color:#2e7d32}
+                                      .ra-filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+                                      .ra-filters select,.ra-filters input{border:1px solid #dfe3ea;border-radius:8px;padding:7px 10px;font-size:13px}
+                                      .ra-filters input{flex:1 1 200px;min-width:160px}
+                                      .ra-state{border:1px solid #eef0f3;border-radius:10px;margin-bottom:10px;overflow:hidden}
+                                      .ra-state>.ra-th{background:#f4f6f9;font-weight:800}
+                                      .ra-th{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer}
+                                      .ra-th .cnt{margin-left:auto;font-size:12px;color:#6b7280;font-weight:600}
+                                      .ra-ic{margin:0 0 0 10px;border-left:2px solid #eef0f3}
+                                      .ra-ic>.ra-th{background:#fafbfd;font-weight:700}
+                                      .ra-ic .ra-phone{font-size:12px;color:#2563eb;font-weight:600}
+                                      .ra-dist{margin:0 0 0 12px}
+                                      .ra-dist>.ra-th{font-size:12px;text-transform:uppercase;color:#8a94a6;letter-spacing:.03em;padding:6px 12px}
+                                      .ra-rep{display:grid;grid-template-columns:1.6fr .9fr .8fr .9fr auto;gap:8px;align-items:center;padding:9px 12px;border-top:1px solid #f1f3f6}
+                                      .ra-rep .nm{font-weight:700}
+                                      .ra-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+                                      .ra-b-active{background:#e8f5e9;color:#2e7d32}.ra-b-atlimit{background:#fdecea;color:#c62828}
+                                      .ra-b-extra{background:#fff3e0;color:#e65100}.ra-b-blocked{background:#eceff1;color:#546e7a}
+                                      .ra-actions{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+                                      .ra-actions button{border:1px solid #cfd6e0;background:#fff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer}
+                                      .ra-actions .rv{border-color:#f0b4ae;color:#c62828}
+                                      .ra-collapsed>.ra-th .chev{transform:rotate(-90deg)}
+                                      .ra-collapsed>.ra-kids{display:none}
+                                      .chev{transition:transform .15s}
+                                      @media(max-width:720px){.ra-rep{grid-template-columns:1fr;gap:4px}.ra-actions{justify-content:flex-start}}
+                                    </style>
+                                    <div class="ra-wrap" id="raWrap">
+                                      <div class="ra-head" id="raToggle">
+                                        <h3><i class="fas fa-key me-2 text-warning"></i>Reporter Access — Daily Limits</h3>
+                                        <div style="display:flex;gap:10px;align-items:center">
+                                          <button type="button" class="btn btn-sm btn-outline-secondary" id="raRefresh"><i class="fas fa-sync"></i></button>
+                                          <i class="fas fa-chevron-down chev" id="raChev"></i>
+                                        </div>
+                                      </div>
+                                      <div class="ra-body" id="raBody">
+                                        <div class="ra-cards" id="raCards"></div>
+                                        <div class="ra-filters">
+                                          <select id="raState"><option value="">All States</option></select>
+                                          <select id="raIncharge"><option value="">All State In-Charges</option></select>
+                                          <input type="text" id="raSearch" placeholder="Search reporter name…">
+                                        </div>
+                                        <div id="raTree"><div class="text-muted" style="padding:16px">Loading…</div></div>
+                                      </div>
+                                    </div>
+                                    <script>
+                                    (function(){
+                                      var DATA=[], expanded=true;
+                                      var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});};
+                                      var tierLabel=function(t){return t==='district_incharge'?'District In-Charge':(t==='stringer'?'Stringer':t||'');};
+                                      var statusBadge=function(s){
+                                        var m={active:['Active','ra-b-active'],at_limit:['At Limit','ra-b-atlimit'],extra_access:['Extra Access','ra-b-extra'],blocked:['Blocked','ra-b-blocked']};
+                                        var x=m[s]||m.active;return '<span class="ra-badge '+x[1]+'">'+x[0]+'</span>';
+                                      };
+                                      async function load(){
+                                        var tree=document.getElementById('raTree');
+                                        tree.innerHTML='<div class="text-muted" style="padding:16px">Loading…</div>';
+                                        try{
+                                          var r=await fetch('/admin/reporter-access/api/requests?all=1');
+                                          var d=await r.json();
+                                          if(!r.ok) throw new Error(d.error||'Failed');
+                                          DATA=d.items||[];
+                                          buildFilters();render();
+                                        }catch(e){tree.innerHTML='<div class="text-danger" style="padding:16px">'+esc(e.message)+'</div>';}
+                                      }
+                                      function buildFilters(){
+                                        var st=document.getElementById('raState'), ic=document.getElementById('raIncharge');
+                                        var states=[...new Set(DATA.map(function(x){return x.state;}).filter(Boolean))].sort();
+                                        var ins=[...new Set(DATA.map(function(x){return x.stateInChargeName;}).filter(Boolean))].sort();
+                                        st.innerHTML='<option value="">All States</option>'+states.map(function(s){return '<option>'+esc(s)+'</option>';}).join('');
+                                        ic.innerHTML='<option value="">All State In-Charges</option>'+ins.map(function(s){return '<option>'+esc(s)+'</option>';}).join('');
+                                      }
+                                      function summary(rows){
+                                        var atLimit=rows.filter(function(x){return x.status==='at_limit';}).length;
+                                        var extra=rows.filter(function(x){return x.extraAllowed>0;}).length;
+                                        var blocked=rows.filter(function(x){return x.status==='blocked';}).length;
+                                        var incharges=new Set(rows.map(function(x){return x.stateInChargeId;}).filter(Boolean)).size;
+                                        var c=[['Total Reporters',rows.length,''],['At Limit',atLimit,'danger'],['Extra Access',extra,'warn'],['Blocked',blocked,''],['In-Charges',incharges,'ok']];
+                                        document.getElementById('raCards').innerHTML=c.map(function(x){return '<div class="ra-card '+x[2]+'"><div class="v">'+x[1]+'</div><div class="l">'+x[0]+'</div></div>';}).join('');
+                                      }
+                                      function render(){
+                                        var fState=document.getElementById('raState').value;
+                                        var fInc=document.getElementById('raIncharge').value;
+                                        var q=(document.getElementById('raSearch').value||'').toLowerCase();
+                                        var rows=DATA.filter(function(x){
+                                          if(fState&&x.state!==fState)return false;
+                                          if(fInc&&x.stateInChargeName!==fInc)return false;
+                                          if(q&&(x.name||'').toLowerCase().indexOf(q)<0)return false;
+                                          return true;
+                                        });
+                                        summary(rows);
+                                        var tree=document.getElementById('raTree');
+                                        if(!rows.length){tree.innerHTML='<div class="text-muted" style="padding:16px">No tiered reporters match.</div>';return;}
+                                        // group: state -> incharge -> district
+                                        var byState={};
+                                        rows.forEach(function(x){
+                                          var s=x.state||'— No State —', i=x.stateInChargeName||'— Unassigned In-Charge —', dt=x.district||'— No District —';
+                                          (byState[s]=byState[s]||{})[i]=byState[s][i]||{};
+                                          (byState[s][i][dt]=byState[s][i][dt]||[]).push(x);
+                                        });
+                                        var html='';
+                                        Object.keys(byState).sort().forEach(function(s){
+                                          var stRows=[]; Object.keys(byState[s]).forEach(function(i){Object.keys(byState[s][i]).forEach(function(dt){stRows=stRows.concat(byState[s][i][dt]);});});
+                                          var stAlert=stRows.some(function(x){return x.status==='at_limit'||x.extraAllowed>0;});
+                                          html+='<div class="ra-state'+(stAlert?'':' ra-collapsed')+'"><div class="ra-th" onclick="this.parentNode.classList.toggle(\'ra-collapsed\')"><i class="fas fa-chevron-down chev"></i>'+esc(s)+'<span class="cnt">'+stRows.length+' reporters</span></div><div class="ra-kids">';
+                                          Object.keys(byState[s]).sort().forEach(function(i){
+                                            var icRows=[]; Object.keys(byState[s][i]).forEach(function(dt){icRows=icRows.concat(byState[s][i][dt]);});
+                                            var phone=(icRows[0]&&icRows[0].stateInChargePhone)||'';
+                                            var icAlert=icRows.some(function(x){return x.status==='at_limit'||x.extraAllowed>0;});
+                                            html+='<div class="ra-ic'+(icAlert?'':' ra-collapsed')+'"><div class="ra-th" onclick="this.parentNode.classList.toggle(\'ra-collapsed\')"><i class="fas fa-chevron-down chev"></i><i class="fas fa-user-shield me-1 text-secondary"></i>'+esc(i)+(phone?' <a class="ra-phone" href="tel:'+encodeURIComponent(phone)+'">'+esc(phone)+'</a>':'')+'<span class="cnt">'+icRows.length+'</span></div><div class="ra-kids">';
+                                            Object.keys(byState[s][i]).sort().forEach(function(dt){
+                                              html+='<div class="ra-dist"><div class="ra-th"><i class="fas fa-map-marker-alt me-1"></i>'+esc(dt)+'</div>';
+                                              byState[s][i][dt].forEach(function(x){ html+=repRow(x); });
+                                              html+='</div>';
+                                            });
+                                            html+='</div></div>';
+                                          });
+                                          html+='</div></div>';
+                                        });
+                                        tree.innerHTML=html;
+                                      }
+                                      function repRow(x){
+                                        var canGrant=x.status!=='blocked';
+                                        var grants=canGrant?[1,2,5,10].map(function(n){return '<button onclick="raGrant(\''+x.reporterId+'\','+n+')">+'+n+'</button>';}).join(''):'';
+                                        var revoke=x.extraAllowed>0?'<button class="rv" onclick="raRevoke(\''+x.reporterId+'\')">Revoke</button>':'';
+                                        return '<div class="ra-rep">'+
+                                          '<div><span class="nm">'+esc(x.name)+'</span> <span class="text-muted" style="font-size:12px">· '+esc(tierLabel(x.tier))+' · ₹'+x.ratePerNews+'/news</span></div>'+
+                                          '<div style="font-size:13px">'+x.submittedToday+' / '+x.effectiveLimit+(x.extraAllowed>0?' <span class="text-warning">(+'+x.extraAllowed+')</span>':'')+'</div>'+
+                                          '<div>'+statusBadge(x.status)+'</div>'+
+                                          '<div style="font-size:12px" class="text-muted">'+esc(x.district||'')+'</div>'+
+                                          '<div class="ra-actions">'+grants+' '+revoke+'</div>'+
+                                        '</div>';
+                                      }
+                                      window.raGrant=async function(id,extra){
+                                        try{var r=await fetch('/admin/reporter-access/api/grant',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reporterId:id,extra:extra})});var d=await r.json();if(!r.ok)return alert(d.error||'Grant failed');load();}catch(e){alert('Network error');}
+                                      };
+                                      window.raRevoke=async function(id){
+                                        if(!confirm('Revoke extra access for today? Restores the normal 10-news limit immediately.'))return;
+                                        try{var r=await fetch('/admin/reporter-access/api/revoke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reporterId:id})});var d=await r.json();if(!r.ok)return alert(d.error||'Revoke failed');load();}catch(e){alert('Network error');}
+                                      };
+                                      document.getElementById('raState').addEventListener('change',render);
+                                      document.getElementById('raIncharge').addEventListener('change',render);
+                                      document.getElementById('raSearch').addEventListener('input',render);
+                                      document.getElementById('raRefresh').addEventListener('click',function(e){e.stopPropagation();load();});
+                                      document.getElementById('raToggle').addEventListener('click',function(){expanded=!expanded;document.getElementById('raBody').style.display=expanded?'':'none';document.getElementById('raChev').style.transform=expanded?'':'rotate(-90deg)';});
+                                      load();
+                                    })();
+                                    </script>
+                                    <% } %>
+
                                     <% if (allStaff.length > 0) { %>
                                     <div class="team-panel">
                                         <div class="team-panel-toolbar">
@@ -275,9 +439,16 @@
                                                 <button type="button" class="team-segment" data-staff-filter="editor">Reporters<span class="team-segment-count"><%= reporterList.length %></span></button>
                                                 <button type="button" class="team-segment" data-staff-filter="subeditor">Sub-editors<span class="team-segment-count"><%= subEditorList.length %></span></button>
                                             </div>
+                                            <div class="team-segments" role="tablist" style="margin-left:8px">
+                                                <button type="button" class="team-segment active" id="viewToggleHier">Hierarchy</button>
+                                                <button type="button" class="team-segment" id="viewToggleTable">Table</button>
+                                            </div>
                                         </div>
                                         
-                                        <div class="team-panel-toolbar d-flex align-items-center justify-content-between p-3 border-top" style="background-color: #fcfcfc;">
+                                        <!-- ===== Team Hierarchy view (State → State In-Charge → District → Reporter) ===== -->
+                                        <div id="teamHierarchyView"></div>
+
+                                        <div id="teamTableToolbar" class="team-panel-toolbar d-flex align-items-center justify-content-between p-3 border-top" style="background-color: #fcfcfc; display:none;">
                                             <div class="d-flex align-items-center gap-3">
                                                 <div class="fw-bold text-secondary small text-uppercase">Multi-Editor Report:</div>
                                                 <input type="text" id="multiReportDateRange" class="form-control form-control-sm" placeholder="Select Date Range..." style="width: 220px;">
@@ -290,7 +461,7 @@
                                             </div>
                                         </div>
 
-                                        <div class="table-responsive">
+                                        <div class="table-responsive" id="teamTableWrap" style="display:none;">
                                             <table class="table table-hover align-middle mb-0">
                                                 <thead class="bg-light">
                                                     <tr>
@@ -317,12 +488,310 @@
                                             </table>
                                         </div>
 
-                                        <div class="team-footer-note">
+                                        <div class="team-footer-note" id="teamTableFooter" style="display:none;">
                                             Showing <strong id="teamVisibleCount"><%= allStaff.length %></strong> of <%= allStaff.length %> members · Click Range to pick custom dates
                                         </div>
                                     </div>
 
                                     <script id="editorsData" type="application/json"><%- JSON.stringify(allStaff) %></script>
+                                    <script id="tierRatesData" type="application/json"><%- JSON.stringify(typeof tierRates !== 'undefined' ? tierRates : { stringer: 5, district_incharge: 10 }) %></script>
+                                    <style>
+                                      .th-toolbar{display:flex;justify-content:flex-end;padding:12px 16px 0}
+                                      .th-cards{display:flex;flex-wrap:wrap;gap:10px;padding:14px 16px 4px}
+                                      .th-card{flex:1 1 120px;min-width:110px;border:1px solid #eef0f3;border-radius:10px;padding:10px 12px}
+                                      .th-card .v{font-size:20px;font-weight:800}.th-card .l{font-size:11px;text-transform:uppercase;color:#8a94a6;letter-spacing:.03em}
+                                      .th-card.danger .v{color:#c62828}.th-card.ok .v{color:#2e7d32}
+                                      .th-filters{display:flex;flex-wrap:wrap;gap:8px;padding:8px 16px 14px}
+                                      .th-filters select,.th-filters input{border:1px solid #dfe3ea;border-radius:8px;padding:7px 10px;font-size:13px}
+                                      .th-filters input{flex:1 1 200px;min-width:150px}
+                                      .th-sec{border-top:1px solid #eef0f3}
+                                      .th-state{border:1px solid #eef0f3;border-radius:10px;margin:10px 16px}
+                                      .th-th{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;background:#f4f6f9;font-weight:800}
+                                      .th-th .cnt{margin-left:auto;font-size:12px;color:#6b7280;font-weight:600}
+                                      .th-ic{margin:0 0 0 10px;border-left:2px solid #eef0f3}
+                                      .th-ic>.th-th{background:#fafbfd;font-weight:700}
+                                      .th-ic .ph{font-size:12px;color:#2563eb;font-weight:600;margin-left:6px}
+                                      .th-dist>.th-th{background:#fbfcfe;font-size:12px;text-transform:uppercase;color:#6b7280;cursor:default;padding:7px 12px;font-weight:700;letter-spacing:.03em;border-top:1px solid #eef0f3}
+                                      .th-dist>.th-th i{color:#e53935}
+                                      .th-rep{display:grid;grid-template-columns:2.2fr 1.3fr 1.1fr .9fr auto;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid #f1f3f6;background:#fff}
+                                      .th-rep:hover{background:#fafbff}
+                                      .th-rep .nm{font-weight:700}
+                                      .th-identity .th-sub{font-size:11px;color:#9aa3b2;margin-top:1px}
+                                      .th-activity{display:flex;gap:14px}
+                                      .th-kv{display:flex;flex-direction:column;line-height:1.1}
+                                      .th-kv .k{font-size:10px;text-transform:uppercase;color:#9aa3b2;letter-spacing:.03em}
+                                      .th-kv b{font-size:14px}
+                                      .th-earn{font-size:12px}
+                                      .th-rate{font-weight:700;color:#2e7d32}
+                                      .th-limit{color:#8a94a6;margin-left:4px}
+                                      .th-muted{color:#c3c9d4}
+                                      .th-status{text-align:left}
+                                      .th-b{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+                                      .th-b-active{background:#e8f5e9;color:#2e7d32}.th-b-atlimit{background:#fdecea;color:#c62828}
+                                      .th-b-extra{background:#fff3e0;color:#e65100}.th-b-locked{background:#eceff1;color:#546e7a}
+                                      .th-tier{display:inline-block;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid transparent}
+                                      .th-tier-dic{background:#ede7f6;color:#5e35b1;border-color:#d1c4e9}
+                                      .th-tier-str{background:#fff3e0;color:#e65100;border-color:#ffcc80}
+                                      .th-tier-rep{background:#e3f2fd;color:#1565c0;border-color:#bbdefb}
+                                      .th-tier-sub{background:#f3e5f5;color:#8e24aa;border-color:#e1bee7}
+                                      .th-tier-sic{background:#e0f2f1;color:#00695c;border-color:#b2dfdb}
+                                      .th-acts{display:flex;gap:4px;justify-content:flex-end}
+                                      .th-acts button{border:1px solid #cfd6e0;background:#fff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer}
+                                      .th-acts .del{border-color:#f0b4ae;color:#c62828}
+                                      .th-collapsed>.th-th .thchev{transform:rotate(-90deg)}.th-collapsed>.th-kids{display:none}
+                                      .thchev{transition:transform .15s}
+                                      .th-substaff{margin:10px 16px;border:1px solid #eef0f3;border-radius:10px}
+                                      .th-acts .team-actions-btn{margin-left:2px}
+                                      @media(max-width:760px){
+                                        .th-rep{grid-template-columns:1fr auto;grid-template-areas:'id act' 'activity act' 'earn act' 'status act';gap:4px 10px;align-items:start}
+                                        .th-identity{grid-area:id}.th-activity{grid-area:activity}.th-earn{grid-area:earn}.th-status{grid-area:status}.th-acts{grid-area:act;align-self:center}
+                                      }
+                                    </style>
+                                    <script>
+                                    (function(){
+                                      var STAFF=[], RATES={stringer:5,district_incharge:10};
+                                      try{STAFF=JSON.parse(document.getElementById('editorsData').textContent)||[];}catch(e){}
+                                      try{RATES=JSON.parse(document.getElementById('tierRatesData').textContent)||RATES;}catch(e){}
+                                      var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});};
+                                      var isSub=function(x){return x.role==='subeditor';};
+                                      var isRep=function(x){return x.role==='editor';};
+                                      function tierMeta(x){
+                                        if(isSub(x))return{cls:'th-tier-sub',label:'Sub-Editor'};
+                                        if(x.reporterTier==='district_incharge')return{cls:'th-tier-dic',label:'District In-Charge'};
+                                        if(x.reporterTier==='stringer')return{cls:'th-tier-str',label:'Stringer'};
+                                        return{cls:'th-tier-rep',label:'Reporter'};
+                                      }
+                                      function rate(x){var r=RATES[x.reporterTier];return (x.reporterTier&&Number.isFinite(r))?('₹'+r):'';}
+                                      function statusOf(x){
+                                        if(x.isActive===false)return['Locked','th-b-locked'];
+                                        if((x.reporterTier==='stringer'||x.reporterTier==='district_incharge')&&(x.newsStats&&x.newsStats.today>=10))return['At Limit','th-b-atlimit'];
+                                        return['Active','th-b-active'];
+                                      }
+                                      var reporters=STAFF.filter(isRep), subs=STAFF.filter(function(x){return !isRep(x);});
+                                      function summary(rows){
+                                        var states=new Set(rows.map(function(x){return x.hierState||'—';}));
+                                        var ics=new Set(rows.map(function(x){return x.stateInChargeId;}).filter(Boolean));
+                                        var locked=STAFF.filter(function(x){return x.isActive===false;}).length;
+                                        var cards=[['Total Members',STAFF.length,''],['States',states.size,''],['State In-Charges',ics.size,'ok'],['Reporters',reporters.length,''],['Sub-Editors',subs.length,''],['Locked',locked,'danger']];
+                                        return cards.map(function(c){return '<div class="th-card '+c[2]+'"><div class="v">'+c[1]+'</div><div class="l">'+c[0]+'</div></div>';}).join('');
+                                      }
+                                      function buildFilters(){
+                                        var st=[...new Set(reporters.map(function(x){return x.hierState;}).filter(Boolean))].sort();
+                                        var ic=[...new Set(reporters.map(function(x){return x.stateInChargeName;}).filter(Boolean))].sort();
+                                        var dt=[...new Set(reporters.map(function(x){return x.hierDistrict;}).filter(Boolean))].sort();
+                                        return '<select id="thState"><option value="">All States</option>'+st.map(function(s){return '<option>'+esc(s)+'</option>';}).join('')+'</select>'+
+                                               '<select id="thIc"><option value="">All State In-Charges</option>'+ic.map(function(s){return '<option>'+esc(s)+'</option>';}).join('')+'</select>'+
+                                               '<select id="thDist"><option value="">All Districts</option>'+dt.map(function(s){return '<option>'+esc(s)+'</option>';}).join('')+'</select>'+
+                                               '<input type="text" id="thSearch" placeholder="Search name / @username…">';
+                                      }
+                                      // EXACT reuse of the Table-view Actions menu (partials/editor-directory-row.ejs):
+                                      // same classes, URLs, global handlers and item order — no duplicate action logic.
+                                      function actionsMenu(x){
+                                        var id=x._id;
+                                        var newsTab=(x.role==='subeditor')?'?tab=team-list':'';
+                                        return '<div class="dropdown">'+
+                                          '<button class="team-actions-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-ellipsis-vertical"></i></button>'+
+                                          '<ul class="dropdown-menu dropdown-menu-end team-dropdown-menu">'+
+                                            '<li><a class="dropdown-item" href="/admin/editors/'+id+'/news-list'+newsTab+'" target="_blank"><i class="fas fa-eye me-2"></i>View News List</a></li>'+
+                                            '<li><a class="dropdown-item" href="/admin/performance-analytics?authorId='+id+'"><i class="fas fa-chart-line me-2"></i>Analytics</a></li>'+
+                                            '<li><a class="dropdown-item" href="#" onclick="openEditEditorModal(\''+id+'\'); return false;"><i class="fas fa-pen me-2"></i>Edit profile</a></li>'+
+                                            '<li><a class="dropdown-item text-primary fw-bold" href="#" onclick="showAdvancedReport(\''+id+'\'); return false;"><i class="fas fa-chart-pie me-2"></i>Advanced Report</a></li>'+
+                                            '<li><a class="dropdown-item" href="#" onclick="showEditorInsightsById(\''+id+'\'); return false;"><i class="fas fa-chart-bar me-2"></i>Insights</a></li>'+
+                                            '<li><a class="dropdown-item" href="#" onclick="openPasswordModal(\''+id+'\'); return false;"><i class="fas fa-key me-2"></i>Change password</a></li>'+
+                                            '<li><a class="dropdown-item" href="#" onclick="toggleEditorStatus(\''+id+'\','+(x.isActive?'true':'false')+'); return false;"><i class="fas fa-lock me-2"></i>'+(x.isActive?'Lock account':'Unlock account')+'</a></li>'+
+                                            '<li><hr class="dropdown-divider"></li>'+
+                                            '<li><a class="dropdown-item text-danger" href="#" onclick="deleteEditor(\''+id+'\'); return false;"><i class="fas fa-trash me-2"></i>Remove user</a></li>'+
+                                          '</ul>'+
+                                        '</div>';
+                                      }
+                                      function repRow(x){
+                                        var tm=tierMeta(x), s=statusOf(x);
+                                        var today=(x.newsStats&&x.newsStats.today)||0, wk=(x.newsStats&&x.newsStats.weekly)||0;
+                                        var tiered=(x.reporterTier==='stringer'||x.reporterTier==='district_incharge');
+                                        // Earnings: ₹/news + limit usage for tiered reporters (district shown in header, not here).
+                                        var earn = tiered
+                                          ? '<span class="th-rate">'+esc(rate(x))+'/news</span> <span class="th-limit">'+today+'/10</span>'
+                                          : '<span class="th-muted">—</span>';
+                                        return '<div class="th-rep">'+
+                                          // Identity
+                                          '<div class="th-identity"><span class="nm">'+esc(x.name||x.username)+'</span> <span class="th-tier '+tm.cls+'">'+tm.label+'</span>'+
+                                            '<div class="th-sub">@'+esc(x.username||'')+'</div></div>'+
+                                          // Activity
+                                          '<div class="th-activity"><span class="th-kv"><span class="k">Today</span><b>'+today+'</b></span><span class="th-kv"><span class="k">7 Days</span><b>'+wk+'</b></span></div>'+
+                                          // Earnings
+                                          '<div class="th-earn">'+earn+'</div>'+
+                                          // Status
+                                          '<div class="th-status"><span class="th-b '+s[1]+'">'+s[0]+'</span></div>'+
+                                          // Actions (same menu as Table view)
+                                          '<div class="th-acts">'+actionsMenu(x)+'</div>'+
+                                        '</div>';
+                                      }
+                                      // Current filter selections (shared by the on-screen render and the PDF export).
+                                      function currentFilters(){
+                                        return {
+                                          state:(document.getElementById('thState')||{}).value||'',
+                                          incharge:(document.getElementById('thIc')||{}).value||'',
+                                          district:(document.getElementById('thDist')||{}).value||'',
+                                          q:((document.getElementById('thSearch')||{}).value||'').toLowerCase()
+                                        };
+                                      }
+                                      function filteredReporters(){
+                                        var f=currentFilters();
+                                        return reporters.filter(function(x){
+                                          if(f.state&&x.hierState!==f.state)return false;
+                                          if(f.incharge&&x.stateInChargeName!==f.incharge)return false;
+                                          if(f.district&&x.hierDistrict!==f.district)return false;
+                                          if(f.q&&((x.name||'')+' @'+(x.username||'')).toLowerCase().indexOf(f.q)<0)return false;
+                                          return true;
+                                        });
+                                      }
+                                      function render(){
+                                        var host=document.getElementById('teamHierarchyView');
+                                        var q=currentFilters().q; // used by the Sub-Editors section filter below
+                                        var rows=filteredReporters();
+                                        document.getElementById('thCards').innerHTML=summary(rows);
+                                        var byState={};
+                                        rows.forEach(function(x){
+                                          var s=x.hierState||'— No State —', i=x.stateInChargeName||'— Unassigned In-Charge —', d=x.hierDistrict||'— No District —';
+                                          (byState[s]=byState[s]||{})[i]=byState[s][i]||{};
+                                          (byState[s][i][d]=byState[s][i][d]||[]).push(x);
+                                        });
+                                        var html='';
+                                        Object.keys(byState).sort().forEach(function(s){
+                                          var all=[]; Object.keys(byState[s]).forEach(function(i){Object.keys(byState[s][i]).forEach(function(d){all=all.concat(byState[s][i][d]);});});
+                                          var lockedN=all.filter(function(x){return x.isActive===false;}).length;
+                                          var icN=new Set(all.map(function(x){return x.stateInChargeName;})).size;
+                                          html+='<div class="th-state th-collapsed"><div class="th-th" onclick="this.parentNode.classList.toggle(\'th-collapsed\')"><i class="fas fa-chevron-down thchev"></i>'+esc(s)+'<span class="cnt">'+all.length+' reporters · '+icN+' in-charges · '+lockedN+' locked</span></div><div class="th-kids">';
+                                          Object.keys(byState[s]).sort().forEach(function(i){
+                                            var icRows=[]; Object.keys(byState[s][i]).forEach(function(d){icRows=icRows.concat(byState[s][i][d]);});
+                                            var atl=icRows.filter(function(x){return statusOf(x)[0]==='At Limit';}).length;
+                                            var phone=(icRows[0]&&icRows[0].stateInChargePhone)||'';
+                                            html+='<div class="th-ic th-collapsed"><div class="th-th" onclick="this.parentNode.classList.toggle(\'th-collapsed\')"><i class="fas fa-chevron-down thchev"></i><span class="th-tier th-tier-sic">State In-Charge</span> '+esc(i)+(phone?'<a class="ph" href="tel:'+encodeURIComponent(phone)+'">'+esc(phone)+'</a>':'')+'<span class="cnt">'+icRows.length+' reporters'+(atl?' · '+atl+' at limit':'')+'</span></div><div class="th-kids">';
+                                            Object.keys(byState[s][i]).sort().forEach(function(d){
+                                              var dN=byState[s][i][d].length;
+                                              html+='<div class="th-dist"><div class="th-th"><i class="fas fa-map-marker-alt me-1"></i>'+esc(d)+'<span class="cnt">'+dN+' Reporter'+(dN>1?'s':'')+'</span></div>';
+                                              byState[s][i][d].forEach(function(x){html+=repRow(x);});
+                                              html+='</div>';
+                                            });
+                                            html+='</div></div>';
+                                          });
+                                          html+='</div></div>';
+                                        });
+                                        // Separate Sub-Editors & other staff
+                                        html+='<div class="th-substaff"><div class="th-th" onclick="this.parentNode.classList.toggle(\'th-collapsed\')" style="cursor:pointer"><i class="fas fa-chevron-down thchev"></i>Sub-Editors &amp; Other Staff<span class="cnt">'+subs.length+'</span></div><div class="th-kids">';
+                                        subs.filter(function(x){return !q||((x.name||'')+' @'+(x.username||'')).toLowerCase().indexOf(q)>=0;}).forEach(function(x){html+=repRow(x);});
+                                        html+='</div></div>';
+                                        document.getElementById('thBody').innerHTML=html;
+                                      }
+                                      // PDF export of the CURRENTLY FILTERED hierarchy (client-side, from the
+                                      // already-authorized editorsData — no new endpoint, no server IDs trusted).
+                                      function tierLabelPlain(x){
+                                        if(isSub(x))return 'Sub-Editor';
+                                        if(x.reporterTier==='district_incharge')return 'District In-Charge';
+                                        if(x.reporterTier==='stringer')return 'Stringer';
+                                        return 'Reporter';
+                                      }
+                                      function locOf(x){
+                                        if(x.assignedLocations&&x.assignedLocations.length)return x.assignedLocations.join(', ');
+                                        return x.location||'';
+                                      }
+                                      function exportPdf(){
+                                        var jspdfNS=window.jspdf||{};
+                                        var JsPDF=jspdfNS.jsPDF;
+                                        if(!JsPDF){alert('PDF library still loading. Please try again in a moment.');return;}
+                                        var doc=new JsPDF({unit:'pt',format:'a4'});
+                                        if(typeof doc.autoTable!=='function'){alert('PDF table plugin not loaded yet. Please retry.');return;}
+                                        var f=currentFilters();
+                                        var rows=filteredReporters();
+                                        var M=40, PW=doc.internal.pageSize.getWidth(), y=54;
+                                        // Header
+                                        doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(20);
+                                        doc.text('Reporter Hierarchy Report', M, y);
+                                        doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(90);
+                                        var when=new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});
+                                        doc.text('Generated: '+when, M, y+16);
+                                        var fbits=[];
+                                        if(f.state)fbits.push('State: '+f.state);
+                                        if(f.incharge)fbits.push('In-Charge: '+f.incharge);
+                                        if(f.district)fbits.push('District: '+f.district);
+                                        if(f.q)fbits.push('Search: '+f.q);
+                                        doc.text('Filter: '+(fbits.length?fbits.join('  |  '):'All (currently visible)'), M, y+30);
+                                        doc.text('Reporters: '+rows.length, PW-M, y+30, {align:'right'});
+                                        y+=48;
+                                        // group state -> incharge -> district
+                                        var byState={};
+                                        rows.forEach(function(x){
+                                          var s=x.hierState||'— No State —', i=x.stateInChargeName||'— Unassigned In-Charge —', d=x.hierDistrict||'— No District —';
+                                          (byState[s]=byState[s]||{})[i]=byState[s][i]||{};
+                                          (byState[s][i][d]=byState[s][i][d]||[]).push(x);
+                                        });
+                                        var ensure=function(need){ if(y+need>doc.internal.pageSize.getHeight()-40){doc.addPage();y=54;} };
+                                        Object.keys(byState).sort().forEach(function(s){
+                                          ensure(30);
+                                          doc.setFillColor(230,30,36);doc.rect(M,y-12,PW-2*M,20,'F');
+                                          doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(255);
+                                          doc.text(String(s).toUpperCase(), M+6, y+2); y+=22;
+                                          Object.keys(byState[s]).sort().forEach(function(i){
+                                            var icRows=[];Object.keys(byState[s][i]).forEach(function(d){icRows=icRows.concat(byState[s][i][d]);});
+                                            var phone=(icRows[0]&&icRows[0].stateInChargePhone)||'';
+                                            ensure(24);
+                                            doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(20);
+                                            doc.text('State In-Charge: '+String(i), M, y);
+                                            if(phone){doc.setFont('helvetica','normal');doc.setTextColor(90);doc.text('Mobile: '+phone, PW-M, y, {align:'right'});}
+                                            y+=14;
+                                            Object.keys(byState[s][i]).sort().forEach(function(d){
+                                              ensure(30);
+                                              doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(120);
+                                              doc.text(String(d).toUpperCase(), M, y); y+=6;
+                                              var body=byState[s][i][d].map(function(x){return [x.name||x.username||'', x.mobileNumber||'—', x.email||'—', locOf(x)||'—', tierLabelPlain(x)];});
+                                              doc.autoTable({
+                                                startY:y+2,
+                                                head:[['Reporter Name','Mobile Number','Email','Assigned Location','Tier']],
+                                                body:body,
+                                                margin:{left:M,right:M},
+                                                styles:{fontSize:8,cellPadding:4,overflow:'linebreak',valign:'middle'},
+                                                headStyles:{fillColor:[45,55,72],textColor:255,fontStyle:'bold'},
+                                                alternateRowStyles:{fillColor:[247,249,252]},
+                                                columnStyles:{0:{cellWidth:110},1:{cellWidth:80},2:{cellWidth:150},3:{cellWidth:110},4:{cellWidth:70}},
+                                                showHead:'everyPage',
+                                                didDrawPage:function(){ y=doc.lastAutoTable.finalY; }
+                                              });
+                                              y=doc.lastAutoTable.finalY+12;
+                                            });
+                                          });
+                                          y+=6;
+                                        });
+                                        // Page numbers
+                                        var pages=doc.internal.getNumberOfPages();
+                                        for(var p=1;p<=pages;p++){doc.setPage(p);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(130);doc.text('Page '+p+' of '+pages, PW/2, doc.internal.pageSize.getHeight()-18, {align:'center'});}
+                                        // Filename: Reporter-Hierarchy-<State>-YYYY-MM-DD.pdf (IST date).
+                                        // No State selected → keep All-States behavior.
+                                        var dISO=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+                                        var stateSeg=f.state?f.state.replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,''):'All-States';
+                                        var fname='Reporter-Hierarchy-'+stateSeg+'-'+dISO+'.pdf';
+                                        doc.save(fname);
+                                      }
+
+                                      // Mount shell
+                                      var host=document.getElementById('teamHierarchyView');
+                                      host.innerHTML='<div class="th-toolbar"><button type="button" class="btn btn-sm btn-danger" id="thExportPdf"><i class="fas fa-file-pdf me-1"></i> Download PDF</button></div>'+
+                                                     '<div class="th-cards" id="thCards"></div><div class="th-filters">'+buildFilters()+'</div><div class="th-sec" id="thBody"></div>';
+                                      ['thState','thIc','thDist'].forEach(function(id){document.getElementById(id).addEventListener('change',render);});
+                                      document.getElementById('thSearch').addEventListener('input',render);
+                                      document.getElementById('thExportPdf').addEventListener('click',exportPdf);
+                                      render();
+                                      // View toggle (Hierarchy default; Table keeps ALL existing actions intact)
+                                      function showHier(h){
+                                        host.style.display=h?'':'none';
+                                        ['teamTableToolbar','teamTableWrap','teamTableFooter'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display=h?'none':'';});
+                                        document.getElementById('viewToggleHier').classList.toggle('active',h);
+                                        document.getElementById('viewToggleTable').classList.toggle('active',!h);
+                                      }
+                                      document.getElementById('viewToggleHier').addEventListener('click',function(){showHier(true);});
+                                      document.getElementById('viewToggleTable').addEventListener('click',function(){showHier(false);});
+                                      showHier(true);
+                                    })();
+                                    </script>
                                     <% } else { %>
                                     <div class="team-panel">
                                         <div class="team-empty">
@@ -427,11 +896,21 @@
                                     <span class="info-tip">?<span class="info-tip-text"><b>Reporter</b> = Writes news articles and submits them for approval.<br><br><b>Sub-Editor</b> = Reviews, approves or rejects news. Can log in to the dashboard.</span></span>
                                 </p>
                                 <div class="editor-role-cards" id="editRoleCards">
-                                    <div class="editor-role-card selected" data-role="editor">
+                                    <div class="editor-role-card selected" data-role="editor" data-tier="">
                                         <strong><i class="fas fa-pen-nib me-1"></i> Reporter</strong>
                                         <small>Writes news from the field. Submits for approval.</small>
                                     </div>
-                                    <div class="editor-role-card" data-role="subeditor">
+                                    <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
+                                    <div class="editor-role-card" data-role="editor" data-tier="stringer">
+                                        <strong><i class="fas fa-feather-pointed me-1"></i> Stringer</strong>
+                                        <small>Reporter · per-approved-news payout (10/day cap).</small>
+                                    </div>
+                                    <div class="editor-role-card" data-role="editor" data-tier="district_incharge">
+                                        <strong><i class="fas fa-user-tie me-1"></i> District In-Charge</strong>
+                                        <small>Reporter · per-news payout + tier rules.</small>
+                                    </div>
+                                    <% } %>
+                                    <div class="editor-role-card" data-role="subeditor" data-tier="">
                                         <strong><i class="fas fa-user-check me-1"></i> Sub-Editor</strong>
                                         <small>Reviews &amp; approves/rejects news. Has dashboard access.</small>
                                     </div>
@@ -453,20 +932,26 @@
                                             <small class="text-muted">Must be unique. Used for login.</small>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-6 subeditor-only-section">
                                         <div class="editor-field">
-                                            <label for="editDisplayRole">Display Role
-                                                <span class="info-tip">?<span class="info-tip-text">Managed under Team → Staff Categories. Controls the title shown in the app and Staff Record eligibility.</span></span>
+                                            <label for="editDisplayRole">Sub-Editor Designation <span class="text-muted">(optional)</span>
+                                                <span class="info-tip">?<span class="info-tip-text">Shown on agreements and the staff list. "Sub Editor" / "Bureau" enable the Official Staff Record PDF. "State In-Charge" is used for the reporter → In-Charge mapping.</span></span>
                                             </label>
-                                            <select id="editDisplayRole"
-                                                data-categories='<%- JSON.stringify((typeof staffCategories !== "undefined" ? staffCategories : []).map(function(c){ return c.name; })) %>'>
-                                                <option value="">Select display role…</option>
-                                                <% (typeof staffCategories !== 'undefined' ? staffCategories : []).forEach(function(c){ %>
-                                                    <option value="<%= c.name %>"><%= c.name %></option>
-                                                <% }); %>
+                                            <select id="editDisplayRole">
+                                                <option value="Sub Editor">Sub Editor</option>
+                                                <option value="Bureau">Bureau</option>
+                                                <option value="State In-Charge">State In-Charge</option>
                                             </select>
                                         </div>
                                     </div>
+                                    <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
+                                    <%# Internal value-carrier for reporterTier — driven by the Member Type cards above (no longer a visible dropdown). %>
+                                    <select id="editReporterTier" style="display:none" aria-hidden="true" tabindex="-1">
+                                        <option value="">Normal Reporter</option>
+                                        <option value="stringer">Stringer</option>
+                                        <option value="district_incharge">District In-Charge</option>
+                                    </select>
+                                    <% } %>
                                     <div class="col-md-6">
                                         <div class="editor-field">
                                             <label for="editMobile">Mobile Number</label>
@@ -875,20 +1360,42 @@
                                     <span class="info-tip">?<span class="info-tip-text"><b>Reporter</b> = Writes news articles from the field and submits for approval.<br><br><b>Sub-Editor</b> = Reviews and approves/rejects news. Can access the dashboard.</span></span>
                                 </p>
                                 <div class="editor-role-cards" id="addRoleCards">
-                                    <div class="editor-role-card selected" data-role="editor">
+                                    <div class="editor-role-card selected" data-role="editor" data-tier="">
                                         <strong><i class="fas fa-pen-nib me-1"></i> Reporter</strong>
                                         <small>Writes news from the field. Submits for approval.</small>
                                     </div>
-                                    <div class="editor-role-card" data-role="subeditor">
+                                    <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
+                                    <div class="editor-role-card" data-role="editor" data-tier="stringer">
+                                        <strong><i class="fas fa-feather-pointed me-1"></i> Stringer</strong>
+                                        <small>Reporter · per-approved-news payout (10/day cap).</small>
+                                    </div>
+                                    <div class="editor-role-card" data-role="editor" data-tier="district_incharge">
+                                        <strong><i class="fas fa-user-tie me-1"></i> District In-Charge</strong>
+                                        <small>Reporter · per-news payout + tier rules.</small>
+                                    </div>
+                                    <% } %>
+                                    <div class="editor-role-card" data-role="subeditor" data-tier="">
                                         <strong><i class="fas fa-user-check me-1"></i> Sub-Editor</strong>
                                         <small>Reviews &amp; approves/rejects news. Has dashboard access.</small>
                                     </div>
                                 </div>
                                 <div class="row">
                                     <div class="col-md-6"><div class="editor-field"><label for="addName">Full Name *</label><input type="text" id="addName" required placeholder="e.g. Ravi Kumar"></div></div>
-                                    <div class="col-md-6"><div class="editor-field"><label for="addDisplayRole">Display Role *
-                                        <span class="info-tip">?<span class="info-tip-text">Title shown next to articles in the app. Example: "Senior Reporter", "Khammam Correspondent"</span></span>
-                                    </label><input type="text" id="addDisplayRole" required placeholder="e.g. Senior Reporter"></div></div>
+                                    <div class="col-md-6 subeditor-only-section"><div class="editor-field"><label for="addDisplayRole">Sub-Editor Designation <span class="text-muted">(optional)</span>
+                                        <span class="info-tip">?<span class="info-tip-text">Shown on agreements and the staff list. "Sub Editor" / "Bureau" enable the Official Staff Record PDF. "State In-Charge" is used for the reporter → In-Charge mapping.</span></span>
+                                    </label><select id="addDisplayRole">
+                                        <option value="Sub Editor">Sub Editor</option>
+                                        <option value="Bureau">Bureau</option>
+                                        <option value="State In-Charge">State In-Charge</option>
+                                    </select></div></div>
+                                    <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
+                                    <%# Internal value-carrier for reporterTier — driven by the Member Type cards above (no longer a visible dropdown). %>
+                                    <select id="addReporterTier" style="display:none" aria-hidden="true" tabindex="-1">
+                                        <option value="">Normal Reporter</option>
+                                        <option value="stringer">Stringer</option>
+                                        <option value="district_incharge">District In-Charge</option>
+                                    </select>
+                                    <% } %>
                                     <div class="col-md-6"><div class="editor-field"><label for="addMobile">Mobile *</label><input type="text" id="addMobile" required placeholder="+91 98765 43210"></div></div>
                                     <div class="col-md-6 reporter-only-section"><div class="editor-field"><label for="addWorkingLanguage">News Language *
                                         <span class="info-tip">?<span class="info-tip-text">The language this reporter writes news in. Their news will appear in this language section of the app.</span></span>
@@ -1346,8 +1853,8 @@
                         populateLegacyLocationOptions();
                         initEditorTabButtons('editEditorTabs');
                         initEditorTabButtons('addEditorTabs');
-                        initRoleCards('editRoleCards', 'editRole', applyEditSubEditorVisibility);
-                        initRoleCards('addRoleCards', 'addRole', applyAddSubEditorVisibility);
+                        initRoleCards('editRoleCards', 'editRole', applyEditSubEditorVisibility, 'editReporterTier');
+                        initRoleCards('addRoleCards', 'addRole', applyAddSubEditorVisibility, 'addReporterTier');
                         initScopeCards('editScopeCards', 'editAllowedScopes');
                         initScopeCards('addScopeCards', 'addAllowedScopes');
                         buildLanguagePermissionUI('edit');
@@ -1647,7 +2154,7 @@
                             if (!document.getElementById('addPassword').value.trim()) showError('addPassword', 'Password is required');
                         } else if (tabId === 'add-tab-profile') {
                             if (!document.getElementById('addName').value.trim()) showError('addName', 'Full Name is required');
-                            if (!document.getElementById('addDisplayRole').value.trim()) showError('addDisplayRole', 'Display Role is required');
+                            // Custom Designation is optional now — backend defaults it from Member Type (Reporter / Sub-Editor).
                             if (!document.getElementById('addMobile').value.trim()) showError('addMobile', 'Mobile Number is required');
                             if (!document.getElementById('addWorkingLanguage').value) showError('addWorkingLanguage', 'Language is required');
                         } else if (tabId === 'add-tab-location') {
@@ -1741,7 +2248,7 @@
                         });
                     }
 
-                    function initRoleCards(cardsId, hiddenSelectId, onChange) {
+                    function initRoleCards(cardsId, hiddenSelectId, onChange, tierSelectId) {
                         const cards = document.getElementById(cardsId);
                         const sel = document.getElementById(hiddenSelectId);
                         if (!cards || !sel || cards.dataset.bound) return;
@@ -1751,18 +2258,27 @@
                                 cards.querySelectorAll('.editor-role-card').forEach(c => c.classList.remove('selected'));
                                 card.classList.add('selected');
                                 sel.value = card.dataset.role;
+                                // Member Type card also carries reporterTier (Super Admin only element).
+                                if (tierSelectId) {
+                                    const ts = document.getElementById(tierSelectId);
+                                    if (ts) ts.value = card.dataset.tier || '';
+                                }
                                 sel.dispatchEvent(new Event('change'));
                                 if (onChange) onChange(sel.value);
                             });
                         });
                     }
 
-                    function setRoleCards(cardsId, role) {
+                    // Select the Member Type card matching role + tier (exact), falling back to
+                    // role-only when the tier card is absent (e.g. non-super-admin view).
+                    function setRoleCards(cardsId, role, tier) {
                         const cards = document.getElementById(cardsId);
                         if (!cards) return;
-                        cards.querySelectorAll('.editor-role-card').forEach(c => {
-                            c.classList.toggle('selected', c.dataset.role === role);
-                        });
+                        const t = tier || '';
+                        const list = Array.from(cards.querySelectorAll('.editor-role-card'));
+                        let match = list.find(c => c.dataset.role === role && (c.dataset.tier || '') === t)
+                                 || list.find(c => c.dataset.role === role);
+                        list.forEach(c => c.classList.toggle('selected', c === match));
                     }
 
                     function initScopeCards(cardsId, hiddenSelectId) {
@@ -2368,7 +2884,9 @@
                     function openAddEditorModal() {
                         document.getElementById('addEditorForm').reset();
                         document.getElementById('addRole').value = 'editor';
-                        setRoleCards('addRoleCards', 'editor');
+                        setRoleCards('addRoleCards', 'editor', '');
+                        const addTierReset = document.getElementById('addReporterTier');
+                        if (addTierReset) addTierReset.value = '';
                         applyAddSubEditorVisibility('editor');
                         switchEditorTab('addEditorTabs', 'add-tab-account');
                         loadAddEditorLocationHierarchy();
@@ -2409,7 +2927,8 @@
                         }
                         const role = editor.role || 'editor';
                         document.getElementById('editRole').value = role;
-                        setRoleCards('editRoleCards', role);
+                        // Infer Member Type card from role + reporterTier (preserves existing tier).
+                        setRoleCards('editRoleCards', role, editor.reporterTier || '');
                         applyEditSubEditorVisibility(role);
 
                         // Display Role dropdown — backward-compat: if this staff member's
@@ -2424,6 +2943,9 @@
                             displayRoleSel.appendChild(opt);
                         }
                         displayRoleSel.value = currentRole;
+                        // Reporter Tier (Super Admin only; element absent for other roles).
+                        const editTierSel = document.getElementById('editReporterTier');
+                        if (editTierSel) editTierSel.value = editor.reporterTier || '';
                         document.getElementById('editSalary').value = (editor.salary === null || editor.salary === undefined) ? '' : editor.salary;
                         const assignedLocations = editor.assignedLocations || (editor.location ? [editor.location] : []);
                         const selectEl = document.getElementById('editAssignedLocations');
@@ -2500,7 +3022,12 @@
                         const data = {
                             name: document.getElementById('editName').value,
                             role: document.getElementById('editRole').value,
-                            displayRole: document.getElementById('editDisplayRole').value,
+                            // Sub-Editor → send chosen designation (default "Sub Editor"). Reporter types →
+                            // omit displayRole so an existing member's value is never auto-overwritten.
+                            ...(document.getElementById('editRole').value === 'subeditor'
+                                ? { displayRole: (document.getElementById('editDisplayRole').value || 'Sub Editor') }
+                                : {}),
+                            ...(document.getElementById('editReporterTier') ? { reporterTier: document.getElementById('editReporterTier').value || null } : {}),
                             ...coverage,
                             assignedState: coverage.assignedStates[0] || null,
                             allowedScopes,
@@ -2569,7 +3096,12 @@
                             password: document.getElementById('addPassword').value,
                             name: document.getElementById('addName').value.trim(),
                             role: document.getElementById('addRole').value,
-                            displayRole: document.getElementById('addDisplayRole').value.trim(),
+                            // New member: Sub-Editor → chosen designation (default "Sub Editor", space — PDF-eligible);
+                            // Reporter / Stringer / District In-Charge → "Reporter".
+                            displayRole: document.getElementById('addRole').value === 'subeditor'
+                                ? (document.getElementById('addDisplayRole').value || 'Sub Editor')
+                                : 'Reporter',
+                            ...(document.getElementById('addReporterTier') ? { reporterTier: document.getElementById('addReporterTier').value || null } : {}),
                             mobileNumber: document.getElementById('addMobile').value.trim(),
                             constituency: document.getElementById('addConstituency').value.trim(),
                             workingLanguage: document.getElementById('addRole').value === 'subeditor'
@@ -3025,6 +3557,9 @@
 
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Hierarchy PDF export (professional multi-page tables with repeating headers + page numbers). -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {

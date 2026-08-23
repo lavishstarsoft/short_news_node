@@ -606,6 +606,14 @@
                                     setSaveButtonsEnabled(true);
                                     return;
                                 }
+                                if (response.status === 429) {
+                                    // Tiered reporter daily submission cap reached (P2).
+                                    let limitData = {};
+                                    try { limitData = await response.json(); } catch (e) {}
+                                    showDailyLimitNotice(limitData);
+                                    setSaveButtonsEnabled(true);
+                                    return;
+                                }
                                 const errorText = await response.text();
                                 try {
                                     const error = JSON.parse(errorText);
@@ -1322,6 +1330,68 @@
 
                         document.body.appendChild(toast);
                         setTimeout(() => toast.remove(), 3000);
+                    }
+
+                    // Persistent notice for the tiered daily submission cap (P2). Unlike
+                    // showFeedback it does not auto-dismiss and renders the In-Charge contact.
+                    function showDailyLimitNotice(data) {
+                        const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) =>
+                            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+                        const existing = document.getElementById('daily-limit-notice');
+                        if (existing) existing.remove();
+
+                        const ic = (data && data.stateInCharge) || null;
+                        const msg = (data && data.error) ||
+                            'You have reached the daily limit of 10 news. Please contact your State In-Charge.';
+                        let contactHtml = '';
+                        if (ic && (ic.name || ic.mobileNumber)) {
+                            const mob = ic.mobileNumber ? esc(ic.mobileNumber) : '';
+                            contactHtml =
+                                '<div style="margin-top:12px;font-weight:600;">Your State In-Charge:</div>' +
+                                '<div style="margin-top:4px;">' + esc(ic.name || 'State In-Charge') +
+                                (mob ? ' — <a href="tel:' + mob + '" style="color:#fff;text-decoration:underline;">' + mob + '</a>' : '') +
+                                '</div>';
+                        }
+
+                        const box = document.createElement('div');
+                        box.id = 'daily-limit-notice';
+                        box.innerHTML =
+                            '<div style="font-weight:700;font-size:15px;">' + esc(msg) + '</div>' + contactHtml +
+                            '<div style="margin-top:14px;display:flex;gap:8px;align-items:center;">' +
+                            '<button type="button" id="daily-limit-request" style="background:#fff;color:#c62828;border:0;' +
+                            'padding:8px 14px;border-radius:6px;font-weight:700;cursor:pointer;">Request Access</button>' +
+                            '<span id="daily-limit-status" style="font-size:13px;"></span></div>' +
+                            '<button type="button" id="daily-limit-close" style="position:absolute;top:8px;right:10px;' +
+                            'background:transparent;border:0;color:#fff;font-size:20px;line-height:1;cursor:pointer;">&times;</button>';
+                        Object.assign(box.style, {
+                            position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
+                            maxWidth: '92%', width: '420px', padding: '16px 20px', borderRadius: '8px',
+                            color: 'white', backgroundColor: '#F44336', zIndex: '10000',
+                            boxShadow: '0 6px 24px rgba(0,0,0,0.25)'
+                        });
+                        document.body.appendChild(box);
+                        const closeBtn = document.getElementById('daily-limit-close');
+                        if (closeBtn) closeBtn.addEventListener('click', () => box.remove());
+
+                        const reqBtn = document.getElementById('daily-limit-request');
+                        const statusEl = document.getElementById('daily-limit-status');
+                        if (reqBtn) reqBtn.addEventListener('click', async () => {
+                            reqBtn.disabled = true;
+                            statusEl.textContent = 'Sending…';
+                            try {
+                                const resp = await fetch('/admin/api/reporter/request-access', {
+                                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+                                });
+                                const d = await resp.json().catch(() => ({}));
+                                statusEl.textContent = (resp.ok && d.message) ? d.message :
+                                    (d.error || 'Could not send request.');
+                                if (resp.ok) reqBtn.style.display = 'none';
+                                else reqBtn.disabled = false;
+                            } catch (e) {
+                                statusEl.textContent = 'Network error. Please try again.';
+                                reqBtn.disabled = false;
+                            }
+                        });
                     }
 
                     const EDITOR_MAP = {

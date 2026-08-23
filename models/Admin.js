@@ -41,6 +41,13 @@ const adminSchema = new mongoose.Schema({
     type: String,
     default: 'Reporter'
   },
+  // Payout tier for reporters. null = existing behavior (no tier rules applied).
+  // Enum values are reserved for future phases; nothing is activated in P1.
+  reporterTier: {
+    type: String,
+    enum: ['stringer', 'district_incharge', null],
+    default: null
+  },
   workingLanguage: {
     type: String,
     trim: true,

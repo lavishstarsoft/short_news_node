@@ -35,6 +35,8 @@ const {
   getManagedReporterIds,
   getSubEditorManagedCoverage,
   getReporterCoverage,
+  reporterMatchesCoverage,
+  getAdminId,
   normalizeApprovalScope,
   uniqueStrings
 } = require('../utils/editorCoverageHelper');
@@ -1785,9 +1787,28 @@ async function renderEditorsPage(req, res) {
       }
     }
 
+    // Reporter → State In-Charge mapping for the hierarchy view. Uses the SAME
+    // coverage primitives as approval routing (reporterMatchesCoverage /
+    // managedReporterIds) over the already-loaded staff list — no extra queries,
+    // no duplicate routing logic. Mirrors findReporterStateInchargeDoc's pick order.
+    const subEditorsForMap = editors.filter(e => e.role === 'subeditor');
+    const isSIC = (s) => /state\s*in-?charge/i.test(s.displayRole || '');
+    const resolveInChargeInMemory = (reporter) => {
+      const rid = getAdminId(reporter);
+      const explicit = [], geo = [];
+      for (const s of subEditorsForMap) {
+        const ids = uniqueStrings(s.permissions && s.permissions.managedReporterIds || []);
+        if (ids.includes(rid)) explicit.push(s);
+        else if (reporterMatchesCoverage(reporter, getSubEditorManagedCoverage(s))) geo.push(s);
+      }
+      return explicit.find(isSIC) || explicit[0] || geo.find(isSIC) || geo[0] || null;
+    };
+
     const editorsWithStats = editors.map(editor => {
       // P6: `editor` is already a plain lean object (no .toObject() needed).
       const editorObj = editor;
+      const ic = editor.role === 'editor' ? resolveInChargeInMemory(editor) : null;
+      const cov = editor.role === 'editor' ? getReporterCoverage(editor) : { states: [], districts: [] };
       const stats = statsByEditor[editor._id.toString()] || {
         submitted: 0,
         published: 0,
@@ -1806,7 +1827,13 @@ async function renderEditorsPage(req, res) {
         approvedPosts: stats.published || 0,
         // Staff Record PDF eligibility (Sub Editor / Bureau by default, admin-configurable).
         pdfEligible: !!pdfEligibleByName[roleKey],
-        latestRejection: latestRejectByEditor[editor._id.toString()] || null
+        latestRejection: latestRejectByEditor[editor._id.toString()] || null,
+        // Hierarchy view (read-only, additive): resolved State In-Charge + state/district.
+        hierState: (cov.states && cov.states[0]) || '',
+        hierDistrict: (cov.districts && cov.districts[0]) || editor.location || '',
+        stateInChargeId: ic ? String(getAdminId(ic)) : '',
+        stateInChargeName: ic ? (ic.name || ic.username || 'State In-Charge') : '',
+        stateInChargePhone: ic ? (ic.mobileNumber || '') : ''
       };
     });
 
@@ -1814,11 +1841,23 @@ async function renderEditorsPage(req, res) {
     const locations = await Location.find().sort({ name: 1 });
     const languageViewData = await getLanguageViewData();
 
+    // Tier ₹/news rates for the hierarchy view (P6 AppSettings; defaults 5/10).
+    let tierRates = { stringer: 5, district_incharge: 10 };
+    try {
+      const appSettings = await require('../models/AppSettings').findOne({ key: 'update_flags' })
+        .select('stringerRatePerNews districtInchargeRatePerNews').lean();
+      if (appSettings) {
+        if (Number.isFinite(appSettings.stringerRatePerNews)) tierRates.stringer = appSettings.stringerRatePerNews;
+        if (Number.isFinite(appSettings.districtInchargeRatePerNews)) tierRates.district_incharge = appSettings.districtInchargeRatePerNews;
+      }
+    } catch (_) { /* defaults */ }
+
     res.render('editors', {
       admin,
       editors: editorsWithStats,
       locations,
       staffCategories,
+      tierRates,
       ...languageViewData
     });
   } catch (error) {
@@ -2315,7 +2354,7 @@ async function updateEditor(req, res) {
     }
 
     const editorId = req.params.id;
-    const { name, username, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canSendNotifications, sidebar, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds, salary } = req.body;
+    const { name, username, displayRole, reporterTier, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, profileImage, workingLanguage, displaySettings, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canSendNotifications, sidebar, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds, salary } = req.body;
 
     const editor = await Admin.findById(editorId);
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
@@ -2366,6 +2405,26 @@ async function updateEditor(req, res) {
     // Update fields
     if (name !== undefined) editor.name = name || null;
     if (displayRole !== undefined) editor.displayRole = displayRole || 'Reporter';
+    // Reporter Tier (business rule, distinct from displayRole). SUPER ADMIN ONLY.
+    // Ignored silently for non-super-admins so nothing else in the edit is blocked.
+    if (reporterTier !== undefined && admin.role === 'superadmin') {
+      const allowed = ['stringer', 'district_incharge'];
+      const nextTier = allowed.includes(reporterTier) ? reporterTier : null; // '', 'normal', null → null
+      const prevTier = editor.reporterTier || null;
+      if (nextTier !== prevTier) {
+        editor.reporterTier = nextTier;
+        try {
+          const AuditLog = require('../models/AuditLog');
+          await AuditLog.create({
+            actorId: admin._id, actorName: admin.username || admin.name || '', actorRole: admin.role,
+            action: 'reporter_tier_change', entityType: 'Admin', entityId: String(editor._id),
+            targetId: editor._id, targetName: editor.username || editor.name || '',
+            description: `Reporter tier changed from ${prevTier || 'normal'} to ${nextTier || 'normal'}`,
+            before: { reporterTier: prevTier }, after: { reporterTier: nextTier }
+          });
+        } catch (e) { /* audit best-effort; never blocks the update */ }
+      }
+    }
     if (location !== undefined) editor.location = location || null;
     applyReporterCoverageFields(editor, {
       assignedStates, assignedState, assignedDistricts, assignedConstituencies,
@@ -2819,7 +2878,12 @@ async function registerEditor(req, res) {
       return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
 
-    const { username, email, password, name, displayRole, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canEditNews, requiresSourceLink, canSendNotifications, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds, sidebar } = req.body;
+    const { username, email, password, name, displayRole, reporterTier, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canEditNews, requiresSourceLink, canSendNotifications, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds, sidebar } = req.body;
+
+    // Reporter Tier is Super Admin-only; default null preserves existing behaviour.
+    const initialReporterTier = (admin.role === 'superadmin' && ['stringer', 'district_incharge'].includes(reporterTier))
+      ? reporterTier
+      : null;
 
     // Validate required fields
     if (!username || !email || !password) {
@@ -2880,6 +2944,7 @@ async function registerEditor(req, res) {
       role: selectedRole,
       name: name || null,
       displayRole: displayRole || (selectedRole === 'subeditor' ? 'Sub-Editor' : 'Reporter'),
+      reporterTier: initialReporterTier,
       location: location || null,
       constituency: constituency || null,
       assignedStates: [],
@@ -2942,6 +3007,20 @@ async function registerEditor(req, res) {
     }
 
     await newEditor.save();
+
+    // Audit an initial tier assignment (Super Admin only path already enforced above).
+    if (initialReporterTier) {
+      try {
+        const AuditLog = require('../models/AuditLog');
+        await AuditLog.create({
+          actorId: admin._id, actorName: admin.username || admin.name || '', actorRole: admin.role,
+          action: 'reporter_tier_change', entityType: 'Admin', entityId: String(newEditor._id),
+          targetId: newEditor._id, targetName: newEditor.username || newEditor.name || '',
+          description: `Reporter tier set to ${initialReporterTier} on creation`,
+          before: { reporterTier: null }, after: { reporterTier: initialReporterTier }
+        });
+      } catch (e) { /* audit best-effort */ }
+    }
 
     res.status(201).json({
       message: 'Editor registered successfully',
@@ -6458,6 +6537,8 @@ async function getWalletSettings(req, res) {
     res.json({
       reporterTargetNews: settings.reporterTargetNews ?? 5,
       reporterMaxDailyReward: settings.reporterMaxDailyReward ?? 30,
+      stringerRatePerNews: settings.stringerRatePerNews ?? 5,
+      districtInchargeRatePerNews: settings.districtInchargeRatePerNews ?? 10,
       fixedWithdrawalAmount: fixed,
       // Kept for older clients — always same as fixed amount
       minWithdrawalAmount: fixed,
@@ -6475,9 +6556,36 @@ async function updateWalletSettings(req, res) {
     const {
       reporterTargetNews,
       reporterMaxDailyReward,
+      stringerRatePerNews,
+      districtInchargeRatePerNews,
       fixedWithdrawalAmount,
       minWithdrawalAmount
     } = req.body;
+
+    // P6 — tier rates are Super Admin-only. Validate a finite, non-negative, sane
+    // rupee amount before touching settings; reject on invalid.
+    const RATE_MAX = 100000;
+    const parseRate = (v) => {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0 || n > RATE_MAX) return null;
+      return n;
+    };
+    const isSuper = req.admin && req.admin.role === 'superadmin';
+    let nextStringerRate, nextDistrictRate;
+    if (isSuper) {
+      if (stringerRatePerNews !== undefined) {
+        nextStringerRate = parseRate(stringerRatePerNews);
+        if (nextStringerRate === null) {
+          return res.status(400).json({ error: `Stringer rate must be a number between 0 and ${RATE_MAX}.` });
+        }
+      }
+      if (districtInchargeRatePerNews !== undefined) {
+        nextDistrictRate = parseRate(districtInchargeRatePerNews);
+        if (nextDistrictRate === null) {
+          return res.status(400).json({ error: `District In-Charge rate must be a number between 0 and ${RATE_MAX}.` });
+        }
+      }
+    }
 
     const target = Number(reporterTargetNews);
     const maxReward = Number(reporterMaxDailyReward);
@@ -6505,6 +6613,8 @@ async function updateWalletSettings(req, res) {
     const beforeSettings = {
       reporterTargetNews: settings.reporterTargetNews,
       reporterMaxDailyReward: settings.reporterMaxDailyReward,
+      stringerRatePerNews: settings.stringerRatePerNews ?? 5,
+      districtInchargeRatePerNews: settings.districtInchargeRatePerNews ?? 10,
       fixedWithdrawalAmount: settings.minWithdrawalAmount
     };
 
@@ -6513,6 +6623,9 @@ async function updateWalletSettings(req, res) {
     // Fixed daily withdraw: min = max = same amount
     settings.minWithdrawalAmount = fixedWithdraw;
     settings.maxWithdrawalAmount = fixedWithdraw;
+    // Tier rates (Super Admin only; only when provided).
+    if (nextStringerRate !== undefined) settings.stringerRatePerNews = nextStringerRate;
+    if (nextDistrictRate !== undefined) settings.districtInchargeRatePerNews = nextDistrictRate;
     await settings.save();
 
     const { logAudit } = require('../utils/auditLogger');
@@ -6521,11 +6634,13 @@ async function updateWalletSettings(req, res) {
       action: 'wallet_settings_update',
       entityType: 'AppSettings',
       entityId: settings._id,
-      description: `Wallet settings changed — target ${beforeSettings.reporterTargetNews}→${settings.reporterTargetNews}, reward ₹${beforeSettings.reporterMaxDailyReward}→₹${settings.reporterMaxDailyReward}, withdraw ₹${beforeSettings.fixedWithdrawalAmount}→₹${fixedWithdraw}`,
+      description: `Wallet settings changed — target ${beforeSettings.reporterTargetNews}→${settings.reporterTargetNews}, reward ₹${beforeSettings.reporterMaxDailyReward}→₹${settings.reporterMaxDailyReward}, stringer ₹${beforeSettings.stringerRatePerNews}→₹${settings.stringerRatePerNews ?? 5}, district ₹${beforeSettings.districtInchargeRatePerNews}→₹${settings.districtInchargeRatePerNews ?? 10}, withdraw ₹${beforeSettings.fixedWithdrawalAmount}→₹${fixedWithdraw}`,
       before: beforeSettings,
       after: {
         reporterTargetNews: settings.reporterTargetNews,
         reporterMaxDailyReward: settings.reporterMaxDailyReward,
+        stringerRatePerNews: settings.stringerRatePerNews ?? 5,
+        districtInchargeRatePerNews: settings.districtInchargeRatePerNews ?? 10,
         fixedWithdrawalAmount: fixedWithdraw
       }
     });
@@ -6534,6 +6649,8 @@ async function updateWalletSettings(req, res) {
       success: true,
       reporterTargetNews: settings.reporterTargetNews,
       reporterMaxDailyReward: settings.reporterMaxDailyReward,
+      stringerRatePerNews: settings.stringerRatePerNews ?? 5,
+      districtInchargeRatePerNews: settings.districtInchargeRatePerNews ?? 10,
       fixedWithdrawalAmount: settings.minWithdrawalAmount,
       minWithdrawalAmount: settings.minWithdrawalAmount,
       maxWithdrawalAmount: settings.maxWithdrawalAmount

@@ -110,6 +110,16 @@ const appSettingsSchema = new mongoose.Schema({
     type: Number,
     default: 30
   },
+  // P6 — per-approved-news rate for tiered reporters (Super Admin configurable).
+  // Defaults preserve the original hard-coded P3 rates (₹5 / ₹10).
+  stringerRatePerNews: {
+    type: Number,
+    default: 5
+  },
+  districtInchargeRatePerNews: {
+    type: Number,
+    default: 10
+  },
   reporterTargetNews: {
     type: Number,
     default: 5

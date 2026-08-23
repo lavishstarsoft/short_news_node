@@ -276,6 +276,15 @@ router.post('/late-earnings/api/:id/send-back', adminController.requireAdmin, la
 router.get('/late-earnings/api/incharge-stats', adminController.requireAdmin, lateEarningController.inchargeStats);
 router.get('/api/reporter/late-earnings', adminController.requireAuth, lateEarningController.reporterPending);
 
+// P4 — Emergency daily-limit access override. Role checks live in the controller
+// (reporter may only request; State In-Charge/Super Admin grant/revoke, coverage-scoped).
+const accessOverrideController = require('../controllers/accessOverrideController');
+router.post('/api/reporter/request-access', adminController.requireAuth, accessOverrideController.requestAccess);
+router.get('/reporter-access', adminController.requireAuth, accessOverrideController.renderPage);
+router.get('/reporter-access/api/requests', adminController.requireAuth, accessOverrideController.listRequests);
+router.post('/reporter-access/api/grant', adminController.requireAuth, accessOverrideController.grant);
+router.post('/reporter-access/api/revoke', adminController.requireAuth, accessOverrideController.revoke);
+
 router.get('/security-center', adminController.requireAdmin, securityAlertController.renderSecurityCenter);
 router.get('/security-center/data', adminController.requireAdmin, securityAlertController.securityData);
 router.post('/security-center/alerts/:id/resolve', adminController.requireAdmin, securityAlertController.resolveAlert);

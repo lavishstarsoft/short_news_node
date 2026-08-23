@@ -405,9 +405,59 @@ async function syncApprovalScopeToAssigned(Location, editorDoc) {
   if (editorDoc.markModified) editorDoc.markModified('permissions');
 }
 
+/**
+ * Reverse of getManagedReporterIds: given a reporter, find the State In-Charge
+ * (a Sub-Editor) who routes/manages them, and return read-only contact details.
+ * Pure read — never mutates routing. Prefers an explicit managedReporterIds match,
+ * then a geography-coverage match, then a displayRole containing "State In-Charge".
+ *
+ * @returns {Promise<{name:string, mobileNumber:string}|null>}
+ */
+async function findReporterStateInchargeDoc(Admin, reporterDoc) {
+  if (!reporterDoc) return null;
+  const reporterId = getAdminId(reporterDoc);
+
+  const subEditors = await Admin.find({ role: 'subeditor', isActive: { $ne: false } })
+    .select('name username displayRole mobileNumber permissions')
+    .lean();
+
+  const isStateInCharge = (s) => /state\s*in-?charge/i.test(s.displayRole || '');
+
+  const explicitMatches = [];
+  const geoMatches = [];
+  for (const s of subEditors) {
+    const coverage = getSubEditorManagedCoverage(s);
+    const explicitIds = uniqueStrings(s.permissions?.managedReporterIds || []);
+    if (explicitIds.includes(reporterId)) {
+      explicitMatches.push(s);
+    } else if (reporterMatchesCoverage(reporterDoc, coverage)) {
+      geoMatches.push(s);
+    }
+  }
+
+  return (
+    explicitMatches.find(isStateInCharge) ||
+    explicitMatches[0] ||
+    geoMatches.find(isStateInCharge) ||
+    geoMatches[0] ||
+    null
+  );
+}
+
+async function resolveReporterStateIncharge(Admin, reporterDoc) {
+  const pick = await findReporterStateInchargeDoc(Admin, reporterDoc);
+  if (!pick) return null;
+  return {
+    name: pick.name || pick.username || 'State In-Charge',
+    mobileNumber: pick.mobileNumber || '',
+  };
+}
+
 module.exports = {
   uniqueStrings,
   normalizeApprovalScope,
+  resolveReporterStateIncharge,
+  findReporterStateInchargeDoc,
   syncApprovalScopeToAssigned,
   getAdminId,
   getSubEditorManagedCoverage,

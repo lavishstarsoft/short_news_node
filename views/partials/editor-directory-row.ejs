@@ -39,6 +39,11 @@
     <span class="team-badge <%= isSubEditor ? 'team-badge-sub' : 'team-badge-reporter' %>">
       <%= isSubEditor ? 'Sub-Editor' : 'Reporter' %>
     </span>
+    <% if (editor.reporterTier === 'stringer' || editor.reporterTier === 'district_incharge') { %>
+      <span class="team-badge" style="background:#fff3e0;color:#e65100;border:1px solid #ffcc80;" title="Reporter tier (₹ per approved news, 10/day cap)">
+        <%= editor.reporterTier === 'district_incharge' ? 'District In-Charge' : 'Stringer' %>
+      </span>
+    <% } %>
   </td>
   <td class="location-cell">
     <div class="location-chips">

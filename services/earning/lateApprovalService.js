@@ -44,6 +44,15 @@ async function handleApprovalEarning({ news, approvedAt, approver }) {
   const reward = await evaluateDailyReward(reporterId, submissionDate);
 
   if (!reward.found || !reward.admin || !['editor', 'subeditor'].includes(reward.admin.role)) return { action: 'skipped', reason: 'not_reporter' };
+
+  // P3 — Tiered reporters (stringer / district_incharge) earn a PER-NEWS reward
+  // (₹5 / ₹10) instead of the daily bonus. Returning here guarantees they never
+  // receive both. reporterTier=null falls through to the unchanged daily-bonus path.
+  const { tierRate, creditApprovedNewsReward } = require('../../utils/tierRewardService');
+  if (tierRate(reward.admin.reporterTier) > 0) {
+    return await creditApprovedNewsReward({ news, reporterAdmin: reward.admin });
+  }
+
   if (!reward.enabled) return { action: 'skipped', reason: 'wallet_disabled' };
   if (reward.alreadyCredited) return { action: 'skipped', reason: 'already_credited' };
 
