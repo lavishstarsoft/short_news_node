@@ -15,6 +15,7 @@ const quizWinnerSchema = new mongoose.Schema({
   score: { type: Number, default: 0 },            // correct answers that week
   answered: { type: Number, default: 0 },
   mode: { type: String, enum: ['random_lottery', 'admin_select'], required: true },
+  isTest: { type: Boolean, default: false }, // admin test-mode winners (never real payouts)
   selectedById: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
   selectedByName: { type: String, default: '' },
   selectedAt: { type: Date, default: Date.now },

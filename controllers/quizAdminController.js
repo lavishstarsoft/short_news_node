@@ -7,9 +7,10 @@
 
 const QuizQuestion = require('../models/QuizQuestion');
 const QuizWinner = require('../models/QuizWinner');
+const QuizTestOverride = require('../models/QuizTestOverride');
 const User = require('../models/User');
 const { logAudit } = require('../utils/auditLogger');
-const { dayInfo, weekMeta, isWeekOver } = require('../utils/quizWeek');
+const { dayInfo, weekMeta, isWeekOver, TEST_WEEK_MONDAY, WINNER_COUNT } = require('../utils/quizWeek');
 const { computeWeekStats, selectWinners } = require('../services/quizWinnerService');
 const { closeExpiredWeeks, sendDailyReminder } = require('../services/quizMaintenanceService');
 
@@ -252,4 +253,70 @@ exports.winnerHistory = async (req, res) => {
     rows.forEach((w) => { (byWeek[w.weekId] = byWeek[w.weekId] || { weekId: w.weekId, mode: w.mode, selectedByName: w.selectedByName, selectedAt: w.selectedAt, winners: [] }).winners.push({ rank: w.rank, name: w.displayName, userId: w.userId, score: w.score }); });
     res.json({ weeks: Object.values(byWeek) });
   } catch (e) { console.error('quiz winnerHistory:', e.message); res.status(500).json({ error: 'Failed to load winner history.' }); }
+};
+
+// ─────────────── Quiz Test Mode (admin day simulation) ───────────────
+// Lets an admin simulate Mon..Sun for ONE app user (googleId), so the full week
+// + Sunday winners flow can be verified without waiting for a real Sunday. Test
+// data lives under weekId = TEST_WEEK_MONDAY (2024), isolated from live weeks.
+
+const DAY_LABELS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const cleanUserId = (v) => String(v || '').trim();
+
+// GET /admin/quiz/test-mode?userId=...
+exports.getTestMode = async (req, res) => {
+  try {
+    const userId = cleanUserId(req.query.userId);
+    if (!userId) return res.json({ active: false, userId: '' });
+    const ov = await QuizTestOverride.findOne({ userId }).lean();
+    res.json({ userId, active: !!(ov && ov.active), simDayIndex: ov ? ov.simDayIndex : 1, testWeekId: TEST_WEEK_MONDAY });
+  } catch (e) { console.error('quiz getTestMode:', e.message); res.status(500).json({ error: 'Failed to read test mode.' }); }
+};
+
+// POST /admin/quiz/test-mode  { userId, simDayIndex(1..7), active }
+exports.setTestMode = async (req, res) => {
+  try {
+    const userId = cleanUserId(req.body.userId);
+    if (!userId) return res.status(400).json({ error: 'Target user (googleId) is required.' });
+    const active = req.body.active !== false && req.body.active !== 'false';
+    const simDayIndex = Math.max(1, Math.min(7, parseInt(req.body.simDayIndex, 10) || 1));
+    const updatedByName = req.admin ? (req.admin.name || req.admin.username || 'admin') : 'admin';
+    await QuizTestOverride.updateOne(
+      { userId },
+      { $set: { simDayIndex, active, updatedByName } },
+      { upsert: true }
+    );
+    logAudit({ req, action: 'quiz_test_mode_set', entityType: 'QuizTestOverride', entityId: userId,
+      description: `Test mode ${active ? 'ON' : 'OFF'} for ${userId} → ${DAY_LABELS[simDayIndex]}`,
+      after: { active, simDayIndex } });
+    res.json({ ok: true, userId, active, simDayIndex, dayLabel: DAY_LABELS[simDayIndex], testWeekId: TEST_WEEK_MONDAY });
+  } catch (e) { console.error('quiz setTestMode:', e.message); res.status(500).json({ error: 'Failed to update test mode.' }); }
+};
+
+// POST /admin/quiz/test-winners  → 10 fake winners under the test week (isTest:true)
+exports.createTestWinners = async (req, res) => {
+  try {
+    const selectedByName = req.admin ? (req.admin.name || req.admin.username || 'admin') : 'admin';
+    // Replace any prior TEST winners for the test week (never touches real weeks).
+    await QuizWinner.deleteMany({ weekId: TEST_WEEK_MONDAY, isTest: true });
+    const docs = Array.from({ length: WINNER_COUNT }, (_, i) => ({
+      weekId: TEST_WEEK_MONDAY, rank: i + 1, userId: `test-winner-${i + 1}`,
+      displayName: `Test Winner ${i + 1}`, score: WINNER_COUNT - i, answered: 6,
+      mode: 'admin_select', isTest: true, selectedByName,
+    }));
+    await QuizWinner.insertMany(docs);
+    logAudit({ req, action: 'quiz_test_winners_create', entityType: 'QuizWinner', entityId: TEST_WEEK_MONDAY,
+      description: `Created ${docs.length} TEST winners (isolated, no payout)` });
+    res.json({ ok: true, count: docs.length, testWeekId: TEST_WEEK_MONDAY });
+  } catch (e) { console.error('quiz createTestWinners:', e.message); res.status(500).json({ error: 'Failed to create test winners.' }); }
+};
+
+// DELETE /admin/quiz/test-winners → remove the test winners
+exports.clearTestWinners = async (req, res) => {
+  try {
+    const r = await QuizWinner.deleteMany({ weekId: TEST_WEEK_MONDAY, isTest: true });
+    logAudit({ req, action: 'quiz_test_winners_clear', entityType: 'QuizWinner', entityId: TEST_WEEK_MONDAY,
+      description: `Cleared ${r.deletedCount || 0} TEST winners` });
+    res.json({ ok: true, deleted: r.deletedCount || 0 });
+  } catch (e) { console.error('quiz clearTestWinners:', e.message); res.status(500).json({ error: 'Failed to clear test winners.' }); }
 };

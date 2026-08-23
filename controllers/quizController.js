@@ -10,9 +10,24 @@ const QuizQuestion = require('../models/QuizQuestion');
 const QuizEntry = require('../models/QuizEntry');
 const QuizWeek = require('../models/QuizWeek');
 const QuizWinner = require('../models/QuizWinner');
-const { dayInfo, weekDayKeys, weekMeta } = require('../utils/quizWeek');
+const QuizTestOverride = require('../models/QuizTestOverride');
+const { dayInfo, weekDayKeys, weekMeta, simTestDate } = require('../utils/quizWeek');
 
 const uid = (req) => req.verifiedGoogleId || null;
+
+/**
+ * Effective quiz day for a user. If an admin has enabled test mode for THIS user,
+ * simulate the chosen weekday of the fixed test week (weekId 2024-01-xx). Real users
+ * (no active override) get real IST time. Returns { di, testMode }.
+ */
+async function resolveQuizContext(userId) {
+  if (!userId) return { di: dayInfo(), testMode: false };
+  let ov = null;
+  try { ov = await QuizTestOverride.findOne({ userId, active: true }).lean(); } catch (_) { ov = null; }
+  if (!ov) return { di: dayInfo(), testMode: false };
+  const di = dayInfo(new Date(simTestDate(ov.simDayIndex) + 'T06:00:00+05:30'));
+  return { di, testMode: true, testDay: ov.simDayIndex };
+}
 const publicQuestion = (q) => ({ id: String(q._id), text: q.text, options: (q.options || []).map((o) => ({ key: o.key, text: o.text })) });
 
 async function ensureWeek(weekId) {
@@ -59,16 +74,17 @@ exports.today = async (req, res) => {
   try {
     const userId = uid(req);
     if (!userId) return res.status(401).json({ error: 'Sign in to play the quiz.' });
-    const di = dayInfo();
+    const ctx = await resolveQuizContext(userId);
+    const di = ctx.di;
     await ensureWeek(di.weekId);
 
     if (!di.isQuizDay) { // Sunday → winners
       const winners = await winnersFor(di.weekId);
-      return res.json({ weekId: di.weekId, dayIndex: 0, isQuizDay: false, isSunday: true, winnersReady: winners.length > 0, winners });
+      return res.json({ weekId: di.weekId, dayIndex: 0, isQuizDay: false, isSunday: true, winnersReady: winners.length > 0, winners, testMode: ctx.testMode });
     }
 
     const entry = await assignQuestion(userId, di.weekId, di.dayKey, di.dayIndex);
-    if (!entry) return res.json({ weekId: di.weekId, dayIndex: di.dayIndex, isQuizDay: true, question: null, message: 'No question available today.' });
+    if (!entry) return res.json({ weekId: di.weekId, dayIndex: di.dayIndex, isQuizDay: true, question: null, message: 'No question available today.', testMode: ctx.testMode });
     const q = await QuizQuestion.findById(entry.questionId).lean();
 
     const entries = await QuizEntry.find({ userId, weekId: di.weekId }).lean();
@@ -76,7 +92,7 @@ exports.today = async (req, res) => {
     const answered = !!entry.submittedAt;
 
     res.json({
-      weekId: di.weekId, dayIndex: di.dayIndex, isQuizDay: true,
+      weekId: di.weekId, dayIndex: di.dayIndex, isQuizDay: true, testMode: ctx.testMode,
       question: q ? publicQuestion(q) : null,
       status: answered ? 'answered' : 'unanswered',
       answer: answered ? { selectedOption: entry.selectedOption, isCorrect: entry.isCorrect, correctOption: q ? q.correctOption : null } : null,
@@ -90,7 +106,8 @@ exports.answer = async (req, res) => {
   try {
     const userId = uid(req);
     if (!userId) return res.status(401).json({ error: 'Sign in to play the quiz.' });
-    const di = dayInfo();
+    const ctx = await resolveQuizContext(userId);
+    const di = ctx.di;
     if (!di.isQuizDay) return res.status(400).json({ error: 'No quiz today.' });
 
     const { questionId, selectedOption } = req.body || {};
@@ -127,7 +144,8 @@ exports.week = async (req, res) => {
   try {
     const userId = uid(req);
     if (!userId) return res.status(401).json({ error: 'Sign in to play the quiz.' });
-    const di = dayInfo();
+    const ctx = await resolveQuizContext(userId);
+    const di = ctx.di;
     const entries = await QuizEntry.find({ userId, weekId: di.weekId }).lean();
     const byDay = new Map(entries.map((e) => [e.dayKey, e]));
     const qIds = entries.map((e) => e.questionId);
@@ -145,8 +163,8 @@ exports.week = async (req, res) => {
         correctOption: submitted && q ? q.correctOption : null, // revealed only after submit
       };
     });
-    res.json({ weekId: di.weekId, todayIndex: di.dayIndex, days });
+    res.json({ weekId: di.weekId, todayIndex: di.dayIndex, days, testMode: ctx.testMode });
   } catch (e) { console.error('quiz week:', e.message); res.status(500).json({ error: 'Failed to load week.' }); }
 };
 
-exports._internals = { assignQuestion, buildProgress };
+exports._internals = { assignQuestion, buildProgress, resolveQuizContext };

@@ -303,6 +303,11 @@ router.get('/quiz/api/week/eligible', adminController.requireAdmin, quizAdminCon
 router.post('/quiz/api/week/winners', adminController.requireAdmin, quizAdminController.selectWinners);
 router.get('/quiz/api/winners', adminController.requireAdmin, quizAdminController.winnerHistory);
 router.post('/quiz/api/maintenance', adminController.requireAdmin, quizAdminController.maintenance);
+// Quiz Test Mode (admin day simulation — isolated test data, never affects live users)
+router.get('/quiz/api/test-mode', adminController.requireAdmin, quizAdminController.getTestMode);
+router.post('/quiz/api/test-mode', adminController.requireAdmin, quizAdminController.setTestMode);
+router.post('/quiz/api/test-winners', adminController.requireAdmin, quizAdminController.createTestWinners);
+router.delete('/quiz/api/test-winners', adminController.requireAdmin, quizAdminController.clearTestWinners);
 
 const accessOverrideController = require('../controllers/accessOverrideController');
 router.post('/api/reporter/request-access', adminController.requireAuth, accessOverrideController.requestAccess);

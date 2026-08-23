@@ -30,6 +30,29 @@
           <h6 class="fw-bold">Eligible users (answered all 6) — ranked by correct, earliest completion</h6>
           <div class="qd-scroll"><table class="qd-tbl"><thead><tr><th></th><th>#</th><th>Name</th><th>Correct</th><th>Answered</th><th>Device</th></tr></thead><tbody id="qdElig"></tbody></table></div>
         </div></div>
+        <div class="card mt-3" style="border:1px solid #ffe0b2;background:#fffdf7"><div class="card-body">
+          <h6 class="fw-bold">🧪 Quiz Test Mode <span class="qd-b qd-warn">test data only — never affects live users</span></h6>
+          <p class="small text-muted mb-2">Simulate any weekday for ONE app user (their Google ID) so you can walk the full Monday→Sunday flow without waiting for a real Sunday. Test entries/winners live under an isolated 2024 test week and are impossible to mix with production. Turn it OFF to instantly return that user to real IST behaviour.</p>
+          <div class="d-flex flex-wrap align-items-end gap-2 mb-2">
+            <div><label class="form-label small mb-0">Target user (googleId)</label><input id="tmUser" class="form-control form-control-sm" style="width:280px" placeholder="app user's Google ID"></div>
+            <div><label class="form-label small mb-0">Simulated day</label>
+              <select id="tmDay" class="form-select form-select-sm" style="width:150px">
+                <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option>
+                <option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option>
+                <option value="7">Sunday (winners)</option>
+              </select>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="tmSave(true)">Enable / Update</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="tmSave(false)">Disable (exit test mode)</button>
+            <button class="btn btn-sm btn-outline-warning" onclick="tmRefresh()">Check status</button>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <button class="btn btn-sm btn-warning" onclick="tmMakeWinners()">🏆 Create Test Winners (Top 10)</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="tmClearWinners()">Clear Test Winners</button>
+            <span class="small text-muted">Use with Sunday simulation to preview the winners screen.</span>
+          </div>
+          <div id="tmStatus" class="small"></div>
+        </div></div>
         <div class="card mt-3"><div class="card-body">
           <h6 class="fw-bold">Winner history</h6>
           <div id="qdHistory" class="small"></div>
@@ -63,6 +86,35 @@
     window.qdRandom=async function(){ if(!confirm('Run a crypto-random lottery to pick 10 winners? This is final and cannot be changed.'))return; var d=await post({weekId:week,mode:'random_lottery'}); if(d){alert('10 winners selected (random lottery).');qdLoad();} };
     window.qdAdmin=async function(){ var ids=Array.from(document.querySelectorAll('.qd-pick:checked')).map(function(c){return c.value;}); if(ids.length!==10){alert('Select exactly 10 winners (you selected '+ids.length+').');return;} if(!confirm('Confirm these 10 winners? This is final.'))return; var d=await post({weekId:week,mode:'admin_select',userIds:ids}); if(d){alert('10 winners selected (admin).');qdLoad();} };
     async function loadHistory(){ var d=await (await fetch('/admin/quiz/api/winners')).json(); q('qdHistory').innerHTML=(d.weeks||[]).map(function(w){return '<div class="mb-2"><b>'+esc(w.weekId)+'</b> — '+esc(w.mode)+' by '+esc(w.selectedByName||'')+'<br>'+w.winners.map(function(x){return '#'+x.rank+' '+esc(x.name)+' ('+x.score+')';}).join(' · ')+'</div>';}).join('')||'<span class="text-muted">No winners yet.</span>'; }
+    // ── Test Mode controls ──
+    var DAYS={1:'Monday',2:'Tuesday',3:'Wednesday',4:'Thursday',5:'Friday',6:'Saturday',7:'Sunday'};
+    window.tmSave=async function(active){
+      var userId=(q('tmUser').value||'').trim(); if(!userId){alert('Enter the target user googleId.');return;}
+      var simDayIndex=parseInt(q('tmDay').value,10)||1;
+      var r=await fetch('/admin/quiz/api/test-mode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:userId,simDayIndex:simDayIndex,active:active})});
+      var d=await r.json(); if(!r.ok){alert(d.error||'Failed');return;}
+      q('tmStatus').innerHTML=active
+        ? '<span class="qd-b qd-ok">TEST MODE ON</span> '+esc(userId)+' → <b>'+esc(d.dayLabel)+'</b> (test week '+esc(d.testWeekId)+')'
+        : '<span class="qd-b qd-warn">TEST MODE OFF</span> '+esc(userId)+' is back on real IST time.';
+    };
+    window.tmRefresh=async function(){
+      var userId=(q('tmUser').value||'').trim(); if(!userId){alert('Enter the target user googleId.');return;}
+      var d=await (await fetch('/admin/quiz/api/test-mode?userId='+encodeURIComponent(userId))).json();
+      if(d.active){ q('tmDay').value=String(d.simDayIndex);
+        q('tmStatus').innerHTML='<span class="qd-b qd-ok">TEST MODE ON</span> '+esc(userId)+' → <b>'+esc(DAYS[d.simDayIndex]||'')+'</b>'; }
+      else q('tmStatus').innerHTML='<span class="qd-b qd-warn">TEST MODE OFF</span> '+esc(userId)+' is on real IST time.';
+    };
+    window.tmMakeWinners=async function(){
+      if(!confirm('Create 10 TEST winners in the isolated test week? (No real payout, no live data touched.)'))return;
+      var r=await fetch('/admin/quiz/api/test-winners',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+      var d=await r.json(); if(!r.ok){alert(d.error||'Failed');return;}
+      q('tmStatus').innerHTML='<span class="qd-b qd-ok">Created '+d.count+' test winners</span> — set the user to <b>Sunday</b> to preview.';
+    };
+    window.tmClearWinners=async function(){
+      var r=await fetch('/admin/quiz/api/test-winners',{method:'DELETE'});
+      var d=await r.json(); if(!r.ok){alert(d.error||'Failed');return;}
+      q('tmStatus').innerHTML='<span class="qd-b qd-warn">Cleared '+(d.deleted||0)+' test winners.</span>';
+    };
     qdLoad();
   })();
   </script>

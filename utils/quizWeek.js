@@ -34,4 +34,15 @@ function isWeekOver(weekId, now = new Date()) {
   return istDateKey(now) > weekMeta(weekId).endDate;
 }
 
-module.exports = { addDaysKey, dayInfo, weekDayKeys, weekMeta, isWeekOver, QUIZ_DAYS: 6, WINNER_COUNT: 10 };
+// ── Test mode (admin day simulation) ──
+// A fixed reference Monday used ONLY for admin test simulation. It lives far from
+// production (2024), so test QuizEntry/QuizWinner records (weekId = this) can never
+// collide with real weeks (2026+) and cannot affect live users.
+const TEST_WEEK_MONDAY = '2024-01-01'; // a real Monday
+/** Real calendar date for a simulated day: 1=Mon..6=Sat, 7=Sun (of the test week). */
+function simTestDate(dayIndex) {
+  const n = Math.max(1, Math.min(7, parseInt(dayIndex, 10) || 1));
+  return addDaysKey(TEST_WEEK_MONDAY, n === 7 ? 6 : n - 1);
+}
+
+module.exports = { addDaysKey, dayInfo, weekDayKeys, weekMeta, isWeekOver, simTestDate, TEST_WEEK_MONDAY, QUIZ_DAYS: 6, WINNER_COUNT: 10 };

@@ -38,6 +38,7 @@ jest.mock('../models/QuizEntry', () => ({
 }));
 jest.mock('../models/QuizWeek', () => ({ updateOne: jest.fn(async () => ({})) }));
 jest.mock('../models/QuizWinner', () => ({ find: jest.fn(() => ({ sort: () => ({ lean: async () => [] }) })) }));
+jest.mock('../models/QuizTestOverride', () => ({ findOne: jest.fn(() => ({ lean: async () => null })) })); // no test override in these tests
 
 const ctrl = require('../controllers/quizController');
 
