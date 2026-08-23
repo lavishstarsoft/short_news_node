@@ -2353,4 +2353,10 @@ router.get('/tell-about-us', (req, res) => {
   });
 });
 
+// Daily Quiz — user APIs (server-authoritative; identity = verified googleId).
+const quizController = require('../controllers/quizController');
+router.get('/api/public/quiz/today', verifyMobileUser, quizController.today);
+router.post('/api/public/quiz/answer', verifyMobileUser, quizController.answer);
+router.get('/api/public/quiz/week', verifyMobileUser, quizController.week);
+
 module.exports = router;

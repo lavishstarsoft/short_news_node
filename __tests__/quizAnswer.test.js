@@ -1,0 +1,111 @@
+'use strict';
+
+/**
+ * P2 — daily question assignment + answer lock/idempotency + correct-answer hiding.
+ * Models are mocked; we exercise the controller's server-authoritative logic.
+ */
+
+const store = { questions: [], entries: [], weeks: [] };
+const oid = (s) => ({ toString: () => s, _id: s });
+
+jest.mock('../models/QuizQuestion', () => ({
+  aggregate: jest.fn(async (pipe) => {
+    const match = (pipe[0] && pipe[0].$match) || {};
+    let pool = store.questions.filter((q) => (match.isActive === undefined || q.isActive === match.isActive));
+    if (match._id && match._id.$nin) { const nin = new Set(match._id.$nin.map(String)); pool = pool.filter((q) => !nin.has(String(q._id))); }
+    return pool.length ? [pool[0]] : [];
+  }),
+  findById: jest.fn((id) => ({ lean: async () => store.questions.find((q) => String(q._id) === String(id)) || null })),
+  find: jest.fn(() => ({ lean: async () => store.questions })),
+  updateOne: jest.fn(async () => ({})),
+}));
+jest.mock('../models/QuizEntry', () => ({
+  findOne: jest.fn(async (q) => store.entries.find((e) => e.userId === q.userId && e.weekId === q.weekId && e.dayKey === q.dayKey) || null),
+  findById: jest.fn((id) => ({ lean: async () => store.entries.find((x) => String(x._id) === String(id)) || null })),
+  find: jest.fn((q) => ({ select: () => ({ lean: async () => store.entries.filter((e) => e.userId === q.userId && e.weekId === q.weekId) }), lean: async () => store.entries.filter((e) => e.userId === q.userId && e.weekId === q.weekId) })),
+  updateOne: jest.fn(async (filter, update) => {
+    // upsert assign
+    if (update.$setOnInsert) {
+      const exists = store.entries.find((e) => e.userId === filter.userId && e.weekId === filter.weekId && e.dayKey === filter.dayKey);
+      if (!exists) { store.entries.push({ _id: 'e' + (store.entries.length + 1), ...update.$setOnInsert, selectedOption: null, isCorrect: null, submittedAt: null }); return { upsertedCount: 1, matchedCount: 0 }; }
+      return { upsertedCount: 0, matchedCount: 1 };
+    }
+    // lock submit (guarded by submittedAt:null)
+    const e = store.entries.find((x) => String(x._id) === String(filter._id) && x.submittedAt === null);
+    if (!e) return { matchedCount: 0 };
+    Object.assign(e, update.$set); return { matchedCount: 1 };
+  }),
+}));
+jest.mock('../models/QuizWeek', () => ({ updateOne: jest.fn(async () => ({})) }));
+jest.mock('../models/QuizWinner', () => ({ find: jest.fn(() => ({ sort: () => ({ lean: async () => [] }) })) }));
+
+const ctrl = require('../controllers/quizController');
+
+function res() { return { code: 200, body: null, status(c) { this.code = c; return this; }, json(b) { this.body = b; return this; } }; }
+const REALDATE = Date;
+function mockNow(iso) { global.Date = class extends REALDATE { constructor(...a) { super(...(a.length ? a : [iso])); } static now() { return new REALDATE(iso).getTime(); } }; }
+afterEach(() => { global.Date = REALDATE; });
+
+beforeEach(() => {
+  store.questions = [
+    { _id: 'q1', isActive: true, options: [{ key: 'A', text: 'x' }, { key: 'B', text: 'y' }], correctOption: 'A', text: 'Q1' },
+    { _id: 'q2', isActive: true, options: [{ key: 'A', text: 'x' }, { key: 'B', text: 'y' }], correctOption: 'B', text: 'Q2' },
+  ];
+  store.entries = [];
+});
+
+const REQ = { verifiedGoogleId: 'user-1', body: {} };
+
+test('today (Mon) assigns a question and NEVER exposes correctOption', async () => {
+  mockNow('2026-08-24T06:00:00+05:30');
+  const r = res(); await ctrl.today({ ...REQ, body: {} }, r);
+  expect(r.body.isQuizDay).toBe(true);
+  expect(r.body.question.id).toBeDefined();
+  expect(JSON.stringify(r.body.question)).not.toContain('correctOption');
+  expect(r.body.status).toBe('unanswered');
+  expect(store.entries.length).toBe(1);
+});
+
+test('answer locks and returns correctOption only after submit; idempotent on re-submit', async () => {
+  mockNow('2026-08-24T06:00:00+05:30');
+  await ctrl.today({ ...REQ, body: {} }, res());
+  const qid = store.entries[0].questionId;
+  const r1 = res(); await ctrl.answer({ ...REQ, body: { questionId: qid, selectedOption: 'A' } }, r1);
+  expect(r1.body.locked).toBe(true);
+  expect(r1.body.isCorrect).toBe(qid === 'q1'); // q1 correct is A
+  expect(r1.body.correctOption).toBeDefined();
+  // re-submit with a different option → must NOT change the frozen answer
+  const r2 = res(); await ctrl.answer({ ...REQ, body: { questionId: qid, selectedOption: 'B' } }, r2);
+  expect(r2.body.alreadySubmitted).toBe(true);
+  expect(store.entries[0].selectedOption).toBe('A'); // unchanged
+});
+
+test('answer rejects a mismatched questionId', async () => {
+  mockNow('2026-08-24T06:00:00+05:30');
+  await ctrl.today({ ...REQ, body: {} }, res());
+  const r = res(); await ctrl.answer({ ...REQ, body: { questionId: 'nope', selectedOption: 'A' } }, r);
+  expect(r.code).toBe(400);
+});
+
+test('no-repeat: second day gets a different question than day one', async () => {
+  mockNow('2026-08-24T06:00:00+05:30');
+  await ctrl.today({ ...REQ, body: {} }, res());
+  const day1q = store.entries[0].questionId;
+  mockNow('2026-08-25T06:00:00+05:30'); // Tue, same week
+  await ctrl.today({ ...REQ, body: {} }, res());
+  const day2 = store.entries.find((e) => e.dayKey === '2026-08-25');
+  expect(day2.questionId).not.toBe(day1q);
+});
+
+test('unauthenticated (no googleId) → 401', async () => {
+  mockNow('2026-08-24T06:00:00+05:30');
+  const r = res(); await ctrl.today({ body: {} }, r);
+  expect(r.code).toBe(401);
+});
+
+test('Sunday → not a quiz day, returns winners block', async () => {
+  mockNow('2026-08-30T06:00:00+05:30');
+  const r = res(); await ctrl.today({ ...REQ, body: {} }, r);
+  expect(r.body.isQuizDay).toBe(false);
+  expect(r.body.isSunday).toBe(true);
+});

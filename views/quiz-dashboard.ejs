@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Quiz Dashboard' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Quiz Dashboard', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'quiz-dashboard' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <style>
+          .qd-kpis{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+          .qd-kpi{flex:1 1 130px;border:1px solid #eef0f3;border-radius:10px;padding:10px 12px;background:#fff}
+          .qd-kpi .v{font-size:22px;font-weight:800}.qd-kpi .l{font-size:11px;text-transform:uppercase;color:#8a94a6}
+          table.qd-tbl{width:100%;border-collapse:collapse;font-size:13px}
+          table.qd-tbl th{background:#f4f6f9;text-align:left;padding:6px 8px;font-size:11px;text-transform:uppercase;color:#6b7280}
+          table.qd-tbl td{padding:6px 8px;border-top:1px solid #f1f3f6}
+          .qd-b{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700}
+          .qd-warn{background:#fff3e0;color:#e65100}.qd-ok{background:#e8f5e9;color:#2e7d32}
+          .qd-scroll{max-height:52vh;overflow:auto}
+        </style>
+        <div class="mb-2 d-flex align-items-center gap-2">
+          <h3 class="mb-0">Quiz Weekly Dashboard</h3>
+          <input id="qdWeek" class="form-control form-control-sm" style="width:150px" placeholder="weekId (Mon YYYY-MM-DD)">
+          <button class="btn btn-sm btn-outline-secondary" onclick="qdLoad()">Load</button>
+          <span id="qdStatus" class="small text-muted"></span>
+        </div>
+        <div class="qd-kpis" id="qdKpis"></div>
+        <div class="mb-2" id="qdActions"></div>
+        <div class="card"><div class="card-body">
+          <h6 class="fw-bold">Eligible users (answered all 6) — ranked by correct, earliest completion</h6>
+          <div class="qd-scroll"><table class="qd-tbl"><thead><tr><th></th><th>#</th><th>Name</th><th>Correct</th><th>Answered</th><th>Device</th></tr></thead><tbody id="qdElig"></tbody></table></div>
+        </div></div>
+        <div class="card mt-3"><div class="card-body">
+          <h6 class="fw-bold">Winner history</h6>
+          <div id="qdHistory" class="small"></div>
+        </div></div>
+      </div>
+    </div>
+  </div></div>
+  <%- include('partials/footer') %>
+  <script>
+  (function(){
+    var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});};
+    var week=''; var eligible=[]; var canSelect=false;
+    function q(id){return document.getElementById(id);}
+    window.qdLoad=async function(){
+      week=(q('qdWeek').value||'').trim();
+      var u='/admin/quiz/api/week'+(week?('?weekId='+encodeURIComponent(week)):'');
+      var d=await (await fetch(u)).json();
+      week=d.weekId; q('qdWeek').value=week;
+      q('qdStatus').textContent='Week '+d.meta.startDate+' → '+d.meta.endDate+' · '+(d.weekOver?'closed':'in progress')+(d.winnersSelected?' · winners selected':'');
+      q('qdKpis').innerHTML=[['Participants',d.participants],['Eligible',d.eligible],['Winners selected',d.winnersSelected?'Yes':'No']].map(function(c){return '<div class="qd-kpi"><div class="v">'+c[1]+'</div><div class="l">'+c[0]+'</div></div>';}).join('');
+      canSelect=d.canSelect;
+      q('qdActions').innerHTML= d.winnersSelected ? '<span class="qd-b qd-ok">Winners already selected (immutable)</span>'
+        : (canSelect ? '<button class="btn btn-warning btn-sm" onclick="qdRandom()">🎲 Random Lottery</button> <button class="btn btn-primary btn-sm" onclick="qdAdmin()">👤 Admin Select (pick 10)</button>'
+          : '<span class="qd-b qd-warn">Selection opens after Saturday closes.</span>');
+      var el=await (await fetch('/admin/quiz/api/week/eligible?weekId='+encodeURIComponent(week))).json();
+      eligible=el.eligible||[];
+      q('qdElig').innerHTML=eligible.map(function(e){return '<tr><td><input type="checkbox" class="qd-pick" value="'+e.userId+'"></td><td>'+e.rankIfSorted+'</td><td>'+esc(e.name)+'</td><td><b>'+e.correct+'</b></td><td>'+e.answered+'</td><td class="text-muted">'+esc((e.device||'').slice(0,10))+'</td></tr>';}).join('')||'<tr><td colspan="6" class="text-muted py-3">No eligible users yet.</td></tr>';
+      loadHistory();
+    };
+    async function post(body){ var r=await fetch('/admin/quiz/api/week/winners',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); var d=await r.json(); if(!r.ok){alert(d.error||'Failed');return null;} return d; }
+    window.qdRandom=async function(){ if(!confirm('Run a crypto-random lottery to pick 10 winners? This is final and cannot be changed.'))return; var d=await post({weekId:week,mode:'random_lottery'}); if(d){alert('10 winners selected (random lottery).');qdLoad();} };
+    window.qdAdmin=async function(){ var ids=Array.from(document.querySelectorAll('.qd-pick:checked')).map(function(c){return c.value;}); if(ids.length!==10){alert('Select exactly 10 winners (you selected '+ids.length+').');return;} if(!confirm('Confirm these 10 winners? This is final.'))return; var d=await post({weekId:week,mode:'admin_select',userIds:ids}); if(d){alert('10 winners selected (admin).');qdLoad();} };
+    async function loadHistory(){ var d=await (await fetch('/admin/quiz/api/winners')).json(); q('qdHistory').innerHTML=(d.weeks||[]).map(function(w){return '<div class="mb-2"><b>'+esc(w.weekId)+'</b> — '+esc(w.mode)+' by '+esc(w.selectedByName||'')+'<br>'+w.winners.map(function(x){return '#'+x.rank+' '+esc(x.name)+' ('+x.score+')';}).join(' · ')+'</div>';}).join('')||'<span class="text-muted">No winners yet.</span>'; }
+    qdLoad();
+  })();
+  </script>
+</body>
+</html>

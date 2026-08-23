@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Quiz Question Bank' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Quiz Question Bank', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'quiz-questions' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <style>
+          .qz-form{border:1px solid #eef0f3;border-radius:12px;padding:16px;background:#fff;margin-bottom:16px}
+          .qz-form input,.qz-form select,.qz-form textarea{border:1px solid #dfe3ea;border-radius:8px;padding:8px 10px;font-size:14px;width:100%}
+          .qz-opt{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+          .qz-opt .k{width:28px;font-weight:800;text-align:center}
+          table.qz-tbl{width:100%;border-collapse:collapse;font-size:13px}
+          table.qz-tbl th{background:#f4f6f9;text-align:left;padding:6px 8px;font-size:11px;text-transform:uppercase;color:#6b7280}
+          table.qz-tbl td{padding:6px 8px;border-top:1px solid #f1f3f6;vertical-align:top}
+          .qz-b{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700}
+          .qz-on{background:#e8f5e9;color:#2e7d32}.qz-off{background:#eceff1;color:#546e7a}.qz-lock{background:#fff3e0;color:#e65100}
+        </style>
+        <div class="mb-2 d-flex justify-content-between align-items-start flex-wrap gap-2">
+          <div><h3 class="mb-1">Quiz Question Bank</h3>
+            <p class="text-muted mb-0">MCQ pool for the Mon–Sat Daily Quiz. Correct answer is server-only. Questions used in a completed week can't be edited (only disabled). <span id="qzActive"></span></p></div>
+          <div class="d-flex gap-2">
+            <a class="btn btn-sm btn-outline-success" href="/admin/quiz/api/questions/template"><i class="fas fa-download"></i> Download Template</a>
+            <button class="btn btn-sm btn-outline-primary" onclick="document.getElementById('qzFile').click()"><i class="fas fa-file-excel"></i> Import from Excel</button>
+            <input type="file" id="qzFile" accept=".xlsx,.xls" style="display:none" onchange="qzPreview(this.files[0])">
+          </div>
+        </div>
+        <div id="qzImportBox" style="display:none;border:1px solid #eef0f3;border-radius:10px;padding:12px;margin-bottom:14px;background:#fbfcfe">
+          <div id="qzImportSummary" class="fw-bold mb-2"></div>
+          <div id="qzImportRows" style="max-height:200px;overflow:auto;font-size:13px"></div>
+          <div class="mt-2"><button class="btn btn-sm btn-primary" id="qzConfirmBtn" onclick="qzConfirm()" disabled>Confirm Import</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('qzImportBox').style.display='none'">Cancel</button></div>
+        </div>
+
+        <div class="qz-form">
+          <div class="row g-2">
+            <div class="col-12"><label class="fw-bold small">Question</label><textarea id="qText" rows="2" placeholder="Enter the question…"></textarea></div>
+            <div class="col-md-8">
+              <label class="fw-bold small">Options (mark the correct one)</label>
+              <div id="qOpts"></div>
+            </div>
+            <div class="col-md-2"><label class="fw-bold small">Language</label><input id="qLang" value="te"></div>
+            <div class="col-md-2"><label class="fw-bold small">Category</label><input id="qCat" placeholder="optional"></div>
+          </div>
+          <button class="btn btn-primary btn-sm mt-2" onclick="qzCreate()">Add Question</button>
+          <span id="qzMsg" class="ms-2 small"></span>
+        </div>
+
+        <div class="card"><div class="table-responsive"><table class="qz-tbl">
+          <thead><tr><th>Question</th><th>Options</th><th>Correct</th><th>Lang</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+          <tbody id="qzRows"><tr><td colspan="6" class="text-muted py-3">Loading…</td></tr></tbody>
+        </table></div></div>
+      </div>
+    </div>
+  </div></div>
+  <%- include('partials/footer') %>
+  <script>
+  (function(){
+    var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});};
+    var KEYS=['A','B','C','D'];
+    function optInputs(){ document.getElementById('qOpts').innerHTML=KEYS.map(function(k){return '<div class="qz-opt"><span class="k">'+k+'</span><input id="qOpt'+k+'" placeholder="Option '+k+' (blank to skip)"><label class="small"><input type="radio" name="qCorrect" value="'+k+'"> correct</label></div>';}).join(''); }
+    async function load(){
+      var r=await fetch('/admin/quiz/api/questions'); var d=await r.json();
+      document.getElementById('qzActive').textContent='Active pool: '+(d.activeCount||0);
+      document.getElementById('qzRows').innerHTML=(d.items||[]).map(function(q){
+        var opts=q.options.map(function(o){return o.key+': '+esc(o.text);}).join('<br>');
+        var st=q.isActive?'<span class="qz-b qz-on">Active</span>':'<span class="qz-b qz-off">Disabled</span>';
+        if(q.lockedForEdit) st+=' <span class="qz-b qz-lock">Locked</span>';
+        return '<tr><td>'+esc(q.text)+'</td><td>'+opts+'</td><td><b>'+esc(q.correctOption)+'</b></td><td>'+esc(q.language||'')+'</td><td>'+st+'</td>'+
+          '<td class="text-end"><button class="btn btn-sm btn-outline-secondary" onclick="qzToggle(\''+q._id+'\','+(q.isActive?'false':'true')+')">'+(q.isActive?'Disable':'Enable')+'</button></td></tr>';
+      }).join('')||'<tr><td colspan="6" class="text-muted py-3">No questions yet.</td></tr>';
+    }
+    window.qzCreate=async function(){
+      var opts=KEYS.map(function(k){return {key:k,text:(document.getElementById('qOpt'+k).value||'').trim()};}).filter(function(o){return o.text;});
+      var correct=(document.querySelector('input[name=qCorrect]:checked')||{}).value;
+      var body={text:document.getElementById('qText').value,options:opts,correctOption:correct,language:document.getElementById('qLang').value,category:document.getElementById('qCat').value};
+      var msg=document.getElementById('qzMsg');
+      try{ var r=await fetch('/admin/quiz/api/questions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); var d=await r.json();
+        if(!r.ok){msg.textContent=d.error||'Failed';msg.className='ms-2 small text-danger';return;}
+        msg.textContent='Added';msg.className='ms-2 small text-success';document.getElementById('qText').value='';optInputs();load();
+      }catch(e){msg.textContent='Network error';}
+    };
+    window.qzToggle=async function(id,to){
+      await fetch('/admin/quiz/api/questions/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({isActive:(to==='true')})}); load();
+    };
+    var pendingFile=null;
+    async function doImport(file,dryRun){
+      var fd=new FormData(); fd.append('file',file); fd.append('dryRun',dryRun?'true':'false');
+      var r=await fetch('/admin/quiz/api/questions/import',{method:'POST',body:fd}); return {ok:r.ok, d:await r.json()};
+    }
+    function renderImport(d,phase){
+      document.getElementById('qzImportBox').style.display='block';
+      document.getElementById('qzImportSummary').innerHTML=phase+': <span class="text-success">Import '+d.imported+'</span> · <span class="text-secondary">Skip '+d.skipped+'</span> · <span class="text-danger">Fail '+d.failed+'</span> · of '+d.total;
+      var errs=(d.results||[]).filter(function(x){return x.status!=='ok';});
+      document.getElementById('qzImportRows').innerHTML=errs.length?('<table class="qz-tbl"><tr><th>Row</th><th>Status</th><th>Reason</th></tr>'+errs.map(function(x){return '<tr><td>'+x.row+'</td><td>'+x.status+'</td><td>'+esc(x.error||'')+'</td></tr>';}).join('')+'</table>'):'<span class="text-muted">All rows OK.</span>';
+    }
+    window.qzPreview=async function(file){
+      if(!file)return; pendingFile=file;
+      var r=await doImport(file,true);
+      if(!r.ok){alert(r.d.error||'Preview failed');return;}
+      renderImport(r.d,'Preview'); document.getElementById('qzConfirmBtn').disabled=(r.d.imported===0);
+    };
+    window.qzConfirm=async function(){
+      if(!pendingFile)return; document.getElementById('qzConfirmBtn').disabled=true;
+      var r=await doImport(pendingFile,false);
+      if(!r.ok){alert(r.d.error||'Import failed');return;}
+      renderImport(r.d,'Imported'); pendingFile=null; document.getElementById('qzFile').value=''; load();
+    };
+    optInputs(); load();
+  })();
+  </script>
+</body>
+</html>

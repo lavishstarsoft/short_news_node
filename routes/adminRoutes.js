@@ -286,6 +286,24 @@ router.get('/coverage-map/api/state/:state', adminController.requireAuth, covera
 router.get('/coverage-map/api/district/:state/:district', adminController.requireAuth, coverageMapController.district);
 router.get('/coverage-map/api/constituency/:state/:district/:constituency', adminController.requireAuth, coverageMapController.constituency);
 
+// Daily Quiz — admin Question Bank (P1). Admin-only.
+const quizAdminController = require('../controllers/quizAdminController');
+router.get('/quiz/questions', adminController.requireAdmin, quizAdminController.renderQuestions);
+router.get('/quiz/api/questions', adminController.requireAdmin, quizAdminController.listQuestions);
+router.post('/quiz/api/questions', adminController.requireAdmin, quizAdminController.createQuestion);
+router.put('/quiz/api/questions/:id', adminController.requireAdmin, quizAdminController.updateQuestion);
+// Excel import (admin-only; in-memory, 5MB cap)
+const quizUpload = require('multer')({ storage: require('multer').memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+router.get('/quiz/api/questions/template', adminController.requireAdmin, quizAdminController.downloadTemplate);
+router.post('/quiz/api/questions/import', adminController.requireAdmin, quizUpload.single('file'), quizAdminController.importQuestions);
+// Quiz weekly dashboard + winner selection (P3)
+router.get('/quiz/dashboard', adminController.requireAdmin, quizAdminController.renderDashboard);
+router.get('/quiz/api/week', adminController.requireAdmin, quizAdminController.weekStats);
+router.get('/quiz/api/week/eligible', adminController.requireAdmin, quizAdminController.eligibleList);
+router.post('/quiz/api/week/winners', adminController.requireAdmin, quizAdminController.selectWinners);
+router.get('/quiz/api/winners', adminController.requireAdmin, quizAdminController.winnerHistory);
+router.post('/quiz/api/maintenance', adminController.requireAdmin, quizAdminController.maintenance);
+
 const accessOverrideController = require('../controllers/accessOverrideController');
 router.post('/api/reporter/request-access', adminController.requireAuth, accessOverrideController.requestAccess);
 router.get('/reporter-access', adminController.requireAuth, accessOverrideController.renderPage);
