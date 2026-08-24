@@ -32,9 +32,10 @@
         </div></div>
         <div class="card mt-3" style="border:1px solid #ffe0b2;background:#fffdf7"><div class="card-body">
           <h6 class="fw-bold">🧪 Quiz Test Mode <span class="qd-b qd-warn">test data only — never affects live users</span></h6>
-          <p class="small text-muted mb-2">Simulate any weekday for ONE app user (their Google ID) so you can walk the full Monday→Sunday flow without waiting for a real Sunday. Test entries/winners live under an isolated 2024 test week and are impossible to mix with production. Turn it OFF to instantly return that user to real IST behaviour.</p>
+          <p class="small text-muted mb-2">Simulate any weekday for ONE app user so you can walk the full Monday→Sunday flow without waiting for a real Sunday. Enter the user's <b>Mongo _id, mobile number, email, name, or Google ID</b> — the server resolves it to their verified Google ID. Test entries/winners live under an isolated 2024 test week and are impossible to mix with production. Turn it OFF to instantly return that user to real IST behaviour.</p>
           <div class="d-flex flex-wrap align-items-end gap-2 mb-2">
-            <div><label class="form-label small mb-0">Target user (googleId)</label><input id="tmUser" class="form-control form-control-sm" style="width:280px" placeholder="app user's Google ID"></div>
+            <div><label class="form-label small mb-0">Target user (_id / mobile / email / name / googleId)</label><input id="tmUser" class="form-control form-control-sm" style="width:320px" placeholder="e.g. 69b24c19c0a5fb3988094a46 or 98765..."></div>
+            <button class="btn btn-sm btn-outline-primary" onclick="tmFind()">Find user</button>
             <div><label class="form-label small mb-0">Simulated day</label>
               <select id="tmDay" class="form-select form-select-sm" style="width:150px">
                 <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option>
@@ -46,6 +47,7 @@
             <button class="btn btn-sm btn-outline-secondary" onclick="tmSave(false)">Disable (exit test mode)</button>
             <button class="btn btn-sm btn-outline-warning" onclick="tmRefresh()">Check status</button>
           </div>
+          <div id="tmFound" class="small mb-2"></div>
           <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
             <button class="btn btn-sm btn-warning" onclick="tmMakeWinners()">🏆 Create Test Winners (Top 10)</button>
             <button class="btn btn-sm btn-outline-danger" onclick="tmClearWinners()">Clear Test Winners</button>
@@ -86,23 +88,38 @@
     window.qdRandom=async function(){ if(!confirm('Run a crypto-random lottery to pick 10 winners? This is final and cannot be changed.'))return; var d=await post({weekId:week,mode:'random_lottery'}); if(d){alert('10 winners selected (random lottery).');qdLoad();} };
     window.qdAdmin=async function(){ var ids=Array.from(document.querySelectorAll('.qd-pick:checked')).map(function(c){return c.value;}); if(ids.length!==10){alert('Select exactly 10 winners (you selected '+ids.length+').');return;} if(!confirm('Confirm these 10 winners? This is final.'))return; var d=await post({weekId:week,mode:'admin_select',userIds:ids}); if(d){alert('10 winners selected (admin).');qdLoad();} };
     async function loadHistory(){ var d=await (await fetch('/admin/quiz/api/winners')).json(); q('qdHistory').innerHTML=(d.weeks||[]).map(function(w){return '<div class="mb-2"><b>'+esc(w.weekId)+'</b> — '+esc(w.mode)+' by '+esc(w.selectedByName||'')+'<br>'+w.winners.map(function(x){return '#'+x.rank+' '+esc(x.name)+' ('+x.score+')';}).join(' · ')+'</div>';}).join('')||'<span class="text-muted">No winners yet.</span>'; }
-    // ── Test Mode controls ──
+    // ── Test Mode controls ── (identifier is resolved server-side to the verified googleId)
     var DAYS={1:'Monday',2:'Tuesday',3:'Wednesday',4:'Thursday',5:'Friday',6:'Saturday',7:'Sunday'};
+    function userLine(u){ return esc(u.name||'(no name)')+(u.mobile?(' · '+esc(u.mobile)):'')+(u.email?(' · '+esc(u.email)):'')+' · googleId '+esc(u.googleId); }
+    window.tmFind=async function(){
+      var qv=(q('tmUser').value||'').trim(); if(!qv){alert('Enter a user _id, mobile, email, name, or googleId.');return;}
+      q('tmFound').innerHTML='<span class="text-muted">Searching…</span>';
+      var r=await fetch('/admin/quiz/api/resolve-user?q='+encodeURIComponent(qv));
+      var d=await r.json();
+      if(!r.ok){ q('tmFound').innerHTML='<span class="qd-b qd-warn">'+esc(d.error||'User not found')+'</span>'; return null; }
+      q('tmFound').innerHTML='<span class="qd-b qd-ok">User found</span> '+userLine(d.user);
+      return d.user;
+    };
     window.tmSave=async function(active){
-      var userId=(q('tmUser').value||'').trim(); if(!userId){alert('Enter the target user googleId.');return;}
+      var qv=(q('tmUser').value||'').trim(); if(!qv){alert('Enter a user _id, mobile, email, name, or googleId.');return;}
       var simDayIndex=parseInt(q('tmDay').value,10)||1;
-      var r=await fetch('/admin/quiz/api/test-mode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:userId,simDayIndex:simDayIndex,active:active})});
-      var d=await r.json(); if(!r.ok){alert(d.error||'Failed');return;}
+      var r=await fetch('/admin/quiz/api/test-mode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:qv,simDayIndex:simDayIndex,active:active})});
+      var d=await r.json();
+      if(!r.ok){ q('tmFound').innerHTML='<span class="qd-b qd-warn">'+esc(d.error||'Failed')+'</span>'; return; }
+      q('tmFound').innerHTML='<span class="qd-b qd-ok">Resolved</span> '+userLine(d.user);
       q('tmStatus').innerHTML=active
-        ? '<span class="qd-b qd-ok">TEST MODE ON</span> '+esc(userId)+' → <b>'+esc(d.dayLabel)+'</b> (test week '+esc(d.testWeekId)+')'
-        : '<span class="qd-b qd-warn">TEST MODE OFF</span> '+esc(userId)+' is back on real IST time.';
+        ? '<span class="qd-b qd-ok">TEST MODE ON</span> '+esc(d.user.name||d.user.googleId)+' → <b>'+esc(d.dayLabel)+'</b> (test week '+esc(d.testWeekId)+')'
+        : '<span class="qd-b qd-warn">TEST MODE OFF</span> '+esc(d.user.name||d.user.googleId)+' is back on real IST time.';
     };
     window.tmRefresh=async function(){
-      var userId=(q('tmUser').value||'').trim(); if(!userId){alert('Enter the target user googleId.');return;}
-      var d=await (await fetch('/admin/quiz/api/test-mode?userId='+encodeURIComponent(userId))).json();
+      var qv=(q('tmUser').value||'').trim(); if(!qv){alert('Enter a user _id, mobile, email, name, or googleId.');return;}
+      var r=await fetch('/admin/quiz/api/test-mode?q='+encodeURIComponent(qv));
+      var d=await r.json();
+      if(!d.resolved){ q('tmFound').innerHTML='<span class="qd-b qd-warn">No user matched.</span>'; q('tmStatus').innerHTML=''; return; }
+      q('tmFound').innerHTML='<span class="qd-b qd-ok">User found</span> '+userLine(d.user);
       if(d.active){ q('tmDay').value=String(d.simDayIndex);
-        q('tmStatus').innerHTML='<span class="qd-b qd-ok">TEST MODE ON</span> '+esc(userId)+' → <b>'+esc(DAYS[d.simDayIndex]||'')+'</b>'; }
-      else q('tmStatus').innerHTML='<span class="qd-b qd-warn">TEST MODE OFF</span> '+esc(userId)+' is on real IST time.';
+        q('tmStatus').innerHTML='<span class="qd-b qd-ok">TEST MODE ON</span> '+esc(d.user.name||d.user.googleId)+' → <b>'+esc(DAYS[d.simDayIndex]||'')+'</b>'; }
+      else q('tmStatus').innerHTML='<span class="qd-b qd-warn">TEST MODE OFF</span> '+esc(d.user.name||d.user.googleId)+' is on real IST time.';
     };
     window.tmMakeWinners=async function(){
       if(!confirm('Create 10 TEST winners in the isolated test week? (No real payout, no live data touched.)'))return;
@@ -115,7 +132,24 @@
       var d=await r.json(); if(!r.ok){alert(d.error||'Failed');return;}
       q('tmStatus').innerHTML='<span class="qd-b qd-warn">Cleared '+(d.deleted||0)+' test winners.</span>';
     };
+    // On page load, read the active override(s) from MongoDB and restore the form.
+    async function tmLoadActive(){
+      var d=await (await fetch('/admin/quiz/api/test-mode/active')).json();
+      var list=(d&&d.active)||[];
+      if(!list.length){ // default empty/disabled state
+        q('tmUser').value=''; q('tmDay').value='1'; q('tmFound').innerHTML='';
+        q('tmStatus').innerHTML='<span class="qd-b qd-warn">TEST MODE OFF</span> No active test user. Enter an identifier to enable.';
+        return;
+      }
+      var a=list[0]; // most recently updated active override
+      q('tmUser').value=a.user.googleId||a.googleId; // Google ID stays visible after refresh
+      q('tmDay').value=String(a.simDayIndex);         // selected simulated day restored
+      q('tmFound').innerHTML='<span class="qd-b qd-ok">Active test user</span> '+userLine(a.user);
+      q('tmStatus').innerHTML='<span class="qd-b qd-ok">TEST MODE ON</span> '+esc(a.user.name||a.googleId)+' → <b>'+esc(a.dayLabel)+'</b> (test week '+esc(d.testWeekId)+')'+
+        (list.length>1?(' <span class="text-muted">(+'+(list.length-1)+' more active)</span>'):'');
+    }
     qdLoad();
+    tmLoadActive();
   })();
   </script>
 </body>

@@ -8,7 +8,7 @@
  * immediately restores real IST behaviour. All models are mocked.
  */
 
-const store = { questions: [], entries: [], winners: [], overrides: [] };
+const store = { questions: [], entries: [], winners: [], overrides: [], users: [] };
 
 jest.mock('../models/QuizQuestion', () => ({
   aggregate: jest.fn(async (pipe) => {
@@ -43,13 +43,29 @@ jest.mock('../models/QuizTestOverride', () => ({
     const match = store.overrides.find((o) => o.userId === q.userId && (q.active === undefined || o.active === q.active)) || null;
     return { lean: async () => match };
   }),
+  find: jest.fn((q) => ({ sort: () => ({ lean: async () => store.overrides
+    .filter((o) => q.active === undefined || o.active === q.active)
+    .slice().sort((a, b) => (b._ts || 0) - (a._ts || 0)) }) })),
   updateOne: jest.fn(async (filter, update) => {
     let o = store.overrides.find((x) => x.userId === filter.userId);
     if (!o) { o = { userId: filter.userId }; store.overrides.push(o); }
-    Object.assign(o, update.$set); return { upsertedCount: 1 };
+    Object.assign(o, update.$set); o._ts = Date.now() + Math.random(); return { upsertedCount: 1 };
   }),
 }));
-jest.mock('../models/User', () => ({ find: jest.fn(() => ({ select: () => ({ lean: async () => [] }) })) }));
+jest.mock('../models/User', () => ({
+  find: jest.fn(() => ({ select: () => ({ lean: async () => [] }) })),
+  findOne: jest.fn((q) => ({ select: () => ({ lean: async () => {
+    if (q.googleId !== undefined && !q.$or) return store.users.find((u) => u.googleId === q.googleId) || null;
+    const or = q.$or || [];
+    return store.users.find((u) => or.some((c) => (
+      (c.googleId !== undefined && u.googleId === c.googleId) ||
+      (c.email !== undefined && u.email === c.email) ||
+      (c.mobileNumber !== undefined && u.mobileNumber === c.mobileNumber) ||
+      (c.displayName !== undefined && u.displayName === c.displayName) ||
+      (c._id !== undefined && String(u._id) === String(c._id))
+    ))) || null;
+  } }) })),
+}));
 jest.mock('../utils/auditLogger', () => ({ logAudit: jest.fn() }));
 jest.mock('../services/quizWinnerService', () => ({ computeWeekStats: jest.fn(), selectWinners: jest.fn() }));
 jest.mock('../services/quizMaintenanceService', () => ({ closeExpiredWeeks: jest.fn(), sendDailyReminder: jest.fn() }));
@@ -65,7 +81,7 @@ afterEach(() => { global.Date = REALDATE; });
 
 beforeEach(() => {
   store.questions = [1, 2, 3, 4, 5, 6, 7].map((n) => ({ _id: 'q' + n, isActive: true, options: [{ key: 'A', text: 'x' }, { key: 'B', text: 'y' }], correctOption: 'A', text: 'Q' + n }));
-  store.entries = []; store.winners = []; store.overrides = [];
+  store.entries = []; store.winners = []; store.overrides = []; store.users = [];
 });
 
 function setOverride(userId, simDayIndex, active = true) { store.overrides.push({ userId, simDayIndex, active }); }
@@ -130,13 +146,100 @@ test('exiting test mode (active:false) immediately restores real IST behaviour',
   expect(r.body.weekId).toBe('2026-08-24'); // back to real week, ignores simDayIndex
 });
 
-test('setTestMode upserts an active override; getTestMode reflects it', async () => {
-  const sr = res(); await admin.setTestMode({ admin: { name: 'Tester' }, body: { userId: 'u9', simDayIndex: 3, active: true } }, sr);
+test('setTestMode upserts an active override keyed by googleId; getTestMode reflects it', async () => {
+  store.users.push({ _id: 'aaaaaaaaaaaaaaaaaaaaaaaa', googleId: 'g-9', displayName: 'Nine', mobileNumber: '9', email: 'n@x.com' });
+  const sr = res(); await admin.setTestMode({ admin: { name: 'Tester' }, body: { q: 'g-9', simDayIndex: 3, active: true } }, sr);
   expect(sr.body.ok).toBe(true);
   expect(sr.body.dayLabel).toBe('Wednesday');
-  const gr = res(); await admin.getTestMode({ query: { userId: 'u9' } }, gr);
+  expect(store.overrides[0].userId).toBe('g-9'); // keyed by googleId, not the query
+  const gr = res(); await admin.getTestMode({ query: { q: 'g-9' } }, gr);
+  expect(gr.body.resolved).toBe(true);
   expect(gr.body.active).toBe(true);
   expect(gr.body.simDayIndex).toBe(3);
+});
+
+describe('identifier → verifiedGoogleId resolution (the reported bug)', () => {
+  const OID = '69b24c19c0a5fb3988094a46'; // real Mongo _id from the bug report
+  const GID = '111481529715342708687';    // the user's actual googleId
+  beforeEach(() => {
+    store.users.push({ _id: OID, googleId: GID, displayName: 'Ashok Kumar', mobileNumber: '9876500000', email: 'ashokca810@gmail.com' });
+  });
+
+  test('resolveUserByAny maps a Mongo _id to the correct googleId', async () => {
+    const u = await admin._internals.resolveUserByAny(OID);
+    expect(u).toBeTruthy();
+    expect(u.googleId).toBe(GID);
+    expect(u.displayName).toBe('Ashok Kumar');
+  });
+
+  ['69b24c19c0a5fb3988094a46', '9876500000', 'ashokca810@gmail.com', 'Ashok Kumar', '111481529715342708687']
+    .forEach((ident) => {
+      test(`resolve-user endpoint finds the user by "${ident}" and returns the googleId`, async () => {
+        const r = res(); await admin.resolveTestUser({ query: { q: ident } }, r);
+        expect(r.code).toBe(200);
+        expect(r.body.user.googleId).toBe(GID);
+        expect(r.body.user.name).toBe('Ashok Kumar');
+      });
+    });
+
+  test('enabling test mode via _id keys the override by googleId (NOT the _id) → sim actually applies', async () => {
+    const sr = res(); await admin.setTestMode({ admin: { name: 'Tester' }, body: { q: OID, simDayIndex: 1, active: true } }, sr);
+    expect(sr.body.ok).toBe(true);
+    expect(sr.body.user.googleId).toBe(GID);
+    expect(store.overrides.find((o) => o.userId === GID)).toBeTruthy();
+    expect(store.overrides.find((o) => o.userId === OID)).toBeFalsy(); // never keyed by _id
+
+    // And the quiz APIs, keyed on verifiedGoogleId, now see the simulation.
+    mockNow(PROD_NOW);
+    const tr = res(); await ctrl.today({ verifiedGoogleId: GID, body: {} }, tr);
+    expect(tr.body.testMode).toBe(true);
+    expect(tr.body.weekId).toBe(TEST_WEEK_MONDAY);
+    expect(tr.body.dayIndex).toBe(1);
+  });
+
+  test('unknown identifier → 404 clear error, no override written', async () => {
+    const r = res(); await admin.setTestMode({ admin: { name: 'T' }, body: { q: 'no-such-user', simDayIndex: 2, active: true } }, r);
+    expect(r.code).toBe(404);
+    expect(r.body.error).toMatch(/No user matches/);
+    expect(store.overrides).toHaveLength(0);
+  });
+
+  test('resolve-user for a missing id → 404 with a clear message', async () => {
+    const r = res(); await admin.resolveTestUser({ query: { q: 'ffffffffffffffffffffffff' } }, r);
+    expect(r.code).toBe(404);
+    expect(r.body.error).toMatch(/No user matches/);
+  });
+
+  // Persistence: MongoDB is the source of truth; the dashboard restores state on
+  // refresh via activeTestMode (no identifier needed).
+  test('Enable → reload shows saved state → change day → reload persists → Disable → reload empty', async () => {
+    // default empty state before anything is enabled
+    let a = res(); await admin.activeTestMode({ query: {} }, a);
+    expect(a.body.active).toHaveLength(0);
+
+    // Enable by _id, day 4
+    await admin.setTestMode({ admin: { name: 'T' }, body: { q: OID, simDayIndex: 4, active: true } }, res());
+
+    // Reload → active override restored, keyed by googleId, day 4, user visible
+    a = res(); await admin.activeTestMode({ query: {} }, a);
+    expect(a.body.active).toHaveLength(1);
+    expect(a.body.active[0].googleId).toBe(GID);
+    expect(a.body.active[0].simDayIndex).toBe(4);
+    expect(a.body.active[0].dayLabel).toBe('Thursday');
+    expect(a.body.active[0].user.name).toBe('Ashok Kumar');
+
+    // Change day → 7, reload persists the new day
+    await admin.setTestMode({ admin: { name: 'T' }, body: { q: GID, simDayIndex: 7, active: true } }, res());
+    a = res(); await admin.activeTestMode({ query: {} }, a);
+    expect(a.body.active).toHaveLength(1);
+    expect(a.body.active[0].simDayIndex).toBe(7);
+    expect(a.body.active[0].dayLabel).toBe('Sunday');
+
+    // Disable → reload shows the empty/disabled state (no active override)
+    await admin.setTestMode({ admin: { name: 'T' }, body: { q: OID, simDayIndex: 7, active: false } }, res());
+    a = res(); await admin.activeTestMode({ query: {} }, a);
+    expect(a.body.active).toHaveLength(0);
+  });
 });
 
 test('createTestWinners is idempotent and clearTestWinners removes only test winners', async () => {

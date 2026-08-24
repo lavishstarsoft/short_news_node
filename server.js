@@ -976,6 +976,10 @@ app.use('/view-engine', requireAuth, require('./routes/viewEngineRoutes')); // V
 const { startReferralCron } = require('./services/referralCron');
 startReferralCron();
 
+// Start the Stringer Migration Cron Job
+const { startStringerMigrationCron } = require('./services/stringerMigrationCron');
+startStringerMigrationCron();
+
 // Phase-4.1 — PENDING embed worker (no-op unless AI_EMBED_WORKER_ENABLED=true)
 const {
   maybeStartEmbedPendingWorker,

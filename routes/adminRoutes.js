@@ -304,6 +304,8 @@ router.post('/quiz/api/week/winners', adminController.requireAdmin, quizAdminCon
 router.get('/quiz/api/winners', adminController.requireAdmin, quizAdminController.winnerHistory);
 router.post('/quiz/api/maintenance', adminController.requireAdmin, quizAdminController.maintenance);
 // Quiz Test Mode (admin day simulation — isolated test data, never affects live users)
+router.get('/quiz/api/resolve-user', adminController.requireAdmin, quizAdminController.resolveTestUser);
+router.get('/quiz/api/test-mode/active', adminController.requireAdmin, quizAdminController.activeTestMode);
 router.get('/quiz/api/test-mode', adminController.requireAdmin, quizAdminController.getTestMode);
 router.post('/quiz/api/test-mode', adminController.requireAdmin, quizAdminController.setTestMode);
 router.post('/quiz/api/test-winners', adminController.requireAdmin, quizAdminController.createTestWinners);

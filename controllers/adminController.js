@@ -6475,6 +6475,13 @@ async function getReporterDailyStats(req, res) {
     const remainingForReward = Math.max(0, reward.targetNews - reward.approvedCount);
     const settings = await require('../models/AppSettings').findOne({ key: 'update_flags' });
 
+    // Handle Tiered Users (Stringers/District Incharge)
+    const { tierRate, resolveTierRate, DAILY_REWARD_CAP } = require('../utils/tierRewardService');
+    const reporterTier = reward.admin.reporterTier;
+    const isTiered = tierRate(reporterTier) > 0;
+    const tierRewardPerNews = isTiered ? await resolveTierRate(reporterTier) : 0;
+    const tierMaxCap = isTiered ? DAILY_REWARD_CAP : 0;
+
     res.json({
       walletEnabled: true,
       approvedCount: reward.approvedCount,
@@ -6489,7 +6496,10 @@ async function getReporterDailyStats(req, res) {
       rewardGiven: reward.alreadyCredited,
       walletBalance: reward.admin.walletBalance || 0,
       minWithdrawalAmount: settings?.minWithdrawalAmount || 500,
-      maxWithdrawalAmount: settings?.maxWithdrawalAmount || 5000
+      maxWithdrawalAmount: settings?.maxWithdrawalAmount || 5000,
+      isTiered,
+      tierRewardPerNews,
+      tierMaxCap
     });
   } catch (error) {
     console.error('Error fetching daily stats:', error);

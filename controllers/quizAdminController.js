@@ -5,6 +5,7 @@
  * Admin-only (routes use requireAdmin). All mutations are audited.
  */
 
+const mongoose = require('mongoose');
 const QuizQuestion = require('../models/QuizQuestion');
 const QuizWinner = require('../models/QuizWinner');
 const QuizTestOverride = require('../models/QuizTestOverride');
@@ -261,23 +262,81 @@ exports.winnerHistory = async (req, res) => {
 // data lives under weekId = TEST_WEEK_MONDAY (2024), isolated from live weeks.
 
 const DAY_LABELS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const cleanUserId = (v) => String(v || '').trim();
+const clean = (v) => String(v || '').trim();
 
-// GET /admin/quiz/test-mode?userId=...
+/**
+ * Resolve an admin-typed identifier to a real user. Accepts Mongo _id, googleId,
+ * mobile number, email, or exact display name. Returns the User doc or null.
+ * The quiz identity is always User.googleId (== req.verifiedGoogleId at runtime),
+ * so callers must key QuizTestOverride by the resolved googleId — never the _id.
+ */
+async function resolveUserByAny(query) {
+  const q = clean(query);
+  if (!q) return null;
+  const or = [{ googleId: q }, { email: q.toLowerCase() }, { mobileNumber: q }, { displayName: q }];
+  if (mongoose.Types.ObjectId.isValid(q) && String(new mongoose.Types.ObjectId(q)) === q) {
+    or.push({ _id: new mongoose.Types.ObjectId(q) });
+  }
+  return User.findOne({ $or: or }).select('googleId displayName mobileNumber email').lean();
+}
+
+const publicUser = (u) => ({ googleId: u.googleId || '', name: u.displayName || '', mobile: u.mobileNumber || '', email: u.email || '' });
+
+// GET /admin/quiz/resolve-user?q=...  → look up a user before enabling test mode
+exports.resolveTestUser = async (req, res) => {
+  try {
+    const q = clean(req.query.q);
+    if (!q) return res.status(400).json({ error: 'Enter a user _id, googleId, mobile, email, or name.' });
+    const u = await resolveUserByAny(q);
+    if (!u) return res.status(404).json({ error: `No user matches "${q}".` });
+    if (!u.googleId) return res.status(422).json({ error: `${u.displayName || 'This user'} has no Google sign-in ID, so quiz identity cannot be resolved.` });
+    res.json({ ok: true, user: publicUser(u) });
+  } catch (e) { console.error('quiz resolveTestUser:', e.message); res.status(500).json({ error: 'Failed to look up user.' }); }
+};
+
+// GET /admin/quiz/test-mode/active — the currently-active override(s), read straight
+// from MongoDB (source of truth) so the dashboard can auto-populate after a refresh
+// without the admin re-typing an identifier. Each is resolved back to its user.
+exports.activeTestMode = async (req, res) => {
+  try {
+    const rows = await QuizTestOverride.find({ active: true }).sort({ updatedAt: -1 }).lean();
+    const active = [];
+    for (const ov of rows) {
+      const u = await User.findOne({ googleId: ov.userId }).select('googleId displayName mobileNumber email').lean();
+      active.push({
+        googleId: ov.userId,
+        simDayIndex: ov.simDayIndex,
+        dayLabel: DAY_LABELS[ov.simDayIndex] || '',
+        updatedByName: ov.updatedByName || '',
+        user: u ? publicUser(u) : { googleId: ov.userId, name: '(unknown user)', mobile: '', email: '' },
+      });
+    }
+    res.json({ active, testWeekId: TEST_WEEK_MONDAY });
+  } catch (e) { console.error('quiz activeTestMode:', e.message); res.status(500).json({ error: 'Failed to read active test mode.' }); }
+};
+
+// GET /admin/quiz/test-mode?q=...  (q may be _id / googleId / mobile / email / name)
 exports.getTestMode = async (req, res) => {
   try {
-    const userId = cleanUserId(req.query.userId);
-    if (!userId) return res.json({ active: false, userId: '' });
-    const ov = await QuizTestOverride.findOne({ userId }).lean();
-    res.json({ userId, active: !!(ov && ov.active), simDayIndex: ov ? ov.simDayIndex : 1, testWeekId: TEST_WEEK_MONDAY });
+    const q = clean(req.query.q || req.query.userId);
+    if (!q) return res.json({ active: false });
+    const u = await resolveUserByAny(q);
+    if (!u || !u.googleId) return res.json({ active: false, resolved: false });
+    const ov = await QuizTestOverride.findOne({ userId: u.googleId }).lean();
+    res.json({ resolved: true, user: publicUser(u), active: !!(ov && ov.active), simDayIndex: ov ? ov.simDayIndex : 1, testWeekId: TEST_WEEK_MONDAY });
   } catch (e) { console.error('quiz getTestMode:', e.message); res.status(500).json({ error: 'Failed to read test mode.' }); }
 };
 
-// POST /admin/quiz/test-mode  { userId, simDayIndex(1..7), active }
+// POST /admin/quiz/test-mode  { q (any identifier), simDayIndex(1..7), active }
 exports.setTestMode = async (req, res) => {
   try {
-    const userId = cleanUserId(req.body.userId);
-    if (!userId) return res.status(400).json({ error: 'Target user (googleId) is required.' });
+    const q = clean(req.body.q || req.body.userId);
+    if (!q) return res.status(400).json({ error: 'Target user is required (_id, googleId, mobile, email, or name).' });
+    const u = await resolveUserByAny(q);
+    if (!u) return res.status(404).json({ error: `No user matches "${q}".` });
+    if (!u.googleId) return res.status(422).json({ error: `${u.displayName || 'This user'} has no Google sign-in ID, so test mode cannot be enabled.` });
+
+    const userId = u.googleId; // quiz identity — NEVER the _id
     const active = req.body.active !== false && req.body.active !== 'false';
     const simDayIndex = Math.max(1, Math.min(7, parseInt(req.body.simDayIndex, 10) || 1));
     const updatedByName = req.admin ? (req.admin.name || req.admin.username || 'admin') : 'admin';
@@ -287,9 +346,9 @@ exports.setTestMode = async (req, res) => {
       { upsert: true }
     );
     logAudit({ req, action: 'quiz_test_mode_set', entityType: 'QuizTestOverride', entityId: userId,
-      description: `Test mode ${active ? 'ON' : 'OFF'} for ${userId} → ${DAY_LABELS[simDayIndex]}`,
+      description: `Test mode ${active ? 'ON' : 'OFF'} for ${u.displayName || userId} (googleId ${userId}) → ${DAY_LABELS[simDayIndex]}`,
       after: { active, simDayIndex } });
-    res.json({ ok: true, userId, active, simDayIndex, dayLabel: DAY_LABELS[simDayIndex], testWeekId: TEST_WEEK_MONDAY });
+    res.json({ ok: true, user: publicUser(u), active, simDayIndex, dayLabel: DAY_LABELS[simDayIndex], testWeekId: TEST_WEEK_MONDAY });
   } catch (e) { console.error('quiz setTestMode:', e.message); res.status(500).json({ error: 'Failed to update test mode.' }); }
 };
 
@@ -320,3 +379,5 @@ exports.clearTestWinners = async (req, res) => {
     res.json({ ok: true, deleted: r.deletedCount || 0 });
   } catch (e) { console.error('quiz clearTestWinners:', e.message); res.status(500).json({ error: 'Failed to clear test winners.' }); }
 };
+
+exports._internals = { resolveUserByAny }; // exported for tests
