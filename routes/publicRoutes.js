@@ -699,6 +699,15 @@ router.post('/api/public/user/profile', async (req, res) => {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
+    // Normalise + validate optional KYC fields (only when supplied).
+    const panNumber = req.body.panNumber ? String(req.body.panNumber).toUpperCase().trim() : null;
+    if (panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panNumber)) {
+      return res.status(400).json({ error: 'Invalid PAN number format.' });
+    }
+    if (req.body.mobileNumber && !/^[0-9]{10}$/.test(String(req.body.mobileNumber).trim())) {
+      return res.status(400).json({ error: 'Mobile number must be exactly 10 digits.' });
+    }
+
     // Check if MongoDB is connected by trying to access the connection
     const isConnectedToMongoDB = mongoose.connection.readyState === 1;
 
@@ -731,6 +740,7 @@ router.post('/api/public/user/profile', async (req, res) => {
 
           if (userEmail) user.email = userEmail;
           if (req.body.mobileNumber) user.mobileNumber = req.body.mobileNumber;
+          if (panNumber) user.panNumber = panNumber;
           if (deviceFingerprint) user.deviceFingerprint = deviceFingerprint;
 
           await user.save();
@@ -740,6 +750,7 @@ router.post('/api/public/user/profile', async (req, res) => {
           user.displayName = userName || user.displayName;
           if (userEmail) user.email = userEmail;
           if (req.body.mobileNumber) user.mobileNumber = req.body.mobileNumber;
+          if (panNumber) user.panNumber = panNumber;
           if (deviceFingerprint && !user.deviceFingerprint) {
             user.deviceFingerprint = deviceFingerprint;
           }
@@ -814,6 +825,8 @@ router.post('/api/public/user/profile', async (req, res) => {
       userId: userId,
       displayName: userName || 'User',
       email: userEmail || '',
+      mobileNumber: user?.mobileNumber || null,
+      panNumber: user?.panNumber || null,
       photoUrl: req.body.photoUrl || null,
       referralCode: user?.referralCode || null,
       createdAt: user?.createdAt?.toISOString() || new Date().toISOString(),
@@ -1192,7 +1205,7 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
 router.post('/api/public/user/location', verifyMobileUser, async (req, res) => {
   try {
     const { primaryState, primaryDistrict, lat, lng, source, additionalLocations } = req.body;
-    const userId = req.user?.userId || req.user?._id;
+    const userId = req.authUser?._id || req.user?.userId || req.user?._id || req.body.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });

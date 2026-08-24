@@ -4,6 +4,7 @@ const userSchema = new mongoose.Schema({
   googleId: { type: String, sparse: true, unique: true }, // Make optional but unique if provided
   email: { type: String, sparse: true, unique: true }, // Optional email
   mobileNumber: { type: String, sparse: true, unique: true }, // Optional mobile
+  panNumber: { type: String, default: null, uppercase: true, trim: true }, // Indian PAN (quiz KYC)
   displayName: { type: String, required: true },
   photoUrl: { type: String },
   createdAt: { type: Date, default: Date.now },

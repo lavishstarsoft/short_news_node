@@ -137,7 +137,10 @@
                                                             <div class="usr-contact">
                                                                 <% if (user.email) { %><span><%= user.email %></span><% } %>
                                                                 <% if (user.mobileNumber) { %><span><%= user.mobileNumber %></span><% } %>
-                                                                <% if (!user.email && !user.mobileNumber) { %>
+                                                                <% if (user.locationProfile && user.locationProfile.primaryState) { %>
+                                                                    <span class="usr-contact-muted" style="font-size: 0.85em; display: block; margin-top: 2px;"><i class="fas fa-map-marker-alt"></i> <%= user.locationProfile.primaryDistrict ? user.locationProfile.primaryDistrict + ', ' : '' %><%= user.locationProfile.primaryState %></span>
+                                                                <% } %>
+                                                                <% if (!user.email && !user.mobileNumber && !(user.locationProfile && user.locationProfile.primaryState)) { %>
                                                                     <span class="usr-contact-muted">Not provided</span>
                                                                 <% } %>
                                                             </div>
@@ -282,6 +285,7 @@
                         googleId: u.googleId || '',
                         email: u.email || '',
                         mobileNumber: u.mobileNumber || '',
+                        locationProfile: u.locationProfile || null,
                         createdAt: u.createdAt,
                         lastLogin: u.lastLogin,
                         deviceFingerprint: u.deviceFingerprint,
@@ -359,6 +363,7 @@
                                     '<div class="usr-info-row"><span class="usr-info-label">User ID</span><span class="usr-info-value">' + escapeHtml(String(user._id)) + '</span></div>' +
                                     (user.email ? '<div class="usr-info-row"><span class="usr-info-label">Email</span><span class="usr-info-value">' + escapeHtml(user.email) + '</span></div>' : '') +
                                     (user.mobileNumber ? '<div class="usr-info-row"><span class="usr-info-label">Mobile</span><span class="usr-info-value">' + escapeHtml(user.mobileNumber) + '</span></div>' : '') +
+                                    (user.locationProfile && user.locationProfile.primaryState ? '<div class="usr-info-row"><span class="usr-info-label">Location</span><span class="usr-info-value">' + (user.locationProfile.primaryDistrict ? escapeHtml(user.locationProfile.primaryDistrict) + ', ' : '') + escapeHtml(user.locationProfile.primaryState) + '</span></div>' : '') +
                                     '<div class="usr-info-row"><span class="usr-info-label">Registered</span><span class="usr-info-value">' + formatDate(user.createdAt) + '</span></div>' +
                                     '<div class="usr-info-row"><span class="usr-info-label">Last login</span><span class="usr-info-value">' + formatDate(user.lastLogin) + '</span></div>' +
                                     (user.deviceFingerprint ? 
