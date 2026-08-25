@@ -39,6 +39,10 @@ jest.mock('../models/QuizEntry', () => ({
 jest.mock('../models/QuizWeek', () => ({ updateOne: jest.fn(async () => ({})) }));
 jest.mock('../models/QuizWinner', () => ({ find: jest.fn(() => ({ sort: () => ({ lean: async () => [] }) })) }));
 jest.mock('../models/QuizTestOverride', () => ({ findOne: jest.fn(() => ({ lean: async () => null })) })); // no test override in these tests
+jest.mock('../services/quizLanguageService', () => ({
+  isQuizLanguageAllowed: jest.fn(async () => true),
+  getQuizConfig: jest.fn(async () => ({ isEnabled: true, enabledLanguages: ['te'] }))
+}));
 
 const ctrl = require('../controllers/quizController');
 
@@ -55,7 +59,7 @@ beforeEach(() => {
   store.entries = [];
 });
 
-const REQ = { verifiedGoogleId: 'user-1', body: {} };
+const REQ = { verifiedGoogleId: 'user-1', body: {}, query: { lang: 'te' } };
 
 test('today (Mon) assigns a question and NEVER exposes correctOption', async () => {
   mockNow('2026-08-24T06:00:00+05:30');

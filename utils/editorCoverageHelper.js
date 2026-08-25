@@ -421,7 +421,7 @@ async function findReporterStateInchargeDoc(Admin, reporterDoc) {
     .select('name username displayRole mobileNumber permissions')
     .lean();
 
-  const isStateInCharge = (s) => /state\s*in-?charge/i.test(s.displayRole || '');
+  const isBureau = (s) => /bureau/i.test(s.displayRole || '');
 
   const explicitMatches = [];
   const geoMatches = [];
@@ -436,10 +436,8 @@ async function findReporterStateInchargeDoc(Admin, reporterDoc) {
   }
 
   return (
-    explicitMatches.find(isStateInCharge) ||
-    explicitMatches[0] ||
-    geoMatches.find(isStateInCharge) ||
-    geoMatches[0] ||
+    explicitMatches.find(isBureau) ||
+    geoMatches.find(isBureau) ||
     null
   );
 }

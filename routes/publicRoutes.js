@@ -701,10 +701,11 @@ router.post('/api/public/user/profile', async (req, res) => {
 
     // Normalise + validate optional KYC fields (only when supplied).
     const panNumber = req.body.panNumber ? String(req.body.panNumber).toUpperCase().trim() : null;
+    const mobileNumber = req.body.mobileNumber ? String(req.body.mobileNumber).trim() : null;
     if (panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panNumber)) {
       return res.status(400).json({ error: 'Invalid PAN number format.' });
     }
-    if (req.body.mobileNumber && !/^[0-9]{10}$/.test(String(req.body.mobileNumber).trim())) {
+    if (mobileNumber && !/^[0-9]{10}$/.test(mobileNumber)) {
       return res.status(400).json({ error: 'Mobile number must be exactly 10 digits.' });
     }
 
@@ -716,15 +717,35 @@ router.post('/api/public/user/profile', async (req, res) => {
       try {
         const User = require('../models/User');
 
-        // Try to find existing user by various ID types
-        const query = { $or: [] };
-        if (userId) query.$or.push({ googleId: userId });
-        if (userEmail) query.$or.push({ email: userEmail });
-        if (req.body.mobileNumber) query.$or.push({ mobileNumber: req.body.mobileNumber });
+        // Resolve the acting user by their STABLE identity (googleId/email) only.
+        // We deliberately don't resolve by the submitted mobile/PAN — those are
+        // being (re)assigned and may currently belong to a different account.
+        const identity = { $or: [] };
+        if (userId) identity.$or.push({ googleId: userId });
+        if (userEmail) identity.$or.push({ email: userEmail });
+        // Pure mobile-login users (no googleId/email) are still resolved by mobile.
+        if (identity.$or.length === 0 && mobileNumber) identity.$or.push({ mobileNumber });
 
-        // Ensure query is valid
-        if (query.$or.length > 0) {
-          user = await User.findOne(query);
+        if (identity.$or.length > 0) {
+          user = await User.findOne(identity);
+        }
+
+        // Uniqueness: a mobile/PAN may not be linked to a DIFFERENT account.
+        if (mobileNumber) {
+          const clash = await User.findOne(
+            user ? { mobileNumber, _id: { $ne: user._id } } : { mobileNumber }
+          );
+          if (clash) {
+            return res.status(400).json({ error: 'This Mobile Number is already linked to another account.' });
+          }
+        }
+        if (panNumber) {
+          const clash = await User.findOne(
+            user ? { panNumber, _id: { $ne: user._id } } : { panNumber }
+          );
+          if (clash) {
+            return res.status(400).json({ error: 'This PAN is already linked to another account.' });
+          }
         }
 
         if (!user) {
@@ -735,11 +756,11 @@ router.post('/api/public/user/profile', async (req, res) => {
             photoUrl: req.body.photoUrl || null
           });
 
-          if (userId && !userEmail && !req.body.mobileNumber) user.googleId = userId; // Google login
+          if (userId && !userEmail && !mobileNumber) user.googleId = userId; // Google login
           else if (userId) user.googleId = userId; // Could be from Google
 
           if (userEmail) user.email = userEmail;
-          if (req.body.mobileNumber) user.mobileNumber = req.body.mobileNumber;
+          if (mobileNumber) user.mobileNumber = mobileNumber;
           if (panNumber) user.panNumber = panNumber;
           if (deviceFingerprint) user.deviceFingerprint = deviceFingerprint;
 
@@ -749,7 +770,7 @@ router.post('/api/public/user/profile', async (req, res) => {
           // Update existing user info
           user.displayName = userName || user.displayName;
           if (userEmail) user.email = userEmail;
-          if (req.body.mobileNumber) user.mobileNumber = req.body.mobileNumber;
+          if (mobileNumber) user.mobileNumber = mobileNumber;
           if (panNumber) user.panNumber = panNumber;
           if (deviceFingerprint && !user.deviceFingerprint) {
             user.deviceFingerprint = deviceFingerprint;
@@ -768,6 +789,12 @@ router.post('/api/public/user/profile', async (req, res) => {
           ]);
         }
       } catch (dbError) {
+        // Duplicate-key race on the unique mobile index → friendly 400.
+        if (dbError && dbError.code === 11000) {
+          const dupField = dbError.keyPattern && Object.keys(dbError.keyPattern)[0];
+          const label = dupField === 'panNumber' ? 'PAN' : 'Mobile Number';
+          return res.status(400).json({ error: `This ${label} is already linked to another account.` });
+        }
         console.error('Database error in user profile:', dbError);
         return res.status(500).json({ error: 'Database error' });
       }

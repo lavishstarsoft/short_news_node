@@ -2878,11 +2878,12 @@ async function registerEditor(req, res) {
       return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
 
-    const { username, email, password, name, displayRole, reporterTier, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canEditNews, requiresSourceLink, canSendNotifications, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds, sidebar } = req.body;
+    const { username, email, password, name, displayRole, reporterTier, location, assignedLocations, assignedState, assignedStates, assignedDistricts, assignedConstituencies, allowedScopes, allowedLanguages, constituency, mobileNumber, role, workingLanguage, canViewReporterDetails, canAccessAdminDashboard, canApproveNews, canViewAllNews, canEditNews, requiresSourceLink, canSendNotifications, approvalScope, managedLocations, managedStates, managedDistricts, managedConstituencies, managedReporterIds, sidebar, walletConfig } = req.body;
 
     // Reporter Tier is Super Admin-only; default null preserves existing behaviour.
-    const initialReporterTier = (admin.role === 'superadmin' && ['stringer', 'district_incharge'].includes(reporterTier))
-      ? reporterTier
+    const normalizedTier = (reporterTier || '').toString().toLowerCase().trim();
+    const initialReporterTier = (admin.role === 'superadmin' && ['stringer', 'district_incharge'].includes(normalizedTier))
+      ? normalizedTier
       : null;
 
     // Validate required fields
@@ -2988,6 +2989,11 @@ async function registerEditor(req, res) {
             zodiac: sidebar.zodiac === 'true' || sidebar.zodiac === true
         } : undefined
       },
+      walletConfig: walletConfig ? {
+        enabled: walletConfig.enabled === 'true' || walletConfig.enabled === true,
+        dailyTargetNews: (Number.isFinite(Number(walletConfig.dailyTargetNews)) && Number(walletConfig.dailyTargetNews) > 0) ? Math.round(Number(walletConfig.dailyTargetNews)) : null,
+        dailyRewardAmount: (Number.isFinite(Number(walletConfig.dailyRewardAmount)) && Number(walletConfig.dailyRewardAmount) > 0) ? Math.round(Number(walletConfig.dailyRewardAmount)) : null
+      } : {},
       createdBy: admin._id
     });
 

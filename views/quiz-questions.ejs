@@ -19,15 +19,75 @@
           .qz-on{background:#e8f5e9;color:#2e7d32}.qz-off{background:#eceff1;color:#546e7a}.qz-lock{background:#fff3e0;color:#e65100}
         </style>
         <div class="mb-2 d-flex justify-content-between align-items-start flex-wrap gap-2">
-          <div><h3 class="mb-1">Quiz Question Bank</h3>
-            <p class="text-muted mb-0">MCQ pool for the Mon–Sat Daily Quiz. Correct answer is server-only. Questions used in a completed week can't be edited (only disabled). <span id="qzActive"></span></p></div>
+          <div class="d-flex justify-content-between align-items-center w-100">
+            <div>
+              <h3 class="mb-1 d-flex align-items-center">Quiz Question Bank 
+                <button class="btn btn-sm btn-info text-white ms-3 fw-bold shadow-sm" onclick="toggleQuizHelp()" title="ఈ పేజీ గురించి తెలుసుకోండి"><i class="fas fa-info-circle"></i> Info / Help</button>
+              </h3>
+              <p class="text-muted mb-0">MCQ pool for the Mon–Sat Daily Quiz. Correct answer is server-only. Questions used in a completed week can't be edited (only disabled). <span id="qzActive"></span></p>
+            </div>
+          </div>
           <div class="d-flex gap-2">
             <a class="btn btn-sm btn-outline-success" href="/admin/quiz/api/questions/template"><i class="fas fa-download"></i> Download Template</a>
             <button class="btn btn-sm btn-outline-primary" onclick="document.getElementById('qzFile').click()"><i class="fas fa-file-excel"></i> Import from Excel</button>
             <input type="file" id="qzFile" accept=".xlsx,.xls" style="display:none" onchange="qzPreview(this.files[0])">
           </div>
         </div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-body">
+                <h6 class="card-title fw-bold">Daily Quiz Settings</h6>
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="qzMasterSwitch">
+                  <label class="form-check-label fw-bold" for="qzMasterSwitch">Quiz Enabled (Master ON/OFF)</label>
+                </div>
+                <div class="mb-2">
+                  <label class="fw-bold small text-muted">Enabled Languages</label><br>
+                  <select id="qzLangSelect" class="form-select form-select-sm" multiple style="height:80px">
+                    <option value="te">Telugu (te)</option>
+                    <option value="en">English (en)</option>
+                    <option value="hi">Hindi (hi)</option>
+                    <option value="kn">Kannada (kn)</option>
+                    <option value="ta">Tamil (ta)</option>
+                  </select>
+                  <small class="text-muted" style="font-size:11px">Hold Ctrl/Cmd to select multiple. Empty = NO languages enabled.</small>
+                </div>
+                <button class="btn btn-sm btn-primary" onclick="qzSaveSettings()">Save Settings</button>
+                <span id="qzSetMsg" class="ms-2 small fw-bold"></span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-body">
+                <h6 class="card-title fw-bold mb-2">Language Pool Health <button class="btn btn-sm btn-link py-0 px-1 ms-1" onclick="qzLoadHealth()"><i class="fas fa-sync-alt"></i></button></h6>
+                <div id="qzHealthBox" style="max-height:140px;overflow-y:auto">
+                  <div class="text-muted small">Loading health...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div id="qzImportBox" style="display:none;border:1px solid #eef0f3;border-radius:10px;padding:12px;margin-bottom:14px;background:#fbfcfe">
+          <div class="mb-2 d-flex flex-wrap gap-3 align-items-center">
+            <div>
+              <label class="fw-bold small me-2">Import mode:</label>
+              <label class="small me-3"><input type="radio" name="qzMode" value="add" checked> Add new only (skip duplicates)</label>
+              <label class="small"><input type="radio" name="qzMode" value="disable_old"> Disable old pool, then import new</label>
+            </div>
+            <div>
+              <label class="fw-bold small me-2">Fallback Language:</label>
+              <select id="qzImportLang" class="form-select form-select-sm d-inline-block w-auto">
+                <option value="te">Telugu (te)</option>
+                <option value="en">English (en)</option>
+                <option value="hi">Hindi (hi)</option>
+                <option value="kn">Kannada (kn)</option>
+                <option value="ta">Tamil (ta)</option>
+              </select>
+            </div>
+          </div>
           <div id="qzImportSummary" class="fw-bold mb-2"></div>
           <div id="qzImportRows" style="max-height:200px;overflow:auto;font-size:13px"></div>
           <div class="mt-2"><button class="btn btn-sm btn-primary" id="qzConfirmBtn" onclick="qzConfirm()" disabled>Confirm Import</button>
@@ -48,30 +108,120 @@
           <span id="qzMsg" class="ms-2 small"></span>
         </div>
 
+        <div class="d-flex flex-wrap align-items-end gap-2 mb-2">
+          <input id="qzSearch" class="form-control form-control-sm" style="width:220px" placeholder="Search question text">
+          <input id="qzCat" class="form-control form-control-sm" style="width:130px" placeholder="Category">
+          <input id="qzLang" class="form-control form-control-sm" style="width:90px" placeholder="Lang">
+          <select id="qzStatus" class="form-select form-select-sm" style="width:150px">
+            <option value="">All statuses</option>
+            <option value="active">Active only</option>
+            <option value="disabled">Disabled only</option>
+            <option value="locked">Locked only</option>
+            <option value="archived">Archived only</option>
+            <option value="notarchived">Hide archived</option>
+          </select>
+          <button class="btn btn-sm btn-outline-secondary" onclick="qzGo(1)">Filter</button>
+          <button class="btn btn-sm btn-light" onclick="qzReset()">Reset</button>
+          <button class="btn btn-sm btn-outline-danger ms-auto" id="qzBulkDeleteBtn" style="display:none" onclick="qzBulkDelete()">Delete Selected</button>
+        </div>
+        <div id="qzStatsOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1050" onclick="if(event.target===this)this.style.display='none'">
+          <div style="max-width:560px;margin:8vh auto;background:#fff;border-radius:12px;padding:16px">
+            <div class="d-flex align-items-center mb-2"><h5 class="mb-0">Question performance</h5><button class="btn btn-sm btn-light ms-auto" onclick="document.getElementById('qzStatsOverlay').style.display='none'">✕</button></div>
+            <div id="qzStatsBody" class="small"></div>
+          </div>
+        </div>
         <div class="card"><div class="table-responsive"><table class="qz-tbl">
-          <thead><tr><th>Question</th><th>Options</th><th>Correct</th><th>Lang</th><th>Status</th><th class="text-end">Action</th></tr></thead>
-          <tbody id="qzRows"><tr><td colspan="6" class="text-muted py-3">Loading…</td></tr></tbody>
+          <thead><tr><th style="width:40px"><input type="checkbox" id="qzSelectAll" onchange="qzToggleAll(this.checked)"></th><th>Question</th><th>Options</th><th>Correct</th><th>Lang</th><th>Status</th><th>Usage</th><th class="text-end">Action</th></tr></thead>
+          <tbody id="qzRows"><tr><td colspan="8" class="text-muted py-3">Loading…</td></tr></tbody>
         </table></div></div>
+        <div class="d-flex align-items-center gap-2 mt-2">
+          <button id="qzBtnPrev" class="btn btn-sm btn-outline-secondary" onclick="qzGo(window.qzState.page-1)">Prev</button>
+          <span id="qzPage" class="small"></span>
+          <button id="qzBtnNext" class="btn btn-sm btn-outline-secondary" onclick="qzGo(window.qzState.page+1)">Next</button>
+          <span id="qzTotals" class="small text-muted ms-2"></span>
+        </div>
       </div>
     </div>
   </div></div>
+  <%- include('partials/quiz-help-modal') %>
   <%- include('partials/footer') %>
   <script>
   (function(){
     var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});};
     var KEYS=['A','B','C','D'];
     function optInputs(){ document.getElementById('qOpts').innerHTML=KEYS.map(function(k){return '<div class="qz-opt"><span class="k">'+k+'</span><input id="qOpt'+k+'" placeholder="Option '+k+' (blank to skip)"><label class="small"><input type="radio" name="qCorrect" value="'+k+'"> correct</label></div>';}).join(''); }
-    async function load(){
-      var r=await fetch('/admin/quiz/api/questions'); var d=await r.json();
-      document.getElementById('qzActive').textContent='Active pool: '+(d.activeCount||0);
+    window.qzState={page:1};
+    function load(){ return qzGo(window.qzState.page); }
+    window.qzReset=function(){ document.getElementById('qzSearch').value=''; document.getElementById('qzCat').value=''; document.getElementById('qzLang').value=''; document.getElementById('qzStatus').value=''; qzGo(1); };
+    window.qzGo=async function(page){
+      if(page<1)return; window.qzState.page=page;
+      var qs='page='+page+'&pageSize=25';
+      var s=(document.getElementById('qzSearch').value||'').trim(); if(s)qs+='&q='+encodeURIComponent(s);
+      var c=(document.getElementById('qzCat').value||'').trim(); if(c)qs+='&category='+encodeURIComponent(c);
+      var l=(document.getElementById('qzLang').value||'').trim(); if(l)qs+='&language='+encodeURIComponent(l);
+      var st=document.getElementById('qzStatus').value;
+      if(st==='active')qs+='&active=true'; else if(st==='disabled')qs+='&active=false'; else if(st==='locked')qs+='&locked=true';
+      else if(st==='archived')qs+='&archived=true'; else if(st==='notarchived')qs+='&archived=false';
+      var d=await (await fetch('/admin/quiz/api/questions?'+qs)).json();
+      document.getElementById('qzActive').textContent='Active pool: '+(d.activeCount||0)+' · Locked: '+(d.lockedCount||0);
+      document.getElementById('qzPage').textContent='Page '+d.page+' / '+d.pages;
+      document.getElementById('qzTotals').textContent=(d.total||0)+' questions';
+      document.getElementById('qzBtnPrev').disabled = d.page <= 1;
+      document.getElementById('qzBtnNext').disabled = d.page >= d.pages;
       document.getElementById('qzRows').innerHTML=(d.items||[]).map(function(q){
         var opts=q.options.map(function(o){return o.key+': '+esc(o.text);}).join('<br>');
         var st=q.isActive?'<span class="qz-b qz-on">Active</span>':'<span class="qz-b qz-off">Disabled</span>';
-        if(q.lockedForEdit) st+=' <span class="qz-b qz-lock">Locked</span>';
-        return '<tr><td>'+esc(q.text)+'</td><td>'+opts+'</td><td><b>'+esc(q.correctOption)+'</b></td><td>'+esc(q.language||'')+'</td><td>'+st+'</td>'+
-          '<td class="text-end"><button class="btn btn-sm btn-outline-secondary" onclick="qzToggle(\''+q._id+'\','+(q.isActive?'false':'true')+')">'+(q.isActive?'Disable':'Enable')+'</button></td></tr>';
-      }).join('')||'<tr><td colspan="6" class="text-muted py-3">No questions yet.</td></tr>';
-    }
+        var badgeMap={locked:'<span class="qz-b qz-lock">Locked</span>',used:'<span class="qz-b qz-on">Used</span>',unused:'<span class="qz-b qz-off">Unused</span>',archived:'<span class="qz-b qz-off">Archived</span>'};
+        var statusBadge=badgeMap[q.status]||'';
+        var usage='assigned '+(q.assignedCount||0)+' · answered '+(q.usageCount||0);
+        var statsBtn='<button class="btn btn-sm btn-outline-info" onclick="qzStats(\''+q._id+'\')">Stats</button>';
+        var act=q.archived
+          ? statsBtn+' <button class="btn btn-sm btn-outline-success" onclick="qzArchive(\''+q._id+'\',false)">Restore</button>'
+          : statsBtn+' <button class="btn btn-sm btn-outline-secondary" onclick="qzToggle(\''+q._id+'\','+(q.isActive?'false':'true')+')">'+(q.isActive?'Disable':'Enable')+'</button> ' + 
+            (q.used 
+              ? '<button class="btn btn-sm btn-outline-warning" onclick="qzArchive(\''+q._id+'\',true)">Archive</button>'
+              : '<button class="btn btn-sm btn-outline-danger" onclick="qzDelete(\''+q._id+'\')">Delete</button>');
+        var chk = (q.archived || q.used || q.status === 'locked') ? '' : '<input type="checkbox" class="qz-chk" value="'+q._id+'" onchange="qzCheck()">';
+        return '<tr><td>'+chk+'</td><td>'+esc(q.text)+'</td><td>'+opts+'</td><td><b>'+esc(q.correctOption)+'</b></td><td>'+esc(q.language||'')+'</td><td>'+st+' '+statusBadge+'</td><td class="small text-muted">'+usage+'</td>'+
+          '<td class="text-end">'+act+'</td></tr>';
+      }).join('')||'<tr><td colspan="8" class="text-muted py-3">No questions match.</td></tr>';
+      if (document.getElementById('qzSelectAll')) document.getElementById('qzSelectAll').checked = false;
+      if (typeof window.qzCheck === 'function') window.qzCheck();
+    };
+    window.qzArchive=async function(id,to){
+      if(to && !confirm('Archive this question? It leaves the active pool but is never deleted (usage history preserved). You can Restore it later.'))return;
+      var r=await fetch('/admin/quiz/api/questions/'+id+'/archive',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({archived:to})});
+      var d=await r.json(); if(!r.ok){alert(d.error||'Failed');return;} load();
+    };
+    window.qzDelete=async function(id){
+      if(!confirm('Permanently delete this unused question? This cannot be undone.'))return;
+      var r=await fetch('/admin/quiz/api/questions/'+id,{method:'DELETE',headers:{'Content-Type':'application/json'}});
+      var d=await r.json(); if(!r.ok){alert(d.error||'Failed to delete');return;} load();
+    };
+    window.qzToggleAll=function(checked){
+      document.querySelectorAll('.qz-chk').forEach(function(el){ el.checked = checked; });
+      window.qzCheck();
+    };
+    window.qzCheck=function(){
+      var chks = document.querySelectorAll('.qz-chk');
+      var checked = document.querySelectorAll('.qz-chk:checked');
+      var btn = document.getElementById('qzBulkDeleteBtn');
+      if (chks.length && chks.length === checked.length) document.getElementById('qzSelectAll').checked = true;
+      else document.getElementById('qzSelectAll').checked = false;
+      if (checked.length > 0) { btn.style.display = 'inline-block'; btn.textContent = 'Delete Selected (' + checked.length + ')'; }
+      else btn.style.display = 'none';
+    };
+    window.qzBulkDelete=async function(){
+      var ids = Array.from(document.querySelectorAll('.qz-chk:checked')).map(function(el){ return el.value; });
+      if(!ids.length) return;
+      if(!confirm('Delete ' + ids.length + ' selected unused questions?\n\n(Note: Used or locked questions will be safely skipped and not deleted)')) return;
+      var r=await fetch('/admin/quiz/api/questions/bulk-delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:ids})});
+      var d=await r.json(); if(!r.ok){alert(d.error||'Failed to delete');return;}
+      var msg = 'Deleted: ' + d.deleted;
+      if (d.skipped > 0) msg += '\nSkipped (Used/Locked): ' + d.skipped;
+      alert(msg);
+      load();
+    };
     window.qzCreate=async function(){
       var opts=KEYS.map(function(k){return {key:k,text:(document.getElementById('qOpt'+k).value||'').trim()};}).filter(function(o){return o.text;});
       var correct=(document.querySelector('input[name=qCorrect]:checked')||{}).value;
@@ -82,33 +232,130 @@
         msg.textContent='Added';msg.className='ms-2 small text-success';document.getElementById('qText').value='';optInputs();load();
       }catch(e){msg.textContent='Network error';}
     };
+    window.qzStats=async function(id){
+      var d=await (await fetch('/admin/quiz/api/questions/'+id+'/stats')).json();
+      if(d.error){alert(d.error);return;}
+      var bars=(d.distribution||[]).map(function(o){
+        var w=Math.max(2,o.pct); var col=o.isCorrect?'#2e7d32':'#90a4ae';
+        return '<div class="mb-1"><b>'+o.option+'</b>'+(o.isCorrect?' ✓':'')+' — '+o.count+' ('+o.pct+'%)'+
+          '<div style="height:8px;background:#eef0f3;border-radius:4px;overflow:hidden"><div style="width:'+w+'%;height:8px;background:'+col+'"></div></div></div>';
+      }).join('');
+      document.getElementById('qzStatsBody').innerHTML=
+        '<div class="mb-2">'+esc(d.text)+'</div>'+
+        '<div class="mb-2">Assigned <b>'+d.assigned+'</b> · Answered <b>'+d.answered+'</b> · Correct <b>'+d.correct+'</b> · Correct% <b>'+d.correctPct+'%</b> · Correct option <b>'+esc(d.correctOption)+'</b></div>'+
+        bars;
+      document.getElementById('qzStatsOverlay').style.display='block';
+    };
     window.qzToggle=async function(id,to){
-      await fetch('/admin/quiz/api/questions/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({isActive:(to==='true')})}); load();
+      await fetch('/admin/quiz/api/questions/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({isActive:to})}); load();
     };
     var pendingFile=null;
+    function qzMode(){ return (document.querySelector('input[name=qzMode]:checked')||{}).value||'add'; }
     async function doImport(file,dryRun){
-      var fd=new FormData(); fd.append('file',file); fd.append('dryRun',dryRun?'true':'false');
+      var lang = document.getElementById('qzImportLang').value;
+      var fd=new FormData(); fd.append('file',file); fd.append('dryRun',dryRun?'true':'false'); fd.append('mode',qzMode()); fd.append('language',lang);
       var r=await fetch('/admin/quiz/api/questions/import',{method:'POST',body:fd}); return {ok:r.ok, d:await r.json()};
     }
     function renderImport(d,phase){
       document.getElementById('qzImportBox').style.display='block';
-      document.getElementById('qzImportSummary').innerHTML=phase+': <span class="text-success">Import '+d.imported+'</span> · <span class="text-secondary">Skip '+d.skipped+'</span> · <span class="text-danger">Fail '+d.failed+'</span> · of '+d.total;
-      var errs=(d.results||[]).filter(function(x){return x.status!=='ok';});
-      document.getElementById('qzImportRows').innerHTML=errs.length?('<table class="qz-tbl"><tr><th>Row</th><th>Status</th><th>Reason</th></tr>'+errs.map(function(x){return '<tr><td>'+x.row+'</td><td>'+x.status+'</td><td>'+esc(x.error||'')+'</td></tr>';}).join('')+'</table>'):'<span class="text-muted">All rows OK.</span>';
+      var extra=(d.mode==='disable_old')?(' · <span class="text-warning">Disable old '+((d.willDisableOld!=null?d.willDisableOld:d.disabledOld)||0)+'</span>'):'';
+      document.getElementById('qzImportSummary').innerHTML=phase+': <span class="text-success">Import '+d.imported+'</span> · <span class="text-secondary">Skip '+d.skipped+'</span> · <span class="text-danger">Fail '+d.failed+'</span>'+extra+' · of '+d.total;
+      
+      var rowsHtml = '';
+      if (d.results && d.results.length) {
+        rowsHtml = '<table class="qz-tbl"><tr><th style="width:50px">Row</th><th>Question</th><th style="width:60px">Lang</th><th>Status</th></tr>' +
+          d.results.map(function(x){
+            var stCol = x.status==='ok' ? 'text-success' : (x.status==='skipped' ? 'text-secondary' : 'text-danger');
+            var msg = x.status==='ok' ? 'OK' : esc(x.error||'');
+            var langText = x.language || '-';
+            var qText = x.question ? esc(x.question) : '<em class="text-muted">Empty/Invalid</em>';
+            return '<tr><td>'+x.row+'</td><td>'+qText+'</td><td><b>'+langText+'</b></td><td class="'+stCol+'">'+msg+'</td></tr>';
+          }).join('') + '</table>';
+      } else {
+        rowsHtml = '<span class="text-muted">No rows found.</span>';
+      }
+      document.getElementById('qzImportRows').innerHTML = rowsHtml;
     }
     window.qzPreview=async function(file){
       if(!file)return; pendingFile=file;
       var r=await doImport(file,true);
       if(!r.ok){alert(r.d.error||'Preview failed');return;}
-      renderImport(r.d,'Preview'); document.getElementById('qzConfirmBtn').disabled=(r.d.imported===0);
+      renderImport(r.d,'Preview'); document.getElementById('qzConfirmBtn').disabled=(r.d.imported===0 && qzMode()!=='disable_old');
     };
     window.qzConfirm=async function(){
       if(!pendingFile)return; document.getElementById('qzConfirmBtn').disabled=true;
       var r=await doImport(pendingFile,false);
       if(!r.ok){alert(r.d.error||'Import failed');return;}
-      renderImport(r.d,'Imported'); pendingFile=null; document.getElementById('qzFile').value=''; load();
+      renderImport(r.d,'Imported'); pendingFile=null; document.getElementById('qzFile').value=''; load(); window.qzLoadHealth();
     };
-    optInputs(); load();
+
+    window.qzLoadSettings=async function(){
+      try {
+        var r = await fetch('/admin/quiz/api/settings'); var s = await r.json();
+        document.getElementById('qzMasterSwitch').checked = !!s.isEnabled;
+        var opts = document.getElementById('qzLangSelect').options;
+        for (var i = 0; i < opts.length; i++) {
+          opts[i].selected = s.enabledLanguages.includes(opts[i].value);
+        }
+      } catch(e) {}
+    };
+    window.qzSaveSettings=async function(){
+      var msg = document.getElementById('qzSetMsg'); msg.textContent = 'Saving...'; msg.className = 'ms-2 small text-muted';
+      var isEnabled = document.getElementById('qzMasterSwitch').checked;
+      var sel = Array.from(document.getElementById('qzLangSelect').selectedOptions).map(function(o){ return o.value; });
+      try {
+        var r = await fetch('/admin/quiz/api/settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isEnabled: isEnabled, enabledLanguages: sel })
+        });
+        if (!r.ok) throw new Error();
+        msg.textContent = 'Saved!'; msg.className = 'ms-2 small text-success';
+        setTimeout(function(){ msg.textContent = ''; }, 2000);
+      } catch(e) {
+        msg.textContent = 'Failed'; msg.className = 'ms-2 small text-danger';
+      }
+    };
+    window.qzLoadHealth=async function(){
+      var box = document.getElementById('qzHealthBox');
+      box.innerHTML = '<div class="text-muted small">Loading health...</div>';
+      try {
+        var r = await fetch('/admin/quiz/api/questions/pool-health'); var h = await r.json();
+        if (!h.length) { box.innerHTML = '<div class="text-muted small">No questions in pool.</div>'; return; }
+        
+        // Also get currently enabled languages to check for warnings
+        var sR = await fetch('/admin/quiz/api/settings'); var s = await sR.json();
+        var enabled = s.enabledLanguages || [];
+        
+        var html = '<table class="qz-tbl" style="margin:0"><tr><th>Lang</th><th>Active</th><th>Unused</th><th>Used</th><th>Archived</th></tr>';
+        
+        // Sort by enabled first, then by total
+        h.sort(function(a,b){
+          var aEn = enabled.includes(a.language) ? 1 : 0;
+          var bEn = enabled.includes(b.language) ? 1 : 0;
+          if (aEn !== bEn) return bEn - aEn;
+          return b.total - a.total;
+        });
+        
+        h.forEach(function(row){
+          var isEnabled = enabled.includes(row.language);
+          var warn = '';
+          if (isEnabled && row.active < 6) warn = ' <i class="fas fa-exclamation-triangle text-danger" title="Warning: Enabled but has < 6 active questions!"></i>';
+          html += '<tr>' +
+            '<td><b>'+esc(row.language)+'</b>'+(isEnabled?' <span class="text-success" style="font-size:10px">✓</span>':'')+warn+'</td>'+
+            '<td>'+row.active+'</td>'+
+            '<td>'+row.unused+'</td>'+
+            '<td>'+row.used+'</td>'+
+            '<td>'+row.archived+'</td>'+
+          '</tr>';
+        });
+        html += '</table>';
+        box.innerHTML = html;
+      } catch(e) {
+        box.innerHTML = '<div class="text-danger small">Failed to load health.</div>';
+      }
+    };
+
+    optInputs(); load(); window.qzLoadSettings(); window.qzLoadHealth();
   })();
   </script>
 </body>

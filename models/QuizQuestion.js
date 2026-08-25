@@ -20,11 +20,13 @@ const quizQuestionSchema = new mongoose.Schema({
   language: { type: String, default: 'te', trim: true },
   category: { type: String, default: null, trim: true },
   isActive: { type: Boolean, default: true },
+  archived: { type: Boolean, default: false }, // soft-removed: excluded from the pool, NEVER hard-deleted
   usageCount: { type: Number, default: 0 },
   lockedForEdit: { type: Boolean, default: false },
   createdByName: { type: String, default: '' },
 }, { timestamps: true });
 
 quizQuestionSchema.index({ isActive: 1 });
+quizQuestionSchema.index({ language: 1, isActive: 1 });
 
 module.exports = mongoose.model('QuizQuestion', quizQuestionSchema);

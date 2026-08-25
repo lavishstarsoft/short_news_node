@@ -5,6 +5,7 @@ const Language = require('../models/Language');
 const { cacheMiddleware } = require('../middleware/cache');
 const { requireAuth, requireAdmin } = require('../controllers/adminController');
 const { NEWS_TITLE_MAX, NEWS_CONTENT_MAX } = require('../constants/newsLimits');
+const { getQuizConfig } = require('../services/quizLanguageService');
 
 // Admin route to get app settings view
 router.get('/admin/app-settings', requireAuth, requireAdmin, async (req, res) => {
@@ -64,6 +65,7 @@ router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
         if (enableLocationModule !== undefined) settings.enableLocationModule = enableLocationModule;
         if (calendarEnabledLanguages !== undefined) settings.calendarEnabledLanguages = calendarEnabledLanguages;
         if (zodiacEnabledLanguages !== undefined) settings.zodiacEnabledLanguages = zodiacEnabledLanguages;
+
         
         // Update legal pages if provided
         if (contactUs !== undefined) settings.contactUs = contactUs;
@@ -118,6 +120,8 @@ router.get('/api/public/app-settings', async (req, res) => {
                 enableLocationModule: true,
                 calendarEnabledLanguages: ['te'],
                 zodiacEnabledLanguages: ['te'],
+                quizEnabledLanguages: [], // empty = all languages
+                isQuizEnabled: true,
                 contactUs: '',
                 privacyPolicy: '',
                 aboutUs: '',
@@ -139,6 +143,12 @@ router.get('/api/public/app-settings', async (req, res) => {
             if (responseSettings.zodiacEnabledLanguages === undefined) {
                 responseSettings.zodiacEnabledLanguages = ['te', 'hi', 'en', 'ta', 'mr'];
             }
+            if (responseSettings.quizEnabledLanguages === undefined) {
+                responseSettings.quizEnabledLanguages = []; // empty = all languages (back-compat)
+            }
+            if (responseSettings.isQuizEnabled === undefined) {
+                responseSettings.isQuizEnabled = true;
+            }
             if (responseSettings.allowReporterBrowserAccess === undefined) {
                 responseSettings.allowReporterBrowserAccess = false;
             }
@@ -149,6 +159,11 @@ router.get('/api/public/app-settings', async (req, res) => {
                 responseSettings.enableAIAssistant = true;
             }
         }
+
+        // Override legacy Quiz settings with the new authoritative QuizSettings
+        const quizConfig = await getQuizConfig();
+        responseSettings.isQuizEnabled = quizConfig.isEnabled;
+        responseSettings.quizEnabledLanguages = quizConfig.langs;
 
         // Add length limits dynamically from backend constants
         responseSettings.newsTitleMax = NEWS_TITLE_MAX;

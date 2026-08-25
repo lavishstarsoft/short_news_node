@@ -34,7 +34,7 @@ test('invalid rows fail with row-wise errors (missing option, bad correctOption)
 });
 
 test('duplicates within file AND against existing DB are skipped, never inserted', () => {
-  const existing = new Set(['already there']);
+  const existing = new Set(['already there::te']);
   const plan = buildImportPlan([
     row({ question: 'Already There' }),  // matches existing (normalized)
     row({ question: 'New One' }),
@@ -47,7 +47,7 @@ test('duplicates within file AND against existing DB are skipped, never inserted
 });
 
 test('locked/used question (exists in DB) is SKIPPED — import never modifies it', () => {
-  const existing = new Set(['locked q']); // a question already in the bank (possibly lockedForEdit)
+  const existing = new Set(['locked q::te']); // a question already in the bank (possibly lockedForEdit)
   const plan = buildImportPlan([row({ question: 'Locked Q', correctOption: 'B' })], existing);
   expect(plan.imported).toBe(0);
   expect(plan.skipped).toBe(1);
@@ -59,7 +59,7 @@ test('idempotent re-upload: after the questions exist, a second upload imports 0
   const first = buildImportPlan(rows, new Set());
   expect(first.imported).toBe(2);
   // simulate they were inserted → now in existing set
-  const existing = new Set(first.toInsert.map((d) => d.text.toLowerCase()));
+  const existing = new Set(first.toInsert.map((d) => d.text.toLowerCase() + '::' + d.language));
   const second = buildImportPlan(rows, existing);
   expect(second.imported).toBe(0);
   expect(second.skipped).toBe(2);

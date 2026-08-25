@@ -289,9 +289,16 @@ router.get('/coverage-map/api/constituency/:state/:district/:constituency', admi
 // Daily Quiz — admin Question Bank (P1). Admin-only.
 const quizAdminController = require('../controllers/quizAdminController');
 router.get('/quiz/questions', adminController.requireAdmin, quizAdminController.renderQuestions);
+router.get('/quiz/api/settings', adminController.requireAdmin, quizAdminController.getSettings);
+router.put('/quiz/api/settings', adminController.requireAdmin, quizAdminController.updateSettings);
+router.get('/quiz/api/questions/pool-health', adminController.requireAdmin, quizAdminController.getPoolHealth);
 router.get('/quiz/api/questions', adminController.requireAdmin, quizAdminController.listQuestions);
 router.post('/quiz/api/questions', adminController.requireAdmin, quizAdminController.createQuestion);
 router.put('/quiz/api/questions/:id', adminController.requireAdmin, quizAdminController.updateQuestion);
+router.post('/quiz/api/questions/bulk-delete', adminController.requireAdmin, quizAdminController.bulkDeleteQuestions);
+router.delete('/quiz/api/questions/:id', adminController.requireAdmin, quizAdminController.deleteQuestion);
+router.post('/quiz/api/questions/:id/archive', adminController.requireAdmin, quizAdminController.archiveQuestion);
+router.get('/quiz/api/questions/:id/stats', adminController.requireAdmin, quizAdminController.questionStats);
 // Excel import (admin-only; in-memory, 5MB cap)
 const quizUpload = require('multer')({ storage: require('multer').memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 router.get('/quiz/api/questions/template', adminController.requireAdmin, quizAdminController.downloadTemplate);
@@ -299,6 +306,10 @@ router.post('/quiz/api/questions/import', adminController.requireAdmin, quizUplo
 // Quiz weekly dashboard + winner selection (P3)
 router.get('/quiz/dashboard', adminController.requireAdmin, quizAdminController.renderDashboard);
 router.get('/quiz/api/week', adminController.requireAdmin, quizAdminController.weekStats);
+router.get('/quiz/api/analytics', adminController.requireAdmin, quizAdminController.getAnalytics);
+router.get('/quiz/api/participants', adminController.requireAdmin, quizAdminController.listParticipants);
+router.get('/quiz/api/participants/export', adminController.requireAdmin, quizAdminController.exportParticipants);
+router.get('/quiz/api/winners/export', adminController.requireAdmin, quizAdminController.exportWinners);
 router.get('/quiz/api/week/eligible', adminController.requireAdmin, quizAdminController.eligibleList);
 router.post('/quiz/api/week/winners', adminController.requireAdmin, quizAdminController.selectWinners);
 router.get('/quiz/api/winners', adminController.requireAdmin, quizAdminController.winnerHistory);

@@ -62,6 +62,7 @@ const appSettingsSchema = new mongoose.Schema({
     type: [String],
     default: ['te']
   },
+
   contactUs: {
     type: String,
     default: ''

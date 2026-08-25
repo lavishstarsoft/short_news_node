@@ -69,6 +69,10 @@ jest.mock('../models/User', () => ({
 jest.mock('../utils/auditLogger', () => ({ logAudit: jest.fn() }));
 jest.mock('../services/quizWinnerService', () => ({ computeWeekStats: jest.fn(), selectWinners: jest.fn() }));
 jest.mock('../services/quizMaintenanceService', () => ({ closeExpiredWeeks: jest.fn(), sendDailyReminder: jest.fn() }));
+jest.mock('../services/quizLanguageService', () => ({
+  isQuizLanguageAllowed: jest.fn(async () => true),
+  getQuizConfig: jest.fn(async () => ({ isEnabled: true, enabledLanguages: ['te'] }))
+}));
 
 const ctrl = require('../controllers/quizController');
 const admin = require('../controllers/quizAdminController');
@@ -94,7 +98,7 @@ describe('simulated weekdays (Mon..Sat)', () => {
     test(`day ${day} → quiz day in the isolated 2024 test week`, async () => {
       mockNow(PROD_NOW);
       setOverride('test-user', day);
-      const r = res(); await ctrl.today({ verifiedGoogleId: 'test-user', body: {} }, r);
+      const r = res(); await ctrl.today({ verifiedGoogleId: 'test-user', body: {}, query: { lang: 'te' } }, r);
       expect(r.body.testMode).toBe(true);
       expect(r.body.isQuizDay).toBe(true);
       expect(r.body.dayIndex).toBe(day);
@@ -107,7 +111,7 @@ describe('simulated weekdays (Mon..Sat)', () => {
 test('simulated Sunday (day 7) → winners block, testMode true, "announced soon" until winners exist', async () => {
   mockNow(PROD_NOW);
   setOverride('test-user', 7);
-  const r = res(); await ctrl.today({ verifiedGoogleId: 'test-user', body: {} }, r);
+  const r = res(); await ctrl.today({ verifiedGoogleId: 'test-user', body: {}, query: { lang: 'te' } }, r);
   expect(r.body.testMode).toBe(true);
   expect(r.body.isSunday).toBe(true);
   expect(r.body.isQuizDay).toBe(false);
@@ -124,7 +128,7 @@ test('Create Test Winners → 10 isolated isTest winners, then simulated Sunday 
 
   mockNow(PROD_NOW);
   setOverride('test-user', 7);
-  const r = res(); await ctrl.today({ verifiedGoogleId: 'test-user', body: {} }, r);
+  const r = res(); await ctrl.today({ verifiedGoogleId: 'test-user', body: {}, query: { lang: 'te' } }, r);
   expect(r.body.winnersReady).toBe(true);
   expect(r.body.winners).toHaveLength(10);
   expect(r.body.winners[0].rank).toBe(1);
@@ -132,7 +136,7 @@ test('Create Test Winners → 10 isolated isTest winners, then simulated Sunday 
 
 test('real user (no override) is unaffected → real IST week, testMode false', async () => {
   mockNow(PROD_NOW); // real Monday 2026-08-24
-  const r = res(); await ctrl.today({ verifiedGoogleId: 'real-user', body: {} }, r);
+  const r = res(); await ctrl.today({ verifiedGoogleId: 'real-user', body: {}, query: { lang: 'te' } }, r);
   expect(r.body.testMode).toBe(false);
   expect(r.body.weekId).toBe('2026-08-24'); // real production week, not the 2024 test week
   expect(r.body.dayIndex).toBe(1);
@@ -141,7 +145,7 @@ test('real user (no override) is unaffected → real IST week, testMode false', 
 test('exiting test mode (active:false) immediately restores real IST behaviour', async () => {
   mockNow(PROD_NOW);
   setOverride('test-user', 6, false); // disabled override
-  const r = res(); await ctrl.today({ verifiedGoogleId: 'test-user', body: {} }, r);
+  const r = res(); await ctrl.today({ verifiedGoogleId: 'test-user', body: {}, query: { lang: 'te' } }, r);
   expect(r.body.testMode).toBe(false);
   expect(r.body.weekId).toBe('2026-08-24'); // back to real week, ignores simDayIndex
 });
@@ -191,7 +195,7 @@ describe('identifier → verifiedGoogleId resolution (the reported bug)', () => 
 
     // And the quiz APIs, keyed on verifiedGoogleId, now see the simulation.
     mockNow(PROD_NOW);
-    const tr = res(); await ctrl.today({ verifiedGoogleId: GID, body: {} }, tr);
+    const tr = res(); await ctrl.today({ verifiedGoogleId: GID, body: {}, query: { lang: 'te' } }, tr);
     expect(tr.body.testMode).toBe(true);
     expect(tr.body.weekId).toBe(TEST_WEEK_MONDAY);
     expect(tr.body.dayIndex).toBe(1);

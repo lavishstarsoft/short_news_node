@@ -1,0 +1,365 @@
+<!-- Quiz Help Modal -->
+<style>
+.q-help-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1060; }
+.q-help-modal.show { display: block; }
+.q-help-container { position: absolute; inset: 2vh 2vw; background: #f8f9fa; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+.q-help-header { background: #fff; padding: 16px 24px; border-bottom: 1px solid #eef0f3; display: flex; justify-content: space-between; align-items: center; }
+.q-help-header h4 { margin: 0; font-weight: 800; color: #1a1f36; }
+.q-help-body { display: flex; flex: 1; overflow: hidden; }
+.q-help-sidebar { width: 280px; background: #fff; border-right: 1px solid #eef0f3; overflow-y: auto; padding: 16px 0; }
+.q-help-sidebar a { display: block; padding: 10px 24px; color: #4f566b; text-decoration: none; font-weight: 600; font-size: 14px; border-left: 3px solid transparent; }
+.q-help-sidebar a:hover { background: #f4f6f9; color: #0d6efd; }
+.q-help-sidebar a.active { background: #e8f0fe; color: #0d6efd; border-left-color: #0d6efd; }
+.q-help-content { flex: 1; overflow-y: auto; padding: 32px 40px; background: #fbfcfe; }
+.q-help-section { display: none; max-width: 800px; margin: 0 auto; }
+.q-help-section.active { display: block; }
+.q-help-card { background: #fff; border: 1px solid #eef0f3; border-radius: 8px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+.q-help-card h5 { font-weight: 700; color: #1a1f36; margin-bottom: 16px; border-bottom: 2px solid #f4f6f9; padding-bottom: 8px; }
+.q-help-card h6 { font-weight: 700; color: #3c4257; margin-top: 16px; margin-bottom: 8px; }
+.q-help-card p, .q-help-card li { font-size: 14px; color: #4f566b; line-height: 1.6; }
+.q-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-right: 6px; }
+.q-badge.info { background: #e8f0fe; color: #0d6efd; }
+.q-badge.warn { background: #fff3e0; color: #e65100; }
+.q-badge.danger { background: #fce8e8; color: #d32f2f; }
+.q-badge.success { background: #e8f5e9; color: #2e7d32; }
+.q-alert { padding: 12px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; margin-bottom: 16px; display: flex; gap: 12px; align-items: flex-start; }
+.q-alert.warn { background: #fff3e0; color: #b26a00; border: 1px solid #ffe0b2; }
+.q-alert.danger { background: #fce8e8; color: #c62828; border: 1px solid #ffcdd2; }
+.q-alert i { margin-top: 2px; }
+.q-example { background: #f8f9fa; border-left: 4px solid #6c757d; padding: 12px 16px; margin: 12px 0; border-radius: 0 8px 8px 0; font-size: 13px; }
+.q-trouble-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+.q-trouble-table th, .q-trouble-table td { border: 1px solid #eef0f3; padding: 10px; text-align: left; vertical-align: top; }
+.q-trouble-table th { background: #f4f6f9; font-weight: 700; color: #4f566b; }
+@media (max-width: 768px) {
+  .q-help-body { flex-direction: column; }
+  .q-help-sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid #eef0f3; display: flex; overflow-x: auto; padding: 0; }
+  .q-help-sidebar a { white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; }
+  .q-help-sidebar a.active { border-left-color: transparent; border-bottom-color: #0d6efd; }
+  .q-help-content { padding: 20px; }
+}
+</style>
+
+<div class="q-help-modal" id="quizHelpModal" onclick="if(event.target===this) toggleQuizHelp()">
+  <div class="q-help-container">
+    <div class="q-help-header">
+      <h4><i class="fas fa-graduation-cap text-primary me-2"></i> Quiz Admin Training Manual</h4>
+      <button class="btn btn-sm btn-light" onclick="toggleQuizHelp()"><i class="fas fa-times fa-lg"></i></button>
+    </div>
+    <div class="q-help-body">
+      <div class="q-help-sidebar" id="qHelpSidebar">
+        <a href="#sect-quickstart" class="active" onclick="switchQHelp(event, 'sect-quickstart')">1. త్వరిత ప్రారంభం (Quick Start)</a>
+        <a href="#sect-workflow" onclick="switchQHelp(event, 'sect-workflow')">2. పూర్తి వర్క్‌ఫ్లో (Workflow)</a>
+        <a href="#sect-questions" onclick="switchQHelp(event, 'sect-questions')">3. Question Bank & Import</a>
+        <a href="#sect-language" onclick="switchQHelp(event, 'sect-language')">4. Language & Settings</a>
+        <a href="#sect-dashboard" onclick="switchQHelp(event, 'sect-dashboard')">5. Dashboard & Participation</a>
+        <a href="#sect-winners" onclick="switchQHelp(event, 'sect-winners')">6. Winner Selection</a>
+        <a href="#sect-testmode" onclick="switchQHelp(event, 'sect-testmode')">7. Test Mode (టెస్టింగ్)</a>
+        <a href="#sect-trouble" onclick="switchQHelp(event, 'sect-trouble')">8. సమస్యల పరిష్కారం (Troubleshooting)</a>
+        <a href="#sect-safety" onclick="switchQHelp(event, 'sect-safety')">9. ముఖ్యమైన జాగ్రత్తలు (Safety)</a>
+      </div>
+      <div class="q-help-content">
+        
+        <!-- 1. Quick Start -->
+        <div class="q-help-section active" id="sect-quickstart">
+          <div class="q-help-card">
+            <h5>కొత్త Employee — 5 నిమిషాల్లో Quiz Admin నేర్చుకోండి</h5>
+            <p>క్విజ్ సిస్టమ్‌ని నిర్వహించడానికి మీరు చేయాల్సిన ముఖ్యమైన పనులు ఇవే:</p>
+            <ol>
+              <li><b>Quiz Settings check చేయండి:</b> Master Switch ఆన్‌లో ఉందా? ఏయే బాషలు (Languages) select చేసి ఉన్నాయో చూడండి.</li>
+              <li><b>Pool Health check చేయండి:</b> select చేసిన బాషల్లో సరిపడా Active Questions ఉన్నాయా అని Question Bank పేజీలో చూడండి.</li>
+              <li><b>Questions import చేయండి:</b> Excel టెంప్లేట్ డౌన్‌లోడ్ చేసుకుని, ప్రశ్నలు నింపి Import చేయండి.</li>
+              <li><b>Preview + Confirm చేయండి:</b> Import కి ముందు వచ్చే ప్రివ్యూలో తప్పులు లేవని నిర్ధారించుకుని Confirm చేయండి.</li>
+              <li><b>Dashboardలో participation చూడండి:</b> యూజర్లు ప్రతిరోజూ క్విజ్ ఆడుతున్నారా, 6/6 కంప్లీట్ చేస్తున్నారా అని గమనించండి.</li>
+              <li><b>Eligibility check చేయండి:</b> వారం చివర్లో ఎంతమంది అర్హత సాధించారో Dashboardలో చెక్ చేయండి.</li>
+              <li><b>Winner selection చేయండి:</b> శనివారం రాత్రి క్విజ్ ముగిసిన తర్వాత 'Random Lottery' ద్వారా 10 మందిని సెలెక్ట్ చేయండి.</li>
+              <li><b>Sunday announcement verify చేయండి:</b> ఆదివారం యాప్‌లో ఆ 10 మంది పేర్లు డిస్ప్లే అవుతున్నాయో లేదో చెక్ చేయండి.</li>
+            </ol>
+            <div class="q-alert warn">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span><b>గమనిక:</b> క్విజ్ బిజినెస్ లాజిక్ (ప్రశ్నలు ఇవ్వడం, స్కోర్ లెక్కించడం) అంతా సర్వర్ ఆటోమేటిక్‌గా చేస్తుంది. అడ్మిన్ కేవలం ప్రశ్నలు అప్‌లోడ్ చేయడం, సెట్టింగ్స్ ఆన్/ఆఫ్ చేయడం, మరియు చివర్లో విన్నర్స్ ని సెలెక్ట్ చేయడం మాత్రమే చేయాలి.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Workflow -->
+        <div class="q-help-section" id="sect-workflow">
+          <div class="q-help-card">
+            <h5>పూర్తి వర్క్‌ఫ్లో (Complete End-to-End Workflow)</h5>
+            <p>క్విజ్ ఒక వారం పాటు (సోమవారం నుండి శనివారం వరకు) నడుస్తుంది. దాని సైకిల్ ఇలా ఉంటుంది:</p>
+            
+            <h6>1. వారం ప్రారంభానికి ముందు (Preparation)</h6>
+            <p>అడ్మిన్ కొత్త ప్రశ్నలను Excel ద్వారా Question Bank లోకి <b>Import</b> చేస్తారు. <b>Language Enable</b> చేసి, <b>Pool Health</b> (సరిపడా ప్రశ్నలు ఉన్నాయా) చెక్ చేసి, Quiz Master Switch <b>ON</b> చేస్తారు.</p>
+            
+            <h6>2. సోమవారం - శనివారం (User Participation)</h6>
+            <p>యూజర్లకు ప్రతిరోజూ యాప్‌లో ఒక ప్రశ్న వస్తుంది (<b>Daily Answers</b>). యూజర్ ఆన్సర్ చేసిన తర్వాత ఆ రోజుకి ఆప్షన్ లాక్ అవుతుంది. ఇలా 6 రోజుల పాటు రోజుకొక ప్రశ్న వస్తుంది.</p>
+            
+            <h6>3. శనివారం రాత్రి (6/6 Completion)</h6>
+            <p>యూజర్లు ఆరు రోజులూ ప్రశ్నలకు సమాధానం ఇస్తే, వారు <b>Completed 6/6</b> స్టేటస్‌కి వస్తారు. అందులో కరెక్ట్ ఆన్సర్స్, తీసుకున్న సమయం బట్టి వారి ర్యాంకింగ్ నిర్ణయించబడుతుంది.</p>
+            
+            <h6>4. ఆదివారం (Eligibility & Winner Selection)</h6>
+            <p>అడ్మిన్ Quiz Dashboard ఓపెన్ చేసి <b>Eligibility</b> లిస్ట్ చూస్తారు. అందుబాటులో ఉన్న ఆప్షన్ల ద్వారా 10 మంది <b>Winner Selection</b> చేస్తారు. సెలెక్ట్ చేసిన తర్వాత యాప్‌లో <b>Sunday Announcement</b> ఆటోమేటిక్‌గా కనిపిస్తుంది.</p>
+            
+            <div class="q-example">
+              <b>Example:</b> రవి అనే తెలుగు యూజర్ సోమవారం నుండి శనివారం వరకు రోజూ యాప్ ఓపెన్ చేసి క్విజ్ ఆడాడు. 6 కి 5 కరెక్ట్ ఆన్సర్స్ ఇచ్చాడు. వారం చివర్లో రవి 'Eligible' లిస్టులో ఉంటాడు. అడ్మిన్ Lottery తీసినప్పుడు రవి పేరు వస్తే, ఆదివారం క్విజ్ సెక్షన్‌లో రవి పేరు విన్నర్స్‌లో కనిపిస్తుంది.
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Question Bank -->
+        <div class="q-help-section" id="sect-questions">
+          <div class="q-help-card">
+            <h5>Question Bank & Excel Import</h5>
+            <p>క్విజ్ కి సంబంధించిన ప్రశ్నలన్నీ ఇక్కడే ఉంటాయి.</p>
+            
+            <h6>Question Status (ప్రశ్నల స్థితులు)</h6>
+            <ul>
+              <li><span class="q-badge success">Active</span> - యూజర్లకు రావడానికి సిద్ధంగా ఉన్న ప్రశ్న.</li>
+              <li><span class="q-badge" style="background:#eceff1;color:#546e7a">Disabled</span> - టెంపరరీగా ఆపివేసిన ప్రశ్న. ఇది యూజర్లకు రాదు.</li>
+              <li><span class="q-badge warn">Locked</span> - ఒక వారం క్విజ్ పూర్తికాగానే అందులో వాడిన ప్రశ్నలు Locked అయిపోతాయి. వీటిని ఎడిట్ చేయలేరు, డిలీట్ చేయలేరు. కేవలం Disable లేదా Archive మాత్రమే చేయగలరు.</li>
+              <li><span class="q-badge info">Used / Unused</span> - యూజర్లకు ఒక్కసారైనా డిస్ప్లే అయితే Used, లేకపోతే Unused. (Usage count చూడొచ్చు).</li>
+              <li><span class="q-badge" style="background:#e0e0e0;color:#424242">Archived</span> - వాడేసిన ప్రశ్నలు (Used/Locked) లిస్టులో అడ్డుగా ఉండకుండా దాచేయడానికి Archive చేయొచ్చు. దీన్ని మళ్లీ Restore చేసుకోవచ్చు.</li>
+            </ul>
+
+            <h6>Excel Import ఎలా చేయాలి?</h6>
+            <p><b>ఏంటి?</b> ఒకేసారి వందల ప్రశ్నలను అప్‌లోడ్ చేయడానికి.</p>
+            <p><b>ఎలా ఉపయోగించాలి?</b> "Download Template" క్లిక్ చేసి ఫైల్ నింపి, "Import from Excel" ద్వారా అప్‌లోడ్ చేయాలి.</p>
+            <div class="q-example">
+              <b>Excel Row Example (Telugu):</b><br>
+              Question: భారతదేశ రాజధాని ఏది?<br>
+              Option_A: హైదరాబాద్ | Option_B: న్యూ ఢిల్లీ | Option_C: ముంబై | Option_D: చెన్నై<br>
+              Correct_Option: B | Language: te
+            </div>
+            
+            <h6>Import Modes</h6>
+            <ul>
+              <li><b>Add new only (skip duplicates):</b> కేవలం కొత్త ప్రశ్నలు మాత్రమే యాడ్ అవుతాయి. ఇప్పటికే ఉన్న ప్రశ్నలు (అదే భాషలో) స్కిప్ అవుతాయి.</li>
+              <li><b>Disable old pool, then import new:</b> పాత Active ప్రశ్నలన్నీ Disabled అయిపోయి, ఈ Excel లో ఉన్నవి మాత్రమే Active అవుతాయి. పాత క్వశ్చన్స్ పూర్తిగా పక్కన పెట్టాలనుకున్నప్పుడు వాడాలి.</li>
+              <li><b>Fallback Language:</b> Excel లో Language కాలమ్ ఖాళీగా ఉంటే, ఇక్కడ సెలెక్ట్ చేసిన భాష తీసుకుంటుంది.</li>
+            </ul>
+            
+            <div class="q-alert warn">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span><b>జాగ్రత్త:</b> Import Confirm కొట్టే ముందు Preview లో తప్పులు (invalid options, incorrect answers) ఏవైనా చూపించిందేమో చెక్ చేసుకోవాలి. Failed rows ని స్కిప్ చేసి మిగతావి మాత్రమే సిస్టమ్ ఇంపోర్ట్ చేస్తుంది.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Language & Settings -->
+        <div class="q-help-section" id="sect-language">
+          <div class="q-help-card">
+            <h5>Language System & Pool Health</h5>
+            <p>ఇది చాలా ముఖ్యమైన సిస్టమ్. కరెక్ట్ సెట్టింగ్స్ లేకపోతే యూజర్లకు క్విజ్ రాదు.</p>
+
+            <h6>Quiz Enabled (Master Switch)</h6>
+            <p><b>ఏంటి?</b> క్విజ్ మొత్తాన్ని ఒకేసారి ఆన్/ఆఫ్ చేసే బటన్.</p>
+            <p><b>జాగ్రత్త:</b> ఇది OFF లో ఉంటే, కింద ఏయే భాషలు సెలెక్ట్ చేసినా సరే యాప్‌లో ఎవరికీ క్విజ్ కనిపించదు.</p>
+
+            <h6>Enabled Languages</h6>
+            <p><b>ఏంటి?</b> ఏయే భాషల యూజర్లకు క్విజ్ కనిపించాలో ఇక్కడ సెలెక్ట్ చేయాలి. (Ctrl/Cmd పట్టుకుని మల్టిపుల్ సెలెక్ట్ చేయొచ్చు).</p>
+            <div class="q-example">
+              <b>Example A:</b> Telugu సెలెక్ట్ చేశారు. English/Hindi చేయలేదు. కేవలం తెలుగు న్యూస్ చదివే యూజర్లకు మాత్రమే క్విజ్ వస్తుంది. మిగతావారికి రాదు.<br><br>
+              <b>Example B:</b> Telugu, English రెండూ సెలెక్ట్ చేశారు. తెలుగు వారికి తెలుగు ప్రశ్నలు (te pool నుంచి), ఇంగ్లీష్ వారికి ఇంగ్లీష్ ప్రశ్నలు (en pool నుంచి) వస్తాయి.<br><br>
+              <b>Example C (Very Important):</b> <u>ఏ భాషా సెలెక్ట్ చేయకపోతే (Empty)</u> దాని అర్థం ఏ భాషకీ క్విజ్ రాదు అని (NO languages enabled). అందరికీ కనిపించాలి కదా అని ఖాళీగా వదిలేయకూడదు!
+            </div>
+
+            <h6>Language-isolated Pools & Pool Health</h6>
+            <p><b>ఏంటి?</b> తెలుగు యూజర్ కి తెలుగు ప్రశ్నలే రావాలి, ఇంగ్లీష్ యూజర్ కి ఇంగ్లీష్ ప్రశ్నలే రావాలి. దీనికోసం ప్రతి భాషకి విడిగా 'Active Pool' మెయింటైన్ అవుతుంది.</p>
+            <p><b>Pool Health ఎందుకు చెక్ చేయాలి?</b> వారం మొత్తం క్విజ్ నడవాలంటే ఒక భాషలో కనీసం 6 యాక్టివ్ ప్రశ్నలు ఉండాలి (రోజుకొకటి). అంతకంటే తక్కువ ఉంటే Pool Health లో Warning వస్తుంది. అలా ఉంటే వారం మధ్యలో ప్రశ్నలు అయిపోయి యూజర్లకి ఎర్రర్ వస్తుంది.</p>
+          </div>
+        </div>
+
+        <!-- 5. Dashboard -->
+        <div class="q-help-section" id="sect-dashboard">
+          <div class="q-help-card">
+            <h5>Dashboard & Participants</h5>
+            
+            <h6>Participation Funnel (ఫన్నెల్)</h6>
+            <ul>
+              <li><b>Assigned / Opened:</b> ఎంతమందికి క్విజ్ ప్రశ్న ఎసైన్ అయింది మరియు వారు ఆరోజు క్విజ్ పేజీ ఓపెన్ చేశారు.</li>
+              <li><b>Answered:</b> ఎంతమంది సమాధానం సబ్‌మిట్ చేశారు (కరెక్ట్/రాంగ్ ఏదైనా).</li>
+              <li><b>Completed 6/6:</b> ఆరు రోజులూ తప్పకుండా ఆడినవారు.</li>
+              <li><b>Eligible:</b> ఆరు రోజులూ ఆడి, ర్యాంకింగ్ ప్రకారం విన్నర్ సెలక్షన్ కి అర్హత సాధించినవారు.</li>
+            </ul>
+
+            <h6>Participants Drill-down</h6>
+            <p><b>ఏంటి?</b> "All participants this week" బటన్ నొక్కితే ఆ వారం ఆడిన ప్రతి ఒక్కరి డేటా చూడొచ్చు. వారు ఎన్ని కరెక్ట్ ఆన్సర్స్ ఇచ్చారు, ఏ టైంకి సబ్‌మిట్ చేశారు అనేది ఉంటుంది.</p>
+            <p><b>Privacy Restriction:</b> ఫోన్ నెంబర్, ఈమెయిల్, లొకేషన్ వివరాలు కేవలం Super Admin కి మాత్రమే కనిపిస్తాయి. మిగతా అడ్మిన్లకు ఇవి హైడ్ చేయబడతాయి.</p>
+
+            <h6>Eligible Users</h6>
+            <p>ఇది 6/6 పూర్తి చేసిన వారి లిస్ట్. ఎవరైతే ఎక్కువ కరెక్ట్ ఆన్సర్స్ ఇస్తారో, మరియు ఎవరైతే త్వరగా (earliest completion) పూర్తి చేస్తారో వారి ఆధారంగా ర్యాంక్స్ ఇవ్వబడతాయి.</p>
+          </div>
+        </div>
+
+        <!-- 6. Winner Selection -->
+        <div class="q-help-section" id="sect-winners">
+          <div class="q-help-card">
+            <h5>Winner Selection (విజేతల ఎంపిక)</h5>
+            <p>వారం ముగిసిన తర్వాత (శనివారం రాత్రి/ఆదివారం), Eligible యూజర్ల నుండి 10 మందిని విజేతలుగా ఎంపిక చేయాలి.</p>
+
+            <h6>ఎంపిక విధానాలు</h6>
+            <ul>
+              <li><b>🎲 Random Lottery:</b> ఇది అత్యంత పారదర్శకమైన పద్ధతి. సర్వర్ ఆటోమేటిక్ గా Eligible యూజర్లలో టాప్ ర్యాంక్ ఉన్నవారిలో నుండి 10 మందిని రాండమ్ గా సెలెక్ట్ చేస్తుంది. (డూప్లికేట్ యూజర్లు రిపీట్ కాకుండా సర్వర్ చూసుకుంటుంది).</li>
+              <li><b>👤 Admin Select:</b> కింద లిస్టులో ఉన్న Eligible యూజర్లలో మీరే స్వయంగా 10 మందిని టిక్ చేసి సెలెక్ట్ చేయొచ్చు. కచ్చితంగా 10 మందే ఉండాలి.</li>
+            </ul>
+
+            <div class="q-alert danger">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span><b>జాగ్రత్త:</b> విన్నర్ సెలక్షన్ ఒక్కసారి చేస్తే అది ఫైనల్ (Irreversible). మళ్ళీ మార్చలేరు. సెలెక్ట్ చేసిన వెంటనే ఆదివారం యాప్‌లో వాళ్ళ పేర్లు డిస్ప్లే అయిపోతాయి. కాబట్టి జాగ్రత్తగా కన్ఫర్మ్ చేయాలి.</span>
+            </div>
+
+            <h6>Winner History</h6>
+            <p>గత వారాల్లో ఎవరెవరు విన్నర్స్ అయ్యారు, వారిని లాటరీ ద్వారా తీశారా లేక అడ్మిన్ సెలెక్ట్ చేశారా అన్న హిస్టరీ డాష్‌బోర్డ్ కింద భాగంలో ఉంటుంది.</p>
+            <p><b>Payment:</b> ఈ సిస్టమ్ ద్వారా విన్నర్స్ అనౌన్స్ అవుతారు కానీ, ₹1,000 రివార్డ్ సిస్టమ్ ద్వారా ఆటోమేటిక్ గా వెళ్ళదు. అడ్మిన్ బయట మాన్యువల్ గా పేమెంట్ చేయాలి.</p>
+          </div>
+        </div>
+
+        <!-- 7. Test Mode -->
+        <div class="q-help-section" id="sect-testmode">
+          <div class="q-help-card">
+            <h5>🧪 Quiz Test Mode</h5>
+            <p><b>ఏంటి?</b> క్విజ్ 7 రోజుల వర్క్‌ఫ్లోని ఒకే రోజులో టెస్ట్ చేయడానికి డెవలపర్స్ లేదా అడ్మిన్స్ ఉపయోగించే టూల్.</p>
+            <p><b>ఎందుకు?</b> సోమవారం రోజున బుధవారం క్విజ్ ఎలా వస్తుందో చూడాలన్నా, లేదా ఆదివారం విన్నర్స్ స్క్రీన్ ఎలా ఉంటుందో ముందే టెస్ట్ చేయాలన్నా ఇది వాడతారు.</p>
+            
+            <h6>ఎలా ఉపయోగించాలి?</h6>
+            <ol>
+              <li>Target user బాక్స్ లో మీ యాప్ అకౌంట్ మొబైల్ నెంబర్ లేదా పేరు ఇచ్చి "Find user" నొక్కండి.</li>
+              <li>Simulated day లో మీకు ఏ రోజు కావాలో (ఉదా: Thursday) సెలెక్ట్ చేయండి.</li>
+              <li>"Enable / Update" నొక్కండి. ఇప్పుడు మీ యాప్ లో గురువారం నాటి క్విజ్ కనిపిస్తుంది.</li>
+            </ol>
+
+            <h6>Create / Clear Test Winners</h6>
+            <p>ఆదివారం సిమ్యులేట్ చేసినప్పుడు విన్నర్స్ లిస్ట్ టెస్ట్ చేయడానికి, "Create Test Winners" నొక్కితే 10 మంది ఫేక్ విన్నర్స్ క్రియేట్ అవుతారు. దీన్ని టెస్ట్ చేయడం పూర్తయ్యాక "Clear" చేయొచ్చు.</p>
+
+            <div class="q-alert success">
+              <i class="fas fa-shield-alt"></i>
+              <span><b>Test Data Isolation:</b> ఈ టెస్ట్ మోడ్ డేటా అంతా 2024 కు సంబంధించిన ఒక ప్రత్యేకమైన టెస్ట్ వారం ఐడీ లో సేవ్ అవుతుంది. దీనివల్ల ప్రొడక్షన్ (నిజమైన యూజర్ల) డేటాతో ఎప్పటికీ మిక్స్ అవ్వదు. పూర్తి సేఫ్!</span>
+            </div>
+            
+            <p><b>జాగ్రత్త:</b> టెస్టింగ్ పూర్తయిన తర్వాత తప్పకుండా "Disable (exit test mode)" నొక్కండి. లేకపోతే ఆ యూజర్ కి ఎప్పటికీ అదే పాత రోజు క్విజ్ కనిపిస్తూ ఉంటుంది.</p>
+          </div>
+        </div>
+
+        <!-- 8. Troubleshooting -->
+        <div class="q-help-section" id="sect-trouble">
+          <div class="q-help-card">
+            <h5>సమస్యల పరిష్కారం (Troubleshooting)</h5>
+            <table class="q-trouble-table">
+              <thead>
+                <tr>
+                  <th>సమస్య (Problem)</th>
+                  <th>కారణం (Reason)</th>
+                  <th>పరిష్కారం (Solution)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>యాప్‌లో క్విజ్ ఎవరికీ కనిపించడం లేదు</td>
+                  <td>Master Switch OFF లో ఉండి ఉండొచ్చు.</td>
+                  <td>Question Bank కి వెళ్లి Quiz Enabled స్విచ్ ఆన్ చేయండి.</td>
+                </tr>
+                <tr>
+                  <td>తెలుగు యూజర్‌కి క్విజ్ రావడం లేదు</td>
+                  <td>Languages లిస్టులో Telugu (te) సెలెక్ట్ చేసి ఉండకపోవచ్చు, లేదా తెలుగు క్వశ్చన్స్ అయిపోయి ఉండొచ్చు.</td>
+                  <td>Enabled Languages లో 'te' ని సెలెక్ట్ చేయండి. Pool Health లో క్వశ్చన్స్ ఉన్నాయో లేదో చెక్ చేయండి.</td>
+                </tr>
+                <tr>
+                  <td>Pool Health లో warning వస్తోంది</td>
+                  <td>ఆ భాషకు సంబంధించిన Active ప్రశ్నలు 6 కంటే తక్కువ ఉన్నాయి.</td>
+                  <td>కొత్త ప్రశ్నలను ఎక్సెల్ ద్వారా ఆ భాషకి ఇంపోర్ట్ చేయండి.</td>
+                </tr>
+                <tr>
+                  <td>Excel లో కొన్ని rows ఇంపోర్ట్ కాలేదు (Skipped)</td>
+                  <td>ఆ ప్రశ్నలు అప్పటికే డేటాబేస్ లో ఉన్నాయి (Duplicates), లేదా ఆప్షన్స్ తప్పుగా ఇచ్చారు.</td>
+                  <td>డూప్లికేట్స్ అయితే ఇగ్నోర్ చేయండి. ఫార్మాట్ తప్పుంటే సరిచేసి మళ్ళీ ఇంపోర్ట్ చేయండి.</td>
+                </tr>
+                <tr>
+                  <td>Question డిలీట్ చేస్తుంటే Error వస్తోంది</td>
+                  <td>ఆ ప్రశ్నను యూజర్లు అప్పటికే వాడేశారు (Used/Locked). వాడేసినవి డిలీట్ కావు.</td>
+                  <td>డిలీట్ కి బదులు "Archive" బటన్ వాడండి. అది లిస్టులో కనపడకుండా దాచేస్తుంది.</td>
+                </tr>
+                <tr>
+                  <td>పాల్గొన్న యూజర్ 'Eligible' లిస్టులో లేడు</td>
+                  <td>ఆ యూజర్ 6 రోజులూ కంప్లీట్ చేసి ఉండకపోవచ్చు. మధ్యలో ఒకరోజు మిస్ అయినా ఎలిజిబుల్ కారు.</td>
+                  <td>Dashboard లో 'All participants' లో సెర్చ్ చేసి వాళ్ళ Done స్టేటస్ చూడండి.</td>
+                </tr>
+                <tr>
+                  <td>Sunday విన్నర్స్ కనిపించడం లేదు</td>
+                  <td>మీరు ఇంకా డాష్‌బోర్డ్ నుండి విన్నర్స్ ని సెలెక్ట్ చేయలేదు.</td>
+                  <td>డాష్‌బోర్డ్ లో 'Random Lottery' లేదా 'Admin Select' ద్వారా 10 మందిని కన్ఫర్మ్ చేయండి.</td>
+                </tr>
+                <tr>
+                  <td>Test Mode పనిచేయడం లేదు</td>
+                  <td>తప్పు యూజర్ ఐడీ ఇచ్చి ఉండొచ్చు లేదా మొబైల్/ఈమెయిల్ మ్యాచ్ కాలేదు.</td>
+                  <td>"Find user" ద్వారా ముందే చెక్ చేసుకుని ఆ తర్వాత ఎనేబుల్ చేయండి.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 9. Safety Rules -->
+        <div class="q-help-section" id="sect-safety">
+          <div class="q-help-card">
+            <h5>ముఖ్యమైన జాగ్రత్తలు (Safety Rules)</h5>
+            <div class="q-alert danger">
+              <i class="fas fa-ban"></i>
+              <span><b>Used లేదా Locked ప్రశ్నలను Delete చేయకండి:</b> ఒకసారి యూజర్ కి క్వశ్చన్ వెళ్ళిపోయి వాళ్ళు ఆన్సర్ చేసిన తర్వాత, ఆ క్వశ్చన్ ని డిలీట్ చేస్తే యూజర్ స్కోర్ హిస్టరీ పాడవుతుంది. అందుకే సిస్టమ్ డిలీట్ చేయనివ్వదు. కేవలం Archive మాత్రమే చేయాలి.</span>
+            </div>
+            <div class="q-alert warn">
+              <i class="fas fa-eye"></i>
+              <span><b>Import కి ముందు ఎప్పుడూ Preview చూడాలి:</b> ఎక్సెల్ అప్‌లోడ్ చేసిన వెంటనే డేటాబేస్ లో సేవ్ అవ్వదు. కింద ప్రివ్యూ లిస్ట్ వస్తుంది. అందులో ఎన్ని failed అయ్యాయి, కరెక్ట్ ఆన్సర్ ఫార్మాట్ సరిగ్గా ఉందా అని ఒకసారి పైపైన చెక్ చేసుకున్నాకే 'Confirm Import' కొట్టాలి.</span>
+            </div>
+            <div class="q-alert warn">
+              <i class="fas fa-trash-alt"></i>
+              <span><b>'Disable Old pool' మోడ్ ని జాగ్రత్తగా వాడాలి:</b> మీరు దీన్ని వాడి ఎక్సెల్ అప్‌లోడ్ చేస్తే, పాత యాక్టివ్ ప్రశ్నలన్నీ డిసేబుల్ అయిపోయి, కేవలం ఈ ఎక్సెల్ లో ఉన్నవి మాత్రమే యాక్టివ్ అవుతాయి. పాతవాటిని పూర్తిగా వదిలేయాలనుకున్నప్పుడు మాత్రమే ఇది వాడాలి. లేకపోతే 'Add new only' వాడండి.</span>
+            </div>
+            <div class="q-alert info">
+              <i class="fas fa-check-circle"></i>
+              <span><b>Winner Selection is Final:</b> ఎవరిని విన్నర్స్ గా ఎంపిక చేసినా, అది ఫైనల్. వెనక్కి తీసుకోలేరు. కాబట్టి 10 మంది పేర్లు కరెక్ట్ గా ఉన్నాయో లేదో నిర్ధారించుకున్నాకే కన్ఫర్మ్ చేయాలి.</span>
+            </div>
+            <div class="q-alert info">
+              <i class="fas fa-history"></i>
+              <span><b>Existing Data Safe:</b> పాత విన్నర్స్, హిస్టరీ, ఎప్పటివి అప్పుడే ఉంటాయి. మీరు సెట్టింగ్స్ మార్చినా పాత డేటాకు ఏ ఇబ్బందీ ఉండదు.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleQuizHelp() {
+  const modal = document.getElementById('quizHelpModal');
+  if (modal.classList.contains('show')) {
+    modal.classList.remove('show');
+    document.body.style.overflow = '';
+  } else {
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function switchQHelp(e, sectionId) {
+  e.preventDefault();
+  document.querySelectorAll('.q-help-sidebar a').forEach(a => a.classList.remove('active'));
+  e.target.classList.add('active');
+  
+  document.querySelectorAll('.q-help-section').forEach(s => s.classList.remove('active'));
+  document.getElementById(sectionId).classList.add('active');
+  
+  // Scroll content to top
+  document.querySelector('.q-help-content').scrollTop = 0;
+}
+
+// Close on ESC
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('quizHelpModal');
+    if (modal && modal.classList.contains('show')) {
+      toggleQuizHelp();
+    }
+  }
+});
+</script>

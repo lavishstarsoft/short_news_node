@@ -7,13 +7,16 @@
 
 const mongoose = require('mongoose');
 const QuizQuestion = require('../models/QuizQuestion');
+const QuizEntry = require('../models/QuizEntry');
 const QuizWinner = require('../models/QuizWinner');
 const QuizTestOverride = require('../models/QuizTestOverride');
+const QuizSettings = require('../models/QuizSettings');
 const User = require('../models/User');
 const { logAudit } = require('../utils/auditLogger');
-const { dayInfo, weekMeta, isWeekOver, TEST_WEEK_MONDAY, WINNER_COUNT } = require('../utils/quizWeek');
+const { dayInfo, weekMeta, isWeekOver, weekDayKeys, TEST_WEEK_MONDAY, WINNER_COUNT, QUIZ_DAYS } = require('../utils/quizWeek');
 const { computeWeekStats, selectWinners } = require('../services/quizWinnerService');
 const { closeExpiredWeeks, sendDailyReminder } = require('../services/quizMaintenanceService');
+const { weekAnalytics, participantStats } = require('../services/quizAnalyticsService');
 
 /** Map googleId → displayName for a set of users (one query, no N+1). */
 async function namesFor(userIds) {
@@ -47,15 +50,46 @@ exports.validateQuestion = validateQuestion; // exported for tests
 // GET /admin/quiz/questions (page)
 exports.renderQuestions = (req, res) => res.render('quiz-questions', { admin: req.admin, activePage: 'quiz-questions' });
 
-// GET /admin/quiz/api/questions
+// GET /admin/quiz/api/questions?active=&category=&language=&locked=&q=&page=&pageSize=
+// Server-paginated with search/filter + Used/Unused/Locked status and usage counts.
 exports.listQuestions = async (req, res) => {
   try {
     const q = {};
     if (req.query.active === 'true') q.isActive = true;
     if (req.query.active === 'false') q.isActive = false;
-    const items = await QuizQuestion.find(q).sort({ createdAt: -1 }).limit(500).lean();
-    const active = await QuizQuestion.countDocuments({ isActive: true });
-    res.json({ count: items.length, activeCount: active, items });
+    if (req.query.locked === 'true') q.lockedForEdit = true;
+    if (req.query.archived === 'true') q.archived = true;
+    else if (req.query.archived === 'false') q.archived = { $ne: true };
+    if (req.query.category) q.category = String(req.query.category).trim();
+    if (req.query.language) q.language = String(req.query.language).trim();
+    const search = String(req.query.q || '').trim();
+    if (search) q.text = new RegExp(rxEscape(search), 'i');
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(100, Math.max(5, parseInt(req.query.pageSize, 10) || 25));
+    const total = await QuizQuestion.countDocuments(q);
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, pages);
+    const items = await QuizQuestion.find(q).sort({ createdAt: -1 }).skip((safePage - 1) * pageSize).limit(pageSize).lean();
+
+    // "Used" = present in ANY QuizEntry (assigned to a real participant), the rule
+    // that forbids hard-delete. usageCount tracks answered uses separately.
+    const ids = items.map((i) => i._id);
+    const usage = ids.length ? await QuizEntry.aggregate([
+      { $match: { questionId: { $in: ids } } },
+      { $group: { _id: '$questionId', assigned: { $sum: 1 } } },
+    ]) : [];
+    const usedMap = new Map(usage.map((u) => [String(u._id), u.assigned]));
+
+    const activeCount = await QuizQuestion.countDocuments({ isActive: true });
+    const lockedCount = await QuizQuestion.countDocuments({ lockedForEdit: true });
+    const withStatus = items.map((it) => {
+      const assignedCount = usedMap.get(String(it._id)) || 0;
+      const used = assignedCount > 0 || (it.usageCount || 0) > 0 || !!it.lockedForEdit;
+      const status = it.archived ? 'archived' : (it.lockedForEdit ? 'locked' : (used ? 'used' : 'unused'));
+      return { ...it, assignedCount, used, status };
+    });
+    res.json({ total, page: safePage, pageSize, pages, activeCount, lockedCount, items: withStatus });
   } catch (e) { console.error('quiz listQuestions:', e.message); res.status(500).json({ error: 'Failed to load questions.' }); }
 };
 
@@ -104,6 +138,89 @@ exports.updateQuestion = async (req, res) => {
   } catch (e) { console.error('quiz updateQuestion:', e.message); res.status(500).json({ error: 'Failed to update question.' }); }
 };
 
+// POST /admin/quiz/api/questions/:id/archive  { archived?: true|false }
+// Soft archive/restore — NEVER hard-deletes (preserves historical usage). Archiving
+// also removes it from the active pool (isActive=false). Idempotent + audited.
+exports.archiveQuestion = async (req, res) => {
+  try {
+    const doc = await QuizQuestion.findById(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Question not found.' });
+    const to = req.body.archived !== false; // default = archive
+    const before = { archived: !!doc.archived, isActive: !!doc.isActive };
+    doc.archived = to;
+    if (to) doc.isActive = false; // archived leaves the assignment pool
+    await doc.save();
+    logAudit({ req, action: to ? 'quiz_question_archive' : 'quiz_question_restore', entityType: 'QuizQuestion', entityId: String(doc._id), description: `${to ? 'Archived' : 'Restored'} quiz question ${doc._id}`, before, after: { archived: doc.archived, isActive: doc.isActive } });
+    res.json({ success: true, archived: doc.archived, isActive: doc.isActive });
+  } catch (e) { console.error('quiz archiveQuestion:', e.message); res.status(500).json({ error: 'Failed to archive question.' }); }
+};
+
+// POST /admin/quiz/api/questions/bulk-delete
+exports.bulkDeleteQuestions = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    if (!ids.length) return res.status(400).json({ error: 'No question IDs provided.' });
+    
+    const docs = await QuizQuestion.find({ _id: { $in: ids } });
+    const toDeleteIds = [];
+    let skipped = 0;
+    
+    for (const doc of docs) {
+      if (doc.archived || doc.lockedForEdit || (doc.usageCount || 0) > 0) { skipped++; continue; }
+      const isAssigned = await QuizEntry.exists({ questionId: doc._id });
+      if (isAssigned) { skipped++; continue; }
+      toDeleteIds.push(doc._id);
+    }
+    
+    if (toDeleteIds.length > 0) {
+      await QuizQuestion.deleteMany({ _id: { $in: toDeleteIds } });
+      logAudit({ req, action: 'quiz_questions_bulk_delete', entityType: 'QuizQuestion', entityId: 'bulk', description: `Hard deleted ${toDeleteIds.length} unused quiz questions` });
+    }
+    
+    res.json({ success: true, deleted: toDeleteIds.length, skipped });
+  } catch (e) { console.error('quiz bulkDeleteQuestions:', e.message); res.status(500).json({ error: 'Failed to bulk delete questions.' }); }
+};
+
+// DELETE /admin/quiz/api/questions/:id
+exports.deleteQuestion = async (req, res) => {
+  try {
+    const doc = await QuizQuestion.findById(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Question not found.' });
+    if (doc.lockedForEdit || (doc.usageCount || 0) > 0) {
+      return res.status(409).json({ error: 'Question has been used or is locked. You can only archive it.' });
+    }
+    const isAssigned = await QuizEntry.exists({ questionId: doc._id });
+    if (isAssigned) {
+      return res.status(409).json({ error: 'Question has already been assigned to users. You can only archive it.' });
+    }
+    await doc.deleteOne();
+    logAudit({ req, action: 'quiz_question_delete', entityType: 'QuizQuestion', entityId: String(doc._id), description: `Hard deleted unused quiz question ${doc._id}`, before: { text: doc.text } });
+    res.json({ success: true });
+  } catch (e) { console.error('quiz deleteQuestion:', e.message); res.status(500).json({ error: 'Failed to delete question.' }); }
+};
+
+// GET /admin/quiz/api/questions/:id/stats → answer distribution (A/B/C/D) + correct %
+exports.questionStats = async (req, res) => {
+  try {
+    const doc = await QuizQuestion.findById(req.params.id).lean();
+    if (!doc) return res.status(404).json({ error: 'Question not found.' });
+    const agg = await QuizEntry.aggregate([
+      { $match: { questionId: doc._id, submittedAt: { $ne: null } } },
+      { $group: { _id: '$selectedOption', count: { $sum: 1 }, correct: { $sum: { $cond: ['$isCorrect', 1, 0] } } } },
+    ]);
+    const assigned = await QuizEntry.countDocuments({ questionId: doc._id });
+    const dist = { A: 0, B: 0, C: 0, D: 0 };
+    let answered = 0, correct = 0;
+    agg.forEach((g) => { answered += g.count; correct += g.correct; if (g._id && dist[g._id] !== undefined) dist[g._id] = g.count; });
+    const pct = (n) => (answered ? Math.round((n / answered) * 1000) / 10 : 0);
+    const distribution = ['A', 'B', 'C', 'D'].map((k) => ({ option: k, count: dist[k], pct: pct(dist[k]), isCorrect: k === doc.correctOption }));
+    res.json({
+      id: String(doc._id), text: doc.text, correctOption: doc.correctOption, options: doc.options,
+      assigned, answered, correct, correctPct: pct(correct), distribution,
+    });
+  } catch (e) { console.error('quiz questionStats:', e.message); res.status(500).json({ error: 'Failed to load question stats.' }); }
+};
+
 // ── Excel import / template ──
 
 const IMPORT_HEADERS = ['question', 'optionA', 'optionB', 'optionC', 'optionD', 'correctOption', 'category', 'language', 'isActive'];
@@ -119,24 +236,36 @@ function parseWorkbook(buffer) {
 }
 
 /** Pure: validate + classify rows against an existing-question set. Reused by tests. */
-function buildImportPlan(rows, existingNormSet) {
+function buildImportPlan(rows, existingNormSet, defaultLanguage = 'te') {
   const seen = new Set();
   const toInsert = []; const results = [];
   let imported = 0, skipped = 0, failed = 0;
+  
+  // Basic supported languages for validation
+  const validLangs = new Set(['te', 'en', 'hi', 'kn', 'ta', 'ml', 'mr', 'gu', 'bn', 'pa', 'or', 'as']);
+  
   rows.forEach((row, i) => {
     const rowNo = i + 2; // header is row 1
     const question = cell(row, 'question');
     const options = ['A', 'B', 'C', 'D'].map((k) => ({ key: k, text: cell(row, 'option' + k) })).filter((o) => o.text);
     const correctOption = cell(row, 'correctOption').toUpperCase();
-    if (options.length !== 4) { failed++; results.push({ row: rowNo, status: 'failed', error: 'Question and all 4 options (A–D) are required.' }); return; }
+    if (options.length !== 4) { failed++; results.push({ row: rowNo, status: 'failed', error: 'Question and all 4 options (A–D) are required.', question }); return; }
     const v = validateQuestion({ text: question, options, correctOption });
-    if (!v.ok) { failed++; results.push({ row: rowNo, status: 'failed', error: v.error }); return; }
-    const nq = qnorm(question);
-    if (existingNormSet.has(nq) || seen.has(nq)) { skipped++; results.push({ row: rowNo, status: 'skipped', error: 'Duplicate question (already exists) — not overwritten.' }); return; }
+    if (!v.ok) { failed++; results.push({ row: rowNo, status: 'failed', error: v.error, question }); return; }
+    
+    let rawLang = cell(row, 'language');
+    let lang = (rawLang ? rawLang : defaultLanguage).trim().toLowerCase();
+    if (!validLangs.has(lang)) {
+      failed++; results.push({ row: rowNo, status: 'failed', error: `Invalid or unsupported language code: "${lang}"`, question: v.text }); return;
+    }
+    
+    const nq = qnorm(question) + '::' + lang;
+    if (existingNormSet.has(nq) || seen.has(nq)) { skipped++; results.push({ row: rowNo, status: 'skipped', error: 'Duplicate question (already exists for this language).', question: v.text }); return; }
     seen.add(nq);
+    
     const isActive = !/^(false|0|no)$/i.test(cell(row, 'isActive'));
-    toInsert.push({ text: v.text, options: v.options, correctOption: v.correctOption, language: cell(row, 'language') || 'te', category: cell(row, 'category') || null, isActive });
-    imported++; results.push({ row: rowNo, status: 'ok' });
+    toInsert.push({ text: v.text, options: v.options, correctOption: v.correctOption, language: lang, category: cell(row, 'category') || null, isActive });
+    imported++; results.push({ row: rowNo, status: 'ok', language: lang, question: v.text });
   });
   return { toInsert, results, imported, skipped, failed };
 }
@@ -152,10 +281,24 @@ exports.importQuestions = async (req, res) => {
     catch (_) { return res.status(400).json({ error: 'Could not read the Excel file. Use the provided template.' }); }
     if (!rows.length) return res.status(400).json({ error: 'No rows found in the file.' });
 
-    const existing = new Set((await QuizQuestion.find({}).select('text').lean()).map((q) => qnorm(q.text)));
-    const plan = buildImportPlan(rows, existing);
+    const existing = new Set((await QuizQuestion.find({}).select('text language').lean()).map((q) => qnorm(q.text) + '::' + (q.language || 'te')));
+    const defaultLanguage = String((req.body && req.body.language) || 'te').trim().toLowerCase();
+    const plan = buildImportPlan(rows, existing, defaultLanguage);
     const dryRun = String((req.body && req.body.dryRun) || '') === 'true';
-    if (dryRun) return res.json({ dryRun: true, total: rows.length, imported: plan.imported, skipped: plan.skipped, failed: plan.failed, results: plan.results });
+    // mode: 'add' (default) or 'disable_old' → disable the whole current active pool
+    // before importing the new set (safe weekly-bank replacement; never deletes).
+    const mode = String((req.body && req.body.mode) || 'add');
+    if (dryRun) {
+      const willDisableOld = mode === 'disable_old' ? await QuizQuestion.countDocuments({ isActive: true }) : 0;
+      return res.json({ dryRun: true, mode, total: rows.length, imported: plan.imported, skipped: plan.skipped, failed: plan.failed, willDisableOld, results: plan.results });
+    }
+
+    let disabledOld = 0;
+    if (mode === 'disable_old') {
+      const r = await QuizQuestion.updateMany({ isActive: true }, { $set: { isActive: false } });
+      disabledOld = (r && (r.modifiedCount != null ? r.modifiedCount : r.nModified)) || 0;
+      logAudit({ req, action: 'quiz_questions_disable_old', entityType: 'QuizQuestion', entityId: 'bulk', description: `Disabled ${disabledOld} old active question(s) before import (soft; not deleted)` });
+    }
 
     let insertedCount = 0;
     if (plan.toInsert.length) {
@@ -163,8 +306,8 @@ exports.importQuestions = async (req, res) => {
       try { const r = await QuizQuestion.insertMany(docs, { ordered: false }); insertedCount = r.length; }
       catch (e) { insertedCount = (e && e.result && e.result.nInserted) || (e && e.insertedDocs && e.insertedDocs.length) || 0; }
     }
-    logAudit({ req, action: 'quiz_questions_import', entityType: 'QuizQuestion', entityId: 'bulk', description: `Excel import: ${insertedCount} imported, ${plan.skipped} skipped, ${plan.failed} failed (of ${rows.length})` });
-    res.json({ dryRun: false, total: rows.length, imported: insertedCount, skipped: plan.skipped, failed: plan.failed, results: plan.results });
+    logAudit({ req, action: 'quiz_questions_import', entityType: 'QuizQuestion', entityId: 'bulk', description: `Excel import (${mode}): ${insertedCount} imported, ${plan.skipped} skipped, ${plan.failed} failed, ${disabledOld} disabled (of ${rows.length})` });
+    res.json({ dryRun: false, mode, total: rows.length, imported: insertedCount, skipped: plan.skipped, failed: plan.failed, disabledOld, results: plan.results });
   } catch (e) { console.error('quiz importQuestions:', e.message); res.status(500).json({ error: 'Import failed.' }); }
 };
 
@@ -207,6 +350,151 @@ exports.weekStats = async (req, res) => {
       canSelect: isWeekOver(weekId) && winners === 0,
     });
   } catch (e) { console.error('quiz weekStats:', e.message); res.status(500).json({ error: 'Failed to load week stats.' }); }
+};
+
+// GET /admin/quiz/api/analytics?weekId=... → funnel + per-day participation (read-only, IST)
+exports.getAnalytics = async (req, res) => {
+  try {
+    const weekId = targetWeekId(req);
+    const data = await weekAnalytics(weekId);
+    res.json({ ...data, meta: weekMeta(weekId), todayKey: dayInfo().dayKey });
+  } catch (e) { console.error('quiz getAnalytics:', e.message); res.status(500).json({ error: 'Failed to load analytics.' }); }
+};
+
+// Escape a user search term for safe regex use.
+const rxEscape = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const isSuperAdmin = (req) => !!(req.admin && req.admin.role === 'superadmin');
+
+// GET /admin/quiz/api/participants?weekId=&dayKey?=&page=&pageSize=&q=
+// Server-paginated participant drill-down. Mobile/email/location are Super-Admin only.
+exports.listParticipants = async (req, res) => {
+  try {
+    const weekId = targetWeekId(req);
+    const dayKey = req.query.dayKey ? String(req.query.dayKey).trim() : null;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(100, Math.max(5, parseInt(req.query.pageSize, 10) || 25));
+    const qstr = String(req.query.q || '').trim();
+    const isSuper = isSuperAdmin(req);
+
+    let rows = await participantStats(weekId, dayKey);
+
+    // Optional search resolves matching userIds from User, then filters the rollup.
+    if (qstr) {
+      const rx = new RegExp(rxEscape(qstr), 'i');
+      const matched = await User.find({ $or: [{ displayName: rx }, { mobileNumber: rx }, { email: rx }, { googleId: rx }] }).select('googleId').lean();
+      const set = new Set(matched.map((u) => u.googleId));
+      rows = rows.filter((r) => set.has(r._id));
+    }
+
+    rows.sort((a, b) => new Date(b.lastSubmittedAt || 0) - new Date(a.lastSubmittedAt || 0));
+    const total = rows.length;
+    const pageRows = rows.slice((page - 1) * pageSize, page * pageSize);
+
+    // Join User for just this page's users (bounded fetch).
+    const uDocs = await User.find({ googleId: { $in: pageRows.map((r) => r._id) } })
+      .select('googleId displayName mobileNumber email locationProfile deviceFingerprint').lean();
+    const uMap = new Map(uDocs.map((u) => [u.googleId, u]));
+
+    const participants = pageRows.map((r) => {
+      const u = uMap.get(r._id) || {};
+      const answered = r.answered || 0;
+      const correct = r.correct || 0;
+      const base = {
+        userId: r._id,
+        name: u.displayName || '(unknown)',
+        score: correct, answered, correct, wrong: Math.max(0, answered - correct),
+        completed: answered >= QUIZ_DAYS, completion: `${answered}/${QUIZ_DAYS}`,
+        firstAt: r.firstAssignedAt || null, lastSubmittedAt: r.lastSubmittedAt || null,
+      };
+      if (isSuper) {
+        const loc = u.locationProfile || {};
+        base.mobile = u.mobileNumber || '';
+        base.email = u.email || '';
+        base.device = u.deviceFingerprint || '';
+        // Trusted DB location only. Constituency is never inferred → always Not Assigned.
+        base.location = {
+          state: loc.primaryState || 'Not Assigned',
+          district: loc.primaryDistrict || 'Not Assigned',
+          constituency: 'Not Assigned',
+        };
+      }
+      return base;
+    });
+
+    res.json({ weekId, dayKey, page, pageSize, total, pages: Math.max(1, Math.ceil(total / pageSize)), pii: isSuper, participants });
+  } catch (e) { console.error('quiz listParticipants:', e.message); res.status(500).json({ error: 'Failed to load participants.' }); }
+};
+
+// CSV cell escaping incl. formula-injection guard (=,+,-,@ prefixed with ').
+function csvCell(v) {
+  let s = v == null ? '' : String(v);
+  if (/^[=+\-@]/.test(s)) s = "'" + s;
+  if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+const toCsv = (headers, rows) => [headers.join(','), ...rows.map((r) => r.map(csvCell).join(','))].join('\r\n');
+const iso = (d) => (d ? new Date(d).toISOString() : '');
+
+// GET /admin/quiz/api/participants/export?weekId=  → CSV (PII columns Super-Admin only)
+exports.exportParticipants = async (req, res) => {
+  try {
+    const weekId = targetWeekId(req);
+    const isSuper = isSuperAdmin(req);
+    const rows = (await participantStats(weekId, null)).sort((a, b) => new Date(b.lastSubmittedAt || 0) - new Date(a.lastSubmittedAt || 0));
+    const uDocs = await User.find({ googleId: { $in: rows.map((r) => r._id) } })
+      .select('googleId displayName mobileNumber email locationProfile').lean();
+    const uMap = new Map(uDocs.map((u) => [u.googleId, u]));
+
+    const headers = isSuper
+      ? ['UserId', 'Name', 'Mobile', 'Email', 'State', 'District', 'Constituency', 'Score', 'Answered', 'Correct', 'Wrong', 'Completed', 'FirstAssignedAt', 'LastSubmittedAt']
+      : ['UserId', 'Name', 'Score', 'Answered', 'Correct', 'Wrong', 'Completed'];
+    const data = rows.map((r) => {
+      const u = uMap.get(r._id) || {};
+      const answered = r.answered || 0, correct = r.correct || 0;
+      const base = [r._id, u.displayName || '(unknown)'];
+      if (isSuper) {
+        const loc = u.locationProfile || {};
+        base.push(u.mobileNumber || '', u.email || '', loc.primaryState || 'Not Assigned', loc.primaryDistrict || 'Not Assigned', 'Not Assigned');
+      }
+      base.push(correct, answered, correct, Math.max(0, answered - correct), answered >= QUIZ_DAYS ? 'Yes' : 'No');
+      if (isSuper) base.push(iso(r.firstAssignedAt), iso(r.lastSubmittedAt));
+      return base;
+    });
+    logAudit({ req, action: 'quiz_participants_export', entityType: 'QuizWeek', entityId: weekId, description: `Exported ${data.length} participants for ${weekId} (pii=${isSuper})` });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="quiz_participants_${weekId}.csv"`);
+    res.send(toCsv(headers, data));
+  } catch (e) { console.error('quiz exportParticipants:', e.message); res.status(500).json({ error: 'Failed to export participants.' }); }
+};
+
+// GET /admin/quiz/api/winners/export?weekId=  → CSV of real winners (test winners excluded)
+exports.exportWinners = async (req, res) => {
+  try {
+    const weekId = req.query.weekId ? String(req.query.weekId).trim() : null;
+    const isSuper = isSuperAdmin(req);
+    const q = { isTest: { $ne: true } };
+    if (weekId) q.weekId = weekId;
+    const winners = await QuizWinner.find(q).sort({ weekId: -1, rank: 1 }).lean();
+
+    let uMap = new Map();
+    if (isSuper) {
+      const uDocs = await User.find({ googleId: { $in: winners.map((w) => w.userId) } }).select('googleId mobileNumber email').lean();
+      uMap = new Map(uDocs.map((u) => [u.googleId, u]));
+    }
+    const headers = isSuper
+      ? ['WeekId', 'Rank', 'Name', 'Mobile', 'Email', 'Score', 'Answered', 'Mode', 'SelectedBy', 'SelectedAt']
+      : ['WeekId', 'Rank', 'Name', 'Score', 'Answered', 'Mode', 'SelectedBy', 'SelectedAt'];
+    const data = winners.map((w) => {
+      const row = [w.weekId, w.rank, w.displayName || '(unknown)'];
+      if (isSuper) { const u = uMap.get(w.userId) || {}; row.push(u.mobileNumber || '', u.email || ''); }
+      row.push(w.score || 0, w.answered || 0, w.mode || '', w.selectedByName || '', iso(w.selectedAt));
+      return row;
+    });
+    logAudit({ req, action: 'quiz_winners_export', entityType: 'QuizWinner', entityId: weekId || 'all', description: `Exported ${data.length} winners (pii=${isSuper})` });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="quiz_winners_${weekId || 'all'}.csv"`);
+    res.send(toCsv(headers, data));
+  } catch (e) { console.error('quiz exportWinners:', e.message); res.status(500).json({ error: 'Failed to export winners.' }); }
 };
 
 // GET /admin/quiz/api/week/eligible?weekId=...
@@ -378,6 +666,83 @@ exports.clearTestWinners = async (req, res) => {
       description: `Cleared ${r.deletedCount || 0} TEST winners` });
     res.json({ ok: true, deleted: r.deletedCount || 0 });
   } catch (e) { console.error('quiz clearTestWinners:', e.message); res.status(500).json({ error: 'Failed to clear test winners.' }); }
+};
+
+// GET /admin/quiz/api/settings
+exports.getSettings = async (req, res) => {
+  try {
+    const s = await QuizSettings.findOne({ key: 'quiz_config' }).lean();
+    if (!s) return res.json({ isEnabled: false, enabledLanguages: [] });
+    res.json({ isEnabled: !!s.isEnabled, enabledLanguages: s.enabledLanguages || [] });
+  } catch (e) { console.error('quiz getSettings:', e.message); res.status(500).json({ error: 'Failed to get settings.' }); }
+};
+
+// PUT /admin/quiz/api/settings
+exports.updateSettings = async (req, res) => {
+  try {
+    const isEnabled = !!req.body.isEnabled;
+    const rawLangs = Array.isArray(req.body.enabledLanguages) ? req.body.enabledLanguages : [];
+    const enabledLanguages = rawLangs.map((l) => String(l).trim().toLowerCase()).filter((l) => l);
+    
+    await QuizSettings.updateOne(
+      { key: 'quiz_config' },
+      { $set: { isEnabled, enabledLanguages, updatedByName: req.admin ? (req.admin.name || req.admin.username) : 'admin' } },
+      { upsert: true }
+    );
+    // Clear the memory cache in the language service so the public API picks it up immediately
+    require('../services/quizLanguageService')._clearCache();
+    
+    logAudit({ req, action: 'quiz_settings_update', entityType: 'QuizSettings', entityId: 'quiz_config', description: `Quiz settings updated: ON=${isEnabled}, Langs=${enabledLanguages.join(',')}` });
+    res.json({ ok: true });
+  } catch (e) { console.error('quiz updateSettings:', e.message); res.status(500).json({ error: 'Failed to update settings.' }); }
+};
+
+// GET /admin/quiz/api/questions/pool-health
+exports.getPoolHealth = async (req, res) => {
+  try {
+    // We need to count by language: active, unused, used/locked, archived
+    // "Used" = has usageCount > 0 OR lockedForEdit OR has QuizEntry
+    // To do this perfectly in one go, we first get all question states, then we check QuizEntry usage if needed.
+    // However, since it's an admin dashboard, a slight approximation or a two-step query is fine.
+    // Let's do a fast aggregation:
+    const stats = await QuizQuestion.aggregate([
+      {
+        $group: {
+          _id: '$language',
+          total: { $sum: 1 },
+          archived: { $sum: { $cond: ['$archived', 1, 0] } },
+          locked: { $sum: { $cond: ['$lockedForEdit', 1, 0] } },
+          active: { $sum: { $cond: [{ $and: [{ $eq: ['$isActive', true] }, { $ne: ['$archived', true] }] }, 1, 0] } }
+        }
+      }
+    ]);
+    
+    // For "used", we need to check if they have usageCount > 0 or if they have an entry.
+    // Let's just use usageCount and lockedForEdit for the "used" count to be fast.
+    const usedCounts = await QuizQuestion.aggregate([
+      { $match: { $or: [{ lockedForEdit: true }, { usageCount: { $gt: 0 } }] } },
+      { $group: { _id: '$language', usedCount: { $sum: 1 } } }
+    ]);
+    const usedMap = new Map(usedCounts.map(u => [u._id, u.usedCount]));
+    
+    const health = stats.map(s => {
+      const used = usedMap.get(s._id) || 0;
+      // "active" pool is the pool available for random assignment (isActive=true, archived=false)
+      // "unused" is roughly (total - archived - used)
+      const unused = Math.max(0, s.total - s.archived - used);
+      return {
+        language: s._id || 'unknown',
+        total: s.total,
+        active: s.active,
+        archived: s.archived,
+        locked: s.locked,
+        used,
+        unused
+      };
+    });
+    
+    res.json(health);
+  } catch (e) { console.error('quiz getPoolHealth:', e.message); res.status(500).json({ error: 'Failed to get pool health.' }); }
 };
 
 exports._internals = { resolveUserByAny }; // exported for tests

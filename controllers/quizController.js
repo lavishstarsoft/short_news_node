@@ -12,8 +12,10 @@ const QuizWeek = require('../models/QuizWeek');
 const QuizWinner = require('../models/QuizWinner');
 const QuizTestOverride = require('../models/QuizTestOverride');
 const { dayInfo, weekDayKeys, weekMeta, simTestDate } = require('../utils/quizWeek');
+const { getQuizEnabledLanguages, getQuizConfig, isQuizLanguageAllowed } = require('../services/quizLanguageService');
 
 const uid = (req) => req.verifiedGoogleId || null;
+const reqLang = (req) => (req.query && req.query.lang ? String(req.query.lang).trim().toLowerCase() : null);
 
 /**
  * Effective quiz day for a user. If an admin has enabled test mode for THIS user,
@@ -36,13 +38,13 @@ async function ensureWeek(weekId) {
 }
 
 /** Find-or-assign today's question for a user (atomic, no-repeat within week, no full-pool load). */
-async function assignQuestion(userId, weekId, dayKey, dayIndex) {
+async function assignQuestion(userId, weekId, dayKey, dayIndex, lang) {
   const existing = await QuizEntry.findOne({ userId, weekId, dayKey });
   if (existing) return existing;
   const used = (await QuizEntry.find({ userId, weekId }).select('questionId').lean()).map((e) => e.questionId);
-  let picked = await QuizQuestion.aggregate([{ $match: { isActive: true, _id: { $nin: used } } }, { $sample: { size: 1 } }]);
-  if (!picked.length) picked = await QuizQuestion.aggregate([{ $match: { isActive: true } }, { $sample: { size: 1 } }]); // pool < 6 fallback
-  if (!picked.length) return null; // no active questions
+  let picked = await QuizQuestion.aggregate([{ $match: { isActive: true, language: lang, _id: { $nin: used } } }, { $sample: { size: 1 } }]);
+  if (!picked.length) picked = await QuizQuestion.aggregate([{ $match: { isActive: true, language: lang } }, { $sample: { size: 1 } }]); // pool < 6 fallback
+  if (!picked.length) return null; // no active questions for this language
   await QuizEntry.updateOne(
     { userId, weekId, dayKey },
     { $setOnInsert: { userId, weekId, dayKey, dayIndex, questionId: picked[0]._id, assignedAt: new Date() } },
@@ -74,6 +76,16 @@ exports.today = async (req, res) => {
   try {
     const userId = uid(req);
     if (!userId) return res.status(401).json({ error: 'Sign in to play the quiz.' });
+    // Language targeting (Quiz/week level). Empty config = all. Blocks before any
+    // assignment so no QuizEntry is created for users outside the target languages.
+    const conf = await getQuizConfig();
+    if (!conf.isEnabled) {
+      return res.json({ available: false, enabled: false, reason: 'disabled' });
+    }
+    const userLang = reqLang(req);
+    if (!isQuizLanguageAllowed(userLang, conf.langs, conf.isEnabled)) {
+      return res.json({ available: false, reason: 'language' });
+    }
     const ctx = await resolveQuizContext(userId);
     const di = ctx.di;
     await ensureWeek(di.weekId);
@@ -83,7 +95,7 @@ exports.today = async (req, res) => {
       return res.json({ weekId: di.weekId, dayIndex: 0, isQuizDay: false, isSunday: true, winnersReady: winners.length > 0, winners, testMode: ctx.testMode });
     }
 
-    const entry = await assignQuestion(userId, di.weekId, di.dayKey, di.dayIndex);
+    const entry = await assignQuestion(userId, di.weekId, di.dayKey, di.dayIndex, userLang);
     if (!entry) return res.json({ weekId: di.weekId, dayIndex: di.dayIndex, isQuizDay: true, question: null, message: 'No question available today.', testMode: ctx.testMode });
     const q = await QuizQuestion.findById(entry.questionId).lean();
 
@@ -106,6 +118,10 @@ exports.answer = async (req, res) => {
   try {
     const userId = uid(req);
     if (!userId) return res.status(401).json({ error: 'Sign in to play the quiz.' });
+    const conf = await getQuizConfig();
+    if (!conf.isEnabled || !isQuizLanguageAllowed(reqLang(req), conf.langs, conf.isEnabled)) {
+      return res.status(403).json({ error: 'Quiz is not available for your language.' });
+    }
     const ctx = await resolveQuizContext(userId);
     const di = ctx.di;
     if (!di.isQuizDay) return res.status(400).json({ error: 'No quiz today.' });
@@ -144,6 +160,10 @@ exports.week = async (req, res) => {
   try {
     const userId = uid(req);
     if (!userId) return res.status(401).json({ error: 'Sign in to play the quiz.' });
+    const conf = await getQuizConfig();
+    if (!conf.isEnabled || !isQuizLanguageAllowed(reqLang(req), conf.langs, conf.isEnabled)) {
+      return res.status(403).json({ error: 'Quiz is not available for your language.' });
+    }
     const ctx = await resolveQuizContext(userId);
     const di = ctx.di;
     const entries = await QuizEntry.find({ userId, weekId: di.weekId }).lean();

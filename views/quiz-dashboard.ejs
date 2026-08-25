@@ -19,12 +19,45 @@
           .qd-scroll{max-height:52vh;overflow:auto}
         </style>
         <div class="mb-2 d-flex align-items-center gap-2">
-          <h3 class="mb-0">Quiz Weekly Dashboard</h3>
+          <h3 class="mb-0 d-flex align-items-center">Quiz Weekly Dashboard
+            <button class="btn btn-sm btn-info text-white ms-3 fw-bold shadow-sm" onclick="toggleQuizHelp()" title="ఈ పేజీ గురించి తెలుసుకోండి"><i class="fas fa-info-circle"></i> Info / Help</button>
+          </h3>
           <input id="qdWeek" class="form-control form-control-sm" style="width:150px" placeholder="weekId (Mon YYYY-MM-DD)">
           <button class="btn btn-sm btn-outline-secondary" onclick="qdLoad()">Load</button>
           <span id="qdStatus" class="small text-muted"></span>
         </div>
         <div class="qd-kpis" id="qdKpis"></div>
+        <div class="card mb-3"><div class="card-body">
+          <h6 class="fw-bold">Participation funnel <span class="small text-muted">(Assigned ≡ Opened — assignment happens on open)</span></h6>
+          <div id="qdFunnel" class="qd-kpis" style="margin-bottom:0"></div>
+        </div></div>
+        <div class="card mb-3"><div class="card-body">
+          <h6 class="fw-bold">Daily participation <span class="small text-muted">(click a count to see participants)</span></h6>
+          <div class="qd-scroll"><table class="qd-tbl"><thead><tr><th>Day</th><th>Date (IST)</th><th>Participants</th><th>Answered</th></tr></thead><tbody id="qdDaily"></tbody></table></div>
+        </div></div>
+        <div class="mb-2 d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary" onclick="openParticipants(null)">👥 All participants this week</button>
+          <a class="btn btn-sm btn-outline-success" id="qdExportPart" href="#"><i class="fas fa-file-csv"></i> Export participants CSV</a>
+          <a class="btn btn-sm btn-outline-success" id="qdExportWin" href="#"><i class="fas fa-file-csv"></i> Export winners CSV</a>
+        </div>
+        <div id="qdPartOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1050" onclick="if(event.target===this)closeParticipants()">
+          <div style="max-width:900px;margin:4vh auto;background:#fff;border-radius:12px;max-height:88vh;overflow:auto;padding:16px">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <h5 class="mb-0" id="qdPartTitle">Participants</h5>
+              <input id="qdPartSearch" class="form-control form-control-sm" style="width:220px" placeholder="Search name / mobile / email">
+              <button class="btn btn-sm btn-outline-secondary" onclick="qdPartGo(1)">Search</button>
+              <span id="qdPartCount" class="small text-muted ms-auto"></span>
+              <button class="btn btn-sm btn-light" onclick="closeParticipants()">✕</button>
+            </div>
+            <div id="qdPartPii" class="small text-muted mb-2"></div>
+            <div class="qd-scroll"><table class="qd-tbl"><thead id="qdPartHead"></thead><tbody id="qdPartRows"></tbody></table></div>
+            <div class="d-flex align-items-center gap-2 mt-2">
+              <button class="btn btn-sm btn-outline-secondary" onclick="qdPartGo(window.qdPart.page-1)">Prev</button>
+              <span id="qdPartPage" class="small"></span>
+              <button class="btn btn-sm btn-outline-secondary" onclick="qdPartGo(window.qdPart.page+1)">Next</button>
+            </div>
+          </div>
+        </div>
         <div class="mb-2" id="qdActions"></div>
         <div class="card"><div class="card-body">
           <h6 class="fw-bold">Eligible users (answered all 6) — ranked by correct, earliest completion</h6>
@@ -62,6 +95,7 @@
       </div>
     </div>
   </div></div>
+  <%- include('partials/quiz-help-modal') %>
   <%- include('partials/footer') %>
   <script>
   (function(){
@@ -82,7 +116,51 @@
       var el=await (await fetch('/admin/quiz/api/week/eligible?weekId='+encodeURIComponent(week))).json();
       eligible=el.eligible||[];
       q('qdElig').innerHTML=eligible.map(function(e){return '<tr><td><input type="checkbox" class="qd-pick" value="'+e.userId+'"></td><td>'+e.rankIfSorted+'</td><td>'+esc(e.name)+'</td><td><b>'+e.correct+'</b></td><td>'+e.answered+'</td><td class="text-muted">'+esc((e.device||'').slice(0,10))+'</td></tr>';}).join('')||'<tr><td colspan="6" class="text-muted py-3">No eligible users yet.</td></tr>';
+      loadAnalytics();
       loadHistory();
+    };
+    var DAYLBL=['Mon','Tue','Wed','Thu','Fri','Sat'];
+    async function loadAnalytics(){
+      q('qdExportPart').href='/admin/quiz/api/participants/export?weekId='+encodeURIComponent(week);
+      q('qdExportWin').href='/admin/quiz/api/winners/export?weekId='+encodeURIComponent(week);
+      var d=await (await fetch('/admin/quiz/api/analytics?weekId='+encodeURIComponent(week))).json();
+      var f=d.funnel||{};
+      var steps=[['Assigned',f.assigned],['Opened',f.opened],['Answered',f.answered],['Completed 6/6',f.completed],['Eligible',f.eligible],['Winners',f.winners]];
+      q('qdFunnel').innerHTML=steps.map(function(s){return '<div class="qd-kpi"><div class="v">'+(s[1]||0)+'</div><div class="l">'+s[0]+'</div></div>';}).join('');
+      q('qdDaily').innerHTML=(d.days||[]).map(function(day,i){
+        var today=day.dayKey===d.todayKey?' <span class="qd-b qd-ok">today</span>':'';
+        var pcell=day.participants>0?'<a href="#" onclick="return openParticipants(\''+day.dayKey+'\')">'+day.participants+'</a>':'0';
+        return '<tr><td>'+DAYLBL[i]+today+'</td><td class="text-muted">'+esc(day.dayKey)+'</td><td>'+pcell+'</td><td>'+day.answered+'</td></tr>';
+      }).join('');
+    }
+    // Participant drill-down (server-paginated; PII gated to Super Admin).
+    window.qdPart={dayKey:null,page:1};
+    window.openParticipants=function(dayKey){ window.qdPart.dayKey=dayKey||null; q('qdPartSearch').value=''; q('qdPartOverlay').style.display='block'; window.qdPartGo(1); return false; };
+    window.closeParticipants=function(){ q('qdPartOverlay').style.display='none'; };
+    window.qdPartGo=async function(page){
+      if(page<1)return; window.qdPart.page=page;
+      var qs='weekId='+encodeURIComponent(week)+'&page='+page+'&pageSize=25';
+      if(window.qdPart.dayKey)qs+='&dayKey='+encodeURIComponent(window.qdPart.dayKey);
+      var s=(q('qdPartSearch').value||'').trim(); if(s)qs+='&q='+encodeURIComponent(s);
+      var d=await (await fetch('/admin/quiz/api/participants?'+qs)).json();
+      q('qdPartTitle').textContent=window.qdPart.dayKey?('Participants · '+window.qdPart.dayKey):'Participants · week';
+      q('qdPartCount').textContent=(d.total||0)+' total';
+      q('qdPartPage').textContent='Page '+d.page+' / '+d.pages;
+      q('qdPartPii').innerHTML=d.pii?'<span class="qd-b qd-ok">Super Admin</span> mobile/email/location visible'
+        :'<span class="qd-b qd-warn">Restricted</span> mobile/email/location hidden (Super Admin only)';
+      var head=d.pii
+        ? '<tr><th>Name</th><th>Mobile</th><th>Email</th><th>Location</th><th>Score</th><th>Ans</th><th>✓</th><th>✗</th><th>Done</th><th>Last submit (IST)</th></tr>'
+        : '<tr><th>Name</th><th>Score</th><th>Ans</th><th>✓</th><th>✗</th><th>Done</th><th>Last submit (IST)</th></tr>';
+      q('qdPartHead').innerHTML=head;
+      q('qdPartRows').innerHTML=(d.participants||[]).map(function(p){
+        var done=p.completed?'<span class="qd-b qd-ok">'+p.completion+'</span>':p.completion;
+        var last=p.lastSubmittedAt?esc(new Date(p.lastSubmittedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})):'—';
+        if(d.pii){
+          var loc=p.location||{}; var locStr=esc(loc.state)+' → '+esc(loc.district)+' → '+esc(loc.constituency);
+          return '<tr><td>'+esc(p.name)+'</td><td>'+esc(p.mobile||'—')+'</td><td>'+esc(p.email||'—')+'</td><td class="small">'+locStr+'</td><td><b>'+p.score+'</b></td><td>'+p.answered+'</td><td>'+p.correct+'</td><td>'+p.wrong+'</td><td>'+done+'</td><td class="text-muted small">'+last+'</td></tr>';
+        }
+        return '<tr><td>'+esc(p.name)+'</td><td><b>'+p.score+'</b></td><td>'+p.answered+'</td><td>'+p.correct+'</td><td>'+p.wrong+'</td><td>'+done+'</td><td class="text-muted small">'+last+'</td></tr>';
+      }).join('')||'<tr><td colspan="10" class="text-muted py-3">No participants.</td></tr>';
     };
     async function post(body){ var r=await fetch('/admin/quiz/api/week/winners',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); var d=await r.json(); if(!r.ok){alert(d.error||'Failed');return null;} return d; }
     window.qdRandom=async function(){ if(!confirm('Run a crypto-random lottery to pick 10 winners? This is final and cannot be changed.'))return; var d=await post({weekId:week,mode:'random_lottery'}); if(d){alert('10 winners selected (random lottery).');qdLoad();} };
