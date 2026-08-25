@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'In-App Popup' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'In-App Popup', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'in-app-popup' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <style>
+          .ip-form{border:1px solid #eef0f3;border-radius:12px;padding:16px;background:#fff;margin-bottom:16px}
+          .ip-form label{font-weight:600;font-size:12px;color:#555;margin-bottom:2px}
+          .ip-form input,.ip-form select,.ip-form textarea{border:1px solid #dfe3ea;border-radius:8px;padding:8px 10px;font-size:14px;width:100%}
+          table.ip-tbl{width:100%;border-collapse:collapse;font-size:13px}
+          table.ip-tbl th{background:#f4f6f9;text-align:left;padding:6px 8px;font-size:11px;text-transform:uppercase;color:#6b7280}
+          table.ip-tbl td{padding:6px 8px;border-top:1px solid #f1f3f6;vertical-align:top}
+          .ip-b{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700}
+          .ip-on{background:#e8f5e9;color:#2e7d32}.ip-off{background:#eceff1;color:#546e7a}
+          .ip-thumb{width:54px;height:34px;object-fit:cover;border-radius:6px;border:1px solid #eee}
+        </style>
+
+        <div class="mb-2">
+          <h3 class="mb-1">In-App Popup <span class="ip-b ip-off">Firebase/OneSignal-style</span></h3>
+          <p class="text-muted mb-0">One active popup per language. Shown to app users after <b>Trigger After Swipes</b> news cards, once per user.</p>
+        </div>
+
+        <div class="ip-form">
+          <input type="hidden" id="ipId">
+          <div class="row g-2">
+            <div class="col-md-2">
+              <label>Language *</label>
+              <select id="ipLang">
+                <% if (locals.languages && languages.length) { %>
+                  <% languages.forEach(function(l){ %><option value="<%= l.code %>"><%= l.nativeName || l.name %> (<%= l.code %>)</option><% }); %>
+                <% } else { %><option value="te">te</option><% } %>
+              </select>
+            </div>
+            <div class="col-md-2"><label>Trigger After Swipes</label><input id="ipTrigger" type="number" min="1" value="3"></div>
+            <div class="col-md-8"><label>Title *</label><input id="ipTitle" placeholder="e.g. Welcome to the app!"></div>
+            <div class="col-12"><label>Message (optional)</label><textarea id="ipMsg" rows="2" placeholder="Body text…"></textarea></div>
+            <div class="col-md-6"><label>Image URL (optional)</label><input id="ipImage" placeholder="https://…"></div>
+            <div class="col-md-3"><label>Button Text (optional)</label><input id="ipBtn" placeholder="e.g. Explore"></div>
+            <div class="col-md-3"><label>Action URL (optional)</label><input id="ipAction" placeholder="https://…"></div>
+            <div class="col-12 d-flex align-items-center gap-2 mt-1">
+              <label class="mb-0"><input type="checkbox" id="ipActive"> Active</label>
+              <button class="btn btn-primary btn-sm" onclick="ipSave()">Save</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="ipReset()">Clear</button>
+              <span id="ipMsgOut" class="small ms-2"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card"><div class="table-responsive"><table class="ip-tbl">
+          <thead><tr><th>Lang</th><th>Image</th><th>Title / Message</th><th>Button → Action</th><th>Swipes</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+          <tbody id="ipRows"><tr><td colspan="7" class="text-muted py-3">Loading…</td></tr></tbody>
+        </table></div></div>
+      </div>
+    </div>
+  </div></div>
+  <%- include('partials/footer') %>
+  <script>
+  (function(){
+    var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});};
+    function q(id){return document.getElementById(id);}
+    async function load(){
+      var d=await (await fetch('/admin/api/in-app-popup')).json();
+      q('ipRows').innerHTML=(d.items||[]).map(function(p){
+        var img=p.imageUrl?('<img class="ip-thumb" src="'+esc(p.imageUrl)+'" onerror="this.style.display=\'none\'">'):'<span class="text-muted">—</span>';
+        var st=p.isActive?'<span class="ip-b ip-on">Active</span>':'<span class="ip-b ip-off">Off</span>';
+        var act=(p.buttonText||'')+(p.actionUrl?(' → '+esc(p.actionUrl)):'');
+        return '<tr><td><b>'+esc(p.language)+'</b></td><td>'+img+'</td>'+
+          '<td><b>'+esc(p.title)+'</b>'+(p.message?('<br><span class="text-muted">'+esc(p.message)+'</span>'):'')+'</td>'+
+          '<td class="small">'+esc(act||'—')+'</td><td>'+(p.triggerAfterSwipes||3)+'</td><td>'+st+'</td>'+
+          '<td class="text-end"><button class="btn btn-sm btn-outline-secondary" onclick=\'ipEdit('+JSON.stringify(JSON.stringify(p))+')\'>Edit</button> '+
+          '<button class="btn btn-sm '+(p.isActive?'btn-outline-warning':'btn-outline-success')+'" onclick="ipToggle(\''+p._id+'\')">'+(p.isActive?'Deactivate':'Activate')+'</button></td></tr>';
+      }).join('')||'<tr><td colspan="7" class="text-muted py-3">No popups yet.</td></tr>';
+    }
+    window.ipReset=function(){ q('ipId').value=''; q('ipTitle').value=''; q('ipMsg').value=''; q('ipImage').value=''; q('ipBtn').value=''; q('ipAction').value=''; q('ipTrigger').value='3'; q('ipActive').checked=false; q('ipMsgOut').textContent=''; };
+    window.ipEdit=function(json){ var p=JSON.parse(json); q('ipId').value=p._id; q('ipLang').value=p.language; q('ipTitle').value=p.title||''; q('ipMsg').value=p.message||''; q('ipImage').value=p.imageUrl||''; q('ipBtn').value=p.buttonText||''; q('ipAction').value=p.actionUrl||''; q('ipTrigger').value=p.triggerAfterSwipes||3; q('ipActive').checked=!!p.isActive; window.scrollTo(0,0); };
+    window.ipSave=async function(){
+      var body={ language:q('ipLang').value, title:(q('ipTitle').value||'').trim(), message:q('ipMsg').value, imageUrl:q('ipImage').value, buttonText:q('ipBtn').value, actionUrl:q('ipAction').value, triggerAfterSwipes:parseInt(q('ipTrigger').value,10)||3, isActive:q('ipActive').checked };
+      if(!body.title){ q('ipMsgOut').innerHTML='<span class="text-danger">Title is required.</span>'; return; }
+      var id=q('ipId').value;
+      var url=id?('/admin/api/in-app-popup/'+id):'/admin/api/in-app-popup';
+      var method=id?'PUT':'POST';
+      var r=await fetch(url,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      var d=await r.json();
+      if(!r.ok){ q('ipMsgOut').innerHTML='<span class="text-danger">'+esc(d.error||'Failed')+'</span>'; return; }
+      q('ipMsgOut').innerHTML='<span class="text-success">Saved.</span>'; ipReset(); load();
+    };
+    window.ipToggle=async function(id){
+      var r=await fetch('/admin/api/in-app-popup/'+id+'/toggle',{method:'PATCH'});
+      var d=await r.json(); if(!r.ok){alert(d.error||'Failed');return;} load();
+    };
+    load();
+  })();
+  </script>
+</body>
+</html>

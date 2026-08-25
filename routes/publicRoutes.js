@@ -2399,4 +2399,8 @@ router.get('/api/public/quiz/today', verifyMobileUser, quizController.today);
 router.post('/api/public/quiz/answer', verifyMobileUser, quizController.answer);
 router.get('/api/public/quiz/week', verifyMobileUser, quizController.week);
 
+// In-App Popup (Firebase/OneSignal-style) — public fetch of the active popup
+const inAppPopupController = require('../controllers/inAppPopupController');
+router.get('/api/public/in-app-popup', cacheMiddleware(120), inAppPopupController.getPublic);
+
 module.exports = router;
