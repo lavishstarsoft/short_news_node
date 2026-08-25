@@ -14,6 +14,14 @@ exports.renderPage = async (req, res) => {
   } catch (e) { console.error('inAppPopup renderPage:', e.message); res.status(500).send('Server Error'); }
 };
 
+// POST /admin/api/in-app-popup/upload-image  (uploadAdMedia.single('image') runs first)
+exports.uploadImage = async (req, res) => {
+  try {
+    if (!req.file || !req.file.path) return res.status(400).json({ error: 'No image uploaded.' });
+    res.json({ success: true, imageUrl: req.file.path });
+  } catch (e) { console.error('inAppPopup uploadImage:', e.message); res.status(500).json({ error: 'Image upload failed.' }); }
+};
+
 // POST /admin/api/in-app-popup
 exports.create = async (req, res) => {
   try {

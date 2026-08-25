@@ -38,7 +38,12 @@
             <div class="col-md-2"><label>Trigger After Swipes</label><input id="ipTrigger" type="number" min="1" value="3"></div>
             <div class="col-md-8"><label>Title *</label><input id="ipTitle" placeholder="e.g. Welcome to the app!"></div>
             <div class="col-12"><label>Message (optional)</label><textarea id="ipMsg" rows="2" placeholder="Body text…"></textarea></div>
-            <div class="col-md-6"><label>Image URL (optional)</label><input id="ipImage" placeholder="https://…"></div>
+            <div class="col-md-6">
+              <label>Image (optional) — cropped to 16:9</label>
+              <input type="hidden" id="ipImage">
+              <input type="file" id="ipImageFile" accept="image/*" onchange="ipOnFile(event)">
+              <div id="ipImagePreview" class="mt-1"></div>
+            </div>
             <div class="col-md-3"><label>Button Text (optional)</label><input id="ipBtn" placeholder="e.g. Explore"></div>
             <div class="col-md-3"><label>Action URL (optional)</label><input id="ipAction" placeholder="https://…"></div>
             <div class="col-12 d-flex align-items-center gap-2 mt-1">
@@ -57,6 +62,23 @@
       </div>
     </div>
   </div></div>
+
+  <!-- Cropper.js (CDN) -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
+  <!-- Crop modal -->
+  <div id="ipCropOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1060;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:16px;max-width:760px;width:92%">
+      <h6 class="fw-bold mb-2">Crop image (16:9)</h6>
+      <div style="max-height:62vh;overflow:hidden"><img id="ipCropImg" style="max-width:100%;display:block"></div>
+      <div class="mt-2 d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="ipCropCancel()">Cancel</button>
+        <button type="button" id="ipCropBtn" class="btn btn-sm btn-primary" onclick="ipCropUpload()">Crop & Upload</button>
+      </div>
+    </div>
+  </div>
+
   <%- include('partials/footer') %>
   <script>
   (function(){
@@ -75,8 +97,44 @@
           '<button class="btn btn-sm '+(p.isActive?'btn-outline-warning':'btn-outline-success')+'" onclick="ipToggle(\''+p._id+'\')">'+(p.isActive?'Deactivate':'Activate')+'</button></td></tr>';
       }).join('')||'<tr><td colspan="7" class="text-muted py-3">No popups yet.</td></tr>';
     }
-    window.ipReset=function(){ q('ipId').value=''; q('ipTitle').value=''; q('ipMsg').value=''; q('ipImage').value=''; q('ipBtn').value=''; q('ipAction').value=''; q('ipTrigger').value='3'; q('ipActive').checked=false; q('ipMsgOut').textContent=''; };
-    window.ipEdit=function(json){ var p=JSON.parse(json); q('ipId').value=p._id; q('ipLang').value=p.language; q('ipTitle').value=p.title||''; q('ipMsg').value=p.message||''; q('ipImage').value=p.imageUrl||''; q('ipBtn').value=p.buttonText||''; q('ipAction').value=p.actionUrl||''; q('ipTrigger').value=p.triggerAfterSwipes||3; q('ipActive').checked=!!p.isActive; window.scrollTo(0,0); };
+    function ipRenderPreview(url){ q('ipImagePreview').innerHTML=url?('<img src="'+esc(url)+'" style="width:120px;height:68px;object-fit:cover;border-radius:6px;border:1px solid #eee"> <button type="button" class="btn btn-sm btn-outline-danger" onclick="ipClearImage()">Remove</button>'):''; }
+    window.ipClearImage=function(){ q('ipImage').value=''; ipRenderPreview(''); };
+    window.ipReset=function(){ q('ipId').value=''; q('ipTitle').value=''; q('ipMsg').value=''; q('ipImage').value=''; q('ipBtn').value=''; q('ipAction').value=''; q('ipTrigger').value='3'; q('ipActive').checked=false; q('ipMsgOut').textContent=''; ipRenderPreview(''); };
+    window.ipEdit=function(json){ var p=JSON.parse(json); q('ipId').value=p._id; q('ipLang').value=p.language; q('ipTitle').value=p.title||''; q('ipMsg').value=p.message||''; q('ipImage').value=p.imageUrl||''; ipRenderPreview(p.imageUrl||''); q('ipBtn').value=p.buttonText||''; q('ipAction').value=p.actionUrl||''; q('ipTrigger').value=p.triggerAfterSwipes||3; q('ipActive').checked=!!p.isActive; window.scrollTo(0,0); };
+
+    // ── Crop & Upload (Cropper.js, 16:9 to match the Flutter dialog) ──
+    var _cropper=null;
+    window.ipOnFile=function(e){
+      var f=e.target.files&&e.target.files[0]; if(!f)return;
+      var reader=new FileReader();
+      reader.onload=function(ev){
+        q('ipCropImg').src=ev.target.result;
+        q('ipCropOverlay').style.display='flex';
+        if(_cropper){ _cropper.destroy(); _cropper=null; }
+        _cropper=new Cropper(q('ipCropImg'),{ aspectRatio:16/9, viewMode:1, autoCropArea:1, background:false, movable:true, zoomable:true });
+      };
+      reader.readAsDataURL(f);
+      e.target.value=''; // allow re-selecting the same file
+    };
+    window.ipCropCancel=function(){ if(_cropper){ _cropper.destroy(); _cropper=null; } q('ipCropOverlay').style.display='none'; };
+    window.ipCropUpload=function(){
+      if(!_cropper)return;
+      var canvas=_cropper.getCroppedCanvas({ width:1280, height:720 });
+      if(!canvas){ alert('Crop failed'); return; }
+      canvas.toBlob(function(blob){
+        if(!blob){ alert('Crop failed'); return; }
+        var fd=new FormData(); fd.append('image', blob, 'popup.jpg');
+        var btn=q('ipCropBtn'); btn.disabled=true; btn.textContent='Uploading…';
+        fetch('/admin/api/in-app-popup/upload-image',{ method:'POST', body:fd })
+          .then(function(r){ return r.json().then(function(d){ return { ok:r.ok, d:d }; }); })
+          .then(function(res){
+            if(!res.ok || !res.d.imageUrl){ alert(res.d.error||'Upload failed'); return; }
+            q('ipImage').value=res.d.imageUrl; ipRenderPreview(res.d.imageUrl); ipCropCancel();
+          })
+          .catch(function(){ alert('Network error'); })
+          .finally(function(){ btn.disabled=false; btn.textContent='Crop & Upload'; });
+      }, 'image/jpeg', 0.9);
+    };
     window.ipSave=async function(){
       var body={ language:q('ipLang').value, title:(q('ipTitle').value||'').trim(), message:q('ipMsg').value, imageUrl:q('ipImage').value, buttonText:q('ipBtn').value, actionUrl:q('ipAction').value, triggerAfterSwipes:parseInt(q('ipTrigger').value,10)||3, isActive:q('ipActive').checked };
       if(!body.title){ q('ipMsgOut').innerHTML='<span class="text-danger">Title is required.</span>'; return; }

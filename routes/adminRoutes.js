@@ -434,6 +434,7 @@ router.get('/api/reporter/earning', adminController.requireAuth, adminController
 // In-App Popup (Firebase/OneSignal-style) — admin management
 const inAppPopupController = require('../controllers/inAppPopupController');
 router.get('/in-app-popup', adminController.requireAdmin, inAppPopupController.renderPage);
+router.post('/api/in-app-popup/upload-image', adminController.requireAdmin, uploadAdMedia.single('image'), inAppPopupController.uploadImage);
 router.get('/api/in-app-popup', adminController.requireAdmin, inAppPopupController.getAll);
 router.post('/api/in-app-popup', adminController.requireAdmin, inAppPopupController.create);
 router.put('/api/in-app-popup/:id', adminController.requireAdmin, inAppPopupController.update);
