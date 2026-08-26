@@ -854,6 +854,10 @@ router.post('/api/public/user/profile', async (req, res) => {
       email: userEmail || '',
       mobileNumber: user?.mobileNumber || null,
       panNumber: user?.panNumber || null,
+      // KYC location (persisted in locationProfile) so the client can restore it
+      // after logout/login instead of re-asking for State & District.
+      state: (user && user.locationProfile && user.locationProfile.primaryState) || null,
+      district: (user && user.locationProfile && user.locationProfile.primaryDistrict) || null,
       photoUrl: req.body.photoUrl || null,
       referralCode: user?.referralCode || null,
       createdAt: user?.createdAt?.toISOString() || new Date().toISOString(),
@@ -2398,6 +2402,7 @@ const quizController = require('../controllers/quizController');
 router.get('/api/public/quiz/today', verifyMobileUser, quizController.today);
 router.post('/api/public/quiz/answer', verifyMobileUser, quizController.answer);
 router.get('/api/public/quiz/week', verifyMobileUser, quizController.week);
+router.get('/api/public/quiz/rules', quizController.rules);
 
 // In-App Popup (Firebase/OneSignal-style) — public fetch of the active popup
 const inAppPopupController = require('../controllers/inAppPopupController');

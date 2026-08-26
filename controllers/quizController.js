@@ -187,4 +187,21 @@ exports.week = async (req, res) => {
   } catch (e) { console.error('quiz week:', e.message); res.status(500).json({ error: 'Failed to load week.' }); }
 };
 
+// GET /api/public/quiz/rules — dynamic rules for the app
+exports.rules = async (req, res) => {
+  try {
+    res.json({
+      title: "How to Win ₹1,000",
+      rules: [
+        "Play the Daily Quiz every day from Monday to Saturday.",
+        "Answer correctly to earn points and increase your chances.",
+        "Every Sunday, 10 lucky winners will be selected from the top scorers.",
+        "Winners receive ₹1,000 directly to their registered mobile number via UPI."
+      ]
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load rules.' });
+  }
+};
+
 exports._internals = { assignQuestion, buildProgress, resolveQuizContext };
