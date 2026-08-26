@@ -6,11 +6,13 @@
  * correctOption is NEVER returned before submission. All day/week logic is IST.
  */
 
+const mongoose = require('mongoose');
 const QuizQuestion = require('../models/QuizQuestion');
 const QuizEntry = require('../models/QuizEntry');
 const QuizWeek = require('../models/QuizWeek');
 const QuizWinner = require('../models/QuizWinner');
 const QuizTestOverride = require('../models/QuizTestOverride');
+const QuizRules = require('../models/QuizRules');
 const { dayInfo, weekDayKeys, weekMeta, simTestDate } = require('../utils/quizWeek');
 const { getQuizEnabledLanguages, getQuizConfig, isQuizLanguageAllowed } = require('../services/quizLanguageService');
 
@@ -187,21 +189,40 @@ exports.week = async (req, res) => {
   } catch (e) { console.error('quiz week:', e.message); res.status(500).json({ error: 'Failed to load week.' }); }
 };
 
-// GET /api/public/quiz/rules — dynamic rules for the app
+// Fallback used when no QuizRules doc exists yet (or DB is unreachable).
+const DEFAULT_QUIZ_RULES = {
+  title: 'Daily Quiz',
+  sections: [
+    { title: 'About Daily Quiz', content: 'Answer daily questions correctly and stand a chance to win ₹1,000 every week.' },
+    { title: 'How to Play', content: 'Play the Daily Quiz from Monday to Saturday — one question each day. Answer correctly to earn points; your answer locks once submitted.' },
+    { title: 'Rules & Eligibility', content: 'You must complete your profile (Name, Mobile, PAN, State, District) to be eligible. Answer all 6 days to qualify for the weekly draw.' },
+    { title: 'Prize & Rewards', content: 'Every Sunday, 10 winners are selected from the top scorers. Each winner receives ₹1,000 to their registered mobile number via UPI.' },
+    { title: 'Need Help?', content: 'For any queries about the Daily Quiz or prizes, please contact our support team from the app settings.' },
+  ],
+};
+
+// GET /api/public/quiz/rules — fully dynamic info sections for the app.
+// Returns { title, sections: [{ title, content }] } from the DB, falling back to
+// sensible defaults so the app always renders something.
 exports.rules = async (req, res) => {
   try {
-    res.json({
-      title: "How to Win ₹1,000",
-      rules: [
-        "Play the Daily Quiz every day from Monday to Saturday.",
-        "Answer correctly to earn points and increase your chances.",
-        "Every Sunday, 10 lucky winners will be selected from the top scorers.",
-        "Winners receive ₹1,000 directly to their registered mobile number via UPI."
-      ]
-    });
+    let doc = null;
+    if (mongoose.connection.readyState === 1) {
+      doc = await QuizRules.findOne({ key: 'quiz_rules' }).lean();
+    }
+    if (doc && Array.isArray(doc.sections) && doc.sections.length) {
+      return res.json({
+        title: doc.title || 'Daily Quiz',
+        sections: doc.sections.map((s) => ({ title: s.title || '', content: s.content || '' })),
+      });
+    }
+    res.json(DEFAULT_QUIZ_RULES);
   } catch (e) {
-    res.status(500).json({ error: 'Failed to load rules.' });
+    console.error('quiz rules:', e.message);
+    res.json(DEFAULT_QUIZ_RULES);
   }
 };
+
+exports.DEFAULT_QUIZ_RULES = DEFAULT_QUIZ_RULES;
 
 exports._internals = { assignQuestion, buildProgress, resolveQuizContext };

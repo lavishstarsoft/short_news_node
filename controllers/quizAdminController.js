@@ -745,4 +745,41 @@ exports.getPoolHealth = async (req, res) => {
   } catch (e) { console.error('quiz getPoolHealth:', e.message); res.status(500).json({ error: 'Failed to get pool health.' }); }
 };
 
+// ─────────────── Quiz Rules (dynamic info sections) ───────────────
+const QuizRules = require('../models/QuizRules');
+const { DEFAULT_QUIZ_RULES } = require('./quizController');
+
+// GET /admin/quiz/rules (management page)
+exports.renderRules = (req, res) => res.render('quiz-rules', { admin: req.admin, activePage: 'quiz-rules' });
+
+// GET /admin/quiz/api/rules → current rules (or defaults to start editing from)
+exports.getRules = async (req, res) => {
+  try {
+    const doc = await QuizRules.findOne({ key: 'quiz_rules' }).lean();
+    if (doc && Array.isArray(doc.sections)) {
+      return res.json({ title: doc.title || 'Daily Quiz', sections: doc.sections });
+    }
+    res.json(DEFAULT_QUIZ_RULES);
+  } catch (e) { console.error('quiz getRules:', e.message); res.status(500).json({ error: 'Failed to load rules.' }); }
+};
+
+// PUT /admin/quiz/api/rules  { title, sections: [{ title, content }] }
+// Full replace — lets admins add / edit / reorder / delete sections anytime.
+exports.updateRules = async (req, res) => {
+  try {
+    const title = String(req.body.title || 'Daily Quiz').trim();
+    const raw = Array.isArray(req.body.sections) ? req.body.sections : [];
+    const sections = raw
+      .map((s) => ({ title: String((s && s.title) || '').trim(), content: String((s && s.content) || '').trim() }))
+      .filter((s) => s.title.length > 0);
+    const doc = await QuizRules.findOneAndUpdate(
+      { key: 'quiz_rules' },
+      { $set: { title, sections } },
+      { new: true, upsert: true }
+    ).lean();
+    logAudit({ req, action: 'quiz_rules_update', entityType: 'QuizRules', entityId: 'quiz_rules', description: `Updated quiz rules (${sections.length} sections)` });
+    res.json({ success: true, title: doc.title, sections: doc.sections });
+  } catch (e) { console.error('quiz updateRules:', e.message); res.status(500).json({ error: 'Failed to update rules.' }); }
+};
+
 exports._internals = { resolveUserByAny }; // exported for tests

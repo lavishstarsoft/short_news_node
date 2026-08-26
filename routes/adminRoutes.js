@@ -307,6 +307,10 @@ router.post('/quiz/api/questions/import', adminController.requireAdmin, quizUplo
 router.get('/quiz/dashboard', adminController.requireAdmin, quizAdminController.renderDashboard);
 router.get('/quiz/api/week', adminController.requireAdmin, quizAdminController.weekStats);
 router.get('/quiz/api/analytics', adminController.requireAdmin, quizAdminController.getAnalytics);
+// Dynamic quiz rules (info sections shown in the app)
+router.get('/quiz/rules', adminController.requireAdmin, quizAdminController.renderRules);
+router.get('/quiz/api/rules', adminController.requireAdmin, quizAdminController.getRules);
+router.put('/quiz/api/rules', adminController.requireAdmin, quizAdminController.updateRules);
 router.get('/quiz/api/participants', adminController.requireAdmin, quizAdminController.listParticipants);
 router.get('/quiz/api/participants/export', adminController.requireAdmin, quizAdminController.exportParticipants);
 router.get('/quiz/api/winners/export', adminController.requireAdmin, quizAdminController.exportWinners);

@@ -190,7 +190,7 @@
             <li class="nav-item">
                 <a class="nav-link has-submenu <%= mediaGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseMedia" role="button" aria-expanded="<%= mediaGroupActive ? 'true' : 'false' %>" aria-controls="collapseMedia">
                     <i class="fas fa-photo-video me-3 w-20px text-center"></i>
-                    <span class="nav-text">Media & Media</span>
+                    <span class="nav-text">Media & Entertainment</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
                 </a>
                 <div class="collapse submenu-collapse <%= mediaGroupActive ? 'show' : '' %>" id="collapseMedia" data-bs-parent="#sidebarAccordion">
@@ -405,6 +405,31 @@
             </li>
             <% } %>
 
+            <!-- Quiz & Rewards Group (Super Admin only) -->
+            <% var quizGroupActive = ['quiz-dashboard', 'quiz-questions', 'quiz-rules'].includes(activePage); %>
+            <% if (isSuperAdminOnly) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu <%= quizGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseQuiz" role="button" aria-expanded="<%= quizGroupActive ? 'true' : 'false' %>" aria-controls="collapseQuiz">
+                    <i class="fas fa-trophy me-3 w-20px text-center"></i>
+                    <span class="nav-text">Quiz & Rewards</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= quizGroupActive ? 'show' : '' %>" id="collapseQuiz" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'quiz-dashboard' ? 'active' : '' %>" href="/admin/quiz/dashboard">Quiz Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'quiz-questions' ? 'active' : '' %>" href="/admin/quiz/questions">Question Bank</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'quiz-rules' ? 'active' : '' %>" href="/admin/quiz/rules">Quiz Rules</a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
 
             <!-- ==============================
                  SYSTEM & FINANCIAL
@@ -415,7 +440,7 @@
 
                 const canSendNotif = isAdmin || (typeof admin !=='undefined' && admin.role==='subeditor' && admin.permissions && admin.permissions.canSendNotifications);
                 const showSystemGroup = isAdmin || canSendNotif;
-                const systemGroupActive = ['command-center', 'security', 'security-center', 'notifications', 'app-settings', 'in-app-popup', 'r2-usage', 'agreement-terms', 'agreement-status', 'reporter-district-assignment', 'late-earnings', 'reporter-access', 'coverage-map', 'quiz-questions', 'quiz-dashboard'].includes(activePage);
+                const systemGroupActive = ['command-center', 'security', 'security-center', 'notifications', 'app-settings', 'in-app-popup', 'r2-usage', 'agreement-terms', 'agreement-status', 'reporter-district-assignment', 'late-earnings', 'reporter-access', 'coverage-map'].includes(activePage);
 
                 const showFinanceGroup = isAdmin || isReporter;
                 const financeActive = ['wallet-settings', 'my-wallet', 'withdrawals-queue', 'wallet-transactions', 'audit-logs', 'monthly-report'].includes(activePage); 
@@ -507,12 +532,6 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'coverage-map' ? 'active' : '' %>" href="/admin/coverage-map">Coverage Map</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <%= activePage === 'quiz-questions' ? 'active' : '' %>" href="/admin/quiz/questions"><i class="fas fa-question-circle me-2"></i>Quiz → Question Bank</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <%= activePage === 'quiz-dashboard' ? 'active' : '' %>" href="/admin/quiz/dashboard"><i class="fas fa-trophy me-2"></i>Quiz → Dashboard</a>
                         </li>
                         <% } %>
                     </ul>

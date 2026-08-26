@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Quiz Rules' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Quiz Rules', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'quiz-rules' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <style>
+          .qr-sec{border:1px solid #eef0f3;border-radius:12px;padding:14px;background:#fff;margin-bottom:12px}
+          .qr-sec label{font-weight:600;font-size:12px;color:#555;margin-bottom:2px}
+          .qr-sec input,.qr-sec textarea{border:1px solid #dfe3ea;border-radius:8px;padding:8px 10px;font-size:14px;width:100%}
+          .qr-head{display:flex;align-items:center;gap:8px}
+          .qr-head .grip{color:#b0b6c0;font-weight:800}
+          .qr-b{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700}
+          .qr-ok{background:#e8f5e9;color:#2e7d32}.qr-warn{background:#fff3e0;color:#e65100}
+        </style>
+
+        <div class="mb-2 d-flex justify-content-between align-items-start flex-wrap gap-2">
+          <div>
+            <h3 class="mb-1">Quiz Rules <span class="qr-b qr-ok">dynamic — no app update needed</span></h3>
+            <p class="text-muted mb-0">These sections power the "Daily Quiz" info / rules shown in the app. Add, edit, reorder or delete them anytime, then Save.</p>
+          </div>
+          <a class="btn btn-sm btn-outline-secondary" href="/admin/quiz/dashboard">← Dashboard</a>
+        </div>
+
+        <div class="card mb-3"><div class="card-body">
+          <label class="fw-bold small mb-1">Modal title (shown at the top of the rules popup)</label>
+          <input id="qrTitle" class="form-control form-control-sm" style="max-width:420px" placeholder="Daily Quiz">
+        </div></div>
+
+        <div id="qrSections"></div>
+
+        <div class="d-flex align-items-center gap-2 mb-4">
+          <button class="btn btn-sm btn-outline-primary" onclick="qrAdd()">+ Add Section</button>
+          <button class="btn btn-sm btn-primary" onclick="qrSave()">Save Changes</button>
+          <button class="btn btn-sm btn-light" onclick="qrLoad()">Reset</button>
+          <span id="qrMsg" class="small ms-2"></span>
+        </div>
+      </div>
+    </div>
+  </div></div>
+  <%- include('partials/footer') %>
+  <script>
+  (function(){
+    var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});};
+    function q(id){return document.getElementById(id);}
+    var _sections=[]; // [{title, content}]
+
+    function render(){
+      if(!_sections.length){ q('qrSections').innerHTML='<div class="text-muted mb-3">No sections yet. Click "Add Section".</div>'; return; }
+      q('qrSections').innerHTML=_sections.map(function(s,i){
+        return '<div class="qr-sec">'+
+          '<div class="qr-head mb-2"><span class="grip">#'+(i+1)+'</span>'+
+            '<button class="btn btn-sm btn-outline-secondary" onclick="qrMove('+i+',-1)" '+(i===0?'disabled':'')+'>↑</button>'+
+            '<button class="btn btn-sm btn-outline-secondary" onclick="qrMove('+i+',1)" '+(i===_sections.length-1?'disabled':'')+'>↓</button>'+
+            '<button class="btn btn-sm btn-outline-danger ms-auto" onclick="qrDel('+i+')">Delete</button>'+
+          '</div>'+
+          '<label>Title</label><input class="qr-title mb-2" data-i="'+i+'" value="'+esc(s.title)+'" placeholder="e.g. How to Play">'+
+          '<label>Content</label><textarea class="qr-content" data-i="'+i+'" rows="3" placeholder="Section text…">'+esc(s.content)+'</textarea>'+
+        '</div>';
+      }).join('');
+    }
+    // Keep the in-memory model in sync with the inputs before any structural change/save.
+    function syncFromInputs(){
+      document.querySelectorAll('.qr-title').forEach(function(el){ var i=+el.dataset.i; if(_sections[i]) _sections[i].title=el.value; });
+      document.querySelectorAll('.qr-content').forEach(function(el){ var i=+el.dataset.i; if(_sections[i]) _sections[i].content=el.value; });
+    }
+
+    window.qrAdd=function(){ syncFromInputs(); _sections.push({title:'',content:''}); render(); };
+    window.qrDel=function(i){ syncFromInputs(); _sections.splice(i,1); render(); };
+    window.qrMove=function(i,d){ syncFromInputs(); var j=i+d; if(j<0||j>=_sections.length)return; var t=_sections[i]; _sections[i]=_sections[j]; _sections[j]=t; render(); };
+
+    window.qrLoad=async function(){
+      q('qrMsg').textContent='';
+      var d=await (await fetch('/admin/quiz/api/rules')).json();
+      q('qrTitle').value=d.title||'Daily Quiz';
+      _sections=(d.sections||[]).map(function(s){ return {title:(s&&s.title)||'',content:(s&&s.content)||''}; });
+      render();
+    };
+
+    window.qrSave=async function(){
+      syncFromInputs();
+      var clean=_sections.filter(function(s){ return (s.title||'').trim().length>0; });
+      var body={ title:(q('qrTitle').value||'Daily Quiz').trim(), sections:clean };
+      var r=await fetch('/admin/quiz/api/rules',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      var res=await r.json();
+      if(!r.ok){ q('qrMsg').innerHTML='<span class="text-danger">'+esc(res.error||'Failed')+'</span>'; return; }
+      _sections=(res.sections||[]).map(function(s){ return {title:(s&&s.title)||'',content:(s&&s.content)||''}; });
+      render();
+      q('qrMsg').innerHTML='<span class="text-success">Saved. ('+_sections.length+' sections) — live in the app now.</span>';
+    };
+
+    qrLoad();
+  })();
+  </script>
+</body>
+</html>
