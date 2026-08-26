@@ -672,8 +672,8 @@ exports.clearTestWinners = async (req, res) => {
 exports.getSettings = async (req, res) => {
   try {
     const s = await QuizSettings.findOne({ key: 'quiz_config' }).lean();
-    if (!s) return res.json({ isEnabled: false, enabledLanguages: [] });
-    res.json({ isEnabled: !!s.isEnabled, enabledLanguages: s.enabledLanguages || [] });
+    if (!s) return res.json({ isEnabled: false, enabledLanguages: [], revealTime: '23:30', winnerReleaseTime: '10:00' });
+    res.json({ isEnabled: !!s.isEnabled, enabledLanguages: s.enabledLanguages || [], revealTime: s.revealTime || '23:30', winnerReleaseTime: s.winnerReleaseTime || '10:00' });
   } catch (e) { console.error('quiz getSettings:', e.message); res.status(500).json({ error: 'Failed to get settings.' }); }
 };
 
@@ -683,10 +683,14 @@ exports.updateSettings = async (req, res) => {
     const isEnabled = !!req.body.isEnabled;
     const rawLangs = Array.isArray(req.body.enabledLanguages) ? req.body.enabledLanguages : [];
     const enabledLanguages = rawLangs.map((l) => String(l).trim().toLowerCase()).filter((l) => l);
-    
+    // Reveal/release times (HH:mm IST). Keep valid or fall back to defaults.
+    const hhmm = (v, def) => (/^\d{1,2}:\d{2}$/.test(String(v || '')) ? String(v) : def);
+    const revealTime = hhmm(req.body.revealTime, '23:30');
+    const winnerReleaseTime = hhmm(req.body.winnerReleaseTime, '10:00');
+
     await QuizSettings.updateOne(
       { key: 'quiz_config' },
-      { $set: { isEnabled, enabledLanguages, updatedByName: req.admin ? (req.admin.name || req.admin.username) : 'admin' } },
+      { $set: { isEnabled, enabledLanguages, revealTime, winnerReleaseTime, updatedByName: req.admin ? (req.admin.name || req.admin.username) : 'admin' } },
       { upsert: true }
     );
     // Clear the memory cache in the language service so the public API picks it up immediately

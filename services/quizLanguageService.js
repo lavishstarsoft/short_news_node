@@ -10,24 +10,33 @@
 const mongoose = require('mongoose');
 const QuizSettings = require('../models/QuizSettings');
 
-let _cache = { at: 0, langs: [], isEnabled: false }; // default to OFF
+const DEFAULT_REVEAL = '23:30';
+const DEFAULT_WINNER_RELEASE = '10:00';
+let _cache = { at: 0, langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE };
 
-/** The configured quiz languages and master toggle. Short TTL cache. */
+/** The configured quiz languages, master toggle, and reveal/release times. Short TTL cache. */
 async function getQuizConfig() {
-  if (mongoose.connection.readyState !== 1) return { langs: [], isEnabled: false }; // no DB (e.g. tests)
+  const fallback = { langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE };
+  if (mongoose.connection.readyState !== 1) return fallback; // no DB (e.g. tests)
   const now = Date.now();
-  if (now - _cache.at < 60000) return { langs: _cache.langs, isEnabled: _cache.isEnabled };
+  if (now - _cache.at < 60000) return { langs: _cache.langs, isEnabled: _cache.isEnabled, revealTime: _cache.revealTime, winnerReleaseTime: _cache.winnerReleaseTime };
   try {
-    const s = await QuizSettings.findOne({ key: 'quiz_config' }).select('enabledLanguages isEnabled').lean();
+    const s = await QuizSettings.findOne({ key: 'quiz_config' }).select('enabledLanguages isEnabled revealTime winnerReleaseTime').lean();
     if (s) {
-      _cache = { at: now, langs: Array.isArray(s.enabledLanguages) ? s.enabledLanguages : [], isEnabled: !!s.isEnabled };
+      _cache = {
+        at: now,
+        langs: Array.isArray(s.enabledLanguages) ? s.enabledLanguages : [],
+        isEnabled: !!s.isEnabled,
+        revealTime: s.revealTime || DEFAULT_REVEAL,
+        winnerReleaseTime: s.winnerReleaseTime || DEFAULT_WINNER_RELEASE,
+      };
     } else {
-      _cache = { at: now, langs: [], isEnabled: false }; // Strict default
+      _cache = { at: now, langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE }; // Strict default
     }
   } catch (_) {
-    _cache = { at: now, langs: [], isEnabled: false };
+    _cache = { at: now, langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE };
   }
-  return { langs: _cache.langs, isEnabled: _cache.isEnabled };
+  return { langs: _cache.langs, isEnabled: _cache.isEnabled, revealTime: _cache.revealTime, winnerReleaseTime: _cache.winnerReleaseTime };
 }
 
 /** Legacy export for tests/callers that only expect languages. */
@@ -46,6 +55,6 @@ function isQuizLanguageAllowed(lang, enabled, isEnabled = true) {
 }
 
 /** Test/maintenance seam. */
-function _clearCache() { _cache = { at: 0, langs: [], isEnabled: false }; }
+function _clearCache() { _cache = { at: 0, langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE }; }
 
 module.exports = { getQuizEnabledLanguages, getQuizConfig, isQuizLanguageAllowed, _clearCache };

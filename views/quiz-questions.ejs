@@ -53,6 +53,18 @@
                   </select>
                   <small class="text-muted" style="font-size:11px">Hold Ctrl/Cmd to select multiple. Empty = NO languages enabled.</small>
                 </div>
+                <div class="row g-2 mb-2">
+                  <div class="col-6">
+                    <label class="fw-bold small text-muted" for="qzRevealTime">Saturday Reveal Time</label>
+                    <input type="time" id="qzRevealTime" class="form-control form-control-sm" value="23:30">
+                    <small class="text-muted" style="font-size:11px">IST — when correct answers (green/red) unlock for the week.</small>
+                  </div>
+                  <div class="col-6">
+                    <label class="fw-bold small text-muted" for="qzWinnerReleaseTime">Sunday Winner Release</label>
+                    <input type="time" id="qzWinnerReleaseTime" class="form-control form-control-sm" value="10:00">
+                    <small class="text-muted" style="font-size:11px">IST — when the 10 weekly winners become visible.</small>
+                  </div>
+                </div>
                 <button class="btn btn-sm btn-primary" onclick="qzSaveSettings()">Save Settings</button>
                 <span id="qzSetMsg" class="ms-2 small fw-bold"></span>
               </div>
@@ -297,16 +309,20 @@
         for (var i = 0; i < opts.length; i++) {
           opts[i].selected = s.enabledLanguages.includes(opts[i].value);
         }
+        if (s.revealTime) document.getElementById('qzRevealTime').value = s.revealTime;
+        if (s.winnerReleaseTime) document.getElementById('qzWinnerReleaseTime').value = s.winnerReleaseTime;
       } catch(e) {}
     };
     window.qzSaveSettings=async function(){
       var msg = document.getElementById('qzSetMsg'); msg.textContent = 'Saving...'; msg.className = 'ms-2 small text-muted';
       var isEnabled = document.getElementById('qzMasterSwitch').checked;
       var sel = Array.from(document.getElementById('qzLangSelect').selectedOptions).map(function(o){ return o.value; });
+      var revealTime = document.getElementById('qzRevealTime').value || '23:30';
+      var winnerReleaseTime = document.getElementById('qzWinnerReleaseTime').value || '10:00';
       try {
         var r = await fetch('/admin/quiz/api/settings', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isEnabled: isEnabled, enabledLanguages: sel })
+          body: JSON.stringify({ isEnabled: isEnabled, enabledLanguages: sel, revealTime: revealTime, winnerReleaseTime: winnerReleaseTime })
         });
         if (!r.ok) throw new Error();
         msg.textContent = 'Saved!'; msg.className = 'ms-2 small text-success';

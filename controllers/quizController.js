@@ -25,12 +25,53 @@ const reqLang = (req) => (req.query && req.query.lang ? String(req.query.lang).t
  * (no active override) get real IST time. Returns { di, testMode }.
  */
 async function resolveQuizContext(userId) {
-  if (!userId) return { di: dayInfo(), testMode: false };
+  if (!userId) return { di: dayInfo(), testMode: false, now: new Date() };
   let ov = null;
   try { ov = await QuizTestOverride.findOne({ userId, active: true }).lean(); } catch (_) { ov = null; }
-  if (!ov) return { di: dayInfo(), testMode: false };
-  const di = dayInfo(new Date(simTestDate(ov.simDayIndex) + 'T06:00:00+05:30'));
-  return { di, testMode: true, testDay: ov.simDayIndex };
+  if (!ov) return { di: dayInfo(), testMode: false, now: new Date() };
+  // Simulated "now" for the chosen day (late evening IST) so reveal/release gates
+  // behave usefully in test mode: Mon–Fri answers stay hidden, a simulated Saturday
+  // is PAST the reveal time (green/red visible), and a simulated Sunday is past the
+  // winner-release time (winners visible) — letting admins walk the whole flow.
+  const simNow = new Date(simTestDate(ov.simDayIndex) + 'T23:45:00+05:30');
+  return { di: dayInfo(simNow), testMode: true, testDay: ov.simDayIndex, now: simNow };
+}
+
+// ── Weekly reveal / winner release gating (IST) ──
+function _istDateTime(dateKey, hhmm) {
+  const t = /^\d{1,2}:\d{2}$/.test(hhmm || '') ? hhmm : '23:30';
+  const [h, m] = t.split(':');
+  return new Date(`${dateKey}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+05:30`);
+}
+/** Fallback/floor: when correct answers reveal for a user who did NOT play Saturday
+ *  — Saturday (endDate) at the admin-configured revealTime IST. */
+function revealAtFor(weekId, revealTime) { return _istDateTime(weekMeta(weekId).endDate, revealTime); }
+/** When the 10 winners become visible: Sunday (sundayDate) at winnerReleaseTime IST. */
+function winnerReleaseAtFor(weekId, releaseTime) { return _istDateTime(weekMeta(weekId).sundayDate, releaseTime); }
+
+// The whole week's correctness unlocks 30 minutes AFTER the user submits Saturday's answer.
+const REVEAL_DELAY_MS = 30 * 60 * 1000;
+
+/**
+ * When the whole week's correctness reveals FOR THIS USER. It's a single board-wide
+ * reveal (green/red for every submitted day at once), designed to be exciting yet
+ * cheat-resistant:
+ *   • Submitted Saturday's answer  → 30 min after that submission. The delay means
+ *     the correct Saturday answer isn't exposed the instant it's locked, and because
+ *     the reveal is personal (a user only ever sees their OWN board, gated by their
+ *     OWN Saturday submission) it can't leak to someone who hasn't submitted yet.
+ *   • Did NOT submit Saturday      → the admin-configured Saturday reveal time, so a
+ *     user who skipped Saturday still sees the week's results that evening.
+ * Revealing Mon–Fri answers together on Saturday is safe: those days are already
+ * closed for everyone (you can only answer the current day's question), so nothing
+ * about them is still "live" to cheat on.
+ * @param {Array} entries the user's QuizEntry docs for the week
+ */
+function userRevealAt(entries, weekId, revealTime) {
+  const satKey = weekMeta(weekId).endDate; // Saturday's dayKey
+  const sat = (entries || []).find((e) => e.dayKey === satKey);
+  if (sat && sat.submittedAt) return new Date(new Date(sat.submittedAt).getTime() + REVEAL_DELAY_MS);
+  return revealAtFor(weekId, revealTime); // floor / fallback for non-Saturday-players
 }
 const publicQuestion = (q) => ({ id: String(q._id), text: q.text, options: (q.options || []).map((o) => ({ key: o.key, text: o.text })) });
 
@@ -55,13 +96,14 @@ async function assignQuestion(userId, weekId, dayKey, dayIndex, lang) {
   return QuizEntry.findOne({ userId, weekId, dayKey });
 }
 
-/** Mon..Sat progress states from the user's entries (one query, no N+1). */
-function buildProgress(weekId, todayKey, entriesByDay) {
+/** Mon..Sat progress states. Before the weekly reveal, submitted days are neutral
+ * ('submitted'); after reveal they become 'correct'/'wrong'. */
+function buildProgress(weekId, todayKey, entriesByDay, revealed) {
   return weekDayKeys(weekId).map((dk, i) => {
     const e = entriesByDay.get(dk);
     let state;
     if (dk > todayKey) state = 'upcoming';
-    else if (e && e.submittedAt) state = e.isCorrect ? 'correct' : 'wrong';
+    else if (e && e.submittedAt) state = revealed ? (e.isCorrect ? 'correct' : 'wrong') : 'submitted';
     else if (dk === todayKey) state = 'today';
     else state = 'missed';
     return { dayIndex: i + 1, dayKey: dk, state };
@@ -92,9 +134,15 @@ exports.today = async (req, res) => {
     const di = ctx.di;
     await ensureWeek(di.weekId);
 
-    if (!di.isQuizDay) { // Sunday → winners
-      const winners = await winnersFor(di.weekId);
-      return res.json({ weekId: di.weekId, dayIndex: 0, isQuizDay: false, isSunday: true, winnersReady: winners.length > 0, winners, testMode: ctx.testMode });
+    if (!di.isQuizDay) { // Sunday → winners (only after the configured release time)
+      const releaseAt = winnerReleaseAtFor(di.weekId, conf.winnerReleaseTime);
+      const released = ctx.now >= releaseAt;
+      const winners = released ? await winnersFor(di.weekId) : [];
+      return res.json({
+        weekId: di.weekId, dayIndex: 0, isQuizDay: false, isSunday: true,
+        winnersReleased: released, winnersReady: released && winners.length > 0,
+        winners, winnerReleaseAt: releaseAt.toISOString(), testMode: ctx.testMode,
+      });
     }
 
     const entry = await assignQuestion(userId, di.weekId, di.dayKey, di.dayIndex, userLang);
@@ -105,12 +153,26 @@ exports.today = async (req, res) => {
     const byDay = new Map(entries.map((e) => [e.dayKey, e]));
     const answered = !!entry.submittedAt;
 
+    // Correctness (green/red) is hidden until 30 min after the user's Saturday
+    // submission (or the configured Saturday time if they skipped Saturday). Test
+    // mode runs on a simulated clock that can't be compared to real submit
+    // timestamps, so it uses the deterministic configured floor instead.
+    const revealAt = ctx.testMode ? revealAtFor(di.weekId, conf.revealTime) : userRevealAt(entries, di.weekId, conf.revealTime);
+    const revealed = ctx.now >= revealAt;
+
     res.json({
       weekId: di.weekId, dayIndex: di.dayIndex, isQuizDay: true, testMode: ctx.testMode,
       question: q ? publicQuestion(q) : null,
       status: answered ? 'answered' : 'unanswered',
-      answer: answered ? { selectedOption: entry.selectedOption, isCorrect: entry.isCorrect, correctOption: q ? q.correctOption : null } : null,
-      weekProgress: buildProgress(di.weekId, di.dayKey, byDay),
+      revealed, revealAt: revealAt.toISOString(),
+      // Neutral until reveal: only the locked selection is returned; correctOption
+      // and isCorrect are withheld until the weekly reveal has passed.
+      answer: answered
+        ? (revealed
+            ? { selectedOption: entry.selectedOption, isCorrect: entry.isCorrect, correctOption: q ? q.correctOption : null }
+            : { selectedOption: entry.selectedOption })
+        : null,
+      weekProgress: buildProgress(di.weekId, di.dayKey, byDay, revealed),
     });
   } catch (e) { console.error('quiz today:', e.message); res.status(500).json({ error: 'Failed to load today\'s quiz.' }); }
 };
@@ -136,24 +198,25 @@ exports.answer = async (req, res) => {
     const q = await QuizQuestion.findById(entry.questionId).lean();
     if (!q) return res.status(400).json({ error: 'Question unavailable.' });
 
-    if (entry.submittedAt) { // idempotent — already locked
-      return res.json({ locked: true, alreadySubmitted: true, isCorrect: entry.isCorrect, correctOption: q.correctOption });
+    if (entry.submittedAt) { // idempotent — already locked (no reveal here)
+      return res.json({ locked: true, submitted: true, alreadySubmitted: true, selectedOption: entry.selectedOption });
     }
     const sel = String(selectedOption || '').toUpperCase().trim();
     if (!(q.options || []).some((o) => o.key === sel)) return res.status(400).json({ error: 'Invalid option.' });
 
+    // isCorrect is computed & stored server-side, but NEVER returned on submit — the
+    // result stays hidden until the weekly Saturday reveal.
     const isCorrect = sel === q.correctOption;
     const upd = await QuizEntry.updateOne(
       { _id: entry._id, submittedAt: null },
       { $set: { selectedOption: sel, isCorrect, submittedAt: new Date() } }
     );
-    if (upd.matchedCount === 0) { // concurrent submit won the race → return the frozen result
+    if (upd.matchedCount === 0) { // concurrent submit won the race → return the frozen (hidden) result
       const fresh = await QuizEntry.findById(entry._id).lean();
-      return res.json({ locked: true, alreadySubmitted: true, isCorrect: fresh.isCorrect, correctOption: q.correctOption });
+      return res.json({ locked: true, submitted: true, alreadySubmitted: true, selectedOption: fresh ? fresh.selectedOption : sel });
     }
-    // First correct use of a question → mark usageCount (edit-lock happens when the week closes).
     QuizQuestion.updateOne({ _id: q._id }, { $inc: { usageCount: 1 } }).catch(() => {});
-    res.json({ locked: true, isCorrect, correctOption: q.correctOption });
+    res.json({ locked: true, submitted: true, selectedOption: sel });
   } catch (e) { console.error('quiz answer:', e.message); res.status(500).json({ error: 'Failed to submit answer.' }); }
 };
 
@@ -169,6 +232,10 @@ exports.week = async (req, res) => {
     const ctx = await resolveQuizContext(userId);
     const di = ctx.di;
     const entries = await QuizEntry.find({ userId, weekId: di.weekId }).lean();
+    // Per-user reveal: 30 min after the Saturday submission (see userRevealAt);
+    // test mode uses the deterministic floor (simulated clock ≠ real timestamps).
+    const revealAt = ctx.testMode ? revealAtFor(di.weekId, conf.revealTime) : userRevealAt(entries, di.weekId, conf.revealTime);
+    const revealed = ctx.now >= revealAt;
     const byDay = new Map(entries.map((e) => [e.dayKey, e]));
     const qIds = entries.map((e) => e.questionId);
     const qMap = new Map((await QuizQuestion.find({ _id: { $in: qIds } }).lean()).map((q) => [String(q._id), q]));
@@ -178,15 +245,35 @@ exports.week = async (req, res) => {
       const submitted = !!(e && e.submittedAt);
       return {
         dayIndex: i + 1, dayKey: dk,
-        state: dk > di.dayKey ? 'upcoming' : (submitted ? (e.isCorrect ? 'correct' : 'wrong') : (dk === di.dayKey ? 'today' : 'missed')),
+        state: dk > di.dayKey ? 'upcoming' : (submitted ? (revealed ? (e.isCorrect ? 'correct' : 'wrong') : 'submitted') : (dk === di.dayKey ? 'today' : 'missed')),
         question: q ? { text: q.text, options: q.options.map((o) => ({ key: o.key, text: o.text })) } : null,
         selectedOption: submitted ? e.selectedOption : null,
-        isCorrect: submitted ? e.isCorrect : null,
-        correctOption: submitted && q ? q.correctOption : null, // revealed only after submit
+        // Correctness + correct answer are withheld until the weekly reveal time.
+        isCorrect: submitted && revealed ? e.isCorrect : null,
+        correctOption: submitted && revealed && q ? q.correctOption : null,
       };
     });
-    res.json({ weekId: di.weekId, todayIndex: di.dayIndex, days, testMode: ctx.testMode });
+    res.json({ weekId: di.weekId, todayIndex: di.dayIndex, revealed, revealAt: revealAt.toISOString(), days, testMode: ctx.testMode });
   } catch (e) { console.error('quiz week:', e.message); res.status(500).json({ error: 'Failed to load week.' }); }
+};
+
+// GET /api/public/quiz/winners — the 10 weekly winners, gated by the Sunday release time.
+exports.winners = async (req, res) => {
+  try {
+    const userId = uid(req);
+    if (!userId) return res.status(401).json({ error: 'Sign in to view winners.' });
+    const conf = await getQuizConfig();
+    const ctx = await resolveQuizContext(userId);
+    const di = ctx.di;
+    const releaseAt = winnerReleaseAtFor(di.weekId, conf.winnerReleaseTime);
+    const released = ctx.now >= releaseAt;
+    const winners = released ? await winnersFor(di.weekId) : [];
+    res.json({
+      weekId: di.weekId, isSunday: !di.isQuizDay,
+      winnersReleased: released, winnersReady: released && winners.length > 0,
+      winners, winnerReleaseAt: releaseAt.toISOString(), testMode: ctx.testMode,
+    });
+  } catch (e) { console.error('quiz winners:', e.message); res.status(500).json({ error: 'Failed to load winners.' }); }
 };
 
 // Fallback used when no QuizRules doc exists yet (or DB is unreachable).
@@ -225,4 +312,4 @@ exports.rules = async (req, res) => {
 
 exports.DEFAULT_QUIZ_RULES = DEFAULT_QUIZ_RULES;
 
-exports._internals = { assignQuestion, buildProgress, resolveQuizContext };
+exports._internals = { assignQuestion, buildProgress, resolveQuizContext, userRevealAt, REVEAL_DELAY_MS };

@@ -15,7 +15,14 @@ const quizSettingsSchema = new mongoose.Schema({
   
   // Explicit list of allowed languages (e.g., ['te', 'en']). Empty means NO languages.
   enabledLanguages: { type: [String], default: [] },
-  
+
+  // IST time (HH:mm) on SATURDAY when correct answers are revealed for the whole
+  // week (green/red). Before this, submitted answers stay neutral & hidden.
+  revealTime: { type: String, default: '23:30' },
+
+  // IST time (HH:mm) on SUNDAY when the 10 weekly winners become visible in the app.
+  winnerReleaseTime: { type: String, default: '10:00' },
+
   // Track who last modified the settings
   updatedByName: { type: String, default: 'system' }
 }, { timestamps: true });

@@ -71,17 +71,23 @@ test('today (Mon) assigns a question and NEVER exposes correctOption', async () 
   expect(store.entries.length).toBe(1);
 });
 
-test('answer locks and returns correctOption only after submit; idempotent on re-submit', async () => {
+test('answer locks WITHOUT revealing correctness; idempotent on re-submit', async () => {
   mockNow('2026-08-24T06:00:00+05:30');
   await ctrl.today({ ...REQ, body: {} }, res());
   const qid = store.entries[0].questionId;
   const r1 = res(); await ctrl.answer({ ...REQ, body: { questionId: qid, selectedOption: 'A' } }, r1);
   expect(r1.body.locked).toBe(true);
-  expect(r1.body.isCorrect).toBe(qid === 'q1'); // q1 correct is A
-  expect(r1.body.correctOption).toBeDefined();
+  expect(r1.body.submitted).toBe(true);
+  expect(r1.body.selectedOption).toBe('A');
+  // Hidden-until-reveal contract: no correctness leaked on submit.
+  expect(r1.body.isCorrect).toBeUndefined();
+  expect(r1.body.correctOption).toBeUndefined();
+  // Server still stores the truth for the weekend reveal.
+  expect(store.entries[0].isCorrect).toBe(qid === 'q1'); // q1 correct is A
   // re-submit with a different option → must NOT change the frozen answer
   const r2 = res(); await ctrl.answer({ ...REQ, body: { questionId: qid, selectedOption: 'B' } }, r2);
   expect(r2.body.alreadySubmitted).toBe(true);
+  expect(r2.body.correctOption).toBeUndefined();
   expect(store.entries[0].selectedOption).toBe('A'); // unchanged
 });
 
@@ -113,4 +119,54 @@ test('Sunday → not a quiz day, returns winners block', async () => {
   const r = res(); await ctrl.today({ ...REQ, body: {} }, r);
   expect(r.body.isQuizDay).toBe(false);
   expect(r.body.isSunday).toBe(true);
+});
+
+test('userRevealAt: reveals 30 min after the Saturday submission', () => {
+  const { userRevealAt, REVEAL_DELAY_MS } = ctrl._internals;
+  const weekId = '2026-08-24';                 // Monday
+  const submittedAt = new Date('2026-08-29T10:00:00+05:30'); // Saturday 10:00 IST
+  const entries = [{ dayKey: '2026-08-29', submittedAt }];
+  const at = userRevealAt(entries, weekId, '23:30');
+  expect(at.getTime()).toBe(submittedAt.getTime() + REVEAL_DELAY_MS); // +30 min
+});
+
+test('userRevealAt: falls back to the configured Saturday floor when Saturday not submitted', () => {
+  const { userRevealAt } = ctrl._internals;
+  const at = userRevealAt([{ dayKey: '2026-08-24', submittedAt: new Date() }], '2026-08-24', '20:00');
+  expect(at.toISOString()).toBe(new Date('2026-08-29T20:00:00+05:30').toISOString()); // Sat 20:00 IST
+});
+
+test('today on Saturday: correctness hidden until 30 min after submit, then revealed', async () => {
+  // User already submitted Saturday's answer at 10:00 IST (wrong: picked B, correct is A).
+  store.entries = [{
+    _id: 'e1', userId: 'user-1', weekId: '2026-08-24', dayKey: '2026-08-29',
+    dayIndex: 6, questionId: 'q1', selectedOption: 'B', isCorrect: false,
+    submittedAt: new Date('2026-08-29T10:00:00+05:30'),
+  }];
+  // 10:20 IST → 30 min not elapsed → still hidden
+  mockNow('2026-08-29T10:20:00+05:30');
+  let r = res(); await ctrl.today({ ...REQ, body: {} }, r);
+  expect(r.body.revealed).toBe(false);
+  expect(r.body.answer.selectedOption).toBe('B');
+  expect(r.body.answer.correctOption).toBeUndefined();
+  expect(r.body.answer.isCorrect).toBeUndefined();
+  // 10:31 IST → past reveal → correctness exposed
+  mockNow('2026-08-29T10:31:00+05:30');
+  r = res(); await ctrl.today({ ...REQ, body: {} }, r);
+  expect(r.body.revealed).toBe(true);
+  expect(r.body.answer.correctOption).toBe('A');
+  expect(r.body.answer.isCorrect).toBe(false);
+});
+
+test('progress bar stays neutral ("submitted") before reveal, never correct/wrong', async () => {
+  store.entries = [{
+    _id: 'e1', userId: 'user-1', weekId: '2026-08-24', dayKey: '2026-08-25',
+    dayIndex: 2, questionId: 'q1', selectedOption: 'A', isCorrect: true,
+    submittedAt: new Date('2026-08-25T09:00:00+05:30'),
+  }];
+  mockNow('2026-08-26T06:00:00+05:30'); // Wednesday, well before Saturday reveal
+  const r = res(); await ctrl.today({ ...REQ, body: {} }, r);
+  const tue = r.body.weekProgress.find((d) => d.dayKey === '2026-08-25');
+  expect(tue.state).toBe('submitted');
+  expect(r.body.weekProgress.some((d) => d.state === 'correct' || d.state === 'wrong')).toBe(false);
 });

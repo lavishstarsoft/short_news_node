@@ -2402,6 +2402,7 @@ const quizController = require('../controllers/quizController');
 router.get('/api/public/quiz/today', verifyMobileUser, quizController.today);
 router.post('/api/public/quiz/answer', verifyMobileUser, quizController.answer);
 router.get('/api/public/quiz/week', verifyMobileUser, quizController.week);
+router.get('/api/public/quiz/winners', verifyMobileUser, quizController.winners);
 router.get('/api/public/quiz/rules', quizController.rules);
 
 // In-App Popup (Firebase/OneSignal-style) — public fetch of the active popup
