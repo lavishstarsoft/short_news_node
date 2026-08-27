@@ -136,6 +136,20 @@ test('userRevealAt: falls back to the configured Saturday floor when Saturday no
   expect(at.toISOString()).toBe(new Date('2026-08-29T20:00:00+05:30').toISOString()); // Sat 20:00 IST
 });
 
+test('isRevealed: Saturday-submit path uses the REAL clock, so a simulated now can\'t rush it', () => {
+  const { isRevealed, REVEAL_DELAY_MS } = ctrl._internals;
+  const entries = [{ dayKey: '2026-08-29', submittedAt: new Date() }]; // submitted just now
+  const simNow = new Date('2024-01-06T23:45:00+05:30'); // a frozen (test-mode) clock
+  // Window not elapsed → hidden, even though simNow is years "past" the revealAt.
+  const future = new Date(Date.now() + REVEAL_DELAY_MS);
+  expect(isRevealed(entries, '2026-08-24', future, simNow)).toBe(false);
+  // Window elapsed (revealAt in the real past) → revealed.
+  const past = new Date(Date.now() - 1000);
+  expect(isRevealed(entries, '2026-08-24', past, simNow)).toBe(true);
+  // No Saturday submission → falls back to comparing the (simulated) now vs floor.
+  expect(isRevealed([], '2026-08-24', new Date('2024-01-06T23:30:00+05:30'), simNow)).toBe(true);
+});
+
 test('today on Saturday: correctness hidden until 30 min after submit, then revealed', async () => {
   // User already submitted Saturday's answer at 10:00 IST (wrong: picked B, correct is A).
   store.entries = [{
@@ -156,6 +170,31 @@ test('today on Saturday: correctness hidden until 30 min after submit, then reve
   expect(r.body.revealed).toBe(true);
   expect(r.body.answer.correctOption).toBe('A');
   expect(r.body.answer.isCorrect).toBe(false);
+});
+
+test('past days are viewable AND locked: /week shows my question + my answer; editing is impossible', async () => {
+  // It's Wednesday. I already answered Monday (q1) and Tuesday (q2).
+  store.entries = [
+    { _id: 'e1', userId: 'user-1', weekId: '2026-08-24', dayKey: '2026-08-24', dayIndex: 1, questionId: 'q1', selectedOption: 'A', isCorrect: true,  submittedAt: new Date('2026-08-24T09:00:00+05:30') },
+    { _id: 'e2', userId: 'user-1', weekId: '2026-08-24', dayKey: '2026-08-25', dayIndex: 2, questionId: 'q2', selectedOption: 'A', isCorrect: false, submittedAt: new Date('2026-08-25T09:00:00+05:30') },
+  ];
+  mockNow('2026-08-26T06:00:00+05:30'); // Wednesday — before Saturday reveal
+
+  // I go back to review Monday: I CAN see the question text and MY chosen answer…
+  const w = res(); await ctrl.week({ ...REQ, body: {} }, w);
+  const mon = w.body.days.find((d) => d.dayKey === '2026-08-24');
+  expect(mon.question.text).toBe('Q1');
+  expect(mon.selectedOption).toBe('A');
+  expect(mon.state).toBe('submitted');
+  // …but correctness stays hidden until the Saturday reveal (no cheating).
+  expect(mon.isCorrect).toBeNull();
+  expect(mon.correctOption).toBeNull();
+
+  // Trying to EDIT / re-answer Monday is rejected — /answer only ever touches TODAY's
+  // entry, so an old questionId can never overwrite my locked pick.
+  const a = res(); await ctrl.answer({ ...REQ, body: { questionId: 'q1', selectedOption: 'B' } }, a);
+  expect(a.code).toBe(400);
+  expect(store.entries.find((e) => e._id === 'e1').selectedOption).toBe('A'); // unchanged
 });
 
 test('progress bar stays neutral ("submitted") before reveal, never correct/wrong', async () => {

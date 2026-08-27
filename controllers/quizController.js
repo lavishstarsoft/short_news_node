@@ -73,6 +73,20 @@ function userRevealAt(entries, weekId, revealTime) {
   if (sat && sat.submittedAt) return new Date(new Date(sat.submittedAt).getTime() + REVEAL_DELAY_MS);
   return revealAtFor(weekId, revealTime); // floor / fallback for non-Saturday-players
 }
+
+/**
+ * Has the week's correctness revealed for this user yet?
+ *  • Submitted Saturday's answer → compare against the REAL clock, because the
+ *    30-minute unlock is real elapsed time since submitting. This keeps the
+ *    countdown observable even in test mode, where ctxNow is a frozen simulated
+ *    timestamp that could never "reach" a real 2026 submit time.
+ *  • Otherwise → compare the effective (possibly simulated) now against the floor.
+ */
+function isRevealed(entries, weekId, revealAt, ctxNow) {
+  const satKey = weekMeta(weekId).endDate;
+  const submittedSat = (entries || []).some((e) => e.dayKey === satKey && e.submittedAt);
+  return submittedSat ? (Date.now() >= revealAt.getTime()) : (ctxNow >= revealAt);
+}
 const publicQuestion = (q) => ({ id: String(q._id), text: q.text, options: (q.options || []).map((o) => ({ key: o.key, text: o.text })) });
 
 async function ensureWeek(weekId) {
@@ -154,11 +168,10 @@ exports.today = async (req, res) => {
     const answered = !!entry.submittedAt;
 
     // Correctness (green/red) is hidden until 30 min after the user's Saturday
-    // submission (or the configured Saturday time if they skipped Saturday). Test
-    // mode runs on a simulated clock that can't be compared to real submit
-    // timestamps, so it uses the deterministic configured floor instead.
-    const revealAt = ctx.testMode ? revealAtFor(di.weekId, conf.revealTime) : userRevealAt(entries, di.weekId, conf.revealTime);
-    const revealed = ctx.now >= revealAt;
+    // submission (or the configured Saturday time if they skipped Saturday). The
+    // 30-min countdown is REAL elapsed time, so it runs during a simulated day too.
+    const revealAt = userRevealAt(entries, di.weekId, conf.revealTime);
+    const revealed = isRevealed(entries, di.weekId, revealAt, ctx.now);
 
     res.json({
       weekId: di.weekId, dayIndex: di.dayIndex, isQuizDay: true, testMode: ctx.testMode,
@@ -232,10 +245,9 @@ exports.week = async (req, res) => {
     const ctx = await resolveQuizContext(userId);
     const di = ctx.di;
     const entries = await QuizEntry.find({ userId, weekId: di.weekId }).lean();
-    // Per-user reveal: 30 min after the Saturday submission (see userRevealAt);
-    // test mode uses the deterministic floor (simulated clock ≠ real timestamps).
-    const revealAt = ctx.testMode ? revealAtFor(di.weekId, conf.revealTime) : userRevealAt(entries, di.weekId, conf.revealTime);
-    const revealed = ctx.now >= revealAt;
+    // Per-user reveal: 30 min (real elapsed) after the Saturday submission.
+    const revealAt = userRevealAt(entries, di.weekId, conf.revealTime);
+    const revealed = isRevealed(entries, di.weekId, revealAt, ctx.now);
     const byDay = new Map(entries.map((e) => [e.dayKey, e]));
     const qIds = entries.map((e) => e.questionId);
     const qMap = new Map((await QuizQuestion.find({ _id: { $in: qIds } }).lean()).map((q) => [String(q._id), q]));
@@ -312,4 +324,4 @@ exports.rules = async (req, res) => {
 
 exports.DEFAULT_QUIZ_RULES = DEFAULT_QUIZ_RULES;
 
-exports._internals = { assignQuestion, buildProgress, resolveQuizContext, userRevealAt, REVEAL_DELAY_MS };
+exports._internals = { assignQuestion, buildProgress, resolveQuizContext, userRevealAt, isRevealed, REVEAL_DELAY_MS };
