@@ -53,6 +53,15 @@ jest.mock('../models/QuizTestOverride', () => ({
   }),
 }));
 jest.mock('../models/User', () => ({
+  // Random-sample mock: honours { mobileNumber: { $nin: [null,''] } } and { _id: { $nin } }.
+  aggregate: jest.fn(async (pipe) => {
+    const match = (pipe.find((s) => s.$match) || {}).$match || {};
+    const sample = (pipe.find((s) => s.$sample) || {}).$sample || { size: store.users.length };
+    let pool = store.users.slice();
+    if (match.mobileNumber && Array.isArray(match.mobileNumber.$nin)) pool = pool.filter((u) => u.mobileNumber != null && u.mobileNumber !== '');
+    if (match._id && Array.isArray(match._id.$nin)) { const nin = new Set(match._id.$nin.map(String)); pool = pool.filter((u) => !nin.has(String(u._id))); }
+    return pool.slice(0, sample.size);
+  }),
   find: jest.fn(() => ({ select: () => ({ lean: async () => [] }) })),
   findOne: jest.fn((q) => ({ select: () => ({ lean: async () => {
     if (q.googleId !== undefined && !q.$or) return store.users.find((u) => u.googleId === q.googleId) || null;
@@ -119,12 +128,22 @@ test('simulated Sunday (day 7) → winners block, testMode true, "announced soon
   expect(r.body.winnersReady).toBe(false); // no winners yet → app shows "announced soon"
 });
 
-test('Create Test Winners → 10 isolated isTest winners, then simulated Sunday shows them', async () => {
+test('Create Test Winners → 10 REAL-user isTest winners, then simulated Sunday shows them', async () => {
+  // 12 real users: 6 with a mobile number, 6 without → mobile users are preferred.
+  store.users = Array.from({ length: 12 }, (_, i) => ({
+    _id: 'u' + i, googleId: 'g' + i, displayName: 'User ' + i,
+    mobileNumber: i < 6 ? '90000000' + i : '', photoUrl: i < 6 ? 'http://img/' + i + '.png' : '',
+  }));
   const ar = res(); await admin.createTestWinners({ admin: { name: 'Tester' }, body: {} }, ar);
   expect(ar.body.ok).toBe(true);
   expect(ar.body.count).toBe(10);
   expect(store.winners).toHaveLength(10);
   expect(store.winners.every((w) => w.isTest === true && w.weekId === TEST_WEEK_MONDAY)).toBe(true);
+  // Real data was copied onto the winner docs (no "Test Winner N" dummy names).
+  expect(store.winners.every((w) => /^User \d+$/.test(w.displayName))).toBe(true);
+  expect(store.winners.some((w) => w.mobileNumber && w.mobileNumber.length)).toBe(true);
+  // Mobile-number users are prioritised → all 6 of them are included.
+  expect(store.winners.filter((w) => w.mobileNumber).length).toBe(6);
 
   mockNow(PROD_NOW);
   setOverride('test-user', 7);
@@ -246,7 +265,24 @@ describe('identifier → verifiedGoogleId resolution (the reported bug)', () => 
   });
 });
 
+test('createTestWinners force-includes a specific googleId as rank 1 (real name + mobile), no dupes', async () => {
+  const PIN = '116084063595442894365';
+  store.users = [
+    { _id: 'pinned', googleId: PIN, displayName: 'Pinned Star', mobileNumber: '8801188886', photoUrl: 'http://img/pin.png' },
+    ...Array.from({ length: 11 }, (_, i) => ({ _id: 'u' + i, googleId: 'g' + i, displayName: 'User ' + i, mobileNumber: i < 5 ? '900000' + i : '', photoUrl: '' })),
+  ];
+  const r = res(); await admin.createTestWinners({ admin: { name: 'T' }, body: { pinnedGoogleId: PIN } }, r);
+  expect(r.body.count).toBe(10);
+  const rank1 = store.winners.find((w) => w.rank === 1);
+  expect(rank1.userId).toBe('pinned');
+  expect(rank1.displayName).toBe('Pinned Star');
+  expect(rank1.mobileNumber).toBe('8801188886');
+  expect(rank1.profileImage).toBe('http://img/pin.png');
+  expect(store.winners.filter((w) => w.userId === 'pinned')).toHaveLength(1); // not duplicated
+});
+
 test('createTestWinners is idempotent and clearTestWinners removes only test winners', async () => {
+  store.users = Array.from({ length: 12 }, (_, i) => ({ _id: 'u' + i, googleId: 'g' + i, displayName: 'User ' + i, mobileNumber: '90000000' + i, photoUrl: '' }));
   await admin.createTestWinners({ admin: { name: 'T' }, body: {} }, res());
   await admin.createTestWinners({ admin: { name: 'T' }, body: {} }, res()); // re-run
   expect(store.winners).toHaveLength(10); // replaced, not duplicated

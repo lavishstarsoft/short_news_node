@@ -640,20 +640,63 @@ exports.setTestMode = async (req, res) => {
   } catch (e) { console.error('quiz setTestMode:', e.message); res.status(500).json({ error: 'Failed to update test mode.' }); }
 };
 
-// POST /admin/quiz/test-winners  → 10 fake winners under the test week (isTest:true)
+// POST /admin/quiz/test-winners  → up to 10 winners under the test week (isTest:true).
+// Uses REAL random users from the `users` collection so the Sunday winners UI looks
+// exactly like production. Users WITH a registered mobile number are preferred; the
+// rest are back-filled from users without one (their name/photo still show).
+// A specific real account to force-include as rank 1 of the test winners, so its
+// name / profile photo / mobile number can be previewed on the Sunday UI. Overridable
+// per request via body.pinnedGoogleId; set '' to disable pinning.
+const DEFAULT_PINNED_TEST_WINNER_GOOGLE_ID = '116084063595442894365';
+
 exports.createTestWinners = async (req, res) => {
   try {
     const selectedByName = req.admin ? (req.admin.name || req.admin.username || 'admin') : 'admin';
     // Replace any prior TEST winners for the test week (never touches real weeks).
     await QuizWinner.deleteMany({ weekId: TEST_WEEK_MONDAY, isTest: true });
-    const docs = Array.from({ length: WINNER_COUNT }, (_, i) => ({
-      weekId: TEST_WEEK_MONDAY, rank: i + 1, userId: `test-winner-${i + 1}`,
-      displayName: `Test Winner ${i + 1}`, score: WINNER_COUNT - i, answered: 6,
+
+    const picked = [];
+    const excludeIds = [];            // raw _id values → $nin (dedupe across queries)
+    const seen = new Set();           // stringified _ids already chosen
+    const add = (u) => { if (u && !seen.has(String(u._id))) { picked.push(u); excludeIds.push(u._id); seen.add(String(u._id)); } };
+
+    // 0) Force-include the pinned user (rank 1) if they exist.
+    const pinnedGoogleId = (req.body && req.body.pinnedGoogleId !== undefined) ? req.body.pinnedGoogleId : DEFAULT_PINNED_TEST_WINNER_GOOGLE_ID;
+    if (pinnedGoogleId) {
+      const pinned = await User.findOne({ googleId: pinnedGoogleId }).select('displayName photoUrl mobileNumber googleId').lean();
+      add(pinned);
+    }
+
+    // 1) Prefer random users who have a mobile number (excluding anyone already picked).
+    if (picked.length < WINNER_COUNT) {
+      const withMobile = await User.aggregate([
+        { $match: { mobileNumber: { $nin: [null, ''] }, ...(excludeIds.length ? { _id: { $nin: excludeIds } } : {}) } },
+        { $sample: { size: WINNER_COUNT - picked.length } },
+      ]);
+      withMobile.forEach(add);
+    }
+    // 2) Back-fill (still random) from anyone else if we don't have 10 yet.
+    if (picked.length < WINNER_COUNT) {
+      const extra = await User.aggregate([
+        { $match: excludeIds.length ? { _id: { $nin: excludeIds } } : {} },
+        { $sample: { size: WINNER_COUNT - picked.length } },
+      ]);
+      extra.forEach(add);
+    }
+    if (!picked.length) return res.status(400).json({ error: 'No users found in the database to use as test winners.' });
+
+    const docs = picked.map((u, i) => ({
+      weekId: TEST_WEEK_MONDAY, rank: i + 1,
+      userId: String(u._id), // real, unique per user (isTest → never a real payout)
+      displayName: u.displayName || 'Winner',
+      mobileNumber: u.mobileNumber || '',
+      profileImage: u.photoUrl || '',
+      score: WINNER_COUNT - i, answered: 6,
       mode: 'admin_select', isTest: true, selectedByName,
     }));
     await QuizWinner.insertMany(docs);
     logAudit({ req, action: 'quiz_test_winners_create', entityType: 'QuizWinner', entityId: TEST_WEEK_MONDAY,
-      description: `Created ${docs.length} TEST winners (isolated, no payout)` });
+      description: `Created ${docs.length} TEST winners from real users (isolated, no payout)` });
     res.json({ ok: true, count: docs.length, testWeekId: TEST_WEEK_MONDAY });
   } catch (e) { console.error('quiz createTestWinners:', e.message); res.status(500).json({ error: 'Failed to create test winners.' }); }
 };

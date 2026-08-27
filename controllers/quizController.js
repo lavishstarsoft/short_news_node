@@ -126,7 +126,12 @@ function buildProgress(weekId, todayKey, entriesByDay, revealed) {
 
 async function winnersFor(weekId) {
   const rows = await QuizWinner.find({ weekId }).sort({ rank: 1 }).lean();
-  return rows.map((w) => ({ rank: w.rank, name: w.displayName, score: w.score, mode: w.mode }));
+  return rows.map((w) => ({
+    rank: w.rank, name: w.displayName, score: w.score, mode: w.mode,
+    // Real display data (empty → app shows name/photo only, no fake phone).
+    mobileNumber: w.mobileNumber || null,
+    profileImage: w.profileImage || null,
+  }));
 }
 
 // GET /api/public/quiz/today

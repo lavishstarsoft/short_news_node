@@ -12,6 +12,8 @@ const quizWinnerSchema = new mongoose.Schema({
   rank: { type: Number, required: true, min: 1, max: 10 },
   userId: { type: String, required: true },       // verified googleId
   displayName: { type: String, default: '' },
+  mobileNumber: { type: String, default: '' },    // shown (masked) on the winners list, when present
+  profileImage: { type: String, default: '' },    // user's photoUrl, for the winners avatar
   score: { type: Number, default: 0 },            // correct answers that week
   answered: { type: Number, default: 0 },
   mode: { type: String, enum: ['random_lottery', 'admin_select'], required: true },
