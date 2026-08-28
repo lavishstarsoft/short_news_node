@@ -289,8 +289,10 @@ router.get('/coverage-map/api/constituency/:state/:district/:constituency', admi
 // Daily Quiz — admin Question Bank (P1). Admin-only.
 const quizAdminController = require('../controllers/quizAdminController');
 router.get('/quiz/questions', adminController.requireAdmin, quizAdminController.renderQuestions);
+router.get('/quiz/placement', adminController.requireAdmin, quizAdminController.renderPlacement);
 router.get('/quiz/api/settings', adminController.requireAdmin, quizAdminController.getSettings);
 router.put('/quiz/api/settings', adminController.requireAdmin, quizAdminController.updateSettings);
+router.put('/quiz/api/settings/feed-position', adminController.requireAdmin, quizAdminController.updateFeedPosition);
 router.get('/quiz/api/questions/pool-health', adminController.requireAdmin, quizAdminController.getPoolHealth);
 router.get('/quiz/api/questions', adminController.requireAdmin, quizAdminController.listQuestions);
 router.post('/quiz/api/questions', adminController.requireAdmin, quizAdminController.createQuestion);
@@ -315,6 +317,7 @@ router.get('/quiz/api/participants', adminController.requireAdmin, quizAdminCont
 router.get('/quiz/api/participants/export', adminController.requireAdmin, quizAdminController.exportParticipants);
 router.get('/quiz/api/winners/export', adminController.requireAdmin, quizAdminController.exportWinners);
 router.get('/quiz/api/week/eligible', adminController.requireAdmin, quizAdminController.eligibleList);
+router.get('/quiz/api/week/collusion', adminController.requireAdmin, quizAdminController.getCollusionReport);
 router.post('/quiz/api/week/winners', adminController.requireAdmin, quizAdminController.selectWinners);
 router.get('/quiz/api/winners', adminController.requireAdmin, quizAdminController.winnerHistory);
 router.post('/quiz/api/maintenance', adminController.requireAdmin, quizAdminController.maintenance);

@@ -23,6 +23,10 @@ const quizSettingsSchema = new mongoose.Schema({
   // IST time (HH:mm) on SUNDAY when the 10 weekly winners become visible in the app.
   winnerReleaseTime: { type: String, default: '10:00' },
 
+  // Feed position: the Quiz card appears AFTER this many news items (1 = after the
+  // 1st card). Admin-controlled, like ad placement. Min 1.
+  feedPosition: { type: Number, default: 1, min: 1 },
+
   // Track who last modified the settings
   updatedByName: { type: String, default: 'system' }
 }, { timestamps: true });

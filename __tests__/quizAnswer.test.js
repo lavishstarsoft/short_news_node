@@ -18,11 +18,17 @@ jest.mock('../models/QuizQuestion', () => ({
   findById: jest.fn((id) => ({ lean: async () => store.questions.find((q) => String(q._id) === String(id)) || null })),
   find: jest.fn(() => ({ lean: async () => store.questions })),
   updateOne: jest.fn(async () => ({})),
+  countDocuments: jest.fn(async () => 100), // healthy pool → no alert
 }));
 jest.mock('../models/QuizEntry', () => ({
   findOne: jest.fn(async (q) => store.entries.find((e) => e.userId === q.userId && e.weekId === q.weekId && e.dayKey === q.dayKey) || null),
   findById: jest.fn((id) => ({ lean: async () => store.entries.find((x) => String(x._id) === String(id)) || null })),
-  find: jest.fn((q) => ({ select: () => ({ lean: async () => store.entries.filter((e) => e.userId === q.userId && e.weekId === q.weekId) }), lean: async () => store.entries.filter((e) => e.userId === q.userId && e.weekId === q.weekId) })),
+  find: jest.fn((q) => {
+    const rows = q && q.$or
+      ? store.entries.filter((e) => q.$or.some((c) => (c.userId !== undefined && e.userId === c.userId) || (c.deviceId !== undefined && e.deviceId != null && e.deviceId === c.deviceId)))
+      : store.entries.filter((e) => e.userId === q.userId && (q.weekId === undefined || e.weekId === q.weekId));
+    return { select: () => ({ lean: async () => rows }), lean: async () => rows };
+  }),
   updateOne: jest.fn(async (filter, update) => {
     // upsert assign
     if (update.$setOnInsert) {
@@ -37,6 +43,7 @@ jest.mock('../models/QuizEntry', () => ({
   }),
 }));
 jest.mock('../models/QuizWeek', () => ({ updateOne: jest.fn(async () => ({})) }));
+jest.mock('../models/DeviceLink', () => ({ updateOne: jest.fn(() => ({ catch: () => {} })) }));
 jest.mock('../models/QuizWinner', () => ({ find: jest.fn(() => ({ sort: () => ({ lean: async () => [] }) })) }));
 jest.mock('../models/QuizTestOverride', () => ({ findOne: jest.fn(() => ({ lean: async () => null })) })); // no test override in these tests
 jest.mock('../services/quizLanguageService', () => ({
@@ -91,6 +98,31 @@ test('answer locks WITHOUT revealing correctness; idempotent on re-submit', asyn
   expect(store.entries[0].selectedOption).toBe('A'); // unchanged
 });
 
+test('answer captures a sanitized X-Device-Id onto the entry; rejects a bad one', async () => {
+  const DeviceLink = require('../models/DeviceLink');
+  DeviceLink.updateOne.mockClear();
+  mockNow('2026-08-24T06:00:00+05:30');
+  await ctrl.today({ ...REQ, body: {} }, res());
+  const qid = store.entries[0].questionId;
+  // Valid UUID-shaped id → stored + DeviceLink upserted.
+  const r = res();
+  await ctrl.answer({ ...REQ, headers: { 'x-device-id': 'abcd1234-56ef-7890-abcd-ef1234567890' }, body: { questionId: qid, selectedOption: 'A' } }, r);
+  expect(store.entries[0].deviceId).toBe('abcd1234-56ef-7890-abcd-ef1234567890');
+  expect(DeviceLink.updateOne).toHaveBeenCalledTimes(1);
+});
+
+test('answer with a malformed device id stores null and skips DeviceLink', async () => {
+  const DeviceLink = require('../models/DeviceLink');
+  DeviceLink.updateOne.mockClear();
+  mockNow('2026-08-25T06:00:00+05:30'); // Tue, fresh entry
+  await ctrl.today({ ...REQ, body: {} }, res());
+  const e = store.entries.find((x) => x.dayKey === '2026-08-25');
+  const r = res();
+  await ctrl.answer({ ...REQ, headers: { 'x-device-id': 'bad id !!' }, body: { questionId: e.questionId, selectedOption: 'A' } }, r);
+  expect(e.deviceId).toBeNull(); // rejected → not trusted
+  expect(DeviceLink.updateOne).not.toHaveBeenCalled();
+});
+
 test('answer rejects a mismatched questionId', async () => {
   mockNow('2026-08-24T06:00:00+05:30');
   await ctrl.today({ ...REQ, body: {} }, res());
@@ -106,6 +138,43 @@ test('no-repeat: second day gets a different question than day one', async () =>
   await ctrl.today({ ...REQ, body: {} }, res());
   const day2 = store.entries.find((e) => e.dayKey === '2026-08-25');
   expect(day2.questionId).not.toBe(day1q);
+});
+
+test('LIFETIME no-repeat: a question is never re-served to the same user across weeks; pool exhaustion → no question (never a repeat)', async () => {
+  store.questions = [
+    { _id: 'q1', isActive: true, options: [{ key: 'A', text: 'x' }], correctOption: 'A', text: 'Q1' },
+    { _id: 'q2', isActive: true, options: [{ key: 'A', text: 'x' }], correctOption: 'A', text: 'Q2' },
+  ];
+  store.entries = [];
+  // Week 1 (Mon)
+  mockNow('2026-08-24T06:00:00+05:30');
+  let r = res(); await ctrl.today({ ...REQ, body: {} }, r);
+  const w1 = r.body.question.id;
+  // Week 2 (next Mon) → must be a DIFFERENT question (w1 already seen for life)
+  mockNow('2026-08-31T06:00:00+05:30');
+  r = res(); await ctrl.today({ ...REQ, body: {} }, r);
+  const w2 = r.body.question.id;
+  expect(w2).not.toBe(w1);
+  // Week 3 → both seen → fresh pool exhausted → NO question, never a repeat.
+  mockNow('2026-09-07T06:00:00+05:30');
+  r = res(); await ctrl.today({ ...REQ, body: {} }, r);
+  expect(r.body.question).toBeNull();
+});
+
+test('LIFETIME no-repeat spans DEVICES: a question seen on a device is not re-served to another account on that device', async () => {
+  store.questions = [
+    { _id: 'q1', isActive: true, options: [{ key: 'A', text: 'x' }], correctOption: 'A', text: 'Q1' },
+    { _id: 'q2', isActive: true, options: [{ key: 'A', text: 'x' }], correctOption: 'A', text: 'Q2' },
+  ];
+  store.entries = [];
+  const DEV = 'device-aaaa-1111-2222-3333';
+  mockNow('2026-08-24T06:00:00+05:30');
+  // User A on device DEV → gets a question.
+  let r = res(); await ctrl.today({ verifiedGoogleId: 'userA', headers: { 'x-device-id': DEV }, body: {}, query: { lang: 'te' } }, r);
+  const aq = r.body.question.id;
+  // User B on the SAME device → must NOT get the question A already saw on it.
+  r = res(); await ctrl.today({ verifiedGoogleId: 'userB', headers: { 'x-device-id': DEV }, body: {}, query: { lang: 'te' } }, r);
+  expect(r.body.question.id).not.toBe(aq);
 });
 
 test('unauthenticated (no googleId) → 401', async () => {

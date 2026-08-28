@@ -18,9 +18,13 @@ const quizEntrySchema = new mongoose.Schema({
   selectedOption: { type: String, default: null },  // A..D
   isCorrect: { type: Boolean, default: null },
   submittedAt: { type: Date, default: null },
+  // Best-effort per-install id captured at submit time (fair-play draw analysis only).
+  deviceId: { type: String, default: null },
 }, { timestamps: true });
 
 quizEntrySchema.index({ userId: 1, weekId: 1, dayKey: 1 }, { unique: true });
 quizEntrySchema.index({ weekId: 1, userId: 1 });
+quizEntrySchema.index({ userId: 1 });   // lifetime "seen" lookup for this account
+quizEntrySchema.index({ deviceId: 1 }); // lifetime "seen" lookup for this device
 
 module.exports = mongoose.model('QuizEntry', quizEntrySchema);

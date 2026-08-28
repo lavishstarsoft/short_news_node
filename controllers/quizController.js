@@ -11,13 +11,24 @@ const QuizQuestion = require('../models/QuizQuestion');
 const QuizEntry = require('../models/QuizEntry');
 const QuizWeek = require('../models/QuizWeek');
 const QuizWinner = require('../models/QuizWinner');
+const DeviceLink = require('../models/DeviceLink');
 const QuizTestOverride = require('../models/QuizTestOverride');
 const QuizRules = require('../models/QuizRules');
 const { dayInfo, weekDayKeys, weekMeta, simTestDate } = require('../utils/quizWeek');
 const { getQuizEnabledLanguages, getQuizConfig, isQuizLanguageAllowed } = require('../services/quizLanguageService');
+const poolAlert = require('../services/quizPoolAlertService');
 
 const uid = (req) => req.verifiedGoogleId || null;
 const reqLang = (req) => (req.query && req.query.lang ? String(req.query.lang).trim().toLowerCase() : null);
+
+/** Sanitized per-install id from the X-Device-Id header (untrusted). Accepts only a
+ *  UUID-shaped opaque token (8–64 of [A-Za-z0-9-]); anything else → null. */
+function deviceIdFrom(req) {
+  const raw = req && req.headers && (req.headers['x-device-id'] || req.headers['X-Device-Id']);
+  if (!raw) return null;
+  const s = String(raw).trim();
+  return /^[A-Za-z0-9-]{8,64}$/.test(s) ? s : null;
+}
 
 /**
  * Effective quiz day for a user. If an admin has enabled test mode for THIS user,
@@ -94,17 +105,39 @@ async function ensureWeek(weekId) {
   await QuizWeek.updateOne({ weekId }, { $setOnInsert: { weekId, startDate: m.startDate, endDate: m.endDate, sundayDate: m.sundayDate, status: 'active' } }, { upsert: true });
 }
 
-/** Find-or-assign today's question for a user (atomic, no-repeat within week, no full-pool load). */
-async function assignQuestion(userId, weekId, dayKey, dayIndex, lang) {
+/**
+ * Find-or-assign today's question with LIFETIME no-repeat.
+ *
+ * A question is NEVER shown again once it has been assigned to this user OR seen on
+ * this device (any past week). We therefore exclude every questionId this
+ * userId/deviceId has ever received. There is intentionally NO repeat-fallback: if
+ * the fresh pool is exhausted we return null (the app shows "no question") rather
+ * than re-serving a seen question — so admins must keep the active pool stocked.
+ * @param {string|null} deviceId best-effort per-install id (may be null)
+ */
+async function assignQuestion(userId, weekId, dayKey, dayIndex, lang, deviceId = null) {
   const existing = await QuizEntry.findOne({ userId, weekId, dayKey });
   if (existing) return existing;
-  const used = (await QuizEntry.find({ userId, weekId }).select('questionId').lean()).map((e) => e.questionId);
-  let picked = await QuizQuestion.aggregate([{ $match: { isActive: true, language: lang, _id: { $nin: used } } }, { $sample: { size: 1 } }]);
-  if (!picked.length) picked = await QuizQuestion.aggregate([{ $match: { isActive: true, language: lang } }, { $sample: { size: 1 } }]); // pool < 6 fallback
-  if (!picked.length) return null; // no active questions for this language
+
+  // Lifetime "seen" set: everything this account got, plus everything ever assigned
+  // on this device (only add the device clause when we actually have one).
+  const seenBy = [{ userId }];
+  if (deviceId) seenBy.push({ deviceId });
+  const used = (await QuizEntry.find({ $or: seenBy }).select('questionId').lean()).map((e) => e.questionId);
+
+  // Fire-and-forget pool-health alert: if this player's fresh pool is near empty,
+  // email support + raise an admin notification. Throttled internally; never blocks.
+  poolAlert.maybeAlertLowPool(lang, used).catch(() => {});
+
+  const picked = await QuizQuestion.aggregate([
+    { $match: { isActive: true, language: lang, _id: { $nin: used } } },
+    { $sample: { size: 1 } },
+  ]);
+  if (!picked.length) return null; // fresh pool exhausted (or none active) → never repeat
+
   await QuizEntry.updateOne(
     { userId, weekId, dayKey },
-    { $setOnInsert: { userId, weekId, dayKey, dayIndex, questionId: picked[0]._id, assignedAt: new Date() } },
+    { $setOnInsert: { userId, weekId, dayKey, dayIndex, questionId: picked[0]._id, assignedAt: new Date(), deviceId: deviceId || null } },
     { upsert: true }
   );
   return QuizEntry.findOne({ userId, weekId, dayKey });
@@ -164,7 +197,7 @@ exports.today = async (req, res) => {
       });
     }
 
-    const entry = await assignQuestion(userId, di.weekId, di.dayKey, di.dayIndex, userLang);
+    const entry = await assignQuestion(userId, di.weekId, di.dayKey, di.dayIndex, userLang, deviceIdFrom(req));
     if (!entry) return res.json({ weekId: di.weekId, dayIndex: di.dayIndex, isQuizDay: true, question: null, message: 'No question available today.', testMode: ctx.testMode });
     const q = await QuizQuestion.findById(entry.questionId).lean();
 
@@ -225,15 +258,26 @@ exports.answer = async (req, res) => {
     // isCorrect is computed & stored server-side, but NEVER returned on submit — the
     // result stays hidden until the weekly Saturday reveal.
     const isCorrect = sel === q.correctOption;
-    const upd = await QuizEntry.updateOne(
-      { _id: entry._id, submittedAt: null },
-      { $set: { selectedOption: sel, isCorrect, submittedAt: new Date() } }
-    );
+    const deviceId = deviceIdFrom(req); // best-effort, sanitized, may be null
+    // Only set deviceId when we actually have one, so a header-less submit never
+    // wipes the device recorded at assign time (needed for lifetime no-repeat).
+    const set = { selectedOption: sel, isCorrect, submittedAt: new Date() };
+    if (deviceId) set.deviceId = deviceId;
+    const upd = await QuizEntry.updateOne({ _id: entry._id, submittedAt: null }, { $set: set });
     if (upd.matchedCount === 0) { // concurrent submit won the race → return the frozen (hidden) result
       const fresh = await QuizEntry.findById(entry._id).lean();
       return res.json({ locked: true, submitted: true, alreadySubmitted: true, selectedOption: fresh ? fresh.selectedOption : sel });
     }
     QuizQuestion.updateOne({ _id: q._id }, { $inc: { usageCount: 1 } }).catch(() => {});
+    // Record the account↔install link for fair-play draw analysis. Fully fire-and-forget:
+    // any failure here must NEVER affect the user's answer submission.
+    if (deviceId) {
+      DeviceLink.updateOne(
+        { deviceId, userId },
+        { $setOnInsert: { deviceId, userId, firstSeenAt: new Date() }, $set: { lastSeenAt: new Date() }, $inc: { hitCount: 1 } },
+        { upsert: true }
+      ).catch(() => {});
+    }
     res.json({ locked: true, submitted: true, selectedOption: sel });
   } catch (e) { console.error('quiz answer:', e.message); res.status(500).json({ error: 'Failed to submit answer.' }); }
 };

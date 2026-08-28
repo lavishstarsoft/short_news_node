@@ -71,4 +71,11 @@ async function sendOtpEmail(toEmail, otp, opts = {}) {
   return { ok: true, id: info && info.messageId };
 }
 
-module.exports = { isConfigured, verifyConnection, sendOtpEmail };
+/** Generic transactional email (reuses the same SMTP transport). Throws if SMTP is
+ *  not configured — callers that must not fail should guard with isConfigured(). */
+async function sendMail({ to, subject, text, html }) {
+  const info = await getTransport().sendMail({ from: process.env.MAIL_FROM, to, subject, text, html });
+  return { ok: true, id: info && info.messageId };
+}
+
+module.exports = { isConfigured, verifyConnection, sendOtpEmail, sendMail };

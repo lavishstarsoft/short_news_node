@@ -406,7 +406,7 @@
             <% } %>
 
             <!-- Quiz & Rewards Group (Super Admin only) -->
-            <% var quizGroupActive = ['quiz-dashboard', 'quiz-questions', 'quiz-rules'].includes(activePage); %>
+            <% var quizGroupActive = ['quiz-dashboard', 'quiz-questions', 'quiz-rules', 'quiz-placement'].includes(activePage); %>
             <% if (isSuperAdminOnly) { %>
             <li class="nav-item">
                 <a class="nav-link has-submenu <%= quizGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseQuiz" role="button" aria-expanded="<%= quizGroupActive ? 'true' : 'false' %>" aria-controls="collapseQuiz">
@@ -424,6 +424,9 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'quiz-rules' ? 'active' : '' %>" href="/admin/quiz/rules">Quiz Rules</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'quiz-placement' ? 'active' : '' %>" href="/admin/quiz/placement">Feed Position</a>
                         </li>
                     </ul>
                 </div>

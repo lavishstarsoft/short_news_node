@@ -370,18 +370,43 @@ app.use(cors({
 }));
 
 // Rate limiting to blunt brute-force / scraping / abuse.
+// DISTRIBUTED rate limiting: a Redis-backed store makes the counters GLOBAL —
+// shared across every PM2 worker and machine (a MemoryStore only limits per-process).
+// The store fails OPEN if Redis is down, so a cache blip never 500s the API;
+// Cloudflare stays the frontline DDoS defense and this is the app-layer backstop.
+const { createRedisRateStore } = require('./middleware/redisRateStore');
 const rateLimitValidate = { xForwardedForHeader: false };
+
+// TIERED limits. Feed READS (GET /api/public/news…) get a generous dedicated cap so
+// fast swiping is never throttled; every other endpoint keeps the strict 5k cap.
+// NOTE: most feed reads are served from the Cloudflare edge cache and never reach
+// here, so this cap only ever meters cache-MISS reads — a pure anti-bot backstop.
+const isFeedRead = (req) => req.method === 'GET' && req.path.startsWith('/api/public/news');
+
+// GENERAL (writes/engagement/everything else): 5,000 / 15 min. Skips feed reads.
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  // Mobile feed (views + pagination + ads) easily exceeds 1000 under fast swipe.
   max: Number(process.env.RATE_LIMIT_MAX) || 5000,
   standardHeaders: true,
   legacyHeaders: false,
   validate: rateLimitValidate,
+  skip: isFeedRead, // feed reads are metered by feedLimiter instead
+  store: createRedisRateStore('rl:general:'),
 });
 app.use(generalLimiter);
 
-// Stricter limiter for authentication endpoints.
+// FEED READS: 10,000 / 15 min (dedicated, global via Redis). Applied only to feed GETs.
+const feedLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.FEED_RATE_LIMIT_MAX) || 10000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: rateLimitValidate,
+  store: createRedisRateStore('rl:feed:'),
+});
+app.use((req, res, next) => (isFeedRead(req) ? feedLimiter(req, res, next) : next()));
+
+// Stricter limiter for authentication endpoints (shares the same global Redis store).
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.AUTH_RATE_LIMIT_MAX) || 30,
@@ -389,12 +414,16 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many attempts, please try again later.' },
   validate: rateLimitValidate,
+  store: createRedisRateStore('rl:auth:'),
 });
 app.use(['/login', '/admin/login', '/api/admin/login'], authLimiter);
 
 // Handle JSON and URL-encoded data with large limits
-app.use(express.json({ limit: '10mb' })); // Increase payload limit
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Hardened body limits: file uploads use multipart (multer), so JSON bodies are
+// small (largest is a base64 signature ~tens of KB). 1 MB blocks 10 MB DoS-amplifier
+// payloads while comfortably fitting every real request.
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: process.env.JSON_BODY_LIMIT || '1mb' }));
 
 // Data sanitization against NoSQL query injection
 app.use(mongoSanitize());

@@ -76,7 +76,9 @@ const handleGetNews = async (req, res) => {
       if (language) {
         Object.assign(query, buildNewsLanguageFilter(language));
       }
-      newsList = await News.find(query).sort({ publishedAt: -1 }).limit(FEED_MAX);
+      // .lean() → plain JS objects (no Mongoose hydration): far less CPU/GC per
+      // request, which matters enormously on the hot feed path at scale.
+      newsList = await News.find(query).sort({ publishedAt: -1 }).limit(FEED_MAX).lean();
     } else {
       // Use in-memory storage and filter for active news
       const allNews = req.app.locals.newsData || [];
@@ -142,7 +144,16 @@ const handleGetNews = async (req, res) => {
   }
 };
 
-router.get('/api/public/news', handleGetNews);
+// Edge/CDN cache header for the GET feed: Cloudflare serves most reads from the
+// edge (s-maxage) so 70K rps barely touches the origin; stale-while-revalidate keeps
+// it warm without a thundering-herd refetch. Set on every response (hit or miss).
+const feedEdgeCache = (req, res, next) => {
+  res.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+  next();
+};
+// GET → edge header + Redis origin cache (60s). Writes call clearCache('cache:/api/public/news*').
+router.get('/api/public/news', feedEdgeCache, cacheMiddleware(60), handleGetNews);
+// POST is a compatibility alias (some clients POST the feed) — never edge/Redis-cached.
 router.post('/api/public/news', handleGetNews);
 
 // Public API endpoint for Flutter app with category filter (no authentication required)
@@ -161,7 +172,9 @@ router.get('/api/public/news/category/:category', async (req, res) => {
         query.category = resolvedCategory;
       }
 
-      newsList = await News.find(query).sort({ publishedAt: -1 }).limit(FEED_MAX);
+      // .lean() → plain JS objects (no Mongoose hydration): far less CPU/GC per
+      // request, which matters enormously on the hot feed path at scale.
+      newsList = await News.find(query).sort({ publishedAt: -1 }).limit(FEED_MAX).lean();
     } else {
       // Use in-memory storage and filter for active news with category filter
       const allNews = req.app.locals.newsData || [];
@@ -228,7 +241,9 @@ router.get('/api/public/news/location/:location', cacheMiddleware(600), async (r
         query.location = resolvedLocation;
       }
 
-      newsList = await News.find(query).sort({ publishedAt: -1 }).limit(FEED_MAX);
+      // .lean() → plain JS objects (no Mongoose hydration): far less CPU/GC per
+      // request, which matters enormously on the hot feed path at scale.
+      newsList = await News.find(query).sort({ publishedAt: -1 }).limit(FEED_MAX).lean();
     } else {
       // Use in-memory storage and filter for active news with location filter
       const allNews = req.app.locals.newsData || [];
@@ -275,6 +290,29 @@ router.get('/api/public/news/location/:location', cacheMiddleware(600), async (r
   } catch (error) {
     console.error('Error fetching public news by location:', error);
     res.status(500).json({ error: 'Error fetching news by location' });
+  }
+});
+
+// BULK view counter — the app batches viewed article IDs and flushes them here every
+// few seconds (instead of one request per swipe). One MongoDB updateMany increments
+// all of them at once → O(1) round-trips regardless of how many were viewed.
+// Public + capped + rate-limited; a pure counter (no per-user array → no unbounded
+// document growth). Client already de-dupes, so each id arrives at most once per user.
+router.post('/api/public/news/views/batch', async (req, res) => {
+  try {
+    const raw = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    // Sanitize: valid 24-hex ObjectIds, de-duped, hard-capped to bound the query.
+    const ids = [...new Set(raw.map((x) => String(x)).filter((s) => /^[a-fA-F0-9]{24}$/.test(s)))].slice(0, 200);
+    if (ids.length === 0) return res.json({ ok: true, updated: 0 });
+
+    const result = await News.updateMany(
+      { _id: { $in: ids }, isActive: { $ne: false } },
+      { $inc: { views: 1 } }
+    );
+    return res.json({ ok: true, updated: result.modifiedCount || 0 });
+  } catch (e) {
+    console.error('bulk views error:', e.message);
+    return res.status(500).json({ error: 'Failed to record views.' });
   }
 });
 
@@ -1437,7 +1475,7 @@ router.get('/api/public/long-videos', cacheMiddleware(300), async (req, res) => 
 
 
 // New endpoint for viral video interactions
-router.post('/api/public/viral-videos/:id/interact', async (req, res) => {
+router.post('/api/public/viral-videos/:id/interact', verifyMobileUser, async (req, res) => {
   try {
     const { id } = req.params;
     const { action, userId, userName, userEmail, commentText } = req.body;
@@ -1595,7 +1633,7 @@ router.post('/api/public/viral-videos/:id/interact', async (req, res) => {
 });
 
 // Viral Video Comment Report endpoint
-router.post('/api/public/viral-videos/comments/report', async (req, res) => {
+router.post('/api/public/viral-videos/comments/report', verifyMobileUser, async (req, res) => {
   try {
     const { videoId, commentText, commentUserId, commentUserName, userId, userName, userEmail, reason, additionalDetails } = req.body;
 
@@ -1680,7 +1718,7 @@ router.post('/api/public/viral-videos/comments/report', async (req, res) => {
 });
 
 // Public API endpoint for ad interactions (no authentication required)
-router.post('/api/public/ads/:id/interaction', async (req, res) => {
+router.post('/api/public/ads/:id/interaction', verifyMobileUser, async (req, res) => {
   try {
     const { id } = req.params;
     const { adTitle, interactionType, viewDurationSeconds } = req.body;
@@ -1841,7 +1879,7 @@ router.post('/api/public/news/:id/report', async (req, res) => {
 });
 
 // Comment Report endpoint
-router.post('/api/public/comments/report', async (req, res) => {
+router.post('/api/public/comments/report', verifyMobileUser, async (req, res) => {
   try {
     const { newsId, commentText, commentUserId, commentUserName, userId, userName, userEmail, reason, additionalDetails } = req.body;
 
@@ -2378,9 +2416,9 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
 
 // --- Zodiac Calendar Public API Routes ---
 router.get('/api/zodiac/today', zodiacController.getZodiacToday);
-router.post('/api/zodiac/:id/like', zodiacController.likeZodiac);
-router.post('/api/zodiac/:id/dislike', zodiacController.dislikeZodiac);
-router.post('/api/zodiac/:id/comment', zodiacController.commentZodiac);
+router.post('/api/zodiac/:id/like', verifyMobileUser, zodiacController.likeZodiac);
+router.post('/api/zodiac/:id/dislike', verifyMobileUser, zodiacController.dislikeZodiac);
+router.post('/api/zodiac/:id/comment', verifyMobileUser, zodiacController.commentZodiac);
 router.get('/api/zodiac/:id/comments', zodiacController.getZodiacComments);
 
 // ==========================================

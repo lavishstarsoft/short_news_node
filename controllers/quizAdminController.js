@@ -15,6 +15,7 @@ const User = require('../models/User');
 const { logAudit } = require('../utils/auditLogger');
 const { dayInfo, weekMeta, isWeekOver, weekDayKeys, TEST_WEEK_MONDAY, WINNER_COUNT, QUIZ_DAYS } = require('../utils/quizWeek');
 const { computeWeekStats, selectWinners } = require('../services/quizWinnerService');
+const { analyzeCollusion } = require('../services/quizCollusionService');
 const { closeExpiredWeeks, sendDailyReminder } = require('../services/quizMaintenanceService');
 const { weekAnalytics, participantStats } = require('../services/quizAnalyticsService');
 
@@ -49,6 +50,25 @@ exports.validateQuestion = validateQuestion; // exported for tests
 
 // GET /admin/quiz/questions (page)
 exports.renderQuestions = (req, res) => res.render('quiz-questions', { admin: req.admin, activePage: 'quiz-questions' });
+
+// Dedicated sidebar page for the feed-position setting (Quiz & Rewards → Feed Position).
+exports.renderPlacement = (req, res) => res.render('quiz-placement', { admin: req.admin, activePage: 'quiz-placement' });
+
+// PUT /admin/quiz/api/settings/feed-position  { feedPosition } — updates ONLY the
+// feed position (does not touch enabled/languages/times), then clears the cache.
+exports.updateFeedPosition = async (req, res) => {
+  try {
+    const feedPosition = Math.max(1, Math.min(50, parseInt(req.body.feedPosition, 10) || 1));
+    await QuizSettings.updateOne(
+      { key: 'quiz_config' },
+      { $set: { feedPosition, updatedByName: req.admin ? (req.admin.name || req.admin.username) : 'admin' } },
+      { upsert: true }
+    );
+    require('../services/quizLanguageService')._clearCache();
+    logAudit({ req, action: 'quiz_feed_position_update', entityType: 'QuizSettings', entityId: 'quiz_config', description: `Quiz feed position set to ${feedPosition}` });
+    res.json({ ok: true, feedPosition });
+  } catch (e) { console.error('quiz updateFeedPosition:', e.message); res.status(500).json({ error: 'Failed to update feed position.' }); }
+};
 
 // GET /admin/quiz/api/questions?active=&category=&language=&locked=&q=&page=&pageSize=
 // Server-paginated with search/filter + Used/Unused/Locked status and usage counts.
@@ -523,6 +543,17 @@ exports.selectWinners = async (req, res) => {
   } catch (e) { console.error('quiz selectWinners:', e.message); res.status(500).json({ error: 'Failed to select winners.' }); }
 };
 
+// GET /admin/quiz/api/week/collusion?weekId=... — fair-play review BEFORE the draw.
+// Returns device clusters (⚠ review: same phone, maybe family) and strong clusters
+// (🚫 same person by mobile/PAN). The admin uses this to hand-pick fair winners.
+exports.getCollusionReport = async (req, res) => {
+  try {
+    const weekId = targetWeekId(req);
+    const report = await analyzeCollusion(weekId);
+    res.json(report);
+  } catch (e) { console.error('quiz collusion report:', e.message); res.status(500).json({ error: 'Failed to build fair-play report.' }); }
+};
+
 // POST /admin/quiz/api/maintenance { action: 'close'|'remind' } — idempotent lifecycle
 exports.maintenance = async (req, res) => {
   try {
@@ -715,8 +746,8 @@ exports.clearTestWinners = async (req, res) => {
 exports.getSettings = async (req, res) => {
   try {
     const s = await QuizSettings.findOne({ key: 'quiz_config' }).lean();
-    if (!s) return res.json({ isEnabled: false, enabledLanguages: [], revealTime: '23:30', winnerReleaseTime: '10:00' });
-    res.json({ isEnabled: !!s.isEnabled, enabledLanguages: s.enabledLanguages || [], revealTime: s.revealTime || '23:30', winnerReleaseTime: s.winnerReleaseTime || '10:00' });
+    if (!s) return res.json({ isEnabled: false, enabledLanguages: [], revealTime: '23:30', winnerReleaseTime: '10:00', feedPosition: 1 });
+    res.json({ isEnabled: !!s.isEnabled, enabledLanguages: s.enabledLanguages || [], revealTime: s.revealTime || '23:30', winnerReleaseTime: s.winnerReleaseTime || '10:00', feedPosition: (Number.isInteger(s.feedPosition) && s.feedPosition >= 1) ? s.feedPosition : 1 });
   } catch (e) { console.error('quiz getSettings:', e.message); res.status(500).json({ error: 'Failed to get settings.' }); }
 };
 
@@ -731,11 +762,13 @@ exports.updateSettings = async (req, res) => {
     const revealTime = hhmm(req.body.revealTime, '23:30');
     const winnerReleaseTime = hhmm(req.body.winnerReleaseTime, '10:00');
 
-    await QuizSettings.updateOne(
-      { key: 'quiz_config' },
-      { $set: { isEnabled, enabledLanguages, revealTime, winnerReleaseTime, updatedByName: req.admin ? (req.admin.name || req.admin.username) : 'admin' } },
-      { upsert: true }
-    );
+    const set = { isEnabled, enabledLanguages, revealTime, winnerReleaseTime, updatedByName: req.admin ? (req.admin.name || req.admin.username) : 'admin' };
+    // feedPosition lives on its own page now — only touch it if this request sent it,
+    // so saving the general settings never resets the admin's chosen position.
+    if (req.body.feedPosition !== undefined) {
+      set.feedPosition = Math.max(1, Math.min(50, parseInt(req.body.feedPosition, 10) || 1));
+    }
+    await QuizSettings.updateOne({ key: 'quiz_config' }, { $set: set }, { upsert: true });
     // Clear the memory cache in the language service so the public API picks it up immediately
     require('../services/quizLanguageService')._clearCache();
     

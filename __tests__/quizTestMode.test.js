@@ -20,10 +20,16 @@ jest.mock('../models/QuizQuestion', () => ({
   findById: jest.fn((id) => ({ lean: async () => store.questions.find((q) => String(q._id) === String(id)) || null })),
   find: jest.fn(() => ({ lean: async () => store.questions })),
   updateOne: jest.fn(async () => ({})),
+  countDocuments: jest.fn(async () => 100), // healthy pool → no alert
 }));
 jest.mock('../models/QuizEntry', () => ({
   findOne: jest.fn(async (q) => store.entries.find((e) => e.userId === q.userId && e.weekId === q.weekId && e.dayKey === q.dayKey) || null),
-  find: jest.fn((q) => ({ select: () => ({ lean: async () => store.entries.filter((e) => e.userId === q.userId && e.weekId === q.weekId) }), lean: async () => store.entries.filter((e) => e.userId === q.userId && e.weekId === q.weekId) })),
+  find: jest.fn((q) => {
+    const rows = q && q.$or
+      ? store.entries.filter((e) => q.$or.some((c) => (c.userId !== undefined && e.userId === c.userId) || (c.deviceId !== undefined && e.deviceId != null && e.deviceId === c.deviceId)))
+      : store.entries.filter((e) => e.userId === q.userId && (q.weekId === undefined || e.weekId === q.weekId));
+    return { select: () => ({ lean: async () => rows }), lean: async () => rows };
+  }),
   updateOne: jest.fn(async (filter, update) => {
     if (update.$setOnInsert) {
       const exists = store.entries.find((e) => e.userId === filter.userId && e.weekId === filter.weekId && e.dayKey === filter.dayKey);

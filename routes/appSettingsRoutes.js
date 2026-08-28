@@ -164,6 +164,8 @@ router.get('/api/public/app-settings', async (req, res) => {
         const quizConfig = await getQuizConfig();
         responseSettings.isQuizEnabled = quizConfig.isEnabled;
         responseSettings.quizEnabledLanguages = quizConfig.langs;
+        // Admin-controlled feed position: quiz card appears after the Nth news item.
+        responseSettings.quizFeedPosition = quizConfig.feedPosition;
 
         // Add length limits dynamically from backend constants
         responseSettings.newsTitleMax = NEWS_TITLE_MAX;

@@ -15,6 +15,7 @@ const QuizWeek = require('../models/QuizWeek');
 const QuizWinner = require('../models/QuizWinner');
 const { QUIZ_DAYS, WINNER_COUNT, isWeekOver, weekMeta } = require('../utils/quizWeek');
 const { logAudit } = require('../utils/auditLogger');
+const { deviceFlagsForWinners } = require('./quizCollusionService');
 
 /** Per-user week stats + eligibility. Reads QuizEntry once (no N+1). */
 async function computeWeekStats(weekId) {
@@ -87,8 +88,13 @@ async function selectWinners({ weekId, mode, adminUserIds, actor, req, displayNa
     throw e;
   }
 
-  logAudit({ req, action: 'quiz_winners_selected', entityType: 'QuizWeek', entityId: weekId, description: `Selected ${WINNER_COUNT} winners for ${weekId} via ${mode}`, after: { mode, winners: docs.map((d) => ({ rank: d.rank, userId: d.userId, score: d.score })) } });
-  return { ok: true, mode, weekId, winners: docs.map((d) => ({ rank: d.rank, userId: d.userId, displayName: d.displayName, score: d.score })) };
+  // Fair-play flags: winners who share a physical install with another account.
+  // Informational ONLY — the winner set above is unchanged; a human reviews these
+  // before payout so legit family-on-one-phone cases aren't auto-penalised.
+  const flagged = await deviceFlagsForWinners(weekId, chosen.map((e) => e.userId));
+
+  logAudit({ req, action: 'quiz_winners_selected', entityType: 'QuizWeek', entityId: weekId, description: `Selected ${WINNER_COUNT} winners for ${weekId} via ${mode}`, after: { mode, winners: docs.map((d) => ({ rank: d.rank, userId: d.userId, score: d.score })), flagged } });
+  return { ok: true, mode, weekId, winners: docs.map((d) => ({ rank: d.rank, userId: d.userId, displayName: d.displayName, score: d.score })), flagged };
 }
 
 module.exports = { computeWeekStats, cryptoPick, selectWinners };

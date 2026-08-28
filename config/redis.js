@@ -23,7 +23,7 @@ const redisClient = redis.createClient(
       // Local Redis using host/port (Explicitly configured)
       socket: {
         host: process.env.REDIS_HOST,
-        port: process.env.REDIS_PORT || 6379,
+        port: parseInt(process.env.REDIS_PORT, 10) || 6379,
         reconnectStrategy: (retries) => {
           const delay = Math.min(50 * Math.pow(2, retries), 3000);
           console.log(`⏳ Redis reconnection attempt ${retries + 1}, waiting ${delay}ms...`);
@@ -48,9 +48,11 @@ const redisClient = redis.createClient(
         },
       }
       : {
-        // Fallback to default local
+        // Fallback to local. Use 127.0.0.1 (NOT 'localhost') — on macOS/Node
+        // 'localhost' can resolve to IPv6 ::1 first and be refused if Redis is only
+        // bound to 127.0.0.1, which is the exact "ECONNREFUSED 127.0.0.1:6379" case.
         socket: {
-          host: 'localhost',
+          host: '127.0.0.1',
           port: 6379,
           reconnectStrategy: (retries) => {
             const delay = Math.min(50 * Math.pow(2, retries), 3000);
@@ -103,12 +105,25 @@ redisClient.on('reconnecting', () => {
   console.log('🔄 Redis client attempting to reconnect...');
 });
 
-// Connect to Redis immediately
-redisClient.connect().catch((err) => {
-  console.error('❌ Failed to connect to Redis:', err.message);
-  console.log('⚠️  Running without Redis cache - performance will be slower');
-  isConnected = false;
-});
+// Connect to Redis with INITIAL-CONNECT RETRY.
+// node-redis v4's reconnectStrategy only recovers a connection that dropped AFTER a
+// successful connect — it does NOT retry a failed FIRST connect. So if Node boots
+// before Redis is up, the app would run cache-less forever. This loop fixes that:
+// it keeps retrying the initial connect (backoff, capped) until Redis accepts.
+let _initialConnectDone = false;
+async function connectWithRetry(attempt = 0) {
+  if (_initialConnectDone) return;
+  try {
+    await redisClient.connect();
+    _initialConnectDone = true; // 'ready' handler flips isConnected; reconnects handled by the client
+  } catch (err) {
+    const delay = Math.min(500 * Math.pow(2, attempt), 10000); // 0.5s → 10s cap
+    console.error(`❌ Redis initial connect failed (attempt ${attempt + 1}): ${err.message}. Retrying in ${delay}ms — app runs cache-less until then.`);
+    isConnected = false;
+    setTimeout(() => connectWithRetry(attempt + 1), delay).unref();
+  }
+}
+connectWithRetry();
 
 // Helper function to check if Redis is available
 const isRedisAvailable = () => {
