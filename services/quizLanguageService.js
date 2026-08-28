@@ -13,26 +13,31 @@ const QuizSettings = require('../models/QuizSettings');
 const DEFAULT_REVEAL = '23:30';
 const DEFAULT_WINNER_RELEASE = '10:00';
 const DEFAULT_FEED_POSITION = 1;
-const _base = () => ({ at: 0, langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE, feedPosition: DEFAULT_FEED_POSITION });
+const DEFAULT_FEED_POSITION_PLAYED = 7;
+const _base = () => ({ at: 0, langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE, feedPosition: DEFAULT_FEED_POSITION, feedPositionPlayed: DEFAULT_FEED_POSITION_PLAYED });
 let _cache = _base();
-const _view = () => ({ langs: _cache.langs, isEnabled: _cache.isEnabled, revealTime: _cache.revealTime, winnerReleaseTime: _cache.winnerReleaseTime, feedPosition: _cache.feedPosition });
+const _view = () => ({ langs: _cache.langs, isEnabled: _cache.isEnabled, revealTime: _cache.revealTime, winnerReleaseTime: _cache.winnerReleaseTime, feedPosition: _cache.feedPosition, feedPositionPlayed: _cache.feedPositionPlayed });
+const _posOr = (v, def) => (Number.isInteger(v) && v >= 1 ? v : def);
 
-/** The configured quiz languages, master toggle, reveal/release times + feed position. Short TTL cache. */
+/** The configured quiz languages, master toggle, reveal/release times + feed positions. Short TTL cache. */
 async function getQuizConfig() {
-  const fallback = { langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE, feedPosition: DEFAULT_FEED_POSITION };
+  const fallback = { langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE, feedPosition: DEFAULT_FEED_POSITION, feedPositionPlayed: DEFAULT_FEED_POSITION_PLAYED };
   if (mongoose.connection.readyState !== 1) return fallback; // no DB (e.g. tests)
   const now = Date.now();
   if (now - _cache.at < 60000) return _view();
   try {
-    const s = await QuizSettings.findOne({ key: 'quiz_config' }).select('enabledLanguages isEnabled revealTime winnerReleaseTime feedPosition').lean();
+    const s = await QuizSettings.findOne({ key: 'quiz_config' }).select('enabledLanguages isEnabled revealTime winnerReleaseTime feedPosition feedPositionPlayed').lean();
     if (s) {
+      const feedPosition = _posOr(s.feedPosition, DEFAULT_FEED_POSITION);
       _cache = {
         at: now,
         langs: Array.isArray(s.enabledLanguages) ? s.enabledLanguages : [],
         isEnabled: !!s.isEnabled,
         revealTime: s.revealTime || DEFAULT_REVEAL,
         winnerReleaseTime: s.winnerReleaseTime || DEFAULT_WINNER_RELEASE,
-        feedPosition: Number.isInteger(s.feedPosition) && s.feedPosition >= 1 ? s.feedPosition : DEFAULT_FEED_POSITION,
+        feedPosition,
+        // Backward-compatible: if a doc predates this field, reuse the unplayed value.
+        feedPositionPlayed: _posOr(s.feedPositionPlayed, feedPosition),
       };
     } else {
       _cache = { ..._base(), at: now }; // Strict default

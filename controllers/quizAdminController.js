@@ -54,19 +54,21 @@ exports.renderQuestions = (req, res) => res.render('quiz-questions', { admin: re
 // Dedicated sidebar page for the feed-position setting (Quiz & Rewards → Feed Position).
 exports.renderPlacement = (req, res) => res.render('quiz-placement', { admin: req.admin, activePage: 'quiz-placement' });
 
-// PUT /admin/quiz/api/settings/feed-position  { feedPosition } — updates ONLY the
-// feed position (does not touch enabled/languages/times), then clears the cache.
+// PUT /admin/quiz/api/settings/feed-position  { feedPosition, feedPositionPlayed }
+// Updates ONLY the two feed positions (not enabled/languages/times), then clears cache.
 exports.updateFeedPosition = async (req, res) => {
   try {
-    const feedPosition = Math.max(1, Math.min(50, parseInt(req.body.feedPosition, 10) || 1));
+    const clamp = (v, def) => Math.max(1, Math.min(50, parseInt(v, 10) || def));
+    const feedPosition = clamp(req.body.feedPosition, 1);
+    const feedPositionPlayed = clamp(req.body.feedPositionPlayed, feedPosition);
     await QuizSettings.updateOne(
       { key: 'quiz_config' },
-      { $set: { feedPosition, updatedByName: req.admin ? (req.admin.name || req.admin.username) : 'admin' } },
+      { $set: { feedPosition, feedPositionPlayed, updatedByName: req.admin ? (req.admin.name || req.admin.username) : 'admin' } },
       { upsert: true }
     );
     require('../services/quizLanguageService')._clearCache();
-    logAudit({ req, action: 'quiz_feed_position_update', entityType: 'QuizSettings', entityId: 'quiz_config', description: `Quiz feed position set to ${feedPosition}` });
-    res.json({ ok: true, feedPosition });
+    logAudit({ req, action: 'quiz_feed_position_update', entityType: 'QuizSettings', entityId: 'quiz_config', description: `Quiz feed position: unplayed=${feedPosition}, played=${feedPositionPlayed}` });
+    res.json({ ok: true, feedPosition, feedPositionPlayed });
   } catch (e) { console.error('quiz updateFeedPosition:', e.message); res.status(500).json({ error: 'Failed to update feed position.' }); }
 };
 
@@ -746,8 +748,10 @@ exports.clearTestWinners = async (req, res) => {
 exports.getSettings = async (req, res) => {
   try {
     const s = await QuizSettings.findOne({ key: 'quiz_config' }).lean();
-    if (!s) return res.json({ isEnabled: false, enabledLanguages: [], revealTime: '23:30', winnerReleaseTime: '10:00', feedPosition: 1 });
-    res.json({ isEnabled: !!s.isEnabled, enabledLanguages: s.enabledLanguages || [], revealTime: s.revealTime || '23:30', winnerReleaseTime: s.winnerReleaseTime || '10:00', feedPosition: (Number.isInteger(s.feedPosition) && s.feedPosition >= 1) ? s.feedPosition : 1 });
+    const pos = (v, def) => (Number.isInteger(v) && v >= 1 ? v : def);
+    if (!s) return res.json({ isEnabled: false, enabledLanguages: [], revealTime: '23:30', winnerReleaseTime: '10:00', feedPosition: 1, feedPositionPlayed: 7 });
+    const feedPosition = pos(s.feedPosition, 1);
+    res.json({ isEnabled: !!s.isEnabled, enabledLanguages: s.enabledLanguages || [], revealTime: s.revealTime || '23:30', winnerReleaseTime: s.winnerReleaseTime || '10:00', feedPosition, feedPositionPlayed: pos(s.feedPositionPlayed, feedPosition) });
   } catch (e) { console.error('quiz getSettings:', e.message); res.status(500).json({ error: 'Failed to get settings.' }); }
 };
 
