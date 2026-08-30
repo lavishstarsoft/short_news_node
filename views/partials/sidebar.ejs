@@ -30,6 +30,7 @@
                 
                 const isAdmin = typeof admin !=='undefined' && admin && (admin.role==='admin' || admin.role==='superadmin');
                 const isReporter = typeof admin !=='undefined' && admin && admin.role==='reporter';
+                const isStateIncharge = typeof admin !=='undefined' && admin && (admin.displayRole==='State In-Charge' || (Array.isArray(admin.assignedStates) && admin.assignedStates.length) || !!admin.assignedState);
 
                 const dashboardLink = (typeof isImpersonating !== 'undefined' && isImpersonating && admin) ? `/admin/editors/${admin.id}/dashboard` : '/news';
                 const newsListLink = (typeof isImpersonating !== 'undefined' && isImpersonating && admin) ? `/admin/editors/${admin.id}/news-list` : '/news-list';
@@ -53,6 +54,14 @@
                 Admin/superadmin already reach it via the System group below — this only
                 surfaces it for subeditors, who the controller already authorizes. %>
             <% if (typeof admin !== 'undefined' && admin && admin.role === 'subeditor') { %>
+            <% if (isStateIncharge) { %>
+            <li class="nav-item nav-item-standalone">
+                <a class="nav-link ripple <%= activePage === 'my-district-assignments' ? 'active' : '' %>" href="/admin/my-district-assignments">
+                    <i class="fas fa-user-plus me-3"></i>
+                    <span class="nav-text">Assign Reporters</span>
+                </a>
+            </li>
+            <% } %>
             <li class="nav-item nav-item-standalone">
                 <a class="nav-link ripple <%= activePage === 'reporter-access' ? 'active' : '' %>" href="/admin/reporter-access">
                     <i class="fas fa-key me-3"></i>
@@ -443,7 +452,7 @@
 
                 const canSendNotif = isAdmin || (typeof admin !=='undefined' && admin.role==='subeditor' && admin.permissions && admin.permissions.canSendNotifications);
                 const showSystemGroup = isAdmin || canSendNotif;
-                const systemGroupActive = ['command-center', 'security', 'security-center', 'notifications', 'app-settings', 'in-app-popup', 'r2-usage', 'agreement-terms', 'agreement-status', 'reporter-district-assignment', 'late-earnings', 'reporter-access', 'coverage-map'].includes(activePage);
+                const systemGroupActive = ['command-center', 'security', 'security-center', 'notifications', 'app-settings', 'in-app-popup', 'r2-usage', 'agreement-terms', 'agreement-status', 'reporter-district-assignment', 'district-assignment-approvals', 'district-division', 'my-district-assignments', 'late-earnings', 'reporter-access', 'coverage-map'].includes(activePage);
 
                 const showFinanceGroup = isAdmin || isReporter;
                 const financeActive = ['wallet-settings', 'my-wallet', 'withdrawals-queue', 'wallet-transactions', 'audit-logs', 'monthly-report'].includes(activePage); 
@@ -521,6 +530,12 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'reporter-district-assignment' ? 'active' : '' %>" href="/admin/reporter-district-assignment">Reporter District Assign</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'district-assignment-approvals' ? 'active' : '' %>" href="/admin/district-assignment-approvals">District Assign Approvals</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'district-division' ? 'active' : '' %>" href="/admin/district-division">District Division</a>
                         </li>
                         <% } %>
                         <% if (isSuperAdminOnly) { %>

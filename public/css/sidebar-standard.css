@@ -50,16 +50,22 @@
     }
 }
 
-/* Sidebar Scrollbar */
+/* Sidebar Scrollbar — wider so it is easy to grab and drag with the mouse */
+#sidebar #sidebarAccordion {
+    scrollbar-width: auto; /* Firefox */
+    scrollbar-color: #f97316 transparent;
+}
 #sidebar #sidebarAccordion::-webkit-scrollbar {
-    width: 2px;
+    width: 10px;
 }
 #sidebar #sidebarAccordion::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 6px;
 }
 #sidebar #sidebarAccordion::-webkit-scrollbar-thumb {
     background: #f97316; /* Tailwind orange-500 */
-    border-radius: 4px;
+    border-radius: 6px;
+    min-height: 40px;
 }
 #sidebar #sidebarAccordion::-webkit-scrollbar-thumb:hover {
     background: #ea580c; /* Tailwind orange-600 */

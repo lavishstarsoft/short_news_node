@@ -157,6 +157,23 @@ exports.assign = async (req, res) => {
   const already = before.some(d => norm(d) === norm(canon.name));
   if (already) return res.json({ ok: true, changed: false, message: 'Already assigned (no change).', assignedDistricts: before });
 
+  // STRICT: one district = one district in-charge. If this reporter is a
+  // district in-charge, block when another in-charge already holds this district.
+  // (Stringers are not restricted — many can share a district.)
+  if (reporter.reporterTier === 'district_incharge') {
+    const conflict = await Admin.findOne({
+      _id: { $ne: reporterId },
+      reporterTier: 'district_incharge',
+      assignedDistricts: canon.name,
+      isActive: { $ne: false }
+    }).select('name username');
+    if (conflict) {
+      return res.status(409).json({
+        error: `"${canon.name}" already has an in-charge: ${conflict.name || conflict.username}. Remove them from this district first, then reassign.`
+      });
+    }
+  }
+
   await Admin.updateOne({ _id: reporterId, assignedDistricts: { $ne: canon.name } }, { $addToSet: { assignedDistricts: canon.name } });
   const after = (await Admin.findById(reporterId).select('assignedDistricts').lean()).assignedDistricts || [];
 

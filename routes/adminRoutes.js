@@ -266,6 +266,24 @@ router.get('/reporter-district-assignment/api/evidence/:id', adminController.req
 router.post('/reporter-district-assignment/api/assign', adminController.requireAdmin, reporterDistrictController.assign);
 router.post('/reporter-district-assignment/api/remove', adminController.requireAdmin, reporterDistrictController.remove);
 
+// District assignment approval workflow: state in-charge proposes → admin approves.
+const districtAssignmentController = require('../controllers/districtAssignmentController');
+// State in-charge (any logged-in admin; scope enforced in controller)
+router.post('/api/district-assignments/request', adminController.requireAuth, districtAssignmentController.createRequest);
+router.get('/api/district-assignments/mine', adminController.requireAuth, districtAssignmentController.myRequests);
+router.get('/my-district-assignments', adminController.requireAuth, districtAssignmentController.renderMyPage);
+router.get('/api/district-assignments/scope', adminController.requireAuth, districtAssignmentController.myScope);
+// Admin only
+router.get('/district-assignment-approvals', adminController.requireAdmin, districtAssignmentController.renderApprovalsPage);
+router.get('/api/district-assignments/pending', adminController.requireAdmin, districtAssignmentController.listPending);
+router.post('/api/district-assignments/:id/approve', adminController.requireAdmin, districtAssignmentController.approve);
+router.post('/api/district-assignments/:id/reject', adminController.requireAdmin, districtAssignmentController.reject);
+// Division (admin): split a state's districts among its state in-charges
+router.get('/district-division', adminController.requireAdmin, districtAssignmentController.renderDivisionPage);
+router.get('/api/district-assignments/division/states', adminController.requireAdmin, districtAssignmentController.divisionStates);
+router.get('/api/district-assignments/division', adminController.requireAdmin, districtAssignmentController.divisionData);
+router.post('/api/district-assignments/division', adminController.requireAdmin, districtAssignmentController.saveDivision);
+
 // Late-Approval Earning — Super Admin release queue + accountability (enforced in controller).
 const lateEarningController = require('../controllers/lateEarningController');
 router.get('/late-earnings', adminController.requireAdmin, lateEarningController.renderQueue);

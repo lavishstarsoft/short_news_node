@@ -729,7 +729,7 @@
                         <div class="pn-form-grid">
                             <div class="pn-field">
                                 <label for="editTitle-${newsId}">Title</label>
-                                <input id="editTitle-${newsId}" type="text" maxlength="800" value="${escapeHtml(news.title)}" oninput="updateTitleCounter('${newsId}')">
+                                <input id="editTitle-${newsId}" type="text" maxlength="${getDisplayConfigForLanguage(news.language).titleMax}" value="${escapeHtml(news.title)}" oninput="updateTitleCounter('${newsId}')">
                                 <div id="editTitleCount-${newsId}" class="pn-char-count">${stripTags(news.title || '').length}/${limits.titleMax}</div>
                             </div>
                             <div class="pn-field">
@@ -747,7 +747,7 @@
                             </div>
                             <div class="pn-field">
                                 <label for="editContent-${newsId}">Content</label>
-                                <textarea id="editContent-${newsId}" rows="6" maxlength="1200" oninput="updateContentCounter('${newsId}')">${escapeHtml(news.content)}</textarea>
+                                <textarea id="editContent-${newsId}" rows="6" maxlength="${getDisplayConfigForLanguage(news.language).contentMax}" oninput="updateContentCounter('${newsId}')">${escapeHtml(news.content)}</textarea>
                                 <div id="editContentCount-${newsId}" class="pn-char-count">${stripTags(news.content || '').length}/${getDisplayConfigForLanguage(news.language).contentMax}</div>
                             </div>
                         </div>
@@ -767,7 +767,7 @@
                         <button type="button" class="btn-preview" onclick="savePendingChanges('${newsId}', false)">
                             <i class="fas fa-floppy-disk"></i> Save changes
                         </button>
-                        <button type="button" class="btn-approve" onclick="approveNews('${newsId}', \`${news.title.replace(/`/g, '\\`')}\`); closePreview();">
+                        <button type="button" id="plainApprove-${newsId}" class="btn-approve" onclick="approveNews('${newsId}', \`${news.title.replace(/`/g, '\\`')}\`); closePreview();">
                             <i class="fas fa-check"></i> Approve
                         </button>
                         <button type="button" class="btn-approve" onclick="savePendingChanges('${newsId}', true)">
@@ -820,6 +820,10 @@
                         const imgEl = document.getElementById(`previewModalImage-${newsId}`);
                         if (imgEl) imgEl.src = newUrl;
                     }
+                    // Image was edited → hide the plain "Approve" (no-save) button so the
+                    // edited image can't be lost. Only "Save changes" / "Save & approve" remain.
+                    const plainBtn = document.getElementById(`plainApprove-${newsId}`);
+                    if (plainBtn) plainBtn.style.display = 'none';
                 });
             }
 
@@ -1484,7 +1488,13 @@
                 // (badge + warning + Duplicates button). Never rebuilds the list.
                 function applyDuplicateResultToCard(newsId, dc) {
                     if (!dc) return;
-                    const flagged = dc.isDuplicate === true || dc.isSuspicious === true;
+                    // Only show the badge + Duplicates button when there are ACTUAL
+                    // matches. An article can be flagged (isDuplicate) yet have zero
+                    // matches left after same-language filtering — showing a button
+                    // that opens an empty "no similar found" popup is confusing.
+                    const hasMatches = (dc.matchCount || 0) > 0 ||
+                        (Array.isArray(dc.similarArticles) && dc.similarArticles.length > 0);
+                    const flagged = (dc.isDuplicate === true || dc.isSuspicious === true) && hasMatches;
                     if (!flagged) return;
 
                     duplicateDataCache[newsId] = {
@@ -1604,6 +1614,18 @@
                 if (e.target.id === 'previewModal') closePreview();
             });
             // Listen for global custom event to update grid dynamically
+            // Context for building a live-inserted card identical to a server reload:
+            // whether the viewer is a super admin (who sees the assignment block) and
+            // the viewer's own details (shown as the "Incharge").
+            window.__pnCtx = {
+                isSuperAdmin: <%- (typeof isSuperAdmin !== 'undefined' && isSuperAdmin === true) ? 'true' : 'false' %>,
+                incharge: {
+                    name: <%- JSON.stringify((typeof admin !== 'undefined' && (admin.name || admin.fullName)) || '') %>,
+                    mobile: <%- JSON.stringify((typeof admin !== 'undefined' && (admin.mobileNumber || admin.mobile || admin.phone)) || '') %>,
+                    email: <%- JSON.stringify((typeof admin !== 'undefined' && admin.email) || '') %>
+                }
+            };
+
             document.addEventListener('new_pending_news_received', function (e) {
                 const news = e.detail;
                 const activeGrid = document.getElementById('newsGrid');
@@ -1681,6 +1703,36 @@
                 }
                 
                 const titleStr = (news.title || '').replace(/'/g, "\\'");
+
+                // Build the SAME "Reporter Details / Assignment" block + full
+                // description the server renders, so a live-arriving card is complete
+                // without a page reload.
+                const _ctx = window.__pnCtx || { isSuperAdmin: false, incharge: {} };
+                const _rep = news.authorDetails || {};
+                const _inc = _ctx.incharge || {};
+                const assignBlockHtml = _ctx.isSuperAdmin ? `
+                        <div class="pn-assign-block pn-assign-2col">
+                            <div class="pn-assign-col">
+                                <div class="pn-assign-title"><i class="fas fa-user-pen"></i> Reporter Details</div>
+                                <div class="pn-assign-rows">
+                                    <div class="pn-assign-item"><span class="pn-assign-label">Name</span><span class="pn-assign-value">${escapeHtml(_rep.name || news.author || '—')}</span></div>
+                                    <div class="pn-assign-item"><span class="pn-assign-label">Mobile</span><span class="pn-assign-value">${escapeHtml(_rep.mobileNumber || '—')}</span></div>
+                                    <div class="pn-assign-item"><span class="pn-assign-label">Email</span><span class="pn-assign-value">${escapeHtml(_rep.email || news.author || '—')}</span></div>
+                                    <div class="pn-assign-item"><span class="pn-assign-label">Area</span><span class="pn-assign-value">${escapeHtml(_rep.constituency || '—')}</span></div>
+                                </div>
+                            </div>
+                            <div class="pn-assign-col">
+                                <div class="pn-assign-title"><i class="fas fa-user-shield"></i> Assignment &amp; Approval</div>
+                                <div class="pn-assign-rows">
+                                    <div class="pn-assign-item"><span class="pn-assign-label">Incharge</span><span class="pn-assign-value">${escapeHtml(_inc.name || '—')}</span></div>
+                                    <div class="pn-assign-item"><span class="pn-assign-label">Mobile</span><span class="pn-assign-value">${escapeHtml(_inc.mobile || '—')}</span></div>
+                                    <div class="pn-assign-item"><span class="pn-assign-label">Email</span><span class="pn-assign-value">${escapeHtml(_inc.email || '—')}</span></div>
+                                    <div class="pn-assign-item"><span class="pn-assign-label">State</span><span class="pn-assign-value">${escapeHtml(news.assignedState || news.location || '—')}</span></div>
+                                </div>
+                            </div>
+                        </div>` : '';
+                const fulltextHtml = `<div class="pn-preview-fulltext rich-text">${renderRichContent(news.content)}</div>`;
+
                 card.innerHTML = `
                     ${mediaHtml}
                     <div class="news-card-content">
@@ -1695,7 +1747,9 @@
                             <div class="meta-item"><i class="fas fa-map-marker-alt"></i><span>${escapeHtml(news.location || 'N/A')}</span></div>
                             <div class="meta-item"><i class="fas fa-calendar"></i><span>${formattedDate}</span></div>
                         </div>
+                        ${assignBlockHtml}
                         <p class="pn-card-excerpt rich-text">${renderRichExcerpt(news.content, 120)}</p>
+                        ${fulltextHtml}
                         <div class="card-actions">
                             <button type="button" class="btn-preview" onclick="openPreview('${newsIdStr}')"><i class="fas fa-pen-to-square"></i> Preview</button>
                             ${canApproveNewsJs ? `
@@ -2064,8 +2118,13 @@
                     data.results.forEach(function(result) {
                         const dc = result.duplicateCheck;
                         if (!dc) return;
-                        const flagged = dc.isDuplicate === true || dc.isSuspicious === true;
-                        if (!flagged && (!dc.matchCount || dc.matchCount === 0)) return;
+                        // Only add the badge/button when there are ACTUAL matches. A
+                        // flag (isDuplicate) with zero matches must NOT show a button —
+                        // it would open an empty "no similar found" popup.
+                        const hasMatches = (dc.matchCount || 0) > 0 ||
+                            (Array.isArray(dc.similarArticles) && dc.similarArticles.length > 0);
+                        const flagged = (dc.isDuplicate === true || dc.isSuspicious === true) && hasMatches;
+                        if (!flagged) return;
 
                         duplicateDataCache[result.newsId] = {
                             isDuplicate: dc.isDuplicate,
@@ -2148,86 +2207,91 @@
                     return;
                 }
 
-                const topMatch = dupData.similarArticles[0];
-                
+                // Show the pending article on the LEFT and EVERY matched duplicate
+                // (2, 3, …) stacked on the RIGHT — not just the first one.
+                const matches = dupData.similarArticles;
                 const currentMedia = news.mediaUrl || (news.imageUrls && news.imageUrls[0]) || '';
-                const matchedMedia = topMatch.mediaUrl || topMatch.thumbnailUrl || (topMatch.imageUrls && topMatch.imageUrls[0]) || '';
-                const sameImage = (currentMedia && matchedMedia && currentMedia === matchedMedia) 
-                    ? '<span class="badge" style="background: #22c55e; color: white; margin-left: 10px;">Same Image</span>' 
-                    : (currentMedia && matchedMedia ? '<span class="badge" style="background: #ef4444; color: white; margin-left: 10px;">Different Image</span>' : '');
 
                 const highlightDiff = (text1, text2) => {
                     const t1 = stripRichTags(text1 || '').trim();
                     const t2 = stripRichTags(text2 || '').trim();
                     if (t1 === t2) return `<span style="color: #475569;">${escapeHtml(t1)}</span>`;
-                    
+
                     const words1 = t1.split(/\s+/);
                     const words2 = new Set(t2.split(/\s+/));
-                    
+
                     return words1.map(w => {
                         if (words2.has(w)) return escapeHtml(w);
                         return `<span style="background-color: #fef08a; padding: 0 2px; border-radius: 2px; color: #854d0e; font-weight: 600;">${escapeHtml(w)}</span>`;
                     }).join(' ');
                 };
 
+                const matchCard = (m, i) => {
+                    const matchedMedia = m.mediaUrl || m.thumbnailUrl || (m.imageUrls && m.imageUrls[0]) || '';
+                    const sameImage = (currentMedia && matchedMedia && currentMedia === matchedMedia)
+                        ? '<span class="badge" style="background: #22c55e; color: white; margin-left: 8px;">Same Image</span>'
+                        : (currentMedia && matchedMedia ? '<span class="badge" style="background: #ef4444; color: white; margin-left: 8px;">Different Image</span>' : '');
+                    const simRaw = (m.similarityPercent != null) ? m.similarityPercent
+                        : (m.similarity != null ? Math.round(m.similarity * 100) : null);
+                    const simBadge = (simRaw != null)
+                        ? `<span class="badge" style="background:#f59e0b; color:white; margin-left:8px;">${simRaw}% similar</span>` : '';
+                    return `
+                        <div style="background: white; padding: 18px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 2px solid #fecaca; margin-bottom: 16px;">
+                            <h4 style="color: #ef4444; border-bottom: 2px solid #fecaca; padding-bottom: 10px; margin-bottom: 15px;">Match ${i + 1} of ${matches.length} ${simBadge} ${sameImage}</h4>
+                            <div style="margin-bottom: 12px;">
+                                <strong style="color: #64748b;">Title</strong>
+                                <div style="margin-top: 5px; font-size: 1.05rem; font-weight: 600;">${highlightDiff(m.articleTitle, news.title)}</div>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <strong style="color: #64748b;">Image / Media</strong>
+                                <div style="margin-top: 8px;">
+                                    ${matchedMedia ? `<img src="${escapeHtml(matchedMedia)}" style="max-width: 100%; max-height: 180px; height: auto; border-radius: 6px; object-fit: cover;">` : '<em>No media</em>'}
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <strong style="color: #64748b;">Content</strong>
+                                <div style="margin-top: 5px; color: #334155; line-height: 1.6; white-space: pre-wrap;">${highlightDiff(m.content, news.content)}</div>
+                            </div>
+                            <div style="display: flex; gap: 20px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 0.9rem;">
+                                <div><strong style="color: #64748b;">Category:</strong> ${escapeHtml(m.category || 'N/A')}</div>
+                                <div><strong style="color: #64748b;">Date:</strong> ${m.publishedAt ? escapeHtml(new Date(m.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', year: 'numeric' })) : 'N/A'}</div>
+                            </div>
+                        </div>`;
+                };
+
                 const bodyHtml = `
-                    <div style="display: flex; gap: 20px;">
-                        <!-- LEFT: Current Article -->
-                        <div style="flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 2px solid #bfdbfe;">
+                    <div style="display: flex; gap: 20px; align-items: flex-start;">
+                        <!-- LEFT: Current Article (stays in place) -->
+                        <div style="flex: 0 0 44%; position: sticky; top: 0; align-self: flex-start; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 2px solid #bfdbfe;">
                             <h4 style="color: #3b82f6; border-bottom: 2px solid #bfdbfe; padding-bottom: 10px; margin-bottom: 15px;">Current Article (Pending)</h4>
-                            
                             <div style="margin-bottom: 15px;">
                                 <strong style="color: #64748b;">Title</strong>
-                                <div style="margin-top: 5px; font-size: 1.1rem; font-weight: 600;">${highlightDiff(news.title, topMatch.articleTitle)}</div>
+                                <div style="margin-top: 5px; font-size: 1.1rem; font-weight: 600; color:#334155;">${escapeHtml(stripRichTags(news.title || ''))}</div>
                             </div>
-                            
                             <div style="margin-bottom: 15px;">
-                                <strong style="color: #64748b;">Image / Media</strong> ${sameImage}
+                                <strong style="color: #64748b;">Image / Media</strong>
                                 <div style="margin-top: 8px;">
                                     ${currentMedia ? `<img src="${escapeHtml(currentMedia)}" style="max-width: 100%; max-height: 200px; height: auto; border-radius: 6px; object-fit: cover;">` : '<em>No media</em>'}
                                 </div>
                             </div>
-                            
                             <div style="margin-bottom: 15px;">
                                 <strong style="color: #64748b;">Content</strong>
-                                <div style="margin-top: 5px; color: #334155; line-height: 1.6; white-space: pre-wrap;">${highlightDiff(news.content, topMatch.content)}</div>
+                                <div style="margin-top: 5px; color: #334155; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(stripRichTags(news.content || ''))}</div>
                             </div>
-                            
                             <div style="display: flex; gap: 20px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 0.9rem;">
                                 <div><strong style="color: #64748b;">Category:</strong> ${escapeHtml(news.category || 'N/A')}</div>
                                 <div><strong style="color: #64748b;">Date:</strong> ${escapeHtml(news.publishedAt || 'N/A')}</div>
                             </div>
                         </div>
 
-                        <!-- RIGHT: Matched Article -->
-                        <div style="flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 2px solid #fecaca;">
-                            <h4 style="color: #ef4444; border-bottom: 2px solid #fecaca; padding-bottom: 10px; margin-bottom: 15px;">Matched Article (Published)</h4>
-                            
-                            <div style="margin-bottom: 15px;">
-                                <strong style="color: #64748b;">Title</strong>
-                                <div style="margin-top: 5px; font-size: 1.1rem; font-weight: 600;">${highlightDiff(topMatch.articleTitle, news.title)}</div>
-                            </div>
-                            
-                            <div style="margin-bottom: 15px;">
-                                <strong style="color: #64748b;">Image / Media</strong> ${sameImage}
-                                <div style="margin-top: 8px;">
-                                    ${matchedMedia ? `<img src="${escapeHtml(matchedMedia)}" style="max-width: 100%; max-height: 200px; height: auto; border-radius: 6px; object-fit: cover;">` : '<em>No media</em>'}
-                                </div>
-                            </div>
-                            
-                            <div style="margin-bottom: 15px;">
-                                <strong style="color: #64748b;">Content</strong>
-                                <div style="margin-top: 5px; color: #334155; line-height: 1.6; white-space: pre-wrap;">${highlightDiff(topMatch.content, news.content)}</div>
-                            </div>
-                            
-                            <div style="display: flex; gap: 20px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 0.9rem;">
-                                <div><strong style="color: #64748b;">Category:</strong> ${escapeHtml(topMatch.category || 'N/A')}</div>
-                                <div><strong style="color: #64748b;">Date:</strong> ${topMatch.publishedAt ? escapeHtml(new Date(topMatch.publishedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', year: 'numeric' })) : 'N/A'}</div>
-                            </div>
+                        <!-- RIGHT: ALL matched duplicates, stacked -->
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 700; color: #ef4444; margin-bottom: 12px;">Matched duplicates (${matches.length})</div>
+                            ${matches.map(matchCard).join('')}
                         </div>
                     </div>
                 `;
-                
+
                 const modal = document.getElementById('compareArticlesModal');
                 const body = document.getElementById('compareArticlesBody');
                 body.innerHTML = bodyHtml;
@@ -2459,6 +2523,20 @@
             const first = visibleCards()[0];
             if (first && !isMobile()) select(first, { openMobile: false });
             else updateCounter();
+
+            // Re-render the initial preview once the page has fully settled, so the
+            // reporter details + full description + badges show on FIRST open without
+            // needing a manual reload (they were populated slightly after the first
+            // boot render). Cheap DOM-only reclone; no API calls.
+            const rerenderSelected = () => {
+                const sel = grid.querySelector('.news-card.pn-row--selected');
+                if (sel && !isMobile()) renderPreview(sel);
+            };
+            if (document.readyState === 'complete') {
+                setTimeout(rerenderSelected, 250);
+            } else {
+                window.addEventListener('load', () => setTimeout(rerenderSelected, 250));
+            }
         })();
         </script>
     </body>

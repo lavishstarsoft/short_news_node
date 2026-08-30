@@ -36,13 +36,20 @@
     </div>
   </td>
   <td>
-    <span class="team-badge <%= isSubEditor ? 'team-badge-sub' : 'team-badge-reporter' %>">
-      <%= isSubEditor ? 'Sub-Editor' : 'Reporter' %>
-    </span>
-    <% if (editor.reporterTier === 'stringer' || editor.reporterTier === 'district_incharge') { %>
-      <span class="team-badge" style="background:#fff3e0;color:#e65100;border:1px solid #ffcc80;" title="Reporter tier (₹ per approved news, 10/day cap)">
-        <%= editor.reporterTier === 'district_incharge' ? 'District In-Charge' : 'Stringer' %>
-      </span>
+    <%
+      // Single unified designation — a tier (Stringer / District In-Charge)
+      // takes over the whole label so we never show "Reporter" + "Stringer" as
+      // two separate roles for the same person.
+      const isTier = editor.reporterTier === 'stringer' || editor.reporterTier === 'district_incharge';
+      const roleLabel = isSubEditor
+        ? 'Sub-Editor'
+        : (editor.reporterTier === 'district_incharge' ? 'District In-Charge'
+           : (editor.reporterTier === 'stringer' ? 'Stringer' : 'Reporter'));
+    %>
+    <% if (isTier) { %>
+      <span class="team-badge" style="background:#fff3e0;color:#e65100;border:1px solid #ffcc80;" title="Reporter tier (₹ per approved news, 10/day cap)"><%= roleLabel %></span>
+    <% } else { %>
+      <span class="team-badge <%= isSubEditor ? 'team-badge-sub' : 'team-badge-reporter' %>"><%= roleLabel %></span>
     <% } %>
   </td>
   <td class="location-cell">

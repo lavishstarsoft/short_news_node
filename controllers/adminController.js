@@ -2574,6 +2574,24 @@ async function updateEditor(req, res) {
       }
     }
 
+    // STRICT: one district = one district in-charge. If this editor is (being set
+    // as) a district in-charge, block when any of their districts is already held
+    // by ANOTHER district in-charge. Stringers are not restricted.
+    if (editor.reporterTier === 'district_incharge' && incomingDistricts.length > 0) {
+      const conflict = await Admin.findOne({
+        _id: { $ne: editorId },
+        reporterTier: 'district_incharge',
+        assignedDistricts: { $in: incomingDistricts },
+        isActive: { $ne: false }
+      }).select('name username assignedDistricts');
+      if (conflict) {
+        const dup = (conflict.assignedDistricts || []).filter((d) => incomingDistricts.includes(d));
+        return res.status(409).json({
+          error: `District "${dup.join(', ')}" already has an in-charge: ${conflict.name || conflict.username}. Remove them from that district first.`
+        });
+      }
+    }
+
     // Keep approval geography aligned to the allocated areas (geography scope only).
     await syncApprovalScopeToAssigned(Location, editor);
 
@@ -3692,7 +3710,7 @@ const requireAuth = (req, res, next) => {
     // Fetch latest admin data to ensure permissions are up to date
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
     if (isConnectedToMongoDB) {
-        Admin.findById(decoded.id).select('permissions isActive role name').then(latestAdmin => {
+        Admin.findById(decoded.id).select('permissions isActive role name displayRole assignedState assignedStates').then(latestAdmin => {
             if (!latestAdmin || !latestAdmin.isActive) {
                 res.clearCookie('token');
                 if (isApiRequest) return res.status(401).json({ error: 'Session expired or account deactivated' });
@@ -3714,6 +3732,10 @@ const requireAuth = (req, res, next) => {
             decoded.role = latestAdmin.role;
             decoded.permissions = latestAdmin.permissions || {};
             if (latestAdmin.name) decoded.name = latestAdmin.name;
+            // Expose state-in-charge signals so the sidebar can show their menu.
+            decoded.displayRole = latestAdmin.displayRole || '';
+            decoded.assignedState = latestAdmin.assignedState || null;
+            decoded.assignedStates = latestAdmin.assignedStates || [];
             req.admin = decoded;
             res.locals.admin = decoded;
             next();
@@ -4318,11 +4340,31 @@ async function renderPendingNewsPage(req, res) {
         const { revisionSnapshot, ...rest } = revisionStatus;
         revisionStatus = rest;
       }
+
+      // Keep the badge/count and the "Duplicates" button consistent with the
+      // compare modal: show only same-language (or unknown-language) matches, so
+      // the button never appears for articles whose matches are all cross-language.
+      let dc = normalizeDuplicateCheck(article.duplicateCheck);
+      if (dc) {
+        if (Array.isArray(dc.similarArticles) && dc.similarArticles.length) {
+          const alang = (article.language || '').toLowerCase();
+          const same = dc.similarArticles.filter((m) => {
+            const ml = ((m && m.language) || '').toLowerCase();
+            return ml === '' || ml === alang;
+          });
+          dc = { ...dc, similarArticles: same, matchCount: same.length };
+        }
+        // A flag with zero matches (e.g. an old duplicate whose matches were all
+        // cross-language and got filtered out) is not a real duplicate to show —
+        // clear it so no misleading badge/button appears.
+        if (!dc.matchCount) { dc = { ...dc, isDuplicate: false, isSuspicious: false }; }
+      }
+
       return {
         ...article,
         revisionStatus,
         authorDetails: article.authorId ? authorMap[article.authorId.toString()] : null,
-        duplicateCheck: normalizeDuplicateCheck(article.duplicateCheck),
+        duplicateCheck: dc,
       };
     });
 
@@ -4389,11 +4431,31 @@ async function renderMyAiQueuePage(req, res) {
         const { revisionSnapshot, ...rest } = revisionStatus;
         revisionStatus = rest;
       }
+
+      // Keep the badge/count and the "Duplicates" button consistent with the
+      // compare modal: show only same-language (or unknown-language) matches, so
+      // the button never appears for articles whose matches are all cross-language.
+      let dc = normalizeDuplicateCheck(article.duplicateCheck);
+      if (dc) {
+        if (Array.isArray(dc.similarArticles) && dc.similarArticles.length) {
+          const alang = (article.language || '').toLowerCase();
+          const same = dc.similarArticles.filter((m) => {
+            const ml = ((m && m.language) || '').toLowerCase();
+            return ml === '' || ml === alang;
+          });
+          dc = { ...dc, similarArticles: same, matchCount: same.length };
+        }
+        // A flag with zero matches (e.g. an old duplicate whose matches were all
+        // cross-language and got filtered out) is not a real duplicate to show —
+        // clear it so no misleading badge/button appears.
+        if (!dc.matchCount) { dc = { ...dc, isDuplicate: false, isSuspicious: false }; }
+      }
+
       return {
         ...article,
         revisionStatus,
         authorDetails: article.authorId ? authorMap[article.authorId.toString()] : null,
-        duplicateCheck: normalizeDuplicateCheck(article.duplicateCheck),
+        duplicateCheck: dc,
       };
     });
 
@@ -4471,11 +4533,21 @@ async function getPendingNewsDuplicateCheck(req, res) {
 
     const results = pendingNews.map((article) => {
       const id = article._id.toString();
-      return {
-        newsId: id,
-        duplicateCheck:
-          rechecked.get(id) || normalizeDuplicateCheck(article.duplicateCheck)
-      };
+      let dc = rechecked.get(id) || normalizeDuplicateCheck(article.duplicateCheck);
+      // Same-language only + clear flags with zero matches, so the badge/button
+      // this endpoint drives stays consistent with the compare modal.
+      if (dc) {
+        if (Array.isArray(dc.similarArticles) && dc.similarArticles.length) {
+          const alang = (article.language || '').toLowerCase();
+          const same = dc.similarArticles.filter((m) => {
+            const ml = ((m && m.language) || '').toLowerCase();
+            return ml === '' || ml === alang;
+          });
+          dc = { ...dc, similarArticles: same, matchCount: same.length };
+        }
+        if (!dc.matchCount) { dc = { ...dc, isDuplicate: false, isSuspicious: false }; }
+      }
+      return { newsId: id, duplicateCheck: dc };
     });
 
     res.set('Cache-Control', 'no-store');
@@ -4547,9 +4619,18 @@ async function getPendingNewsDuplicateMatches(req, res) {
     }
 
     const { enrichSimilarArticlesFromDb } = require('../services/aiDuplicate/enrichSimilarArticles');
-    const enrichedMatches = await enrichSimilarArticlesFromDb(
+    const enrichedMatchesRaw = await enrichSimilarArticlesFromDb(
       storedCheck.similarArticles || []
     );
+
+    // SAME-LANGUAGE ONLY: an image reused across Telugu/Hindi/Tamil articles can
+    // pull cross-language matches into the list. Drop matches whose language is
+    // KNOWN and different from the pending article's; keep same-language and
+    // unknown-language (null) matches so genuine duplicates are never lost.
+    const enrichedMatches = enrichedMatchesRaw.filter((m) => {
+      const ml = ((m && m.language) || '').toLowerCase();
+      return ml === '' || ml === pendingLang;
+    });
 
     const duplicateCheck = normalizeDuplicateCheck({
       ...storedCheck,
@@ -4607,7 +4688,9 @@ async function updatePendingNews(req, res) {
       category,
       location,
       readFullLink,
-      ePaperLink
+      ePaperLink,
+      mediaUrl,
+      imageUrls
     } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -4688,6 +4771,17 @@ async function updatePendingNews(req, res) {
       readFullLink: typeof readFullLink === 'string' ? readFullLink.trim() : '',
       ePaperLink: typeof ePaperLink === 'string' ? ePaperLink.trim() : ''
     };
+
+    // Persist an edited image (blur / black-white) done in the moderator. Only
+    // set these when the client actually sends image data, so a text-only edit
+    // never wipes the existing media.
+    if (typeof mediaUrl === 'string' && mediaUrl.trim()) {
+      updatePayload.mediaUrl = mediaUrl.trim();
+    }
+    if (Array.isArray(imageUrls) && imageUrls.length) {
+      const cleaned = imageUrls.filter((u) => typeof u === 'string' && u.trim());
+      if (cleaned.length) updatePayload.imageUrls = cleaned;
+    }
 
     const changedFields = [];
     ['title', 'content', 'category', 'location', 'readFullLink', 'ePaperLink'].forEach((field) => {

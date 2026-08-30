@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Assign Reporters' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Assign Reporters', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'my-district-assignments' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <div class="mb-3">
+          <h3 class="mb-1"><i class="fas fa-user-plus me-2 text-primary"></i>Assign Reporters</h3>
+          <p class="text-muted mb-0">Assign a reporter to a district in your area. It goes to the admin for approval — you can track the status below. One district can have only one district in-charge.</p>
+        </div>
+
+        <div class="border rounded p-3 bg-white mb-4">
+          <h5 class="mb-3">New assignment</h5>
+          <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label small text-muted mb-1">Reporter</label>
+              <select id="aReporter" class="form-select"></select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small text-muted mb-1">District</label>
+              <select id="aDistrict" class="form-select"></select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small text-muted mb-1">As</label>
+              <select id="aTier" class="form-select">
+                <option value="district_incharge">District In-Charge</option>
+                <option value="stringer">Stringer</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <button id="aSubmit" class="btn btn-primary w-100"><i class="fas fa-paper-plane"></i> Send</button>
+            </div>
+          </div>
+          <div id="aMsg" class="mt-2 small"></div>
+        </div>
+
+        <h5 class="mb-2">My requests</h5>
+        <div id="myList" class="d-flex flex-column gap-2"><div class="text-muted p-3">Loading…</div></div>
+      </div>
+    </div>
+  </div></div>
+
+  <script>
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+    function tierLabel(t){return t==='stringer'?'Stringer':'District In-Charge';}
+    function statusBadge(s){const m={pending:'bg-warning text-dark',approved:'bg-success',rejected:'bg-secondary'};return '<span class="badge '+(m[s]||'bg-secondary')+'">'+esc(s)+'</span>';}
+
+    async function loadScope(){
+      try{
+        const r=await fetch('/admin/api/district-assignments/scope');
+        const d=await r.json();
+        if(!r.ok||!d.ok) throw new Error(d.error||'Failed');
+        const rep=document.getElementById('aReporter'), dis=document.getElementById('aDistrict');
+        rep.innerHTML=(d.reporters||[]).map(x=>'<option value="'+x._id+'">'+esc(x.name||x.username)+(x.mobileNumber?' · '+esc(x.mobileNumber):'')+'</option>').join('')||'<option value="">No reporters in your area</option>';
+        dis.innerHTML=(d.districts||[]).map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('')||'<option value="">No districts</option>';
+      }catch(e){ document.getElementById('aMsg').innerHTML='<span class="text-danger">'+esc(e.message)+'</span>'; }
+    }
+
+    async function loadMine(){
+      const box=document.getElementById('myList');
+      try{
+        const r=await fetch('/admin/api/district-assignments/mine');
+        const d=await r.json();
+        if(!r.ok||!d.ok) throw new Error(d.error||'Failed');
+        const rows=d.requests||[];
+        if(!rows.length){ box.innerHTML='<div class="text-muted p-4 text-center border rounded">No requests yet.</div>'; return; }
+        box.innerHTML=rows.map(function(x){
+          const when=x.createdAt?new Date(x.createdAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+          return '<div class="border rounded p-3 bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">'
+            +'<div><div><b>'+esc(x.reporterName||'Reporter')+'</b> → <b>'+esc(x.district)+'</b> <span class="badge bg-light text-dark">'+tierLabel(x.tier)+'</span></div>'
+            +'<div class="text-muted" style="font-size:13px">'+esc(when)+(x.rejectReason?' · Reason: '+esc(x.rejectReason):'')+'</div></div>'
+            +statusBadge(x.status)+'</div>';
+        }).join('');
+      }catch(e){ box.innerHTML='<div class="text-danger p-3">'+esc(e.message)+'</div>'; }
+    }
+
+    document.getElementById('aSubmit').addEventListener('click',async function(){
+      const btn=this, msg=document.getElementById('aMsg');
+      const reporterId=document.getElementById('aReporter').value;
+      const districtSel=document.getElementById('aDistrict');
+      const district=districtSel.value;
+      const tier=document.getElementById('aTier').value;
+      if(!reporterId||!district){ msg.innerHTML='<span class="text-danger">Pick a reporter and a district.</span>'; return; }
+      btn.disabled=true; msg.textContent='Sending…';
+      try{
+        // state derived on server from the in-charge; send district's state via scope not needed — server validates.
+        const r=await fetch('/admin/api/district-assignments/request',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ reporterId, district, tier, state: window.__incState || district })});
+        const d=await r.json();
+        if(!r.ok||!d.ok){ msg.innerHTML='<span class="text-danger">'+esc(d.error||'Could not send')+'</span>'; btn.disabled=false; return; }
+        msg.innerHTML='<span class="text-success">Sent for admin approval ✓</span>';
+        btn.disabled=false; loadMine();
+      }catch(e){ msg.innerHTML='<span class="text-danger">Network error</span>'; btn.disabled=false; }
+    });
+
+    (async function(){ await loadScope(); loadMine(); })();
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>

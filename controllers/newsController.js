@@ -1083,6 +1083,17 @@ async function createNews(req, res) {
         imageUrls: news.imageUrls || [],
         language: news.language,
         constituency: news.authorConstituency || authorDetails?.constituency || null,
+        assignedState: news.assignedState || news.location || null,
+        // Reporter details so the live-inserted pending card shows the SAME
+        // "Reporter Details" block as a full page reload (no reload needed).
+        authorDetails: authorDetails
+          ? {
+              name: authorDetails.name || null,
+              mobileNumber: authorDetails.mobileNumber || null,
+              email: authorDetails.email || null,
+              constituency: authorDetails.constituency || null,
+            }
+          : null,
       };
 
       // ✅ Direct Publish Roles: admin, superadmin (subeditor normally goes through AI gate).

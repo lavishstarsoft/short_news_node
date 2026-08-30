@@ -317,7 +317,7 @@
                                     </div>
                                     <script>
                                     (function(){
-                                      var DATA=[], expanded=true;
+                                      var DATA=[], expanded=false;
                                       var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});};
                                       var tierLabel=function(t){return t==='district_incharge'?'District In-Charge':(t==='stringer'?'Stringer':t||'');};
                                       var statusBadge=function(s){
@@ -415,6 +415,9 @@
                                       document.getElementById('raSearch').addEventListener('input',render);
                                       document.getElementById('raRefresh').addEventListener('click',function(e){e.stopPropagation();load();});
                                       document.getElementById('raToggle').addEventListener('click',function(){expanded=!expanded;document.getElementById('raBody').style.display=expanded?'':'none';document.getElementById('raChev').style.transform=expanded?'':'rotate(-90deg)';});
+                                      // Start collapsed on every page open/refresh.
+                                      document.getElementById('raBody').style.display='none';
+                                      document.getElementById('raChev').style.transform='rotate(-90deg)';
                                       load();
                                     })();
                                     </script>
@@ -440,8 +443,8 @@
                                                 <button type="button" class="team-segment" data-staff-filter="subeditor">Sub-editors<span class="team-segment-count"><%= subEditorList.length %></span></button>
                                             </div>
                                             <div class="team-segments" role="tablist" style="margin-left:8px">
-                                                <button type="button" class="team-segment active" id="viewToggleHier">Hierarchy</button>
-                                                <button type="button" class="team-segment" id="viewToggleTable">Table</button>
+                                                <button type="button" class="team-segment active" id="viewToggleTable">Table</button>
+                                                <button type="button" class="team-segment" id="viewToggleHier">Hierarchy</button>
                                             </div>
                                         </div>
                                         
@@ -789,7 +792,7 @@
                                       }
                                       document.getElementById('viewToggleHier').addEventListener('click',function(){showHier(true);});
                                       document.getElementById('viewToggleTable').addEventListener('click',function(){showHier(false);});
-                                      showHier(true);
+                                      showHier(false); // default to the Table tab on page open
                                     })();
                                     </script>
                                     <% } else { %>

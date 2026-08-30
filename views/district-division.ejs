@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'District Division' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'District Division', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'district-division' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <div class="mb-3">
+          <h3 class="mb-1"><i class="fas fa-sitemap me-2 text-info"></i>District Division</h3>
+          <p class="text-muted mb-0">Split a state's districts among its state in-charges. Each in-charge can then assign reporters only within their districts. (e.g. UP → 3 in-charges, MP → 2.)</p>
+        </div>
+
+        <div class="mb-3" style="max-width:360px">
+          <label class="form-label small text-muted mb-1">State</label>
+          <select id="dvState" class="form-select"><option value="">Loading states…</option></select>
+        </div>
+
+        <div id="dvBody"><div class="text-muted p-3">Pick a state to divide its districts.</div></div>
+      </div>
+    </div>
+  </div></div>
+
+  <script>
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+    let DISTRICTS=[];
+
+    async function loadStates(){
+      const sel=document.getElementById('dvState');
+      try{
+        const r=await fetch('/admin/api/district-assignments/division/states');
+        const d=await r.json();
+        if(!r.ok||!d.ok) throw new Error(d.error||'Failed');
+        sel.innerHTML='<option value="">Select a state…</option>'+(d.states||[]).map(s=>'<option>'+esc(s)+'</option>').join('');
+      }catch(e){ sel.innerHTML='<option value="">'+esc(e.message)+'</option>'; }
+    }
+
+    async function loadDivision(state){
+      const box=document.getElementById('dvBody');
+      if(!state){ box.innerHTML='<div class="text-muted p-3">Pick a state to divide its districts.</div>'; return; }
+      box.innerHTML='<div class="text-muted p-3">Loading…</div>';
+      try{
+        const r=await fetch('/admin/api/district-assignments/division?state='+encodeURIComponent(state));
+        const d=await r.json();
+        if(!r.ok||!d.ok) throw new Error(d.error||'Failed');
+        DISTRICTS=d.districts||[];
+        const incs=d.incharges||[];
+        if(!incs.length){ box.innerHTML='<div class="text-muted p-4 text-center border rounded">No state in-charges found for '+esc(state)+'.</div>'; return; }
+        if(!DISTRICTS.length){ box.innerHTML='<div class="text-warning p-4 text-center border rounded">No districts found for '+esc(state)+' in the Location master.</div>'; return; }
+        box.innerHTML=incs.map(function(inc){
+          const managed=new Set((inc.managedDistricts||[]).map(x=>String(x)));
+          const checks=DISTRICTS.map(function(dist){
+            const on=managed.has(dist)?'checked':'';
+            return '<label class="me-3 mb-1" style="display:inline-block;min-width:170px;font-size:13px"><input type="checkbox" class="dv-chk" value="'+esc(dist)+'" '+on+'> '+esc(dist)+'</label>';
+          }).join('');
+          return '<div class="border rounded p-3 bg-white mb-3" data-incharge="'+inc._id+'">'
+            +'<div class="d-flex justify-content-between align-items-center mb-2">'
+              +'<h6 class="mb-0">'+esc(inc.name||inc.username)+' <span class="text-muted" style="font-size:12px">('+esc(inc.displayRole||'State In-Charge')+')</span></h6>'
+              +'<div><button class="btn btn-sm btn-outline-secondary me-1 dv-none">Clear</button><button class="btn btn-sm btn-primary dv-save">Save</button></div>'
+            +'</div>'
+            +'<div class="dv-grid">'+checks+'</div>'
+            +'<div class="dv-msg small mt-1"></div>'
+          +'</div>';
+        }).join('');
+      }catch(e){ box.innerHTML='<div class="text-danger p-3">'+esc(e.message)+'</div>'; }
+    }
+
+    document.getElementById('dvState').addEventListener('change',function(){ loadDivision(this.value); });
+
+    document.getElementById('dvBody').addEventListener('click',async function(e){
+      const card=e.target.closest('[data-incharge]'); if(!card) return;
+      if(e.target.classList.contains('dv-none')){
+        card.querySelectorAll('.dv-chk').forEach(c=>c.checked=false); return;
+      }
+      if(e.target.classList.contains('dv-save')){
+        const btn=e.target, msg=card.querySelector('.dv-msg');
+        const districts=[...card.querySelectorAll('.dv-chk:checked')].map(c=>c.value);
+        btn.disabled=true; msg.textContent='Saving…'; msg.className='dv-msg small mt-1 text-muted';
+        try{
+          const r=await fetch('/admin/api/district-assignments/division',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({ inchargeId: card.dataset.incharge, districts })});
+          const d=await r.json();
+          if(!r.ok||!d.ok){ msg.textContent=d.error||'Could not save'; msg.className='dv-msg small mt-1 text-danger'; btn.disabled=false; return; }
+          msg.textContent='Saved ✓ ('+districts.length+' districts)'; msg.className='dv-msg small mt-1 text-success'; btn.disabled=false;
+        }catch(err){ msg.textContent='Network error'; msg.className='dv-msg small mt-1 text-danger'; btn.disabled=false; }
+      }
+    });
+
+    loadStates();
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>

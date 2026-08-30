@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'District Assignment Approvals' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'District Assignment Approvals', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'district-assignment-approvals' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <div class="mb-3">
+          <h3 class="mb-1"><i class="fas fa-user-check me-2 text-warning"></i>District Assignment Approvals</h3>
+          <p class="text-muted mb-0">State in-charges propose reporter → district assignments here. They apply <b>only after you approve</b>. One district can have only one district in-charge.</p>
+        </div>
+
+        <div class="btn-group mb-3" role="group" id="daTabs">
+          <button type="button" class="btn btn-warning" data-status="pending">Pending</button>
+          <button type="button" class="btn btn-outline-secondary" data-status="approved">Approved</button>
+          <button type="button" class="btn btn-outline-secondary" data-status="rejected">Rejected</button>
+        </div>
+
+        <div id="daList" class="d-flex flex-column gap-2">
+          <div class="text-muted p-3">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+  <script>
+    let daStatus = 'pending';
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+    function tierLabel(t){return t==='stringer'?'Stringer':'District In-Charge';}
+
+    async function loadDA(){
+      const box=document.getElementById('daList');
+      box.innerHTML='<div class="text-muted p-3">Loading…</div>';
+      try{
+        const r=await fetch('/admin/api/district-assignments/pending?status='+daStatus);
+        const d=await r.json();
+        if(!r.ok||!d.ok) throw new Error(d.error||'Failed');
+        const rows=d.requests||[];
+        if(!rows.length){ box.innerHTML='<div class="text-muted p-4 text-center border rounded">No '+daStatus+' requests.</div>'; return; }
+        box.innerHTML=rows.map(function(x){
+          const when=x.createdAt?new Date(x.createdAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+          const actions = x.status==='pending'
+            ? '<div class="d-flex gap-2"><button class="btn btn-sm btn-success" onclick="approveDA(\''+x._id+'\',this)"><i class="fas fa-check"></i> Approve</button>'
+              +'<button class="btn btn-sm btn-outline-danger" onclick="rejectDA(\''+x._id+'\',this)"><i class="fas fa-xmark"></i> Reject</button></div>'
+            : '<span class="badge '+(x.status==='approved'?'bg-success':'bg-secondary')+'">'+esc(x.status)+(x.reviewedByName?' · by '+esc(x.reviewedByName):'')+'</span>';
+          return '<div class="border rounded p-3 bg-white d-flex flex-wrap justify-content-between align-items-center gap-2" id="da-'+x._id+'">'
+            +'<div>'
+              +'<div><b>'+esc(x.reporterName||'Reporter')+'</b> → <b>'+esc(x.district)+'</b> <span class="badge bg-warning text-dark">'+tierLabel(x.tier)+'</span></div>'
+              +'<div class="text-muted" style="font-size:13px">State: '+esc(x.state)+' · Proposed by: '+esc(x.stateInchargeName||'—')+' · '+esc(when)+'</div>'
+              +(x.rejectReason?'<div class="text-danger" style="font-size:12px">Reason: '+esc(x.rejectReason)+'</div>':'')
+            +'</div>'
+            +actions
+          +'</div>';
+        }).join('');
+      }catch(e){ box.innerHTML='<div class="text-danger p-3">'+esc(e.message)+'</div>'; }
+    }
+
+    async function approveDA(id,btn){
+      btn.disabled=true;
+      try{
+        const r=await fetch('/admin/api/district-assignments/'+id+'/approve',{method:'POST'});
+        const d=await r.json();
+        if(!r.ok||!d.ok){ alert(d.error||'Could not approve'); btn.disabled=false; return; }
+        document.getElementById('da-'+id)?.remove();
+      }catch(e){ alert('Network error'); btn.disabled=false; }
+    }
+
+    async function rejectDA(id,btn){
+      const reason=prompt('Reason for rejecting (optional):')||'';
+      btn.disabled=true;
+      try{
+        const r=await fetch('/admin/api/district-assignments/'+id+'/reject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason})});
+        const d=await r.json();
+        if(!r.ok||!d.ok){ alert(d.error||'Could not reject'); btn.disabled=false; return; }
+        document.getElementById('da-'+id)?.remove();
+      }catch(e){ alert('Network error'); btn.disabled=false; }
+    }
+
+    document.getElementById('daTabs').addEventListener('click',function(e){
+      const b=e.target.closest('button[data-status]'); if(!b) return;
+      daStatus=b.dataset.status;
+      [...this.querySelectorAll('button')].forEach(x=>{x.className='btn btn-outline-secondary';});
+      b.className='btn btn-warning';
+      loadDA();
+    });
+    loadDA();
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>
