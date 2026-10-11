@@ -15,6 +15,7 @@ const DeviceLink = require('../models/DeviceLink');
 const QuizTestOverride = require('../models/QuizTestOverride');
 const QuizRules = require('../models/QuizRules');
 const { dayInfo, weekDayKeys, weekMeta, simTestDate } = require('../utils/quizWeek');
+const { avatarUrlFor } = require('../utils/avatarUrl');
 const { getQuizEnabledLanguages, getQuizConfig, isQuizLanguageAllowed } = require('../services/quizLanguageService');
 const poolAlert = require('../services/quizPoolAlertService');
 
@@ -36,16 +37,20 @@ function deviceIdFrom(req) {
  * (no active override) get real IST time. Returns { di, testMode }.
  */
 async function resolveQuizContext(userId) {
-  if (!userId) return { di: dayInfo(), testMode: false, now: new Date() };
+  // The daily question rolls over at this IST hour (default 10 AM), configurable in
+  // admin settings. The whole day/week boundary is derived from it.
+  let roll = 10;
+  try { roll = (await getQuizConfig()).dayRolloverHour; } catch (_) { roll = 10; }
+  if (!userId) return { di: dayInfo(new Date(), roll), testMode: false, now: new Date() };
   let ov = null;
   try { ov = await QuizTestOverride.findOne({ userId, active: true }).lean(); } catch (_) { ov = null; }
-  if (!ov) return { di: dayInfo(), testMode: false, now: new Date() };
+  if (!ov) return { di: dayInfo(new Date(), roll), testMode: false, now: new Date() };
   // Simulated "now" for the chosen day (late evening IST) so reveal/release gates
   // behave usefully in test mode: Mon–Fri answers stay hidden, a simulated Saturday
   // is PAST the reveal time (green/red visible), and a simulated Sunday is past the
   // winner-release time (winners visible) — letting admins walk the whole flow.
   const simNow = new Date(simTestDate(ov.simDayIndex) + 'T23:45:00+05:30');
-  return { di: dayInfo(simNow), testMode: true, testDay: ov.simDayIndex, now: simNow };
+  return { di: dayInfo(simNow, roll), testMode: true, testDay: ov.simDayIndex, now: simNow };
 }
 
 // ── Weekly reveal / winner release gating (IST) ──
@@ -163,9 +168,45 @@ async function winnersFor(weekId) {
     rank: w.rank, name: w.displayName, score: w.score, mode: w.mode,
     // Real display data (empty → app shows name/photo only, no fake phone).
     mobileNumber: w.mobileNumber || null,
-    profileImage: w.profileImage || null,
+    // No stored photo → a colourful generated letter-avatar (never the plain pale circle).
+    profileImage: w.profileImage || avatarUrlFor(w.displayName),
   }));
 }
+
+// POST /api/public/quiz/test-mode/exit — the signed-in user turns OFF their own quiz
+// test-mode override (admins enable it; this lets the user leave it from the app and
+// instantly return to the real, live experience). Only ever DISABLES; never enables.
+exports.exitTestMode = async (req, res) => {
+  try {
+    const userId = uid(req);
+    if (!userId) return res.status(401).json({ error: 'Sign in first.' });
+    await QuizTestOverride.updateOne({ userId }, { $set: { active: false } });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('quiz exitTestMode:', e.message);
+    res.status(500).json({ error: 'Failed to exit test mode.' });
+  }
+};
+
+// GET /api/public/quiz/banner — the ad-style banner image for the feed card.
+exports.banner = async (req, res) => {
+  try {
+    const QuizSettings = require('../models/QuizSettings');
+    const s = await QuizSettings.findOne({ key: 'quiz_config' }).select('bannerImageUrl bannerEnabled signinImageUrl termsText signinButtonRect profileImageUrl profileButtonRect dayRolloverHour').lean();
+    const enabled = s ? s.bannerEnabled !== false : false;
+    const roll = (s && Number.isInteger(s.dayRolloverHour) && s.dayRolloverHour >= 0 && s.dayRolloverHour <= 23) ? s.dayRolloverHour : 10;
+    res.json({
+      imageUrl: enabled ? ((s && s.bannerImageUrl) || '') : '',
+      enabled,
+      signinImageUrl: (s && s.signinImageUrl) || '',
+      termsText: (s && s.termsText) || '',
+      signinButtonRect: (s && s.signinButtonRect) || { x: 0, y: 0, w: 0, h: 0 },
+      profileImageUrl: (s && s.profileImageUrl) || '',
+      profileButtonRect: (s && s.profileButtonRect) || { x: 0, y: 0, w: 0, h: 0 },
+      dayRolloverHour: roll, // app aligns its per-day quiz cache to this IST hour
+    });
+  } catch (e) { console.error('quiz banner:', e.message); res.json({ imageUrl: '', enabled: false }); }
+};
 
 // GET /api/public/quiz/today
 exports.today = async (req, res) => {
@@ -212,7 +253,8 @@ exports.today = async (req, res) => {
     const revealed = isRevealed(entries, di.weekId, revealAt, ctx.now);
 
     res.json({
-      weekId: di.weekId, dayIndex: di.dayIndex, isQuizDay: true, testMode: ctx.testMode,
+      weekId: di.weekId, dayIndex: di.dayIndex, dayKey: di.dayKey, isQuizDay: true, testMode: ctx.testMode,
+      dayRolloverHour: conf.dayRolloverHour, // app aligns its per-day cache to this IST hour
       question: q ? publicQuestion(q) : null,
       status: answered ? 'answered' : 'unanswered',
       revealed, revealAt: revealAt.toISOString(),

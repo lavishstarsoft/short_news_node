@@ -2,6 +2,7 @@ const News = require('../models/News');
 const Location = require('../models/Location');
 const Category = require('../models/Category');
 const Admin = require('../models/Admin'); // Add Admin model for denormalization
+const { isPlaceholderValue } = require('../utils/placeholderValue');
 
 const {
   normalizeNewsLanguage,
@@ -23,7 +24,7 @@ const exec = util.promisify(require('child_process').exec);
 const axios = require('axios');
 const sharp = require('sharp');
 const { uploadToR2 } = require('../middleware/upload');
-const { buildSubEditorAuthorFilter, getManagedReporterIds, buildSubEditorTabQuery, resolveSubEditorNewsTab, getAdminId, subEditorHasTeamScope, resolveReporterStateIncharge } = require('../utils/editorCoverageHelper');
+const { buildSubEditorAuthorFilter, getManagedReporterIds, buildSubEditorTabQuery, resolveSubEditorNewsTab, getAdminId, subEditorHasTeamScope, resolveReporterStateIncharge, uniqueStrings } = require('../utils/editorCoverageHelper');
 const { TIER_DAILY_LIMIT, LIMIT_MESSAGE: DAILY_LIMIT_MESSAGE, isTierLimited, countReporterDailySubmissions } = require('../utils/dailyLimitService');
 const { getActiveExtraAllowed } = require('../utils/accessOverrideService');
 
@@ -48,6 +49,9 @@ const {
 const {
   scheduleAiVerification,
 } = require('../services/aiDuplicate/scheduleAiVerification');
+const {
+  scheduleReporterDuplicateScan,
+} = require('../services/aiDuplicate/scheduleReporterDuplicateScan');
 const { generateContentHash } = require('../utils/similarityDetector');
 const { normalizeDuplicateCheck } = require('../services/duplicateCheckService');
 
@@ -338,6 +342,10 @@ async function renderNewsListPage(req, res) {
     const fromDate = req.query.fromDate || '';
     const toDate = req.query.toDate || '';
     const selectedLanguage = req.query.language || '';
+    // Superadmin-only advanced filters (State wise + State In-charge).
+    const selectedState = req.query.state || '';
+    const selectedInchargeId = req.query.inchargeId || '';
+    const isFullAccess = req.admin.role === 'superadmin' || req.admin.role === 'admin';
     const languageViewData = await getLanguageViewData();
 
     if (req.app.locals.isConnectedToMongoDB) {
@@ -449,6 +457,69 @@ async function renderNewsListPage(req, res) {
           : { $and: [query, languageFilter] };
       }
 
+      // --- Superadmin-only advanced filters: State In-charge + State wise ---
+      // In this org a "State In-charge" is any sub-editor assigned to a state
+      // (Bureau / "X Incharge" / "State In-Charge"). A state's reporters are the
+      // editors (+ sub-editors) whose assignedStates cover it — this matches the
+      // well-populated geo tagging (561/585 editors carry assignedStates) and does
+      // NOT depend on per-user approvalScope config.
+      let statesList = [];
+      let inchargesList = [];
+      if (isFullAccess) {
+        const [stateVals, inchargeDocs] = await Promise.all([
+          Admin.distinct('assignedStates', { role: 'editor' }),
+          Admin.find({
+            role: 'subeditor',
+            isActive: { $ne: false },
+            $or: [{ assignedStates: { $exists: true, $ne: [] } }, { assignedState: { $nin: [null, ''] } }],
+          }).select('name username displayRole assignedState assignedStates').lean(),
+        ]);
+        statesList = uniqueStrings(stateVals).filter(Boolean).sort((a, b) => a.localeCompare(b));
+        inchargesList = inchargeDocs.map(ic => {
+          const sts = uniqueStrings([...(ic.assignedStates || []), ...(ic.assignedState ? [ic.assignedState] : [])]).filter(Boolean);
+          return { id: ic._id.toString(), name: ic.name || ic.username || 'In-charge', role: ic.displayRole || '', states: sts };
+        }).filter(ic => ic.states.length)
+          .sort((a, b) => (a.states[0] || '').localeCompare(b.states[0] || '') || a.name.localeCompare(b.name));
+
+        // Author ids (reporters + sub-editors) covering any of the given states.
+        const authorsForStates = async (states) => {
+          if (!states.length) return [];
+          const staff = await Admin.find({
+            isActive: { $ne: false },
+            $or: [{ assignedStates: { $in: states } }, { assignedState: { $in: states } }],
+          }).select('_id').lean();
+          return staff.map(s => s._id.toString());
+        };
+
+        let advFilter = null;
+        if (selectedInchargeId) {
+          const inchargeDoc = await Admin.findById(selectedInchargeId).select('assignedState assignedStates').lean();
+          if (inchargeDoc) {
+            const sts = uniqueStrings([...(inchargeDoc.assignedStates || []), ...(inchargeDoc.assignedState ? [inchargeDoc.assignedState] : [])]).filter(Boolean);
+            const ids = uniqueStrings([...(await authorsForStates(sts)), selectedInchargeId]);
+            advFilter = {
+              $or: [
+                { authorId: { $in: ids.length ? ids : ['__none__'] } },
+                { 'postedPlace.state': { $in: sts.length ? sts : ['__none__'] } },
+              ],
+            };
+          } else {
+            advFilter = { authorId: '__none__' };
+          }
+        } else if (selectedState) {
+          const ids = await authorsForStates([selectedState]);
+          advFilter = {
+            $or: [
+              { authorId: { $in: ids.length ? ids : ['__none__'] } },
+              { 'postedPlace.state': selectedState },
+            ],
+          };
+        }
+        if (advFilter) {
+          query = Object.keys(query).length === 0 ? advFilter : { $and: [query, advFilter] };
+        }
+      }
+
       // P1: count, page fetch and locations are independent — run them concurrently.
       // P6: fetch the page of news as lean plain objects.
       const [totalNews, fetchedNews, fetchedLocations] = await Promise.all([
@@ -518,7 +589,12 @@ async function renderNewsListPage(req, res) {
         isRestrictedSubEditor,
         currentTab,
         subEditorTabCounts,
-        hasTeamScope
+        hasTeamScope,
+        isFullAccess,
+        selectedState,
+        selectedInchargeId,
+        statesList,
+        inchargesList
       });
     } else {
       console.log('Using in-memory storage'); // Debug log
@@ -785,6 +861,11 @@ async function renderEditNewsPage(req, res) {
     const unrestrictedLanguages = adminDoc?.role === 'admin' || adminDoc?.role === 'superadmin';
     const { getDisplayConfigMap } = require('../services/languageRegistry');
     await refreshLanguageCache();
+    // Where to go back to after saving — the exact news-list page/tab/filters the
+    // editor came from. Only accept a safe internal path (single leading slash)
+    // so it can never become an open redirect.
+    let returnUrl = (req.query.returnUrl || '').toString();
+    if (!/^\/[^/]/.test(returnUrl)) returnUrl = '';
     res.render('add-news', {
       news,
       admin: req.admin,
@@ -795,6 +876,7 @@ async function renderEditNewsPage(req, res) {
       defaultLanguage: news.language || editorAllowedLanguages[0] || adminDoc?.workingLanguage || languageViewData.defaultLanguage,
       displayConfigByLanguage: getDisplayConfigMap(),
       source: req.query.source || '',
+      returnUrl,
       ...languageViewData
     });
   } catch (error) {
@@ -859,9 +941,33 @@ async function validatePostingArea(reqAdmin, scope, location) {
 }
 
 // Create new news (include author information)
+/**
+ * Reporter-app "Confirm" step attestation — whitelist + coerce so nothing but
+ * these booleans / ids can be written from the client.
+ */
+function sanitizeReporterAttestation(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const ids = (Array.isArray(raw.similarNewsIds) ? raw.similarNewsIds : [])
+    .map((v) => String(v))
+    .filter((v) => /^[a-f0-9]{24}$/i.test(v))
+    .slice(0, 20);
+  const att = {
+    checked: raw.checked === true,
+    preCheckFound: raw.preCheckFound === true,
+    crossChecked: raw.crossChecked === true,
+    claimedUnique: raw.claimedUnique === true,
+    acceptedTerms: raw.acceptedTerms === true,
+    similarCount: Math.max(0, Math.min(99, parseInt(raw.similarCount, 10) || ids.length)),
+    checkedAt: new Date(),
+  };
+  if (ids.length) att.similarNewsIds = ids;
+  const meaningful = att.acceptedTerms || att.crossChecked || att.claimedUnique || att.preCheckFound;
+  return meaningful ? att : null;
+}
+
 async function createNews(req, res) {
   try {
-    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage allowedLanguages role permissions reporterTier assignedStates assignedState assignedDistricts assignedConstituencies assignedLocations location');
+    const authorDetails = await Admin.findById(req.admin.id).select('profileImage constituency workingLanguage allowedLanguages role permissions reporterTier unlimitedDailyNews assignedStates assignedState assignedDistricts assignedConstituencies assignedLocations location');
     const articleLanguage = normalizeNewsLanguage(req.body.language || authorDetails?.workingLanguage);
 
     // Replay protection — same Idempotency-Key returns the first saved article (no second insert)
@@ -885,7 +991,9 @@ async function createNews(req, res) {
     // Runs AFTER the idempotency short-circuit (replays never consume a slot) and
     // BEFORE any News creation/save. Server-authoritative; keyed to the session
     // identity only (never a client-supplied id).
-    if (authorDetails && isTierLimited(authorDetails.reporterTier)) {
+    // Salary-based reporters (unlimitedDailyNews) are exempt from the tiered cap —
+    // they are paid monthly, not per-news, so they may submit any number of news.
+    if (authorDetails && isTierLimited(authorDetails.reporterTier) && authorDetails.unlimitedDailyNews !== true) {
       const submittedToday = await countReporterDailySubmissions(req.admin.id);
       // P4 — an active, today-only (IST) override raises the cap to 10 + extra.
       // 0 when none (the common case) → P2 behaviour unchanged.
@@ -915,6 +1023,20 @@ async function createNews(req, res) {
       return res.status(403).json({ error: postingAreaError });
     }
 
+    // A picker that is still loading must never become the stored value. The reporter
+    // web portal offered "Loading..." as a selectable option, so 377 stories were filed
+    // with location "Loading..." and 315 with that category — they match no district and
+    // are invisible in district feeds. Reject it here so EVERY client (including old app
+    // builds still in the wild) is covered.
+    const placeholderField = ['location', 'category'].find((f) => isPlaceholderValue(req.body[f]));
+    if (placeholderField) {
+      return res.status(400).json({
+        code: 'PLACEHOLDER_VALUE',
+        field: placeholderField,
+        error: `Please choose a real ${placeholderField} — the list had not finished loading.`,
+      });
+    }
+
     const limits = await getDisplayLimitsForLanguage(articleLanguage);
 
     if (req.admin.permissions?.requiresSourceLink) {
@@ -930,8 +1052,12 @@ async function createNews(req, res) {
     if (req.body.content && stripTags(req.body.content).length > limits.contentMax) {
       return res.status(400).json({ error: `Content cannot exceed ${limits.contentMax} characters` });
     }
-    if (req.admin.role === 'subeditor' && req.body.content && stripTags(req.body.content).length < (limits.contentMin || 0)) {
-      return res.status(400).json({ error: `Content must be at least ${limits.contentMin} characters for Sub Editors` });
+    // Minimum length applies ONLY to a plain Sub Editor / State In-charge writing
+    // Minimum body length applies to EVERYONE who posts — Super Admin down to
+    // Stringer. Controlled by "Description Min" per language (0 = no minimum).
+    if ((limits.contentMin || 0) > 0
+      && req.body.content && stripTags(req.body.content).length < limits.contentMin) {
+      return res.status(400).json({ error: `Content must be at least ${limits.contentMin} characters` });
     }
 
     if (req.body.content) {
@@ -1003,6 +1129,55 @@ async function createNews(req, res) {
       newsData.clientIdempotencyKey = idempotencyKey;
     }
 
+    // Reporter-app Confirm step (similar-news pre-check + ticked boxes) — sanitized, additive.
+    delete newsData.reporterAttestation;
+    const reporterAttestation = sanitizeReporterAttestation(req.body.reporterAttestation);
+    if (reporterAttestation) newsData.reporterAttestation = reporterAttestation;
+
+    // ── Reporter Security Phase 2: where this story was filed from ──
+    // Set from the REQUEST only (headers + named fields), never from the story body,
+    // so a reporter cannot fake the phone or the place.
+    delete newsData.postedFrom;
+    if (req.admin.role === 'editor' || req.admin.role === 'subeditor') {
+      const { deviceContext } = require('../services/security/deviceContext');
+      const _secNow = require('../services/security/reporterSecuritySettings').current();
+      const ctx = deviceContext(req);
+      if (_secNow.requireGpsOnNews && req.admin.role === 'editor' && !ctx.gps) {
+        return res.status(428).json({
+          code: 'LOCATION_REQUIRED',
+          error: 'Turn on location to post news. Please allow location access and try again.',
+        });
+      }
+      newsData.postedFrom = {
+        deviceId: ctx.deviceId || undefined,
+        deviceModel: ctx.deviceModel || undefined,
+        platform: ctx.platform || undefined,
+        appVersion: ctx.appVersion || undefined,
+        appSource: ctx.appSource || undefined,
+        sid: (req.admin && req.admin.sid) || undefined,
+        ip: ctx.ip || undefined,
+        ipCity: ctx.ipCity || undefined,
+        ipRegion: ctx.ipRegion || undefined,
+        ...(ctx.gps ? { lat: ctx.gps.lat, lng: ctx.gps.lng, accuracy: ctx.gps.accuracy || undefined, gpsAt: ctx.gps.at, mockLocation: ctx.gps.mock } : {}),
+        capturedAt: new Date(),
+      };
+      // Remember this account was used on this phone (feeds the "same phone" groups).
+      if (ctx.deviceId) {
+        require('../services/security/reporterSession')
+          .touchDeviceLink({ _id: req.admin.id, username: req.admin.username }, ctx, { newsPost: true })
+          .catch(() => {});
+      }
+      // A fake-GPS app is a strong fraud signal — raise it, but never block the story.
+      if (ctx.gps && ctx.gps.mock) {
+        require('../services/security/alertEngine').record({
+          type: 'mock_location', persist: true, severity: 'HIGH',
+          account: req.admin.username, accountId: req.admin.id, endpoint: '/news/api/news',
+          message: `Fake GPS app detected while posting news (${ctx.deviceModel || 'unknown phone'})`,
+          details: { deviceId: ctx.deviceId, lat: ctx.gps.lat, lng: ctx.gps.lng },
+        });
+      }
+    }
+
     // Handle media fields for backward compatibility
     if (req.body.mediaUrl) {
       newsData.mediaUrl = req.body.mediaUrl;
@@ -1010,10 +1185,25 @@ async function createNews(req, res) {
       // Add thumbnailUrl if provided
       if (req.body.thumbnailUrl) {
         newsData.thumbnailUrl = req.body.thumbnailUrl;
+      } else if (req.body.mediaType === 'image') {
+        // 🛠️ BUGFIX: when an image is edited (blur / black-&-white) the client
+        // sends the new mediaUrl but usually NOT a thumbnailUrl. Without this,
+        // thumbnailUrl kept pointing at the PRE-EDIT image — and the app shows
+        // thumbnailUrl first (NewsModel.displayImageUrl), so users saw the
+        // ORIGINAL picture while the dashboard showed the edited one. Sync the
+        // thumbnail to the new image so the edit reaches the app.
+        newsData.thumbnailUrl = req.body.mediaUrl;
       }
       // For backward compatibility, also set imageUrl if it's an image
       if (req.body.mediaType === 'image') {
         newsData.imageUrl = req.body.mediaUrl;
+        // 🛠️ BUGFIX: a single-image edit (blur/B&W) changes mediaUrl; if the client
+        // did not send a real multi-image array, collapse imageUrls to the edited
+        // image so the untouched ORIGINAL cannot linger as a 2nd leaked photo.
+        const imgs = Array.isArray(req.body.imageUrls) ? req.body.imageUrls.filter(Boolean) : null;
+        if (!(imgs && imgs.length > 1)) {
+          newsData.imageUrls = [req.body.mediaUrl];
+        }
       }
     } else if (req.body.imageUrl) {
       // For backward compatibility with existing code that still uses imageUrl
@@ -1059,6 +1249,13 @@ async function createNews(req, res) {
     if (useAiGate) {
       const io = req.app.locals.io;
       scheduleAiVerification(news, io);
+    } else if (req.admin.role === 'editor') {
+      // Reporter / Stringer: advisory duplicate scan the moment they submit.
+      // Does NOT change status or block — the news stays in Pending News for the
+      // normal human approval, but a duplicate/suspicious badge is attached now
+      // instead of only when a State In-charge opens the page.
+      const io = req.app.locals.io;
+      scheduleReporterDuplicateScan(news, io);
     }
 
     // Send WebSocket notifications based on role
@@ -1177,7 +1374,7 @@ async function updateNews(req, res) {
     }
 
     // Validation (ignoring color tags for limit)
-    const authorForLang = await Admin.findById(req.admin.id).select('workingLanguage allowedLanguages role');
+    const authorForLang = await Admin.findById(req.admin.id).select('workingLanguage allowedLanguages role reporterTier');
     const articleLanguage = normalizeNewsLanguage(req.body.language || existingNews.language);
 
     if (authorForLang && authorForLang.role !== 'admin' && authorForLang.role !== 'superadmin') {
@@ -1200,8 +1397,11 @@ async function updateNews(req, res) {
     if (req.body.content && stripTags(req.body.content).length > limits.contentMax) {
       return res.status(400).json({ error: `Content cannot exceed ${limits.contentMax} characters` });
     }
-    if (req.admin.role === 'subeditor' && req.body.content && stripTags(req.body.content).length < (limits.contentMin || 0)) {
-      return res.status(400).json({ error: `Content must be at least ${limits.contentMin} characters for Sub Editors` });
+    // Minimum body length applies to EVERYONE (edit / resubmit too).
+    // Controlled by "Description Min" per language (0 = no minimum).
+    if ((limits.contentMin || 0) > 0
+      && req.body.content && stripTags(req.body.content).length < limits.contentMin) {
+      return res.status(400).json({ error: `Content must be at least ${limits.contentMin} characters` });
     }
 
     if (req.body.content) {
@@ -1249,6 +1449,12 @@ async function updateNews(req, res) {
       // Add thumbnailUrl if provided
       if (req.body.thumbnailUrl) {
         newsData.thumbnailUrl = req.body.thumbnailUrl;
+      } else if (req.body.mediaType === 'image') {
+        // 🛠️ BUGFIX (updateNews): an image edit (blur / B&W) sends the new
+        // mediaUrl but no thumbnailUrl, so thumbnailUrl kept pointing at the
+        // PRE-EDIT image. The app shows thumbnailUrl first → users saw the
+        // ORIGINAL while the dashboard showed the edited image. Sync it.
+        newsData.thumbnailUrl = req.body.mediaUrl;
       }
       // For backward compatibility, also set imageUrl if it's an image
       if (req.body.mediaType === 'image') {
@@ -1327,6 +1533,24 @@ async function updateNews(req, res) {
     // 🔄 Clear news cache after updating
     await clearCache('cache:/api/public/news*');
     await clearCache('cache:/api/public/locations*');
+
+    // 📡 Push the edit to connected apps so the card updates NOW (image / text)
+    // instead of waiting out the app's feed cache. Event-driven, admin-only →
+    // no polling, negligible load. Fail-safe.
+    try {
+      req.app.locals.io?.emit('news_updated', {
+        id: String(news._id),
+        title: news.title,
+        content: news.content,
+        language: news.language,
+        mediaType: news.mediaType,
+        mediaUrl: news.mediaUrl,
+        imageUrl: news.imageUrl || news.mediaUrl,
+        imageUrls: news.imageUrls || [],
+        thumbnailUrl: news.thumbnailUrl,
+        updatedAt: news.updatedAt || new Date(),
+      });
+    } catch (_) {}
 
     res.json(news);
   } catch (error) {
@@ -1499,6 +1723,14 @@ async function toggleNewsStatus(req, res) {
         },
         { new: true }
       );
+
+      // Strict rule: a LIVE story that is deactivated must vanish from every feed /
+      // item cache immediately (not after the 60–600s TTL). Busting on activate
+      // too makes a newly-live story show up at once. Never throws.
+      if (news) {
+        const { bustNewsCaches } = require('../services/newsCacheBust');
+        await bustNewsCaches(news._id, isActive ? 'activate' : 'deactivate');
+      }
 
       console.log('News status updated in MongoDB:', news); // Debug log
       res.json({ message: 'News status updated successfully', news });

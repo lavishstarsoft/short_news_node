@@ -12,9 +12,17 @@ function keyToUTC(k) { const [y, m, d] = String(k).split('-').map(Number); retur
 /** IST date key n calendar days after key k (weekday is timezone-independent for a calendar date). */
 function addDaysKey(k, n) { const dt = keyToUTC(k); dt.setUTCDate(dt.getUTCDate() + n); return istDateKey(dt); }
 
-/** { weekId, dayKey, dayIndex(Mon=1..Sat=6, Sun=0), isQuizDay } for the IST day of `date`. */
-function dayInfo(date = new Date()) {
-  const dayKey = istDateKey(date);
+/**
+ * { weekId, dayKey, dayIndex(Mon=1..Sat=6, Sun=0), isQuizDay } for the IST day of `date`.
+ * `rolloverHour` (0–23) shifts the day boundary: e.g. 10 means the quiz "day" runs
+ * 10:00 AM → 10:00 AM IST, so a new question appears at 10 AM instead of midnight.
+ * We subtract the offset from the instant before taking the IST calendar date, so
+ * before 10 AM it still resolves to the previous day. 0 = classic midnight rollover.
+ */
+function dayInfo(date = new Date(), rolloverHour = 0) {
+  const h = Number(rolloverHour) || 0;
+  const shifted = h > 0 ? new Date(date.getTime() - h * 3600000) : date;
+  const dayKey = istDateKey(shifted);
   const dow = keyToUTC(dayKey).getUTCDay();       // 0=Sun..6=Sat
   const dayIndex = dow === 0 ? 0 : dow;           // Mon=1..Sat=6, Sun=0
   const mondayOffset = dow === 0 ? -6 : (1 - dow);

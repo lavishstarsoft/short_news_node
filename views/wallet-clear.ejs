@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Wallet Clear' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Wallet Clear', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'wallet-clear' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+
+        <div class="mb-3">
+          <h3 class="mb-1"><i class="fas fa-broom me-2 text-danger"></i>Reporter Wallet Clear (DI / Stringer / Reporter)</h3>
+          <p class="text-muted mb-0">Enter any reporter's mobile number (District In-charge, Stringer or Reporter), pick the months you have already paid offline, and clear only those months. Other months stay in the wallet.</p>
+        </div>
+
+        <!-- Telugu help card -->
+        <div class="mb-3 p-3 rounded" style="background:#fff7ed;border:1px solid #fed7aa;font-size:13.5px;line-height:1.7">
+          <b>📋 ఎలా వాడాలి (తెలుగు)</b>
+          <ol class="mb-0 mt-1" style="padding-left:18px">
+            <li>కింద <b>mobile number</b> టైప్ చేసి <b>Search</b> నొక్కండి. (District In-charge, Stringer, Reporter — ఎవరైనా సరే.)</li>
+            <li>ఆ reporter <b>wallet balance</b> + <b>నెల వారీగా ఎంత</b> వచ్చిందో + అతని <b>type</b> (DI/Stringer/Reporter) కనిపిస్తుంది.</li>
+            <li>మీరు <b>offline pay చేసిన నెలలు</b> ☑️ tick చేయండి (ఒకటి లేదా ఎక్కువ).</li>
+            <li><b>“Selected months clear”</b> నొక్కండి → tick చేసిన నెలల amount మాత్రమే wallet నుండి తీసేయబడుతుంది. <b>మిగతా నెలలు అలాగే ఉంటాయి.</b></li>
+            <li>ఆ DI కి <b>pending withdrawal request</b> ఉంటే పైన పసుపు box లో కనిపిస్తుంది. దాని ☑️ tick ఉంచితే — clear చేసేటప్పుడు ఆ pending requests కూడా <b>cancel</b> అవుతాయి (offline pay చేశారు కాబట్టి, లేకపోతే మళ్ళీ approve చేస్తే రెండుసార్లు డబ్బు పోతుంది).</li>
+            <li>తప్పు జరిగితే ఆ నెల పక్కన <b>“Undo”</b> నొక్కితే డబ్బు తిరిగి wallet లోకి వస్తుంది.</li>
+          </ol>
+          <div class="mt-2 text-danger"><b>⚠️ జాగ్రత్త:</b> ఇది live wallet. Clear నొక్కేముందు మొత్తం సరిచూసుకోండి.</div>
+        </div>
+
+        <!-- Search -->
+        <div class="input-group mb-3" style="max-width:460px">
+          <span class="input-group-text"><i class="fas fa-mobile-alt"></i></span>
+          <input id="q" type="text" class="form-control" placeholder="Mobile number or name" autocomplete="off">
+          <button id="searchBtn" class="btn btn-primary"><i class="fas fa-search me-1"></i>Search</button>
+        </div>
+
+        <div id="msg" class="mb-3"></div>
+
+        <!-- Multiple-match picker -->
+        <div id="pickList" class="d-none mb-3"></div>
+
+        <!-- Result -->
+        <div id="result" class="d-none">
+          <div class="card mb-3">
+            <div class="card-body">
+              <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                <div>
+                  <h5 class="mb-1" id="diName"></h5>
+                  <div class="text-muted small" id="diMeta"></div>
+                </div>
+                <div class="text-end">
+                  <div class="text-muted small">Wallet Balance</div>
+                  <div class="fs-3 fw-bold text-success" id="diBalance">₹0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pending withdrawal requests (shown only when the DI has any) -->
+          <div id="pendingBox" class="d-none alert alert-warning">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="cancelPending" checked>
+              <label class="form-check-label" for="cancelPending">
+                <b>⚠️ Pending withdrawal: <span id="pendCount">0</span> request(s) = <span id="pendTotal">₹0</span></b>
+                <div class="small text-muted">Tick to also cancel these when you clear (recommended — the money is being settled offline, so approving them later would double-pay). Untick to keep them.</div>
+              </label>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span><b>Month-wise earnings</b> — tick months to clear</span>
+              <div>
+                <button id="selAll" class="btn btn-sm btn-outline-secondary">Select all</button>
+                <button id="selNone" class="btn btn-sm btn-outline-secondary">Clear ticks</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:44px"></th>
+                    <th>Month</th>
+                    <th class="text-end">Earned</th>
+                    <th class="text-end">Already cleared</th>
+                    <th class="text-end">Remaining</th>
+                    <th class="text-end">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="monthRows"></tbody>
+              </table>
+            </div>
+            <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div>Selected total: <b id="selTotal" class="text-danger">₹0</b></div>
+              <button id="clearBtn" class="btn btn-danger" disabled><i class="fas fa-broom me-1"></i>Selected months clear</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div></div>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const money = (n) => '₹' + Number(n||0).toLocaleString('en-IN');
+  let CURRENT = null;   // { di, months }
+  function say(html, cls){ $('msg').innerHTML = html ? '<div class="alert alert-'+(cls||'info')+' py-2 mb-0">'+html+'</div>' : ''; }
+
+  async function search(){
+    const q = $('q').value.trim();
+    if(!q){ say('Enter a mobile number or name.','warning'); return; }
+    say('Searching…'); $('result').classList.add('d-none'); $('pickList').classList.add('d-none');
+    try{
+      const r = await fetch('/admin/api/wallet-clear/lookup?q='+encodeURIComponent(q));
+      const d = await r.json();
+      if(!r.ok){ say(d.error||'Lookup failed.','danger'); return; }
+      if(!d.found){ say('No District In-Charge matched "'+q+'".','warning'); return; }
+      if(d.multiple){ renderPick(d.list); return; }
+      say('');
+      CURRENT = { di:d.di, months:d.months, pending:d.pending||{count:0,total:0} };
+      render();
+    }catch(e){ say('Network error. Try again.','danger'); }
+  }
+
+  function renderPick(list){
+    let h = '<div class="card"><div class="card-header"><b>Multiple matches — pick one</b></div><div class="list-group list-group-flush">';
+    list.forEach(m => {
+      h += '<button type="button" class="list-group-item list-group-item-action" data-id="'+m.id+'">'
+        + '<b>'+esc(m.name)+'</b> <span class="badge bg-secondary">'+esc(m.type||'')+'</span> — '+esc(m.mobile||'')+' <span class="text-muted small">'+esc(m.district||'')+(m.state?(', '+esc(m.state)):'')+'</span>'
+        + '<span class="float-end">'+money(m.walletBalance)+'</span></button>';
+    });
+    h += '</div></div>';
+    $('pickList').innerHTML = h; $('pickList').classList.remove('d-none');
+    $('pickList').querySelectorAll('[data-id]').forEach(b => b.onclick = () => { $('q').value = b.getAttribute('data-id'); $('pickList').classList.add('d-none'); search(); });
+  }
+
+  function render(){
+    const di = CURRENT.di;
+    $('diName').innerHTML = esc(di.name) + (di.type ? ' <span class="badge bg-secondary align-middle">'+esc(di.type)+'</span>' : '');
+    $('diMeta').innerHTML = [di.mobile, di.email, [di.district, di.state].filter(Boolean).join(', ')].filter(Boolean).map(esc).join(' &nbsp;•&nbsp; ');
+    $('diBalance').textContent = money(di.walletBalance);
+    const rows = CURRENT.months;
+    if(!rows.length){
+      $('monthRows').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No month-wise earnings found for this District In-Charge.</td></tr>';
+    } else {
+      $('monthRows').innerHTML = rows.map(m => {
+        const canClear = m.remaining > 0;
+        const cb = canClear
+          ? '<input class="form-check-input mcheck" type="checkbox" data-key="'+m.key+'" data-amt="'+m.remaining+'">'
+          : '<span class="text-muted">—</span>';
+        const status = m.done
+          ? '<span class="badge bg-secondary">Cleared</span> <button class="btn btn-sm btn-outline-primary undo" data-key="'+m.key+'">Undo</button>'
+          : (m.cleared>0 ? '<span class="badge bg-warning text-dark">Partly cleared</span> <button class="btn btn-sm btn-outline-primary undo" data-key="'+m.key+'">Undo</button>' : '<span class="badge bg-success">Active</span>');
+        return '<tr>'
+          + '<td>'+cb+'</td>'
+          + '<td><b>'+esc(m.label)+'</b></td>'
+          + '<td class="text-end">'+money(m.earned)+'</td>'
+          + '<td class="text-end text-muted">'+money(m.cleared)+'</td>'
+          + '<td class="text-end fw-bold">'+money(m.remaining)+'</td>'
+          + '<td class="text-end">'+status+'</td>'
+          + '</tr>';
+      }).join('');
+    }
+    // Pending withdrawals box
+    const p = CURRENT.pending || {count:0,total:0};
+    if(p.count > 0){
+      $('pendCount').textContent = p.count;
+      $('pendTotal').textContent = money(p.total);
+      $('pendingBox').classList.remove('d-none');
+    } else {
+      $('pendingBox').classList.add('d-none');
+    }
+    $('result').classList.remove('d-none');
+    bindRows();
+    recalc();
+  }
+
+  function bindRows(){
+    document.querySelectorAll('.mcheck').forEach(c => c.onchange = recalc);
+    document.querySelectorAll('.undo').forEach(b => b.onclick = () => undo(b.getAttribute('data-key')));
+  }
+  function selected(){ return Array.from(document.querySelectorAll('.mcheck:checked')); }
+  function recalc(){
+    const sel = selected();
+    const total = sel.reduce((s,c) => s + Number(c.getAttribute('data-amt')||0), 0);
+    $('selTotal').textContent = money(total);
+    $('clearBtn').disabled = sel.length === 0;
+  }
+
+  async function doClear(){
+    const sel = selected();
+    if(!sel.length) return;
+    const keys = sel.map(c => c.getAttribute('data-key'));
+    const labels = sel.map(c => c.closest('tr').children[1].textContent);
+    const total = sel.reduce((s,c) => s + Number(c.getAttribute('data-amt')||0), 0);
+    const p = CURRENT.pending || {count:0,total:0};
+    const wantCancel = p.count > 0 && $('cancelPending').checked;
+    let confMsg = 'Clear '+keys.length+' month(s): '+labels.join(', ')+'\nTotal '+money(total)+' will be removed from '+CURRENT.di.name+"'s wallet.";
+    if(wantCancel) confMsg += '\n\nAlso CANCEL '+p.count+' pending withdrawal request(s) = '+money(p.total)+'.';
+    confMsg += '\n\nOther months stay. Continue?';
+    if(!confirm(confMsg)) return;
+    $('clearBtn').disabled = true; say('Clearing…');
+    try{
+      const r = await fetch('/admin/api/wallet-clear/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({adminId:CURRENT.di.id, months:keys, cancelPending:wantCancel})});
+      const d = await r.json();
+      if(!r.ok || !d.ok){ say(d.error||'Clear failed.','danger'); recalc(); return; }
+      let m = '✅ Cleared '+money(d.totalCleared)+'. New wallet balance: '+money(d.newBalance)+'.';
+      if(d.cancelledPending && d.cancelledPending.count>0) m += ' Cancelled '+d.cancelledPending.count+' pending withdrawal(s) = '+money(d.cancelledPending.total)+'.';
+      say(m,'success');
+      CURRENT.di.walletBalance = d.newBalance; CURRENT.months = d.months; CURRENT.pending = d.pending||{count:0,total:0}; render();
+    }catch(e){ say('Network error during clear.','danger'); recalc(); }
+  }
+
+  async function undo(key){
+    if(!confirm('Undo the clear for this month? The amount will be added back to the wallet.')) return;
+    say('Undoing…');
+    try{
+      const r = await fetch('/admin/api/wallet-clear/rollback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({adminId:CURRENT.di.id, month:key})});
+      const d = await r.json();
+      if(!r.ok || !d.ok){ say(d.error||'Undo failed.','danger'); return; }
+      say('↩️ Restored '+money(d.restored)+'. New wallet balance: '+money(d.newBalance)+'.','success');
+      CURRENT.di.walletBalance = d.newBalance; CURRENT.months = d.months; CURRENT.pending = d.pending||CURRENT.pending; render();
+    }catch(e){ say('Network error during undo.','danger'); }
+  }
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  $('searchBtn').onclick = search;
+  $('q').addEventListener('keydown', e => { if(e.key==='Enter') search(); });
+  $('selAll').onclick = () => { document.querySelectorAll('.mcheck').forEach(c => c.checked=true); recalc(); };
+  $('selNone').onclick = () => { document.querySelectorAll('.mcheck').forEach(c => c.checked=false); recalc(); };
+  $('clearBtn').onclick = doClear;
+})();
+</script>
+</body>
+</html>

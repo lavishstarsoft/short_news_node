@@ -29,6 +29,7 @@ const ViewDistributionState = require('./models/ViewDistributionState');
 const ViewCycleLog = require('./models/ViewCycleLog');
 const signalProvider = require('./signalProvider');
 const { bulkWriteChunked } = require('./applier'); // reuse — no duplicate logic
+const { engagementDelta } = require('./engagementModel');
 const { LOG_PREFIX } = require('./constants');
 
 const WORKER_ID = `${process.env.NODE_APP_INSTANCE ?? process.env.pm_id ?? ''}:${process.pid}`;
@@ -248,12 +249,21 @@ async function processCycle(job) {
       }
 
       if (!campaign.dryRun && boosted.length) {
-        await bulkWriteChunked(News, boosted.map((d) => ({
-          updateOne: {
-            filter: { _id: d.newsId },
-            update: { $inc: { syntheticViews: d.delta }, $set: { viewEngineCampaignId: campaign._id } }
-          }
-        })));
+        await bulkWriteChunked(News, boosted.map((d) => {
+          // Natural, jittered likes/dislikes ride along with the view delta —
+          // same model as production applier, so per-news-window news also get
+          // believable engagement, not just views. Synthetic counters ONLY.
+          const { likeDelta, dislikeDelta } = engagementDelta(String(d.newsId), d.delta);
+          const inc = { syntheticViews: d.delta };
+          if (likeDelta > 0) inc.syntheticLikes = likeDelta;
+          if (dislikeDelta > 0) inc.syntheticDislikes = dislikeDelta;
+          return {
+            updateOne: {
+              filter: { _id: d.newsId },
+              update: { $inc: inc, $set: { viewEngineCampaignId: campaign._id } }
+            }
+          };
+        }));
       }
 
       await bulkWriteChunked(ViewDistributionState, deltas.map((d) => ({

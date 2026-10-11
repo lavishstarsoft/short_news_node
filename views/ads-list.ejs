@@ -101,6 +101,12 @@
                                     <i class="fas fa-search"></i>
                                     <input type="search" id="adsSearchInput" class="ads-search-input" placeholder="Search title or copy..." autocomplete="off">
                                 </div>
+                                <select id="adsLangFilter" class="form-select" style="max-width:190px">
+                                    <option value="">🌐 All languages</option>
+                                    <% var _lseen = {}; adsItems.forEach(function(ad){ var lg = (ad.language || 'en'); if(!_lseen[lg]){ _lseen[lg] = 1; %>
+                                        <option value="<%= lg %>"><%= lg.toUpperCase() %></option>
+                                    <% } }); %>
+                                </select>
                             </div>
                             <div class="ads-results-meta">
                                 Showing <strong id="adsVisibleCount"><%= adsTotal %></strong> of <strong><%= adsTotal %></strong> campaigns
@@ -111,6 +117,38 @@
                     <form id="filterForm" class="d-none" method="GET" action="/ads/ads">
                         <input type="hidden" id="statusFilterInput" name="status" value="<%= adsSelectedStatus %>">
                     </form>
+
+                    <% var _ls = (typeof langStats !== 'undefined' && langStats) ? langStats : []; if (_ls.length) { %>
+                    <div class="ads-panel" style="margin-bottom:16px">
+                        <div class="ads-panel-head">
+                            <h2 class="ads-panel-title"><i class="fas fa-wave-square me-2"></i>Language-wise ad frequency</h2>
+                        </div>
+                        <div style="padding:4px 14px 14px">
+                            <div style="font-size:13px;color:#6b7280;margin-bottom:10px">ఒక భాషలో ఎక్కువ ads / చిన్న intervals ఉంటే users irritate అవుతారు. 🟢 ప్రతి 6+ cards కి ఒక ad మంచిది · 🔴 3 కన్నా తక్కువ అయితే చాలా ఎక్కువ. (AdMob విడిగా — ఇక్కడ లెక్కలో లేదు.)</div>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">
+                                <% _ls.forEach(function(s){
+                                     var col = s.level==='good' ? '#1b8a4b' : (s.level==='warn' ? '#9a6b00' : '#c62828');
+                                     var bg  = s.level==='good' ? '#e7f6ec' : (s.level==='warn' ? '#fdf4e3' : '#fdecec');
+                                     var dot = s.level==='good' ? '🟢' : (s.level==='warn' ? '🟡' : '🔴');
+                                     var tag = s.level==='good' ? 'Comfortable' : (s.level==='warn' ? 'Frequent' : 'Too frequent');
+                                %>
+                                <div style="border:1px solid #e3e6ea;background:<%= bg %>;border-radius:10px;padding:11px 13px;cursor:pointer" onclick="document.getElementById('adsLangFilter').value='<%= s.lang %>';document.getElementById('adsLangFilter').dispatchEvent(new Event('change'));window.scrollTo({top:document.querySelector('.ads-table-wrap, .ads-empty')?.offsetTop||0,behavior:'smooth'});" title="Click to filter ads in this language">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                                        <b style="font-size:14px"><%= s.name %> <small style="color:#888;font-weight:500">(<%= s.lang %>)</small></b>
+                                        <span style="color:<%= col %>;font-weight:700;font-size:12px;white-space:nowrap"><%= dot %> <%= tag %></span>
+                                    </div>
+                                    <div style="font-size:12.5px;color:#333;margin-top:5px"><b><%= s.count %></b> active ads · tightest interval <b><%= s.min %></b></div>
+                                    <div style="font-size:12.5px;color:<%= col %>;font-weight:600;margin-top:2px"><%= s.freqText %></div>
+                                    <div style="font-size:12px;color:#555;margin-top:5px;line-height:1.5"><b>What to do:</b> <%= s.advice %></div>
+                                    <% if (s.level !== 'good') { %>
+                                    <button type="button" class="btn btn-sm btn-success mt-2" style="font-size:12px" onclick="event.stopPropagation();autoFix('<%= s.lang %>', '<%= (s.name || s.lang).replace(/'/g, '') %>', <%= s.count %>)"><i class="fas fa-wand-magic-sparkles me-1"></i>Auto-fix this language</button>
+                                    <% } %>
+                                </div>
+                                <% }); %>
+                            </div>
+                        </div>
+                    </div>
+                    <% } %>
 
                     <div class="ads-panel">
                         <div class="ads-panel-head">
@@ -146,7 +184,7 @@
                                         const adSearchText = ((ad.title || '') + ' ' + (ad.content || '') + ' ' + (ad.author || '')).toLowerCase();
                                         const statusMeta = adStatusMeta(ad);
                                     %>
-                                    <tr class="ads-row" data-ad-id="<%= ad._id %>" data-search="<%= adSearchText.replace(/"/g, '&quot;') %>" onclick="viewAd('<%= ad._id %>')">
+                                    <tr class="ads-row" data-ad-id="<%= ad._id %>" data-lang="<%= (ad.language || 'en') %>" data-search="<%= adSearchText.replace(/"/g, '&quot;') %>" onclick="viewAd('<%= ad._id %>')">
                                         <td>
                                             <div class="ads-creative-cell">
                                                 <% if (ad.imageUrl) { %>
@@ -208,7 +246,7 @@
                                 const adSearchText = ((ad.title || '') + ' ' + (ad.content || '') + ' ' + (ad.author || '')).toLowerCase();
                                 const statusMeta = adStatusMeta(ad);
                             %>
-                            <article class="ads-card" data-ad-id="<%= ad._id %>" data-search="<%= adSearchText.replace(/"/g, '&quot;') %>" onclick="viewAd('<%= ad._id %>')">
+                            <article class="ads-card" data-ad-id="<%= ad._id %>" data-lang="<%= (ad.language || 'en') %>" data-search="<%= adSearchText.replace(/"/g, '&quot;') %>" onclick="viewAd('<%= ad._id %>')">
                                 <div class="ads-card-media <%= ad.imageUrl ? '' : 'ads-card-media--empty' %>">
                                     <% if (ad.imageUrl) { %>
                                     <img src="<%= ad.imageUrl %>" alt="<%= ad.title %>">
@@ -327,12 +365,15 @@
                 });
             });
 
+            const langFilter = document.getElementById('adsLangFilter');
             function applyAdsSearch() {
                 const query = (searchInput?.value || '').trim().toLowerCase();
+                const lang = (langFilter?.value || '');
                 let visible = 0;
                 document.querySelectorAll('.ads-row, .ads-card').forEach(function (el) {
                     const haystack = el.getAttribute('data-search') || '';
-                    const match = !query || haystack.indexOf(query) !== -1;
+                    const elLang = el.getAttribute('data-lang') || '';
+                    const match = (!query || haystack.indexOf(query) !== -1) && (!lang || elLang === lang);
                     el.classList.toggle('is-hidden', !match);
                     if (match) visible++;
                 });
@@ -342,9 +383,25 @@
             if (searchInput) {
                 searchInput.addEventListener('input', applyAdsSearch);
             }
+            if (langFilter) {
+                langFilter.addEventListener('change', applyAdsSearch);
+            }
 
             setupMobileMenu();
         });
+
+        // Auto-fix: approve the suggestion → server re-spaces all ads of this
+        // language to a comfortable frequency, then reload.
+        window.autoFix = function (lang, name, count) {
+            if (!confirm(name + ' (' + count + ' ads): అన్ని ads ని comfortable frequency కి auto-set చేయనా? (ప్రతి ~6 cards కి ఒక ad)')) return;
+            fetch('/ads/api/auto-balance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lang: lang }) })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d && d.ok) { alert('✓ ' + (d.updated || 0) + ' ads → interval ' + (d.interval || '') + ' కి set అయ్యాయి.'); location.reload(); }
+                    else { alert('Failed: ' + ((d && d.error) || 'error')); }
+                })
+                .catch(function (e) { alert('Failed: ' + e.message); });
+        };
 
         window.viewAd = function (adId) {
             const adItem = adsList.find(function (ad) { return String(ad._id) === String(adId); });

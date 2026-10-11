@@ -25,9 +25,15 @@ const pollSchema = new mongoose.Schema({
     required: true
   },
   options: [optionSchema],
-  totalVotes: { 
-    type: Number, 
-    default: 0 
+  // Optional background image for the app's glassmorphism poll card. Nullable
+  // and additive — old polls without one fall back to a gradient in the app.
+  imageUrl: {
+    type: String,
+    default: null
+  },
+  totalVotes: {
+    type: Number,
+    default: 0
   },
   votedUsers: [{
     userId: { 

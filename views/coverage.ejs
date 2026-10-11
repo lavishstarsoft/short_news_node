@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'App Coverage Image - Short News Admin' }) %>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+<style>
+  #covPage .lang-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; margin-top: 14px; }
+  #covPage .lang-card { border: 1px solid #e0e4ea; border-radius: 10px; padding: 10px; text-align: center; }
+  #covPage .lang-card .thumb { width: 100%; aspect-ratio: 9 / 20; max-height: 300px; object-fit: cover; border-radius: 8px; background: #f0f1f3; border: 1px dashed #cfd4da; display: flex; align-items: center; justify-content: center; color: #8a90a0; font-size: 13px; }
+  #covPage img.thumb { display: block; }
+  #covPage .crop-modal { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: center; justify-content: center; z-index: 10000; }
+  #covPage .crop-modal.active { display: flex; }
+  #covPage .crop-box { background: #fff; border-radius: 12px; padding: 14px; max-width: 420px; width: 92%; }
+  #covPage .crop-area { max-height: 62vh; overflow: hidden; }
+  #covPage .crop-area img { max-width: 100%; display: block; }
+</style>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'App Coverage Image', backButton: false }) %>
+  <div class="container-fluid">
+    <div class="row">
+      <%- include('partials/sidebar', { activePage: 'coverage' }) %>
+      <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+        <div class="content-area" id="covPage">
+
+          <div class="alert alert-success" role="alert">
+            <b>ఇది ఏంటి?</b> యాప్ ఓపెన్ చేసినప్పుడు <b>first page</b> గా వచ్చే image. ప్రతి భాషకి వేరే image upload చేయండి — ఆ భాష feed లో ఆ image వస్తుంది. <b>9:20 (1080×2400)</b> crop ads లానే. <b>Active</b> చేస్తేనే app లో కనిపిస్తుంది.
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="mb-0">Per-language coverage image</h5>
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="isActive" <%= isActive ? 'checked' : '' %>>
+                  <label class="form-check-label" for="isActive">Feature ON (app లో చూపించు)</label>
+                </div>
+              </div>
+
+              <% if (!languages || languages.length === 0) { %>
+                <div class="text-muted mt-3">భాషలు కనిపించట్లేదు — Languages setup చూడండి.</div>
+              <% } %>
+
+              <div class="lang-grid" id="grid">
+                <% (languages || []).forEach(function(l){ var url = images[l.code] || ''; %>
+                  <div class="lang-card" data-lang="<%= l.code %>">
+                    <% if (url) { %>
+                      <img class="thumb" src="<%= url %>">
+                    <% } else { %>
+                      <div class="thumb">No image</div>
+                    <% } %>
+                    <input type="hidden" class="url" value="<%= url %>">
+                    <div class="mt-2 fw-bold"><%= l.name %> <small class="text-muted">(<%= l.code %>)</small></div>
+                    <button class="btn btn-sm btn-outline-primary mt-1" type="button" onclick="pick('<%= l.code %>')"><i class="fas fa-upload me-1"></i>Upload</button>
+                  </div>
+                <% }); %>
+              </div>
+
+              <div class="mt-3">
+                <button class="btn btn-success" onclick="save()"><i class="fas fa-save me-1"></i> Save</button>
+                <span id="status" class="text-muted small ms-2"></span>
+              </div>
+            </div>
+          </div>
+
+          <input type="file" id="file" accept="image/*" style="display:none">
+          <div class="crop-modal" id="cropModal">
+            <div class="crop-box">
+              <div class="crop-area"><img id="cropImg" alt="crop"></div>
+              <div class="d-flex justify-content-end gap-2 mt-2">
+                <button class="btn btn-secondary btn-sm" type="button" onclick="closeCrop()">Cancel</button>
+                <button class="btn btn-primary btn-sm" type="button" onclick="applyCrop()">Crop &amp; Upload</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <%- include('partials/footer') %>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    let curLang = null, cropper = null;
+    function pick(lang){ curLang = lang; $('file').click(); }
+    $('file').addEventListener('change', e => {
+      const f = e.target.files[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = ev => {
+        $('cropImg').src = ev.target.result;
+        $('cropModal').classList.add('active');
+        if (cropper) cropper.destroy();
+        cropper = new Cropper($('cropImg'), { aspectRatio: 9 / 20, viewMode: 1, dragMode: 'move', autoCropArea: 1 });
+      };
+      r.readAsDataURL(f);
+      e.target.value = '';
+    });
+    function closeCrop(){ $('cropModal').classList.remove('active'); if (cropper){ cropper.destroy(); cropper = null; } }
+    function applyCrop(){
+      if (!cropper) return;
+      const canvas = cropper.getCroppedCanvas({ width: 1080, height: 2400, imageSmoothingEnabled: true, imageSmoothingQuality: 'high' });
+      $('status').textContent = 'Uploading…';
+      canvas.toBlob(async b => {
+        const fd = new FormData(); fd.append('media', b, 'coverage.jpg');
+        try {
+          const r = await fetch('/news/upload-ad-media', { method: 'POST', body: fd });
+          const d = await r.json();
+          const url = d.mediaUrl || d.imageUrl || '';
+          if (!url) throw 0;
+          const card = document.querySelector('.lang-card[data-lang="' + curLang + '"]');
+          card.querySelector('.url').value = url;
+          let img = card.querySelector('img.thumb');
+          if (!img) { const ph = card.querySelector('.thumb'); img = document.createElement('img'); img.className = 'thumb'; ph.replaceWith(img); }
+          img.src = url;
+          $('status').textContent = 'Uploaded ✓';
+          closeCrop();
+        } catch (_) { $('status').textContent = 'Upload failed'; closeCrop(); }
+      }, 'image/jpeg', 0.95);
+    }
+    async function save(){
+      const images = [...document.querySelectorAll('.lang-card')]
+        .map(c => ({ language: c.getAttribute('data-lang'), imageUrl: c.querySelector('.url').value.trim() }))
+        .filter(x => x.imageUrl);
+      $('status').textContent = 'Saving…';
+      try {
+        const r = await fetch('/coverage/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ images, isActive: $('isActive').checked }) });
+        const d = await r.json();
+        if (!d.ok) throw new Error(d.error || 'failed');
+        $('status').textContent = 'Saved ✓';
+      } catch (e) { $('status').textContent = 'Save failed: ' + e.message; }
+    }
+    (function(){ var t = document.getElementById('menuToggle'), s = document.getElementById('sidebar'), m = document.getElementById('mainContent'); if (t && s) t.addEventListener('click', function(e){ e.stopPropagation(); s.classList.toggle('active'); if (m) m.classList.toggle('sidebar-active'); }); })();
+  </script>
+</body>
+</html>

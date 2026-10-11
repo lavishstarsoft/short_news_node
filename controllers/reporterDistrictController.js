@@ -172,6 +172,12 @@ exports.assign = async (req, res) => {
         error: `"${canon.name}" already has an in-charge: ${conflict.name || conflict.username}. Remove them from this district first, then reassign.`
       });
     }
+    // STRICT (other direction): one district in-charge = ONE district.
+    if (before.length) {
+      return res.status(409).json({
+        error: `${reporter.name || reporter.username} is already district in-charge of "${before.join(', ')}". One person can be in-charge of only one district — remove that district first.`
+      });
+    }
   }
 
   await Admin.updateOne({ _id: reporterId, assignedDistricts: { $ne: canon.name } }, { $addToSet: { assignedDistricts: canon.name } });

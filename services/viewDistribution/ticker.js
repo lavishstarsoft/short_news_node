@@ -112,7 +112,14 @@ async function tickOnce(now = Date.now()) {
       console.error(`${LOG_PREFIX} ticker: campaign ${c && c._id} error:`, err.message);
     }
   }
+
+  // Viral-video hearts: top up gradually every ~5 min (every 10th 30s tick).
+  _videoTickCounter = (_videoTickCounter + 1) % 10;
+  if (_videoTickCounter === 0) {
+    try { await require('./videoHearts').topUpVideoHearts(); } catch (_) {}
+  }
 }
+let _videoTickCounter = 0;
 
 async function tick() {
   if (!_running) return;

@@ -27,7 +27,10 @@ const userSchema = new mongoose.Schema({
     },
     source: {
       type: String,
-      enum: ['gps', 'manual', 'inferred', null],
+      // 'server' = location re-cached from the server's own copy (the app tags it
+      // that way when restoring KYC location). Must be allowed or user.save()
+      // fails validation → the profile endpoint 500s → quiz "Failed to verify".
+      enum: ['gps', 'manual', 'inferred', 'server', null],
       default: null
     },
     additionalLocations: [{ type: String }],

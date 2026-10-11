@@ -1,7 +1,7 @@
 const News = require('../models/News');
 // Centralized consumer display helper — combines organic + syntheticViews when the
 // View Engine flag is ON; returns organic-only when OFF (byte-identical to today).
-const { displayViews } = require('../services/viewDistribution/displayViews');
+const { displayViews, displayLikes, displayDislikes } = require('../services/viewDistribution/displayViews');
 const ViralVideo = require('../models/ViralVideo');
 const Category = require('../models/Category');
 const Location = require('../models/Location');
@@ -17,6 +17,9 @@ const Poll = require('../models/Poll');
 
 // Import GraphQL cache utility
 const { getCachedData, setCachedData, invalidateCache, invalidateItemCache } = require('./cache');
+// Single source of truth for "may the public see this news?" (pending / rejected /
+// deactivated / sent-back are all hidden). Closes the share-link bypass.
+const { isPublicNews, PUBLIC_NEWS_SELECT } = require('../utils/newsVisibility');
 // Import REST API cache utility for clearing REST cache after GraphQL mutations
 const { clearCache: clearRestCache } = require('../middleware/cache');
 const { buildNewsLanguageFilter, normalizeNewsLanguage } = require('../utils/newsLanguages');
@@ -25,6 +28,28 @@ const { normalizeDisplaySettings } = require('../utils/newsAuthorDisplayHelper')
 const languageRegistry = require('../services/languageRegistry');
 const jwt = require('jsonwebtoken');
 const { getJwtSecret } = require('../config/secrets');
+const { AuthenticationError } = require('apollo-server-express');
+
+// 🔒 GraphQL identity hardening (security audit run-1, GRAPHQL-NOAUTH-CLIENT-USERID).
+// When the mobile app's Google ID token is present, the verified Google id
+// (context.verifiedGoogleId) is the authoritative user id and overrides any
+// client-supplied userId. For a genuine signed-in user this is the SAME value
+// (the app's userId IS its Google sub), so legitimate traffic is unaffected; a
+// caller cannot act as another user because they cannot forge that Google token.
+// The app only ever calls these mutations while signed in (token always attached),
+// so with no verified token we reject — unless GRAPHQL_REQUIRE_AUTH is turned OFF
+// (instant kill-switch that falls back to the legacy client-supplied userId).
+const GRAPHQL_REQUIRE_AUTH = !['false', '0', 'no'].includes(
+  String(process.env.GRAPHQL_REQUIRE_AUTH || 'true').toLowerCase()
+);
+function requireAuthId(context, clientUserId) {
+  const gid = context && context.verifiedGoogleId;
+  if (gid) return String(gid);
+  if (GRAPHQL_REQUIRE_AUTH) {
+    throw new AuthenticationError('Sign-in required for this action');
+  }
+  return clientUserId;
+}
 
 function decodeAuthToken(req) {
     if (!req) return null;
@@ -171,7 +196,10 @@ const resolvers = {
                 const polls = await Poll.find(query).sort({ createdAt: -1 }).lean();
                 return polls.map(poll => {
                     const pollObj = poll;
-                    pollObj._userIdContext = userId; 
+                    pollObj._userIdContext = userId;
+                    // Absolute URL for the app; null (not placeholder) so the app
+                    // falls back to its gradient background for image-less polls.
+                    pollObj.imageUrl = poll.imageUrl ? getAbsoluteUrl(poll.imageUrl) : null;
                     return pollObj;
                 });
             } catch (error) {
@@ -186,6 +214,7 @@ const resolvers = {
                 if (!poll) return null;
                 const pollObj = poll;
                 pollObj._userIdContext = userId;
+                pollObj.imageUrl = poll.imageUrl ? getAbsoluteUrl(poll.imageUrl) : null;
                 return pollObj;
             } catch (error) {
                 console.error('Error fetching poll:', error);
@@ -246,10 +275,22 @@ const resolvers = {
             try {
                 // Check cache first (10 minutes TTL for specific items)
                 const cached = await getCachedData('newsById', { id });
-                if (cached) return cached;
+                if (cached) {
+                    // Re-check the LIVE status (cheap _id lookup) so a story that was
+                    // rejected / deactivated / sent back AFTER it was cached is never
+                    // served from the stale 10-minute copy.
+                    const live = await News.findById(id).select(PUBLIC_NEWS_SELECT).lean();
+                    if (!isPublicNews(live)) {
+                        await invalidateItemCache('newsById', id).catch(() => {});
+                        return null;
+                    }
+                    return cached;
+                }
 
                 // Cache miss - fetch from DB
                 const news = await News.findById(id).lean();
+                // Pending / rejected / deactivated / sent-back → not public, never cached.
+                if (!isPublicNews(news)) return null;
 
                 // Cache the result (600s = 10 minutes)
                 await setCachedData('newsById', { id }, news, 600);
@@ -279,6 +320,8 @@ const resolvers = {
                 }
 
                 if (!news) return null;
+                // Same public-visibility rule as newsById (closes the short-id bypass).
+                if (!isPublicNews(news)) return null;
 
                 return {
                     id: news._id.toString(),
@@ -342,14 +385,30 @@ const resolvers = {
                     const Admin = require('../models/Admin');
                     const adminUser = await Admin.findById(decodedToken.id);
                     if (adminUser && adminUser.role !== 'admin' && adminUser.role !== 'superadmin') {
-                        if (adminUser.assignedLocations && adminUser.assignedLocations.length > 0) {
-                            assignedLocations = adminUser.assignedLocations;
-                        }
+                        // Reporter's location scope = ALL of their assigned geography, not just
+                        // `assignedLocations` (which for many reporters holds only the state, so
+                        // their district/constituency was missing from the location dropdown).
+                        // Union state(s) + district(s) + constituency(ies) + legacy assignedLocations.
+                        const scope = [
+                            ...(adminUser.assignedLocations || []),
+                            ...(adminUser.assignedStates || []),
+                            ...(adminUser.assignedState ? [adminUser.assignedState] : []),
+                            ...(adminUser.assignedDistricts || []),
+                            ...(adminUser.assignedConstituencies || []),
+                            ...(adminUser.constituency ? [adminUser.constituency] : []),
+                        ].map(v => String(v || '').trim()).filter(Boolean);
+                        // De-duplicate case-insensitively.
+                        const seen = new Set();
+                        assignedLocations = scope.filter(v => { const k = v.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+                        if (!assignedLocations.length) assignedLocations = null;
                     }
                 }
 
                 if (assignedLocations) {
-                    const locations = await Location.find({ name: { $in: assignedLocations } }).lean();
+                    // Case/space-insensitive name match so messy stored values (trailing
+                    // spaces / casing) still resolve to the master Location docs.
+                    const rxs = assignedLocations.map(v => new RegExp('^\\s*' + String(v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*$', 'i'));
+                    const locations = await Location.find({ name: { $in: rxs } }).lean();
                     return locations;
                 }
 
@@ -589,8 +648,39 @@ const resolvers = {
 
                 const newsList = await query;
 
+                // Per-story earned amount (₹): a flat per-news rate set by the
+                // reporter's CATEGORY (tier) — stringer ₹5, district_incharge ₹10
+                // (overridable via AppSettings). Every APPROVED news earns that
+                // rate; non-tiered reporters / unapproved news earn 0.
+                const earnedByNewsId = {};
+                try {
+                    const AdminModel = require('../models/Admin');
+                    const AppSettings = require('../models/AppSettings');
+                    const reporterAdmin = await AdminModel.findById(normalizedEditorId).select('reporterTier').lean();
+                    const tier = reporterAdmin && reporterAdmin.reporterTier;
+                    if (tier === 'stringer' || tier === 'district_incharge') {
+                        const rates = { stringer: 5, district_incharge: 10 };
+                        try {
+                            const s = await AppSettings.findOne({ key: 'update_flags' })
+                                .select('stringerRatePerNews districtInchargeRatePerNews').lean();
+                            if (s) {
+                                if (Number.isFinite(s.stringerRatePerNews)) rates.stringer = s.stringerRatePerNews;
+                                if (Number.isFinite(s.districtInchargeRatePerNews)) rates.district_incharge = s.districtInchargeRatePerNews;
+                            }
+                        } catch (_) { /* defaults 5/10 */ }
+                        const perNews = rates[tier];
+                        for (const news of newsList) {
+                            const approved = news.approvalStatus && news.approvalStatus.isApproved && news.isActive !== false;
+                            if (approved) earnedByNewsId[news._id.toString()] = perNews;
+                        }
+                    }
+                } catch (e) {
+                    console.error('earnedAmount computation failed (defaulting to 0):', e.message);
+                }
+
                 return newsList.map(news => ({
                     id: news._id.toString(),
+                    earnedAmount: earnedByNewsId[news._id.toString()] || 0,
                     title: news.title,
                     content: wantContent ? (news.content || '') : '',
                     category: news.category,
@@ -1010,6 +1100,11 @@ const resolvers = {
         // the single centralized combine. (Socket emits keep their own
         // displayViews() call because they are not GraphQL-serialized.)
         views: (parent) => displayViews(parent),
+        // Blend synthetic likes/dislikes the SAME way as views — single source of
+        // truth for the counts GraphQL returns (the app's getNewsShort/getNews
+        // feed reads these). Flag OFF or missing synthetic => organic unchanged.
+        likes: (parent) => displayLikes(parent),
+        dislikes: (parent) => displayDislikes(parent),
         commentsData: (parent) => {
             // Convert userInteractions.comments to Comment type
             if (parent.userInteractions && parent.userInteractions.comments) {
@@ -1239,7 +1334,9 @@ const resolvers = {
             }
         },
 
-        voteOnPoll: async (_, { pollId, optionId, userId }) => {
+        voteOnPoll: async (_, { pollId, optionId, userId }, context) => {
+            // 🔒 identity from verified Google token wins over client userId
+            userId = requireAuthId(context, userId);
             try {
                 const poll = await Poll.findById(pollId);
                 if (!poll) throw new Error('Poll not found');
@@ -1277,6 +1374,9 @@ const resolvers = {
 
                 const pollObj = poll.toObject();
                 pollObj._userIdContext = userId;
+                // Same shape as getAllPolls: absolute URL, null when unset — so a
+                // vote reply never drops the app's background image.
+                pollObj.imageUrl = poll.imageUrl ? getAbsoluteUrl(poll.imageUrl) : null;
                 return pollObj;
             } catch (error) {
                 console.error('Error voting on poll:', error);
@@ -1398,40 +1498,21 @@ const resolvers = {
 
         incrementViews: async (_, { newsId, userId, userName }, context) => {
             try {
-                const news = await News.findById(newsId);
-                if (!news) {
-                    throw new Error('News not found');
-                }
-
-                // Initialize userInteractions if it doesn't exist
-                if (!news.userInteractions) {
-                    news.userInteractions = { likes: [], dislikes: [], comments: [], views: [] };
-                }
-                // Initialize views array if it doesn't exist
-                if (!news.userInteractions.views) {
-                    news.userInteractions.views = [];
-                }
-
-                // Check if user already viewed this news
-                const alreadyViewed = news.userInteractions.views.some(
-                    view => view.userId === userId
+                // ATOMIC + race-free: bump the counter and record the viewer only
+                // if they haven't viewed before. Touches ONLY the view fields, so a
+                // concurrent like/dislike can never be overwritten (the old
+                // read-modify-write news.save() rewrote the WHOLE document, which
+                // is what silently reset likes/dislikes back to 0).
+                const news = await News.findOneAndUpdate(
+                    { _id: newsId, 'userInteractions.views.userId': { $ne: userId } },
+                    {
+                        $inc: { views: 1 },
+                        $push: { 'userInteractions.views': { userId: userId, userName: userName || 'Anonymous', timestamp: new Date() } }
+                    },
+                    { new: true }
                 );
 
-                if (!alreadyViewed) {
-                    // Increment total views
-                    news.views += 1;
-
-                    // Add to userViews array for tracking
-                    news.userInteractions.views.push({
-                        userId: userId,
-                        userName: userName || 'Anonymous',
-                        timestamp: new Date()
-                    });
-
-                    await news.save();
-
-                    // 🚀 REAL-TIME UPDATE: WebSocket event for view count update
-                    // Telugu: View count real-time గా update అవుతుంది
+                if (news) {
                     const io = context?.io || (global.io);
                     if (io) {
                         io.emit('news_interaction', {
@@ -1442,22 +1523,18 @@ const resolvers = {
                             comments: news.comments,
                             views: displayViews(news)
                         });
-                        console.log(`🔥 Real-time view update sent: ${news.title} - Views: ${news.views}`);
                     }
-
-                    // 🚀 Invalidate cache so fresh data is returned
                     await invalidateCache('graphql:news:*');
                     await invalidateItemCache('newsById', newsId);
-                    // Clear REST API cache to ensure accurate view counts
                     await clearRestCache('cache:/api/public/news*');
                     await clearRestCache('cache:/api/public/news');
-
-                    console.log(`✅ View tracked: ${news.title.substring(0, 40)}... - User: ${userId} - Total views: ${news.views}`);
-                } else {
-                    console.log(`ℹ️ Duplicate view prevented: ${news.title.substring(0, 40)}... - User: ${userId}`);
+                    return news;
                 }
 
-                return news;
+                // Already viewed (or news missing) → no-op; return the current doc.
+                const current = await News.findById(newsId);
+                if (!current) throw new Error('News not found');
+                return current;
             } catch (error) {
                 console.error('Error incrementing views:', error);
                 throw new Error('Failed to increment views');
@@ -1466,152 +1543,104 @@ const resolvers = {
 
         // New user interaction mutations (matching REST API functionality)
         interactWithNews: async (_, { newsId, action, userId, userName, userEmail, commentText }, context) => {
+            // 🔒 identity from verified Google token wins over client userId
+            userId = requireAuthId(context, userId);
             try {
-                const news = await News.findById(newsId);
-                if (!news) {
-                    throw new Error('News not found');
-                }
+                // ATOMIC, self-healing interactions. Each action is a single
+                // aggregation-pipeline update that (a) changes only its own array,
+                // and (b) recomputes the integer counter from that array's size —
+                // so a like can never be clobbered by a concurrent view/dislike,
+                // and the counter can never drift from the actual set (which is why
+                // likes went 1 → 0 and comments/counts desynced before).
+                const now = new Date();
+                const likeEntry = { userId, userName: userName || 'User', userEmail: userEmail || '', timestamp: now };
+                const dislikeEntry = { userId, userName: userName || 'User', userEmail: userEmail || '', timestamp: now };
+                const commentEntry = { userId, userName: userName || 'User', userEmail: userEmail || '', comment: commentText, timestamp: now, likes: [] };
 
-                // Initialize userInteractions if it doesn't exist
-                if (!news.userInteractions) {
-                    news.userInteractions = { likes: [], dislikes: [], comments: [], views: [] };
-                }
+                // Make sure userInteractions exists without wiping existing subarrays.
+                const ensure = { $set: { userInteractions: { $ifNull: ['$userInteractions', { likes: [], dislikes: [], comments: [], views: [] }] } } };
+                const userIn = (path) => ({ $in: [userId, { $map: { input: { $ifNull: [path, []] }, in: '$$this.userId' } }] });
+                const without = (path) => ({ $filter: { input: { $ifNull: [path, []] }, cond: { $ne: ['$$this.userId', userId] } } });
 
+                let pipeline;
                 switch (action) {
                     case 'like':
-                        // Check if user already disliked
-                        const existingDislikeIndex = news.userInteractions.dislikes.findIndex(
-                            dislike => dislike.userId === userId
-                        );
-                        if (existingDislikeIndex !== -1) {
-                            news.dislikes = Math.max(0, news.dislikes - 1);
-                            news.userInteractions.dislikes.splice(existingDislikeIndex, 1);
-                        }
-
-                        // Toggle like
-                        const existingLikeIndex = news.userInteractions.likes.findIndex(
-                            like => like.userId === userId
-                        );
-                        if (existingLikeIndex === -1) {
-                            news.likes += 1;
-                            news.userInteractions.likes.push({
-                                userId,
-                                userName: userName || 'User',
-                                userEmail: userEmail || '',
-                                timestamp: new Date()
-                            });
-                        } else {
-                            news.likes = Math.max(0, news.likes - 1);
-                            news.userInteractions.likes.splice(existingLikeIndex, 1);
-                        }
-                        break;
-
-                    case 'dislike':
-                        // Check if user already liked
-                        const existingLikeIndex2 = news.userInteractions.likes.findIndex(
-                            like => like.userId === userId
-                        );
-                        if (existingLikeIndex2 !== -1) {
-                            news.likes = Math.max(0, news.likes - 1);
-                            news.userInteractions.likes.splice(existingLikeIndex2, 1);
-                        }
-
-                        // Toggle dislike
-                        const existingDislikeIndex2 = news.userInteractions.dislikes.findIndex(
-                            dislike => dislike.userId === userId
-                        );
-                        if (existingDislikeIndex2 === -1) {
-                            news.dislikes += 1;
-                            news.userInteractions.dislikes.push({
-                                userId,
-                                userName: userName || 'User',
-                                userEmail: userEmail || '',
-                                timestamp: new Date()
-                            });
-                        } else {
-                            news.dislikes = Math.max(0, news.dislikes - 1);
-                            news.userInteractions.dislikes.splice(existingDislikeIndex2, 1);
-                        }
+                        pipeline = [ensure,
+                            { $set: {
+                                'userInteractions.likes': { $cond: [userIn('$userInteractions.likes'), '$userInteractions.likes', { $concatArrays: ['$userInteractions.likes', [{ $literal: likeEntry }]] }] },
+                                'userInteractions.dislikes': without('$userInteractions.dislikes')
+                            } },
+                            { $set: { likes: { $size: '$userInteractions.likes' }, dislikes: { $size: '$userInteractions.dislikes' } } }
+                        ];
                         break;
 
                     case 'unlike':
-                        const likeIdx = news.userInteractions.likes.findIndex(l => String(l.userId) === String(userId));
-                        if (likeIdx !== -1) {
-                            news.userInteractions.likes.splice(likeIdx, 1);
-                            news.likes = Math.max(0, news.likes - 1);
-                        }
+                        pipeline = [ensure,
+                            { $set: { 'userInteractions.likes': without('$userInteractions.likes') } },
+                            { $set: { likes: { $size: '$userInteractions.likes' } } }
+                        ];
+                        break;
+
+                    case 'dislike':
+                        pipeline = [ensure,
+                            { $set: {
+                                'userInteractions.dislikes': { $cond: [userIn('$userInteractions.dislikes'), '$userInteractions.dislikes', { $concatArrays: ['$userInteractions.dislikes', [{ $literal: dislikeEntry }]] }] },
+                                'userInteractions.likes': without('$userInteractions.likes')
+                            } },
+                            { $set: { dislikes: { $size: '$userInteractions.dislikes' }, likes: { $size: '$userInteractions.likes' } } }
+                        ];
                         break;
 
                     case 'undislike':
-                        const dislikeIdx = news.userInteractions.dislikes.findIndex(d => String(d.userId) === String(userId));
-                        if (dislikeIdx !== -1) {
-                            news.userInteractions.dislikes.splice(dislikeIdx, 1);
-                            news.dislikes = Math.max(0, news.dislikes - 1);
-                        }
+                        pipeline = [ensure,
+                            { $set: { 'userInteractions.dislikes': without('$userInteractions.dislikes') } },
+                            { $set: { dislikes: { $size: '$userInteractions.dislikes' } } }
+                        ];
                         break;
 
                     case 'comment':
-                        if (!commentText) {
-                            throw new Error('Comment text is required');
-                        }
-                        news.comments += 1;
-                        news.userInteractions.comments.push({
-                            userId,
-                            userName: userName || 'User',
-                            userEmail: userEmail || '',
-                            comment: commentText,
-                            timestamp: new Date(),
-                            likes: []
-                        });
+                        if (!commentText) throw new Error('Comment text is required');
+                        pipeline = [ensure,
+                            { $set: { 'userInteractions.comments': { $concatArrays: ['$userInteractions.comments', [{ $literal: commentEntry }]] } } },
+                            { $set: { comments: { $size: '$userInteractions.comments' } } }
+                        ];
                         break;
 
                     case 'delete_comment':
-                        if (!commentText) {
-                            throw new Error('Comment text is required for deletion');
-                        }
-                        const commentIndex = news.userInteractions.comments.findIndex(
-                            c => String(c.userId) === String(userId) && c.comment === commentText
-                        );
-                        if (commentIndex !== -1) {
-                            news.userInteractions.comments.splice(commentIndex, 1);
-                            news.comments = Math.max(0, news.comments - 1);
-                        }
+                        if (!commentText) throw new Error('Comment text is required for deletion');
+                        pipeline = [ensure,
+                            { $set: { 'userInteractions.comments': { $filter: { input: '$userInteractions.comments', cond: { $not: [{ $and: [{ $eq: ['$$this.userId', userId] }, { $eq: ['$$this.comment', commentText] }] }] } } } } },
+                            { $set: { comments: { $size: '$userInteractions.comments' } } }
+                        ];
                         break;
 
                     case 'like_comment':
-                        if (!commentText) {
-                            throw new Error('Comment text is required to like');
-                        }
-                        const comment = news.userInteractions.comments.find(
-                            c => c.comment === commentText
-                        );
-                        if (comment) {
-                            if (!comment.likes) {
-                                comment.likes = [];
-                            }
-                            const likeIndex = comment.likes.findIndex(
-                                like => String(like.userId) === String(userId)
-                            );
-                            if (likeIndex === -1) {
-                                comment.likes.push({
-                                    userId,
-                                    userName: userName || 'User',
-                                    timestamp: new Date()
-                                });
-                            } else {
-                                comment.likes.splice(likeIndex, 1);
-                            }
-                            news.markModified('userInteractions.comments');
-                        } else {
-                            throw new Error('Comment not found to like');
-                        }
+                        if (!commentText) throw new Error('Comment text is required to like');
+                        pipeline = [ensure,
+                            { $set: { 'userInteractions.comments': {
+                                $map: {
+                                    input: '$userInteractions.comments',
+                                    as: 'c',
+                                    in: { $cond: [
+                                        { $eq: ['$$c.comment', commentText] },
+                                        { $mergeObjects: ['$$c', { likes: { $cond: [
+                                            { $in: [userId, { $map: { input: { $ifNull: ['$$c.likes', []] }, as: 'l', in: '$$l.userId' } }] },
+                                            { $filter: { input: { $ifNull: ['$$c.likes', []] }, as: 'l', cond: { $ne: ['$$l.userId', userId] } } },
+                                            { $concatArrays: [{ $ifNull: ['$$c.likes', []] }, [{ $literal: { userId, userName: userName || 'User', timestamp: now } }]] }
+                                        ] } }] },
+                                        '$$c'
+                                    ] }
+                                }
+                            } } }
+                        ];
                         break;
 
                     default:
                         throw new Error(`Invalid action: ${action}`);
                 }
 
-                await news.save();
+                const news = await News.findOneAndUpdate({ _id: newsId }, pipeline, { new: true });
+                if (!news) throw new Error('News not found');
                 console.log(`✅ GraphQL: ${action} by ${userName} on news ${newsId}`);
 
                 // Invalidate related caches after mutation
@@ -1658,6 +1687,8 @@ const resolvers = {
         },
 
         interactWithViralVideo: async (_, { videoId, action, userId, userName, userEmail, commentText }, context) => {
+            // 🔒 identity from verified Google token wins over client userId
+            userId = requireAuthId(context, userId);
             try {
                 console.log(`🎬 GraphQL: Viral video interaction: ${action} by ${userName} (${userId})`);
 
@@ -1818,6 +1849,8 @@ const resolvers = {
 
         // Like/Unlike a viral video comment
         likeViralVideoComment: async (_, { videoId, commentText, userId, userName }, context) => {
+            // 🔒 identity from verified Google token wins over client userId
+            userId = requireAuthId(context, userId);
             try {
                 console.log(`❤️ GraphQL: Like viral video comment by ${userName}`);
 
@@ -1924,6 +1957,17 @@ const resolvers = {
                     return {
                         success: false,
                         message: 'Username and password are required',
+                        token: null,
+                        editor: null
+                    };
+                }
+
+                // Reporter Security (Super Admin switch): the reporter web portal is closed —
+                // reporters use the Tehelka News app (one-device login, device & GPS checks).
+                if ((await require('../services/security/reporterSecuritySettings').get()).closeReporterPortal) {
+                    return {
+                        success: false,
+                        message: 'The reporter web portal is closed. Please log in from the Tehelka News app.',
                         token: null,
                         editor: null
                     };
@@ -2103,7 +2147,9 @@ const resolvers = {
         },
 
         // Delete own viral video comment
-        deleteViralVideoComment: async (_, { videoId, commentId, commentText, userId, timestamp }) => {
+        deleteViralVideoComment: async (_, { videoId, commentId, commentText, userId, timestamp }, context) => {
+            // 🔒 identity from verified Google token wins over client userId
+            userId = requireAuthId(context, userId);
             try {
                 console.log(`\n🗑️ START DELETE: User ${userId} wants to delete comment`);
                 if (commentId) console.log(`   Target ID: ${commentId}`);
@@ -2192,7 +2238,9 @@ const resolvers = {
             }
         },
 
-        likeComment: async (_, { newsId, commentId, userId, userName, userEmail }) => {
+        likeComment: async (_, { newsId, commentId, userId, userName, userEmail }, context) => {
+            // 🔒 identity from verified Google token wins over client userId
+            userId = requireAuthId(context, userId);
             try {
                 const news = await News.findById(newsId);
                 if (!news) throw new Error('News not found');
@@ -2215,7 +2263,9 @@ const resolvers = {
             }
         },
 
-        deleteComment: async (_, { newsId, commentId, userId }) => {
+        deleteComment: async (_, { newsId, commentId, userId }, context) => {
+            // 🔒 identity from verified Google token wins over client userId
+            userId = requireAuthId(context, userId);
             try {
                 const news = await News.findById(newsId);
                 if (!news) throw new Error('News not found');
@@ -2240,6 +2290,8 @@ const resolvers = {
 
         // Report mutations
         reportNews: async (_, { newsId, reason, description, userId, userName, userEmail }, context) => {
+            // 🔒 identity from verified Google token wins over client userId
+            userId = requireAuthId(context, userId);
             try {
                 const report = new Report({
                     newsId,
@@ -2279,6 +2331,8 @@ const resolvers = {
         },
 
         reportComment: async (_, { newsId, commentText, commentUserId, commentUserName, userId, userName, userEmail, reason, additionalDetails }, context) => {
+            // 🔒 identity from verified Google token wins over client userId
+            userId = requireAuthId(context, userId);
             try {
                 const report = new CommentReport({
                     newsId,
@@ -2325,6 +2379,8 @@ const resolvers = {
         },
 
         reportViralVideoComment: async (_, { videoId, commentText, commentUserId, commentUserName, userId, userName, userEmail, reason, additionalDetails }, context) => {
+            // 🔒 identity from verified Google token wins over client userId
+            userId = requireAuthId(context, userId);
             try {
                 const report = new CommentReport({
                     newsId: videoId,
@@ -2375,6 +2431,16 @@ const resolvers = {
                 const Admin = require('../models/Admin');
                 const jwt = require('jsonwebtoken');
 
+                // Reporter Security (Super Admin switch): no self sign-up while the portal is closed.
+                if ((await require('../services/security/reporterSecuritySettings').get()).closeReporterPortal) {
+                    return {
+                        success: false,
+                        message: 'Registration on the web portal is closed. Please apply from the Tehelka News app.',
+                        token: null,
+                        editor: null
+                    };
+                }
+
                 // Check if username or email already exists
                 const existingUser = await Admin.findOne({ $or: [{ username }, { email }] });
                 if (existingUser) {
@@ -2398,7 +2464,8 @@ const resolvers = {
                     mobileNumber: mobileNumber || null,
                     workingLanguage: normalizeNewsLanguage(workingLanguage),
                     isActive: true,
-                    isApproved: false
+                    isApproved: false,
+                    createdVia: 'portal_signup'
                 });
 
                 await newEditor.save();
@@ -2525,6 +2592,10 @@ const resolvers = {
 
     ViralVideo: {
         id: (parent) => parent.id || parent._id.toString(),
+        // Hearts (likes) + dislikes = organic + engine-owned synthetic, blended
+        // only here (flag OFF ⇒ organic unchanged).
+        likes: (parent) => displayLikes(parent),
+        dislikes: (parent) => displayDislikes(parent),
         mediaUrl: (parent) => getAbsoluteUrl(parent.mediaUrl || parent.videoUrl),
         thumbnailUrl: (parent) => getAbsoluteUrl(parent.thumbnailUrl || parent.mediaUrl || parent.videoUrl) || '/images/placeholder.png',
         videoUrl: (parent) => parent.videoUrl || '',

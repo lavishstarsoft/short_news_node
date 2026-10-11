@@ -1,0 +1,69 @@
+<%- include('partials/header') %>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'Authorization', backButton: true, backUrl: '/admin/organization' }) %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .auth-card { border-radius:12px; border:1px solid #f0f0f0; box-shadow:0 4px 6px rgba(0,0,0,.04); background:#fff; }
+  .perm-code { font-family:monospace; font-size:11px; color:#6b7280; background:#f6f7f9; padding:2px 6px; border-radius:6px; }
+  .info-box { background:#f0f7ff; border:1px solid #cfe6ff; border-radius:12px; padding:14px 16px; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-3">
+
+    <div class="mb-3">
+      <h4 class="fw-bold mb-1"><i class="fas fa-key me-2 text-primary"></i>Authorization</h4>
+      <p class="text-muted mb-0" style="max-width:720px">
+        These are the <strong>permissions</strong> the system understands. Each permission is a single ability
+        (like “approve a payment” or “edit a news article”). In a later phase these will be grouped into
+        <strong>roles</strong> and assigned to staff. This page is a read-only reference — nothing here changes access yet.
+      </p>
+    </div>
+
+    <div class="info-box mb-3 small">
+      <i class="fas fa-info-circle me-1 text-primary"></i>
+      Today access is decided by the existing role system. This catalog is what the <strong>new</strong> permission
+      system uses, currently running only in <a href="/admin/shadow-mode">Shadow Mode</a> (observation, no enforcement).
+    </div>
+
+    <div class="row g-3">
+      <% catalog.forEach(function(cat){ %>
+        <div class="col-12 col-lg-6">
+          <div class="auth-card h-100">
+            <div class="p-3 border-bottom">
+              <h6 class="fw-bold mb-0"><i class="fas <%= cat.icon %> me-2 text-secondary"></i><%= cat.group %></h6>
+            </div>
+            <div class="p-2">
+              <table class="table table-sm align-middle mb-0">
+                <tbody>
+                  <% cat.items.forEach(function(it){ %>
+                    <tr>
+                      <td style="width:38%"><span class="fw-semibold small"><%= it.label %></span></td>
+                      <td class="small text-muted"><%= it.desc %></td>
+                      <td class="text-end"><span class="perm-code"><%= it.code %></span></td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+
+    <div class="mt-4 auth-card p-3">
+      <h6 class="fw-bold mb-1"><i class="fas fa-layer-group me-1 text-muted"></i> Scope (coming next phase)</h6>
+      <p class="small text-muted mb-0">
+        Each permission will also carry a <strong>scope</strong> — how far it reaches: <em>Own</em>, <em>Reporters</em>,
+        <em>District</em>, <em>State</em>, <em>Department</em>, or <em>Global</em>. Scope management arrives with the
+        Roles &amp; Departments phase; it is not configurable yet.
+      </p>
+    </div>
+
+  </div>
+</main>
+
+<%- include('partials/footer') %>
+</body>
+</html>

@@ -132,11 +132,15 @@ const io = socketIo(server, {
 // Store connected clients
 const connectedClients = new Map();
 
+// Live presence tracker for the admin Live Analytics dashboard (in-memory, additive).
+const livePresence = require('./services/livePresence');
+
 io.use(socketAuthMiddleware);
 
 // WebSocket connection handling
 io.on('connection', (socket) => {
   joinWorkflowRooms(socket);
+  livePresence.connect(socket.id);
 
   let userId = null;
 
@@ -150,7 +154,14 @@ io.on('connection', (socket) => {
 
     userId = result.userId;
     connectedClients.set(userId, socket.id);
+    livePresence.setUser(socket.id, userId);
     logger.info(`User ${userId} registered with socket ${socket.id}`);
+  });
+
+  // Live screen presence: app reports its current screen on every navigation.
+  // In-memory only, no DB — drives the Live Analytics dashboard.
+  socket.on('screen_view', (data) => {
+    try { livePresence.update(socket.id, data || {}); } catch (_) {}
   });
 
   // Handle news received acknowledgment
@@ -159,20 +170,19 @@ io.on('connection', (socket) => {
       console.warn('[socket] news_received rejected: userId mismatch or unauthenticated');
       return;
     }
-    logger.info('News received acknowledgment:', data);
+    logger.debug('News received acknowledgment:', data);
     try {
       if (mongoose.connection.readyState === 1) { // Check if MongoDB is connected
-        // Find notifications related to this news item
-        const notifications = await Notification.find({ newsId: data.newsId });
-        for (const notification of notifications) {
-          const recipient = notification.recipients.find(r => r.userId === data.userId);
-          if (recipient && !recipient.received) {
-            recipient.received = true;
-            recipient.receivedAt = new Date(data.timestamp);
-            await notification.save();
-            logger.info(`Marked notification ${notification._id} as received for user ${data.userId}`);
-          }
-        }
+        // One indexed, targeted write instead of load-every-matching-doc and
+        // re-save it. Backed by the { newsId: 1 } index, so a single ack is one
+        // cheap positional update — not a full-collection scan plus a document
+        // rewrite. This is what pegged CPU when a news reached many users at once.
+        const receivedAt = data.timestamp ? new Date(data.timestamp) : new Date();
+        await Notification.updateMany(
+          { newsId: data.newsId, recipients: { $elemMatch: { userId: data.userId, received: { $ne: true } } } },
+          { $set: { 'recipients.$[r].received': true, 'recipients.$[r].receivedAt': receivedAt } },
+          { arrayFilters: [{ 'r.userId': data.userId, 'r.received': { $ne: true } }] },
+        );
       }
     } catch (error) {
       logger.error('Error marking news as received:', error);
@@ -231,6 +241,7 @@ io.on('connection', (socket) => {
 
   // Handle client disconnection
   socket.on('disconnect', () => {
+    livePresence.disconnect(socket.id);
     // Remove client from connected clients
     for (let [storedUserId, socketId] of connectedClients.entries()) {
       if (socketId === socket.id) {
@@ -258,6 +269,7 @@ const languageRegistry = require('./services/languageRegistry');
 const adminRoutes = require('./routes/adminRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const adRoutes = require('./routes/adRoutes'); // Add this line for ads routes
+const threeDAdRoutes = require('./routes/threeDAdRoutes'); // 3D (CSS-rotated) image ads — isolated
 const intelligentAdRoutes = require('./routes/intelligentAdRoutes'); // Add this line for intelligent ads routes
 const cacheRoutes = require('./routes/cacheRoutes'); // Cache management routes
 const appSettingsRoutes = require('./routes/appSettingsRoutes'); // App Settings route
@@ -292,6 +304,29 @@ app.use(pinoHttp({
       req.url.startsWith('/.well-known'),
   },
 }));
+
+// ── Slow-request logger (observability only) ─────────────────────────────────
+// Times every request and logs ONLY the slow ones (>= SLOW_LOG_MS, default
+// 1000ms), so at peak we can see EXACTLY which endpoint drags instead of
+// guessing. Pure measurement — it never blocks, delays or alters a response;
+// the timer just fires on 'finish'. Turn it off any time with
+// SLOW_LOG_ENABLED=false (then pm2 restart). pm2-logrotate keeps the logs small.
+if (String(process.env.SLOW_LOG_ENABLED || 'true').toLowerCase() !== 'false') {
+  const SLOW_MS = Number(process.env.SLOW_LOG_MS) || 1000;
+  app.use((req, res, next) => {
+    const start = process.hrtime.bigint();
+    res.on('finish', () => {
+      const ms = Number(process.hrtime.bigint() - start) / 1e6;
+      if (ms >= SLOW_MS) {
+        logger.warn(
+          { slow: true, method: req.method, url: req.originalUrl, status: res.statusCode, ms: Math.round(ms) },
+          `SLOW ${req.method} ${req.originalUrl} ${Math.round(ms)}ms`,
+        );
+      }
+    });
+    next();
+  });
+}
 
 // Security headers. CSP is disabled here because the admin dashboard uses
 // inline scripts/styles and external CDNs; enable a tuned CSP later if needed.
@@ -418,6 +453,23 @@ const authLimiter = rateLimit({
 });
 app.use(['/login', '/admin/login', '/api/admin/login'], authLimiter);
 
+// Reporter app login: same brute-force limit, switched on/off by the Super Admin on the
+// Reporter Security page (off = unchanged behaviour). Reads the cached switch (no DB hit).
+const reporterLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.REPORTER_LOGIN_RATE_LIMIT_MAX) || 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please wait 15 minutes and try again.' },
+  validate: rateLimitValidate,
+  store: createRedisRateStore('rl:replogin:'),
+});
+app.use('/admin/api/reporter/login', (req, res, next) => (
+  require('./services/security/reporterSecuritySettings').current().reporterLoginRateLimit
+    ? reporterLoginLimiter(req, res, next)
+    : next()
+));
+
 // Handle JSON and URL-encoded data with large limits
 // Hardened body limits: file uploads use multipart (multer), so JSON bodies are
 // small (largest is a base64 signature ~tens of KB). 1 MB blocks 10 MB DoS-amplifier
@@ -442,6 +494,9 @@ app.use(require('./middleware/csrfGuard')());
 
 // CSP violation report sink → Security Alert Engine (no auth; browsers post here).
 app.use(require('./routes/securityReportRoutes'));
+
+// FCM device-token registration (own-push real delivered count) — public, additive.
+app.use(require('./routes/deviceTokenRoutes'));
 
 // 🚀 Explicit route for Android Digital Asset Links (MUST be an Array)
 app.get(['/.well-known/assetlinks.json', '/assetlinks.json'], (req, res) => {
@@ -522,7 +577,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 // valid, which meant anyone who knew a user id could impersonate that user.
 // That bypass has been removed — identity now comes only from a verified
 // Google ID token (see middleware/mobileAuth.js).
-const { verifyMobileUser } = require('./middleware/mobileAuth');
+const { verifyMobileUser, verifyGoogleIdTokenCached } = require('./middleware/mobileAuth');
 app.locals.verifyMobileUser = verifyMobileUser;
 app.locals.googleAuthClient = client;
 
@@ -531,7 +586,7 @@ app.locals.googleAuthClient = client;
 
 
 // Set global asset version for cache busting CSS and JS files
-app.locals.assetVersion = '1.0.1';
+app.locals.assetVersion = '1.0.4';
 
 // Set EJS as templating engine
 app.set('view engine', 'ejs');
@@ -833,13 +888,27 @@ const startServer = async () => {
       resolvers,
       // 🔒 Reject deeply-nested queries that can be used to overload the server.
       validationRules: [depthLimit(Number(process.env.GRAPHQL_DEPTH_LIMIT) || 10)],
-      context: ({ req }) => ({
-        req,
-        io,
-        connectedClients,
-        // Per-request DataLoaders to batch author lookups (fixes N+1).
-        loaders: createLoaders(),
-      }),
+      context: async ({ req }) => {
+        // 🔒 Identity hardening: verify the mobile app's Google ID token (if any)
+        // once per request so user-scoped resolvers can trust context.verifiedGoogleId
+        // instead of a client-supplied userId. Anonymous reads carry no token and
+        // skip the (cached) verify entirely, so there is no added cost for them.
+        let verifiedGoogleId = null;
+        try {
+          const authHeader = req && req.headers && req.headers.authorization;
+          if (authHeader && authHeader.startsWith('Bearer ')) {
+            verifiedGoogleId = await verifyGoogleIdTokenCached(authHeader.slice(7));
+          }
+        } catch (_) { verifiedGoogleId = null; }
+        return {
+          req,
+          io,
+          connectedClients,
+          verifiedGoogleId,
+          // Per-request DataLoaders to batch author lookups (fixes N+1).
+          loaders: createLoaders(),
+        };
+      },
 
       // 🔒 Security: Use bounded cache to prevent memory exhaustion attacks
       // This limits the cache size and prevents denial of service attacks
@@ -893,6 +962,8 @@ const startServer = async () => {
       if (isRedisAvailable()) {
         logger.info(`Cache Management: http://localhost:${PORT}/cache/management`);
       }
+      // Buffer high-volume view writes and flush them to Mongo in batches.
+      try { require('./utils/viewBuffer').startViewFlusher(); } catch (e) { logger.warn('view flusher start failed: ' + e.message); }
     });
   } catch (error) {
     logger.error('Error starting server:', error);
@@ -910,6 +981,18 @@ app.post('/login', login);
 
 // Add logout route at the root level
 app.get('/logout', logout);
+
+// Flush buffered view counts before the process exits (pm2 restart / deploy) so
+// a graceful restart never drops pending view deltas.
+let _shuttingDown = false;
+async function _gracefulFlush() {
+  if (_shuttingDown) return;
+  _shuttingDown = true;
+  try { await require('./utils/viewBuffer').flushViewBuffer(); } catch (_) { /* best effort */ }
+  process.exit(0);
+}
+process.on('SIGTERM', _gracefulFlush);
+process.on('SIGINT', _gracefulFlush);
 
 // Add reports page route at the root level
 
@@ -980,8 +1063,18 @@ app.get('/ads', requireAuth, (req, res) => {
 
 // Use routes - reorganize to ensure proper isolation
 app.use('/', publicRoutes); // Public API routes (already have /api/public prefix)
+
+// Keep the busiest train boards warm. IRCTC1 takes ~5 s for a station board, so
+// without this the first reader of each station waits for it; with it they get a
+// cached answer. Additive and self-disabling when no RapidAPI key is configured.
+try {
+  require('./controllers/trainController').startWarmup();
+} catch (e) {
+  console.error('train warmup not started:', e.message);
+}
 // Smart View Distribution Engine — isolated superadmin admin API (mounted before /admin so the prefix wins)
 app.use('/admin/view-engine', requireAuth, require('./services/viewDistribution/admin/viewEngineRoutes'));
+app.use('/admin/live-analytics', require('./routes/liveAnalyticsRoutes')); // Real-time presence dashboard (mounted before /admin so the prefix wins)
 app.use('/admin', adminRoutes); // Admin routes with /admin prefix
 app.use('/state-agreement', require('./routes/agreementRoutes')); // Public State In-Charge agreement flow
 app.use('/news', newsRoutes); // News routes with /news prefix
@@ -992,6 +1085,10 @@ app.use('/locations', locationRoutes);
 app.use('/languages', languageRoutes);
 app.use('/staff-categories', require('./routes/staffCategoryRoutes')); // Admin-managed Display Role categories
 app.use('/ads', adRoutes); // Add this line for ads routes
+app.use('/3d-ads', threeDAdRoutes); // 3D image ads admin + public API (isolated, additive)
+app.use('/ar-ads', require('./routes/arAdRoutes')); // Sponsored AR ads (Scene Viewer) — isolated, additive
+app.use('/dice-ads', require('./routes/dicePageRoutes')); // Full-page finger-rotatable 3D dice ads (isolated, additive)
+app.use('/coverage', require('./routes/coverageRoutes')); // India coverage map — admin-managed live states (isolated, additive)
 app.use('/intelligent-ads', intelligentAdRoutes); // Add this line for intelligent ads routes
 app.use('/cache', cacheRoutes); // Cache management routes
 app.use('/', appSettingsRoutes); // Ensure it catches /api/admin/app-settings and /api/public/app-settings
@@ -1004,10 +1101,18 @@ app.use('/view-engine', requireAuth, require('./routes/viewEngineRoutes')); // V
 // Start the Referral Cron Job
 const { startReferralCron } = require('./services/referralCron');
 startReferralCron();
+// Auto-reject stale "Send back for edit" revisions (reporter didn't resubmit in time)
+const { startRevisionAutoRejectCron } = require('./services/revisionAutoReject');
+startRevisionAutoRejectCron(io);
 
 // Start the Stringer Migration Cron Job
 const { startStringerMigrationCron } = require('./services/stringerMigrationCron');
 startStringerMigrationCron();
+
+// Reporter Reliability compute cron (compute-only; OFF unless
+// REPORTER_RELIABILITY_ENABLED=true). Never restricts anyone automatically.
+const { startReporterReliabilityCron } = require('./services/integrity/reporterReliabilityService');
+startReporterReliabilityCron();
 
 // Phase-4.1 — PENDING embed worker (no-op unless AI_EMBED_WORKER_ENABLED=true)
 const {
@@ -1028,6 +1133,16 @@ recoverStuckVerifications(io);
 // Smart View Distribution Engine — isolated plug-in (no-op unless AppSettings.viewEngineEnabled=true)
 const { maybeStartViewEngine } = require('./services/viewDistribution');
 maybeStartViewEngine(io);
+
+// TEHELKA NEXA — Central AI Orchestrator. Fully isolated under ./nexa and OFF by
+// default (NEXA_ENABLED=false). init() is inert when disabled and is wrapped so
+// it can NEVER crash or block server startup; the dashboard runs normally either
+// way. No existing workflow/cron/job is touched here.
+try {
+  require('./nexa').init();
+} catch (nexaErr) {
+  console.warn('[NEXA] init skipped (non-fatal):', nexaErr && nexaErr.message);
+}
 
 // (Removed middleware logging for production)
 

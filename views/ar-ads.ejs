@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'AR Ads — Sponsored - Short News Admin' }) %>
+  <script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    /* body styles inherited from the dashboard shell */
+    .topbar { display: none; }
+    .topbar h2 { margin: 0; font-size: 18px; }
+    .wrap { max-width: 100%; margin: 12px 0; padding: 0; }
+    .help { background: #eef2ff; border: 1px solid #d6dcff; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; line-height: 1.5; font-size: 14px; }
+    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.05); }
+    label { display: block; font-weight: 600; font-size: 14px; margin: 12px 0 4px; }
+    input[type=text], input[type=number], select, textarea { width: 100%; padding: 9px 11px; border: 1px solid #cfd4dc; border-radius: 8px; font-size: 14px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .row > div { flex: 1; min-width: 120px; }
+    .muted { color: #6b7280; font-size: 13px; }
+    .btn-primary { background: #3f2a7a; color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-weight: 600; cursor: pointer; }
+    .btn-light { background: #eef0f4; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+    .btn-danger { background: #fde8e8; color: #c62828; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+    #posterBox { border: 2px dashed #c7cdd4; border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; }
+    #posterBox img { max-width: 110px; max-height: 110px; border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eef0f3; font-size: 14px; }
+    .pill { padding: 2px 9px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .pill.on { background: #e7f7ec; color: #18794e; } .pill.off { background: #f3f4f6; color: #6b7280; }
+    .stat { display: inline-block; margin-right: 10px; font-size: 13px; color: #374151; }
+    #newsResults { border: 1px solid #e0e4ea; border-radius: 8px; margin-top: 4px; max-height: 190px; overflow-y: auto; display: none; }
+    #newsResults.show { display: block; }
+    .news-opt { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid #f0f2f5; font-size: 14px; }
+    .news-opt:hover { background: #f3f0ff; }
+    #newsChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .news-chip { background: #eef9f0; border: 1px solid #cdeccf; border-radius: 16px; padding: 5px 10px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+    .news-chip .cx { color: #c62828; cursor: pointer; font-weight: 700; }
+    model-viewer { width: 100%; height: 300px; background: #111; border-radius: 10px; }
+  </style>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'AR Ads — Sponsored', backButton: false }) %>
+<div class="container-fluid"><div class="row">
+<%- include('partials/sidebar', { activePage: 'ar-ads' }) %>
+<div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+<div class="content-area">
+  <div class="wrap">
+    <div class="help">
+      <b>AR Ads అంటే?</b> ఒక sponsor/shop వాళ్ల product 3D model (<b>.glb</b>) ఇస్తే, ఎంచుకున్న news cards మీద <b>"👓 AR లో చూడు"</b> badge వస్తుంది.
+      User tap చేస్తే product వాళ్ల <b>గదిలో</b> కనిపిస్తుంది → <b>Call / Shop</b> button. మీరు ఈ slot కి sponsor నుంచి డబ్బు తీసుకుంటారు.
+      కింద <b>impressions / AR-opens / taps</b> కనిపిస్తాయి. <br><span class="muted">.glb URL ని paste చేయండి (test కి free sample URL వాడొచ్చు). Active చేస్తేనే app లో కనిపిస్తుంది.</span>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3 id="formTitle" style="margin-top:0">కొత్త AR Ad</h3>
+        <input type="hidden" id="editId" value="" />
+
+        <label>Title (మీ గుర్తు కోసం)</label>
+        <input type="text" id="title" placeholder="ఉదా: Raju Mobiles - iPhone AR" />
+
+        <div class="row">
+          <div><label>Sponsor పేరు</label><input type="text" id="sponsorName" placeholder="ఉదా: Raju Mobiles" /></div>
+          <div><label>Price (optional)</label><input type="text" id="priceInfo" placeholder="₹2,999" /></div>
+        </div>
+
+        <label>3D Model (.glb URL) — sponsor ఇచ్చేది</label>
+        <input type="text" id="glbUrl" placeholder="https://.../model.glb" oninput="refreshPreview()" />
+        <div class="muted" style="margin-top:4px">Test కి free sample: <a href="#" onclick="useSample(); return false;">ఈ sample వాడు</a></div>
+
+        <label>Poster image (card మీద thumbnail)</label>
+        <div id="posterBox">
+          <div id="posterHint">📤 Poster upload (optional)</div>
+          <img id="posterPreview" style="display:none" />
+          <input type="file" id="posterFile" accept="image/*" style="display:none" />
+        </div>
+        <input type="hidden" id="posterImageUrl" value="" />
+
+        <label>Caption (card మీద text)</label>
+        <input type="text" id="caption" placeholder="మీ ఇంట్లో చూడండి 👓" />
+
+        <div class="row">
+          <div>
+            <label>CTA (button చర్య)</label>
+            <select id="ctaType">
+              <option value="url">Shop link (URL)</option>
+              <option value="call">Call (phone)</option>
+              <option value="whatsapp">WhatsApp (number)</option>
+              <option value="none">ఏదీ వద్దు</option>
+            </select>
+          </div>
+          <div><label>Button text</label><input type="text" id="ctaLabel" placeholder="Shop now" value="Shop now" /></div>
+        </div>
+        <div id="ctaValueWrap"><label id="ctaValueLabel">URL</label><input type="text" id="ctaValue" placeholder="https://... / 98xxxxxxxx" /></div>
+
+        <label style="margin-top:14px">ఏ news cards లో చూపించాలి? <span class="muted">(ఒకటి లేదా ఎక్కువ)</span></label>
+        <input type="text" id="newsSearch" placeholder="🔎 News title వెతికి ఎంచుకోండి…" autocomplete="off" />
+        <div id="newsResults"></div>
+        <div id="newsChips"></div>
+
+        <div class="row">
+          <div>
+            <label>Language</label>
+            <select id="language">
+              <option value="">All</option><option value="te">Telugu</option><option value="hi">Hindi</option><option value="ta">Tamil</option><option value="en">English</option>
+            </select>
+          </div>
+          <div><label>Bill amount (₹, internal)</label><input type="number" id="billAmount" min="0" placeholder="0" /></div>
+        </div>
+        <label>Bill note (internal)</label>
+        <input type="text" id="billNote" placeholder="ఉదా: 15 రోజులు, advance paid" />
+
+        <label style="margin-top:14px"><input type="checkbox" id="isActive" /> Active (app లో చూపించు)</label>
+
+        <div style="margin-top:16px; display:flex; gap:10px">
+          <button class="btn-primary" id="saveBtn" onclick="save()">Save</button>
+          <button class="btn-light" onclick="resetForm()">Clear</button>
+          <span id="status" class="muted" style="align-self:center"></span>
+        </div>
+      </div>
+
+      <div class="card" style="text-align:center">
+        <h3 style="margin-top:0">Live AR Preview</h3>
+        <div id="previewHost"><div class="muted" style="padding:40px 0">.glb URL పెడితే ఇక్కడ 3D గా కనిపిస్తుంది — "View in AR" నొక్కి phone లో test చేయండి</div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h3 style="margin-top:0">ఉన్న AR Ads</h3>
+      <table>
+        <thead><tr><th>Sponsor / Title</th><th>Performance</th><th>Bill</th><th>Lang</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="listBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const SAMPLE = 'https://modelviewer.dev/shared-assets/models/Astronaut.glb';
+
+    function useSample() { $('glbUrl').value = SAMPLE; refreshPreview(); }
+
+    function refreshPreview() {
+      const url = $('glbUrl').value.trim();
+      const host = $('previewHost');
+      if (!url) { host.innerHTML = '<div class="muted" style="padding:40px 0">.glb URL పెడితే ఇక్కడ కనిపిస్తుంది</div>'; return; }
+      host.innerHTML = '<model-viewer src="' + url + '" ar ar-modes="scene-viewer webxr quick-look" camera-controls auto-rotate shadow-intensity="1"></model-viewer>';
+    }
+
+    $('ctaType').addEventListener('change', () => {
+      const t = $('ctaType').value;
+      $('ctaValueWrap').style.display = t === 'none' ? 'none' : 'block';
+      $('ctaValueLabel').textContent = t === 'url' ? 'URL' : (t === 'call' ? 'Phone number' : (t === 'whatsapp' ? 'WhatsApp number' : 'Value'));
+    });
+
+    // Poster upload (reuses the shared /news/upload-media endpoint)
+    $('posterBox').addEventListener('click', () => $('posterFile').click());
+    $('posterFile').addEventListener('change', async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      $('status').textContent = 'Uploading…';
+      try {
+        const fd = new FormData(); fd.append('media', file);
+        const r = await fetch('/news/upload-media', { method: 'POST', body: fd });
+        const d = await r.json();
+        const url = d.mediaUrl || d.imageUrl || ''; if (!url) throw new Error('no url');
+        $('posterImageUrl').value = url;
+        $('posterPreview').src = url; $('posterPreview').style.display = 'inline-block'; $('posterHint').style.display = 'none';
+        $('status').textContent = 'Uploaded ✓';
+      } catch (err) { $('status').textContent = 'Upload failed'; }
+      finally { e.target.value = ''; }
+    });
+
+    // News multi-picker (reuses the studio search)
+    let _newsTimer, _chosenNews = [];
+    $('newsSearch').addEventListener('input', () => {
+      clearTimeout(_newsTimer);
+      const q = $('newsSearch').value.trim();
+      if (!q) { $('newsResults').classList.remove('show'); return; }
+      _newsTimer = setTimeout(async () => {
+        try {
+          const r = await fetch('/admin/api/notification-studio/news?q=' + encodeURIComponent(q));
+          const d = await r.json();
+          $('newsResults').innerHTML = (d.news || []).map((n) =>
+            '<div class="news-opt" data-id="' + n.id + '" data-title="' + esc(n.title) + '">' + esc(n.title) + '</div>').join('') || '<div class="news-opt muted">ఏదీ దొరకలేదు</div>';
+          $('newsResults').classList.add('show');
+        } catch (e) { $('newsResults').classList.remove('show'); }
+      }, 300);
+    });
+    $('newsResults').addEventListener('click', (e) => { const o = e.target.closest('.news-opt'); if (o && o.dataset.id) pickNews(o.dataset.id, o.dataset.title); });
+    $('newsChips').addEventListener('click', (e) => { const x = e.target.closest('.cx'); if (x) { _chosenNews = _chosenNews.filter((n) => n.id !== x.dataset.id); renderChips(); } });
+    function pickNews(id, title) { if (!_chosenNews.some((n) => n.id === id)) _chosenNews.push({ id: id, title: title || id }); renderChips(); $('newsResults').classList.remove('show'); $('newsSearch').value = ''; }
+    function renderChips() { $('newsChips').innerHTML = _chosenNews.map((n) => '<span class="news-chip"><span>🎯 ' + esc(n.title) + '</span><span class="cx" data-id="' + n.id + '">✕</span></span>').join(''); }
+    function setChosenNews(list) { _chosenNews = (list || []).slice(); renderChips(); }
+
+    async function save() {
+      const body = {
+        title: $('title').value.trim(), sponsorName: $('sponsorName').value.trim(),
+        glbUrl: $('glbUrl').value.trim(), posterImageUrl: $('posterImageUrl').value.trim(),
+        caption: $('caption').value.trim(), ctaType: $('ctaType').value,
+        ctaLabel: $('ctaLabel').value.trim(), ctaValue: $('ctaValue').value.trim(),
+        priceInfo: $('priceInfo').value.trim(), displayNewsIds: _chosenNews.map((n) => n.id),
+        language: $('language').value, isActive: $('isActive').checked,
+        billAmount: parseFloat($('billAmount').value) || 0, billNote: $('billNote').value.trim(),
+      };
+      if (!body.title || !body.glbUrl) { $('status').textContent = 'Title + .glb URL కావాలి'; return; }
+      const id = $('editId').value;
+      $('saveBtn').disabled = true; $('status').textContent = 'Saving…';
+      try {
+        const r = await fetch(id ? ('/ar-ads/api/' + id) : '/ar-ads/api', { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json(); if (!d.ok) throw new Error(d.error || 'failed');
+        $('status').textContent = 'Saved ✓'; resetForm(); loadList();
+      } catch (err) { $('status').textContent = 'Save failed: ' + err.message; }
+      finally { $('saveBtn').disabled = false; }
+    }
+
+    function resetForm() {
+      ['title', 'sponsorName', 'glbUrl', 'posterImageUrl', 'caption', 'ctaValue', 'priceInfo', 'billNote'].forEach((id) => $(id).value = '');
+      $('editId').value = ''; $('ctaType').value = 'url'; $('ctaLabel').value = 'Shop now'; $('language').value = ''; $('billAmount').value = ''; $('isActive').checked = false;
+      $('ctaValueWrap').style.display = 'block'; $('ctaValueLabel').textContent = 'URL';
+      $('posterPreview').style.display = 'none'; $('posterHint').style.display = 'block';
+      setChosenNews([]); refreshPreview();
+      $('formTitle').textContent = 'కొత్త AR Ad'; $('status').textContent = '';
+    }
+
+    function editAd(a) {
+      $('editId').value = a._id; $('title').value = a.title || ''; $('sponsorName').value = a.sponsorName || '';
+      $('glbUrl').value = a.glbUrl || ''; $('posterImageUrl').value = a.posterImageUrl || '';
+      $('caption').value = a.caption || ''; $('ctaType').value = a.ctaType || 'url';
+      $('ctaLabel').value = a.ctaLabel || 'Shop now'; $('ctaValue').value = a.ctaValue || '';
+      $('priceInfo').value = a.priceInfo || ''; $('language').value = a.language || '';
+      $('billAmount').value = a.billAmount || ''; $('billNote').value = a.billNote || ''; $('isActive').checked = !!a.isActive;
+      $('ctaValueWrap').style.display = (a.ctaType === 'none') ? 'none' : 'block';
+      setChosenNews((a.displayNewsIds || []).map((id) => ({ id: id, title: 'News (' + String(id).slice(-6) + ')' })));
+      if (a.posterImageUrl) { $('posterPreview').src = a.posterImageUrl; $('posterPreview').style.display = 'inline-block'; $('posterHint').style.display = 'none'; }
+      else { $('posterPreview').style.display = 'none'; $('posterHint').style.display = 'block'; }
+      $('formTitle').textContent = 'Edit: ' + (a.title || ''); refreshPreview();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function toggleAd(id) { await fetch('/ar-ads/api/' + id + '/toggle', { method: 'POST' }); loadList(); }
+    async function delAd(id) { if (!confirm('Delete this AR ad?')) return; await fetch('/ar-ads/api/' + id, { method: 'DELETE' }); loadList(); }
+
+    async function loadList() {
+      try {
+        const r = await fetch('/ar-ads/api/list'); const d = await r.json();
+        const rows = (d.ads || []).map((a) => {
+          const s = a.stats || {};
+          const perf = '<span class="stat">👁 ' + (s.impressions || 0) + '</span><span class="stat">👓 ' + (s.arOpens || 0) + '</span><span class="stat">🛒 ' + (s.ctaTaps || 0) + '</span>';
+          const bill = (a.billAmount ? '₹' + a.billAmount : '—') + (a.billNote ? '<div class="muted">' + esc(a.billNote) + '</div>' : '');
+          return '<tr>' +
+            '<td><b>' + esc(a.sponsorName || '—') + '</b><div class="muted">' + esc(a.title) + '</div></td>' +
+            '<td>' + perf + '</td>' +
+            '<td>' + bill + '</td>' +
+            '<td>' + (a.language || 'all') + '</td>' +
+            '<td><span class="pill ' + (a.isActive ? 'on">ON' : 'off">OFF') + '</span></td>' +
+            '<td><button class="btn-light" onclick=\'editAd(' + JSON.stringify(a).replace(/'/g, "&#39;") + ')\'>Edit</button> ' +
+            '<button class="btn-light" onclick="toggleAd(\'' + a._id + '\')">' + (a.isActive ? 'Off' : 'On') + '</button> ' +
+            '<button class="btn-danger" onclick="delAd(\'' + a._id + '\')">Del</button></td></tr>';
+        }).join('');
+        $('listBody').innerHTML = rows || '<tr><td colspan="6" class="muted">ఇంకా ఏ AR ad లేదు</td></tr>';
+      } catch (e) { $('listBody').innerHTML = '<tr><td colspan="6" class="muted">Failed to load</td></tr>'; }
+    }
+    function esc(s) { return String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+    loadList();
+  </script>
+  </div></div></div></div>
+  <%- include('partials/footer') %>
+  <script>(function(){var t=document.getElementById('menuToggle'),s=document.getElementById('sidebar'),m=document.getElementById('mainContent');if(t&&s)t.addEventListener('click',function(e){e.stopPropagation();s.classList.toggle('active');if(m)m.classList.toggle('sidebar-active');});})();</script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<%- include('partials/header') %>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'Reporter Advertise Page', backButton: true, backUrl: '/admin/reporter-hub' }) %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.04); }
+  .settings-card .card-header { background:#fff; border-bottom:1px solid #f0f0f0; padding:16px 22px; }
+  .settings-card .card-body { padding: 22px; }
+  .help-card { background:#FFF8E6; border:1px solid #F5D78E; border-radius:12px; padding:14px 18px; }
+  .lang-pill { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:7px 13px; font-weight:600; font-size:13px; color:#374151; margin:0 6px 8px 0; }
+  .lang-pill.active { background:#E31E24; border-color:#E31E24; color:#fff; }
+  .lang-pill .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-left:6px; background:#9ca3af; }
+  .lang-pill .dot.on { background:#16a34a; }
+  .section-label { font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#6b7280; margin:18px 0 10px; }
+  .block-item { border:1px solid #eef0f3; border-radius:10px; padding:12px; margin-bottom:10px; background:#fafbfc; }
+  .thumb { width:120px; height:96px; object-fit:cover; border-radius:8px; background:#eee; }
+  .pv { max-width:340px; margin:0 auto; border:8px solid #111; border-radius:22px; overflow:hidden; background:#fff; }
+  .pv-banner { position:relative; background:#333; color:#fff; }
+  .pv-banner img { width:100%; display:block; opacity:.9; }
+  .pv-txt { position:absolute; top:0; bottom:0; right:0; width:58%; padding:14px; display:flex; flex-direction:column; justify-content:center; background:linear-gradient(90deg,transparent,rgba(0,0,0,.75)); text-align:right; }
+  .pv-txt.left { right:auto; left:0; background:linear-gradient(270deg,transparent,rgba(0,0,0,.75)); text-align:left; }
+  .pv-txt.bottom { width:100%; right:0; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.8),transparent); text-align:left; }
+  .pv-t { font-weight:900; font-size:17px; line-height:1.15; }
+  .pv-s { font-size:12px; opacity:.9; margin-top:6px; }
+  .pv-body { padding:14px; }
+  .pv-hl { border:1px dashed #cbd5e1; border-radius:8px; padding:10px; margin:10px 0; font-size:13px; }
+  .pv-h { font-weight:800; margin:10px 0 6px; }
+  .pv-cta { background:#16A34A; color:#fff; text-align:center; padding:12px; font-weight:800; }
+</style>
+
+<div class="main-content" id="mainContent">
+  <div class="container-fluid py-3" style="max-width:1200px;">
+    <div class="help-card mb-3">
+      <div class="fw-bold mb-1">📣 Advertise page — "అదనపు ఆదాయం" (guest → 2nd card)</div>
+      <ul class="mb-0 small" style="padding-left:18px;">
+        <li>ఇది app లో guest hub లోని 2వ card నొక్కితే తెరుచుకునే page. ప్రతి language కి వేరుగా content పెట్టండి.</li>
+        <li>Banner image పైన <strong>title / subtitle text overlay</strong> admin మీరు type చేస్తారు (image మీద కనిపిస్తుంది).</li>
+        <li><strong>Enabled</strong> OFF ఉంటే app లో ఈ page తెరుచుకోదు (card పాత behavior). Content నింపి, తర్వాత ON చేయండి.</li>
+      </ul>
+    </div>
+
+    <div id="alertBox"></div>
+    <div class="mb-3"><div class="section-label mb-1">Language</div><div id="langPills"></div></div>
+
+    <div class="row g-3">
+      <!-- editor -->
+      <div class="col-lg-7">
+        <div class="card settings-card">
+          <div class="card-body">
+            <input type="hidden" id="language" value="">
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" id="enabled">
+              <label class="form-check-label fw-bold" for="enabled">Enabled for this language</label>
+            </div>
+
+            <div class="section-label">Banner</div>
+            <div class="d-flex gap-3 align-items-start mb-2">
+              <img id="bImg" class="thumb" src="" alt="">
+              <div class="flex-grow-1">
+                <input type="file" id="bFile" accept="image/*" class="form-control form-control-sm mb-2">
+                <input type="text" id="bImgUrl" class="form-control form-control-sm" placeholder="Banner image URL">
+              </div>
+            </div>
+            <input type="text" id="bTitle" class="form-control mb-2" maxlength="160" placeholder="Overlay title (e.g. అదనపు ఆదాయం సంపాదించే అవకాశం)">
+            <input type="text" id="bSub" class="form-control mb-2" maxlength="160" placeholder="Overlay subtitle (e.g. తెహెల్కా న్యూస్ తో కలిసి)">
+            <div class="mb-2"><label class="small text-muted me-2">Text position</label>
+              <select id="bSide" class="form-select form-select-sm d-inline-block" style="width:auto"><option value="right">Right</option><option value="left">Left</option><option value="bottom">Bottom</option></select>
+            </div>
+
+            <div class="section-label d-flex justify-content-between align-items-center">Content blocks
+              <span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addBlock('paragraph')">+ Paragraph</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addBlock('heading')">+ Heading</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addBlock('highlight')">+ Highlight</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addBlock('bullets')">+ Bullets</button>
+              </span>
+            </div>
+            <div id="blocks"></div>
+
+            <div class="section-label">Call-to-action button</div>
+            <input type="text" id="ctaLabel" class="form-control mb-2" maxlength="80" placeholder="Button text (e.g. అదనపు ఆదాయం పొందడానికి)">
+            <div class="d-flex gap-2">
+              <select id="ctaAction" class="form-select" style="max-width:160px"><option value="whatsapp">WhatsApp</option><option value="url">Open URL</option><option value="none">No button</option></select>
+              <input type="text" id="ctaValue" class="form-control" maxlength="300" placeholder="WhatsApp number / URL">
+            </div>
+
+            <button type="button" id="saveBtn" class="btn btn-primary fw-bold px-4 mt-3">Save for this language</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- preview -->
+      <div class="col-lg-5">
+        <div class="section-label">Live preview</div>
+        <div class="pv" id="pv"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let items = [];
+
+  function showAlert(kind, msg) {
+    $('alertBox').innerHTML = '<div class="alert alert-' + kind + ' alert-dismissible fade show">' + msg + '<button class="btn-close" data-bs-dismiss="alert"></button></div>';
+  }
+
+  // ---------- blocks
+  function blockRow(b) {
+    const wrap = document.createElement('div');
+    wrap.className = 'block-item';
+    wrap.dataset.type = b.type;
+    const isBullets = b.type === 'bullets';
+    wrap.innerHTML =
+      '<div class="d-flex justify-content-between mb-1"><span class="badge bg-light text-dark text-uppercase">' + b.type + '</span>' +
+      '<span><button type="button" class="btn btn-sm btn-link p-0 me-2" onclick="moveBlock(this,-1)">▲</button>' +
+      '<button type="button" class="btn btn-sm btn-link p-0 me-2" onclick="moveBlock(this,1)">▼</button>' +
+      '<button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="this.closest(\'.block-item\').remove(); render();">Remove</button></span></div>' +
+      (isBullets
+        ? '<textarea class="form-control bd" rows="4" placeholder="One bullet per line">' + (b.items || []).join('\n') + '</textarea>'
+        : '<textarea class="form-control bd" rows="' + (b.type === 'heading' ? 1 : 3) + '" placeholder="' + b.type + ' text">' + (b.text || '') + '</textarea>');
+    wrap.querySelector('.bd').addEventListener('input', render);
+    return wrap;
+  }
+  function addBlock(type) { $('blocks').appendChild(blockRow({ type, text: '', items: [] })); render(); }
+  function moveBlock(btn, dir) {
+    const el = btn.closest('.block-item');
+    if (dir < 0 && el.previousElementSibling) el.parentNode.insertBefore(el, el.previousElementSibling);
+    if (dir > 0 && el.nextElementSibling) el.parentNode.insertBefore(el.nextElementSibling, el);
+    render();
+  }
+  function readBlocks() {
+    return [...$('blocks').children].map((el, i) => {
+      const type = el.dataset.type, v = el.querySelector('.bd').value;
+      return type === 'bullets'
+        ? { order: i + 1, type, items: v.split('\n').map((s) => s.trim()).filter(Boolean) }
+        : { order: i + 1, type, text: v.trim() };
+    });
+  }
+
+  // ---------- image upload
+  async function uploadBanner(file) {
+    const fd = new FormData(); fd.append('image', file);
+    const r = await fetch('/admin/api/reporter-advertise/upload-image', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error('upload failed');
+    const d = await r.json(); return d.imageUrl;
+  }
+  $('bFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try { const url = await uploadBanner(f); $('bImgUrl').value = url; render(); } catch (err) { showAlert('danger', 'Image upload failed'); }
+  });
+  ['bImgUrl','bTitle','bSub','bSide','ctaLabel','ctaAction','ctaValue'].forEach((id) => $(id).addEventListener('input', render));
+
+  // ---------- collect / fill / preview
+  function collect() {
+    return {
+      language: $('language').value,
+      enabled: $('enabled').checked,
+      banner: { imageUrl: $('bImgUrl').value.trim(), title: $('bTitle').value.trim(), subtitle: $('bSub').value.trim(), overlaySide: $('bSide').value },
+      blocks: readBlocks(),
+      cta: { label: $('ctaLabel').value.trim(), action: $('ctaAction').value, value: $('ctaValue').value.trim() },
+    };
+  }
+  function fill(d) {
+    $('enabled').checked = !!d.enabled;
+    $('bImgUrl').value = d.banner.imageUrl || ''; $('bTitle').value = d.banner.title || ''; $('bSub').value = d.banner.subtitle || ''; $('bSide').value = d.banner.overlaySide || 'right';
+    $('blocks').innerHTML = ''; (d.blocks || []).forEach((b) => $('blocks').appendChild(blockRow(b)));
+    $('ctaLabel').value = d.cta.label || ''; $('ctaAction').value = d.cta.action || 'whatsapp'; $('ctaValue').value = d.cta.value || '';
+    render();
+  }
+  function esc(s) { return String(s || '').replace(/[&<>]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+  function render() {
+    const c = collect();
+    $('bImg').src = c.banner.imageUrl || '';
+    let body = '';
+    for (const b of readBlocks()) {
+      if (b.type === 'heading') body += '<div class="pv-h">' + esc(b.text) + '</div>';
+      else if (b.type === 'highlight') body += '<div class="pv-hl">' + esc(b.text) + '</div>';
+      else if (b.type === 'bullets') body += '<ul style="margin:8px 0;padding-left:18px;font-size:13px;">' + (b.items || []).map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>';
+      else body += '<p style="font-size:13px;margin:6px 0;">' + esc(b.text) + '</p>';
+    }
+    const banner = c.banner.imageUrl
+      ? '<div class="pv-banner"><img src="' + esc(c.banner.imageUrl) + '"><div class="pv-txt ' + c.banner.overlaySide + '"><div class="pv-t">' + esc(c.banner.title) + '</div><div class="pv-s">' + esc(c.banner.subtitle) + '</div></div></div>'
+      : '<div class="pv-banner" style="height:150px"><div class="pv-txt ' + c.banner.overlaySide + '"><div class="pv-t">' + esc(c.banner.title) + '</div><div class="pv-s">' + esc(c.banner.subtitle) + '</div></div></div>';
+    const cta = c.cta.action !== 'none' && c.cta.label ? '<div class="pv-cta">🟢 ' + esc(c.cta.label) + '</div>' : '';
+    $('pv').innerHTML = banner + '<div class="pv-body">' + body + '</div>' + cta;
+  }
+
+  // ---------- languages
+  function renderPills() {
+    const box = $('langPills'); box.innerHTML = '';
+    items.forEach((it) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'lang-pill'; b.dataset.lang = it.language;
+      b.innerHTML = it.name + '<span class="dot ' + (it.enabled ? 'on' : '') + '"></span>';
+      b.onclick = () => select(it.language); box.appendChild(b);
+    });
+    if (items.length) select(items.find((i) => i.language === 'te') ? 'te' : items[0].language);
+  }
+  function select(code) {
+    $('language').value = code;
+    const it = items.find((i) => i.language === code); if (it) fill(it);
+    [...$('langPills').querySelectorAll('.lang-pill')].forEach((b) => b.classList.toggle('active', b.dataset.lang === code));
+  }
+  async function load() {
+    const r = await fetch('/admin/api/reporter-advertise'); if (!r.ok) throw new Error('load failed');
+    const d = await r.json(); items = d.items || []; renderPills();
+  }
+  $('saveBtn').addEventListener('click', async () => {
+    const btn = $('saveBtn'); const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = 'Saving...';
+    try {
+      const r = await fetch('/admin/api/reporter-advertise', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(collect()) });
+      const d = await r.json(); if (!r.ok || !d.success) throw new Error(d.error || 'save failed');
+      const idx = items.findIndex((i) => i.language === d.item.language);
+      if (idx >= 0) items[idx] = d.item; renderPills(); select(d.item.language);
+      showAlert('success', 'Saved ' + d.item.language.toUpperCase() + ' — ' + (d.item.enabled ? 'ENABLED (live within 1 min)' : 'still OFF (hidden)'));
+    } catch (err) { showAlert('danger', err.message || 'Could not save'); }
+    finally { btn.disabled = false; btn.innerHTML = orig; }
+  });
+
+  load().catch((err) => { console.error(err); showAlert('danger', 'Could not load languages / content'); });
+</script>
+
+<%- include('partials/footer') %>
+</body>
+</html>

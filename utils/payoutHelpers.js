@@ -7,6 +7,8 @@ const MAX_PAYOUT_METHODS = 3;
 const UPI_REGEX = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 const ACCOUNT_REGEX = /^\d{9,18}$/;
+// PhonePe: a plain 10-digit Indian mobile (starts 6-9).
+const PHONE_REGEX = /^[6-9]\d{9}$/;
 
 function serializePayoutMethod(m) {
   if (!m) return null;
@@ -14,8 +16,13 @@ function serializePayoutMethod(m) {
   return {
     id: String(obj._id),
     type: obj.type,
-    label: obj.label || (obj.type === 'upi' ? 'UPI' : 'Bank'),
+    label: obj.label || (obj.type === 'upi' ? 'UPI' : obj.type === 'phonepe' ? 'PhonePe' : 'Bank'),
     upiId: obj.upiId || '',
+    phoneNumber: obj.phoneNumber || '',
+    // Masked mobile for list display (last 4).
+    phoneNumberMasked: obj.phoneNumber
+      ? `${'*'.repeat(Math.max(0, String(obj.phoneNumber).length - 4))}${String(obj.phoneNumber).slice(-4)}`
+      : '',
     accountHolderName: obj.accountHolderName || '',
     accountNumber: obj.accountNumber || '',
     // Mask account number for list display (last 4)
@@ -36,6 +43,10 @@ function formatPayoutMethodText(m) {
     const label = m.label ? `${m.label}: ` : 'UPI: ';
     return `${label}${m.upiId}`;
   }
+  if (m.type === 'phonepe') {
+    const label = m.label ? `${m.label}: ` : 'PhonePe: ';
+    return `${label}${m.phoneNumber}`;
+  }
   const parts = [
     m.accountHolderName,
     `A/C ${m.accountNumber}`,
@@ -48,11 +59,30 @@ function formatPayoutMethodText(m) {
 
 function validatePayoutPayload(body) {
   const type = String(body.type || '').toLowerCase();
-  if (type !== 'upi' && type !== 'bank') {
-    return { error: 'Choose UPI or Bank account' };
+  if (type !== 'upi' && type !== 'bank' && type !== 'phonepe') {
+    return { error: 'Choose UPI, PhonePe or Bank account' };
   }
 
   const label = String(body.label || '').trim().slice(0, 40);
+
+  if (type === 'phonepe') {
+    const phoneNumber = String(body.phoneNumber || '').replace(/\D/g, '').slice(-10);
+    if (!PHONE_REGEX.test(phoneNumber)) {
+      return { error: 'Enter a valid 10-digit PhonePe mobile number' };
+    }
+    return {
+      data: {
+        type: 'phonepe',
+        label: label || 'PhonePe',
+        upiId: '',
+        phoneNumber,
+        accountHolderName: '',
+        accountNumber: '',
+        ifsc: '',
+        bankName: ''
+      }
+    };
+  }
 
   if (type === 'upi') {
     const upiId = String(body.upiId || '').trim().toLowerCase();
@@ -64,6 +94,7 @@ function validatePayoutPayload(body) {
         type: 'upi',
         label: label || 'UPI',
         upiId,
+        phoneNumber: '',
         accountHolderName: '',
         accountNumber: '',
         ifsc: '',
@@ -92,6 +123,7 @@ function validatePayoutPayload(body) {
       type: 'bank',
       label: label || bankName || 'Bank',
       upiId: '',
+      phoneNumber: '',
       accountHolderName,
       accountNumber,
       ifsc,

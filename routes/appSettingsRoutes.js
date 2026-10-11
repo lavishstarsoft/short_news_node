@@ -44,7 +44,7 @@ router.get('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
 // Admin route to update app settings
 router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, enableLocationModule, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl, referralHelpText, referralRewardAmount, referralRequiredDays, maxDailyReferralBudget, referralShareUrl, isReferralEnabled, allowReporterBrowserAccess, enableAIAssistant } = req.body;
+        const { androidVersion, iosVersion, forceUpdate, androidUpdateUrl, iosUpdateUrl, updateMessage, swipeStreakMilestone, isSwipeStreakEnabled, showLongVideos, showDistrictSelection, enableLocationModule, showTrain, showGames, adPersonalizationEnabled, adMinInterval, adMaxInterval, adFatigueMax, calendarEnabledLanguages, zodiacEnabledLanguages, contactUs, privacyPolicy, aboutUs, termsAndConditions, feedbackUrl, referralHelpText, referralRewardAmount, referralRequiredDays, maxDailyReferralBudget, referralShareUrl, isReferralEnabled, allowReporterBrowserAccess, enableAIAssistant } = req.body;
         let settings = await AppSettings.findOne({ key: 'update_flags' });
 
         if (!settings) {
@@ -63,6 +63,13 @@ router.put('/api/admin/app-settings', requireAuth, requireAdmin, async (req, res
         if (showLongVideos !== undefined) settings.showLongVideos = showLongVideos;
         if (showDistrictSelection !== undefined) settings.showDistrictSelection = showDistrictSelection;
         if (enableLocationModule !== undefined) settings.enableLocationModule = enableLocationModule;
+        if (showTrain !== undefined) settings.showTrain = showTrain;
+        if (showGames !== undefined) settings.showGames = showGames;
+        // Ad personalization (fatigue pacing) — clamped to safe ranges.
+        if (adPersonalizationEnabled !== undefined) settings.adPersonalizationEnabled = !!adPersonalizationEnabled;
+        if (adMinInterval !== undefined) settings.adMinInterval = Math.max(2, Math.min(40, parseInt(adMinInterval) || 6));
+        if (adMaxInterval !== undefined) settings.adMaxInterval = Math.max(settings.adMinInterval || 6, Math.min(60, parseInt(adMaxInterval) || 20));
+        if (adFatigueMax !== undefined) settings.adFatigueMax = Math.max(0, Math.min(2, Number(adFatigueMax)));
         if (calendarEnabledLanguages !== undefined) settings.calendarEnabledLanguages = calendarEnabledLanguages;
         if (zodiacEnabledLanguages !== undefined) settings.zodiacEnabledLanguages = zodiacEnabledLanguages;
 
@@ -118,6 +125,12 @@ router.get('/api/public/app-settings', async (req, res) => {
                 showLongVideos: true,
                 showDistrictSelection: false,
                 enableLocationModule: true,
+                showTrain: true,
+                showGames: true,
+                adPersonalizationEnabled: false,
+                adMinInterval: 6,
+                adMaxInterval: 20,
+                adFatigueMax: 0.6,
                 calendarEnabledLanguages: ['te'],
                 zodiacEnabledLanguages: ['te'],
                 quizEnabledLanguages: [], // empty = all languages
@@ -157,6 +170,24 @@ router.get('/api/public/app-settings', async (req, res) => {
             }
             if (responseSettings.enableAIAssistant === undefined) {
                 responseSettings.enableAIAssistant = true;
+            }
+            if (responseSettings.showTrain === undefined) {
+                responseSettings.showTrain = true;
+            }
+            if (responseSettings.showGames === undefined) {
+                responseSettings.showGames = true;
+            }
+            if (responseSettings.adPersonalizationEnabled === undefined) {
+                responseSettings.adPersonalizationEnabled = false;
+            }
+            if (responseSettings.adMinInterval === undefined) {
+                responseSettings.adMinInterval = 6;
+            }
+            if (responseSettings.adMaxInterval === undefined) {
+                responseSettings.adMaxInterval = 20;
+            }
+            if (responseSettings.adFatigueMax === undefined) {
+                responseSettings.adFatigueMax = 0.6;
             }
         }
 

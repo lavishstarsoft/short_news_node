@@ -4,12 +4,14 @@ const mongoose = require('mongoose');
 const News = require('../models/News');
 // Centralized consumer display helper — combines organic + syntheticViews when the
 // View Engine flag is ON; returns organic-only when OFF (byte-identical to today).
-const { displayViews } = require('../services/viewDistribution/displayViews');
+const { displayViews, displayLikes, displayDislikes } = require('../services/viewDistribution/displayViews');
 const User = require('../models/User');
 const Location = require('../models/Location');
 const Report = require('../models/Report');
 const Ad = require('../models/Ad');
 const ViralVideo = require('../models/ViralVideo');
+const { displayViralViews } = require('../services/viralViews');
+const reporterHubController = require('../controllers/reporterHubController');
 const CommentReport = require('../models/CommentReport');
 const Admin = require('../models/Admin');
 const zodiacController = require('../controllers/zodiacController');
@@ -57,6 +59,7 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 const { resolveAuthorDisplayFields, buildAuthorMap } = require('../utils/newsAuthorDisplayHelper');
+const { bufferViews } = require('../utils/viewBuffer');
 const languageRegistry = require('../services/languageRegistry');
 const fs = require('fs');
 
@@ -116,8 +119,8 @@ const handleGetNews = async (req, res) => {
         language: newsObj.language || 'te',
         publishedAt: newsObj.publishedAt,
         published_at: newsObj.publishedAt, // Backward compatibility
-        likes: newsObj.likes || 0,
-        dislikes: newsObj.dislikes || 0,
+        likes: displayLikes(newsObj),
+        dislikes: displayDislikes(newsObj),
         views: displayViews(newsObj),
         comments: newsObj.comments || 0,
         author: newsObj.author,
@@ -196,8 +199,8 @@ router.get('/api/public/news/category/:category', async (req, res) => {
         category: newsObj.category,
         location: newsObj.location,
         publishedAt: newsObj.publishedAt,
-        likes: newsObj.likes || 0,
-        dislikes: newsObj.dislikes || 0,
+        likes: displayLikes(newsObj),
+        dislikes: displayDislikes(newsObj),
         views: displayViews(newsObj),
         comments: newsObj.comments || 0,
         author: newsObj.author,
@@ -265,8 +268,8 @@ router.get('/api/public/news/location/:location', cacheMiddleware(600), async (r
         category: newsObj.category,
         location: newsObj.location,
         publishedAt: newsObj.publishedAt,
-        likes: newsObj.likes || 0,
-        dislikes: newsObj.dislikes || 0,
+        likes: displayLikes(newsObj),
+        dislikes: displayDislikes(newsObj),
         views: displayViews(newsObj),
         comments: newsObj.comments || 0,
         author: newsObj.author,
@@ -305,6 +308,13 @@ router.post('/api/public/news/views/batch', async (req, res) => {
     const ids = [...new Set(raw.map((x) => String(x)).filter((s) => /^[a-fA-F0-9]{24}$/.test(s)))].slice(0, 200);
     if (ids.length === 0) return res.json({ ok: true, updated: 0 });
 
+    // Fast path: buffer the +1s in Redis and return immediately; a background
+    // flusher writes them to Mongo in one bulkWrite every 20s (~90%+ fewer view
+    // writes). Falls back to a direct DB write if Redis is unavailable, so view
+    // counting never breaks. Touches only `views` — likes/dislikes untouched.
+    const buffered = await bufferViews(ids);
+    if (buffered) return res.json({ ok: true, buffered: ids.length });
+
     const result = await News.updateMany(
       { _id: { $in: ids }, isActive: { $ne: false } },
       { $inc: { views: 1 } }
@@ -313,6 +323,51 @@ router.post('/api/public/news/views/batch', async (req, res) => {
   } catch (e) {
     console.error('bulk views error:', e.message);
     return res.status(500).json({ error: 'Failed to record views.' });
+  }
+});
+
+// Per-page viewer state ("did *I* like/dislike/comment these?") — the YouTube
+// pattern: every feed page asks for its own ids, so the blue state never depends
+// on a single startup hydration request. Read-only; uses the _id index (20–100
+// docs), so it costs nothing and leaves the shared feed cache untouched.
+router.post('/api/public/news/my-reactions', async (req, res) => {
+  try {
+    const userId = String(req.body?.userId || '').trim();
+    const raw = Array.isArray(req.body?.newsIds) ? req.body.newsIds : [];
+    const ids = [...new Set(raw.map((x) => String(x)).filter((s) => /^[a-fA-F0-9]{24}$/.test(s)))].slice(0, 100);
+    if (!userId || userId === 'anonymous_user' || ids.length === 0) {
+      return res.json({ ok: true, liked: [], disliked: [], commented: [] });
+    }
+
+    const rows = await News.aggregate([
+      { $match: { _id: { $in: ids.map((id) => new mongoose.Types.ObjectId(id)) } } },
+      { $project: {
+        liked: { $in: [userId, { $map: { input: { $ifNull: ['$userInteractions.likes', []] }, in: '$$this.userId' } }] },
+        disliked: { $in: [userId, { $map: { input: { $ifNull: ['$userInteractions.dislikes', []] }, in: '$$this.userId' } }] },
+        commented: { $in: [userId, { $map: { input: { $ifNull: ['$userInteractions.comments', []] }, in: '$$this.userId' } }] },
+        likes: { $ifNull: ['$likes', 0] },
+        dislikes: { $ifNull: ['$dislikes', 0] },
+        syntheticLikes: { $ifNull: ['$syntheticLikes', 0] },
+        syntheticDislikes: { $ifNull: ['$syntheticDislikes', 0] },
+      } },
+    ]);
+
+    const liked = [], disliked = [], commented = [];
+    const counts = {};
+    for (const r of rows) {
+      const id = String(r._id);
+      if (r.liked) liked.push(id);
+      if (r.disliked) disliked.push(id);
+      if (r.commented) commented.push(id);
+      // Blended totals (organic + synthetic, flag-gated) so the app's
+      // _applyServerCounts doesn't snap the card back to organic-only and
+      // cause a like-count flicker. Same helper the feed/GraphQL use.
+      counts[id] = { likes: displayLikes(r), dislikes: displayDislikes(r) };
+    }
+    return res.json({ ok: true, liked, disliked, commented, counts, checked: ids });
+  } catch (e) {
+    console.error('my-reactions error:', e.message);
+    return res.status(500).json({ error: 'Failed to load reactions.' });
   }
 });
 
@@ -350,8 +405,20 @@ router.post('/api/public/news/:id/interact', verifyMobileUser, async (req, res) 
         return res.status(404).json({ error: 'News not found' });
       }
 
-      // Find or create user in database  
-      let user = await User.findOne({ googleId: userId });
+      // SECURITY: writes must come from a verified Google identity. verifyMobileUser
+      // already overwrites req.body.userId when a valid token is present; this closes
+      // the legacy no-token path where a client-chosen userId could impersonate
+      // another user or mint fake accounts.
+      if (!req.verifiedGoogleId) {
+        return res.status(401).json({ error: 'Sign in required to interact.' });
+      }
+      const verifiedUserId = req.verifiedGoogleId;
+      if (userId !== verifiedUserId) {
+        return res.status(403).json({ error: 'Identity mismatch.' });
+      }
+
+      // Find or create user in database (keyed on the VERIFIED id only)
+      let user = await User.findOne({ googleId: verifiedUserId });
       if (!user && userName && userEmail) {
         // Create new user if doesn't exist
         user = new User({
@@ -728,7 +795,10 @@ router.post('/api/public/news/:id/interact', verifyMobileUser, async (req, res) 
 });
 
 // New endpoint to get user profile data
-router.post('/api/public/user/profile', async (req, res) => {
+// verifyMobileUser is SOFT here (legacy app sends no token): with a valid token the
+// identity is verified and req.body.userId is forced to it; without one we still
+// allow basic profile writes but block changing an EXISTING mobile/PAN (see guard).
+router.post('/api/public/user/profile', verifyMobileUser, async (req, res) => {
   try {
     const { userId, userName, userEmail, deviceFingerprint } = req.body;
 
@@ -766,6 +836,19 @@ router.post('/api/public/user/profile', async (req, res) => {
 
         if (identity.$or.length > 0) {
           user = await User.findOne(identity);
+        }
+
+        // SECURITY GUARD: mobile/PAN are payout-critical (quiz winners are paid to
+        // mobileNumber). Changing an EXISTING mobile/PAN requires a verified Google
+        // token; an unauthenticated request may only set them the first time. This
+        // blocks hijacking a winner's number via the legacy no-token path while
+        // keeping the old app's first-time setup working.
+        if ((mobileNumber || panNumber) && !req.verifiedGoogleId && user) {
+          const changingMobile = mobileNumber && user.mobileNumber && user.mobileNumber !== mobileNumber;
+          const changingPan = panNumber && user.panNumber && user.panNumber !== panNumber;
+          if (changingMobile || changingPan) {
+            return res.status(403).json({ error: 'Please sign in again (or update the app) to change your mobile number or PAN.' });
+          }
         }
 
         // Uniqueness: a mobile/PAN may not be linked to a DIFFERENT account.
@@ -818,13 +901,8 @@ router.post('/api/public/user/profile', async (req, res) => {
             user.photoUrl = req.body.photoUrl;
           }
           await user.save();
-
-          // Populate interactions to get full news details
-          await user.populate([
-            { path: 'interactions.likes', select: 'title category publishedAt' },
-            { path: 'interactions.dislikes', select: 'title category publishedAt' },
-            { path: 'interactions.comments.newsId', select: 'title' }
-          ]);
+          // (interactions are read from the News collection below, not from the
+          // stale User.interactions refs — no populate needed.)
         }
       } catch (dbError) {
         // Duplicate-key race on the unique mobile index → friendly 400.
@@ -838,50 +916,69 @@ router.post('/api/public/user/profile', async (req, res) => {
       }
     }
 
-    // Format the interactions data for the frontend
+    // Format the interactions data for the frontend.
+    //
+    // Source of truth is the News collection's `userInteractions` (that is where
+    // interactWithNews writes every like/dislike/comment). The User document's own
+    // `interactions`/`stats` fields were never populated by that path, so reading
+    // them here made the profile always show 0 while the user actually had likes.
+    // We now query News directly (indexed on userInteractions.*.userId), so the
+    // counts and lists match what the app shows on each card.
     const formattedInteractions = {
       likes: [],
       dislikes: [],
       comments: []
     };
+    // Exact per-news counts (the index makes countDocuments cheap). The lists
+    // below are capped for payload size, so stats are counted separately to stay
+    // accurate for very active users (e.g. 573 likes, not "500").
+    const exactCounts = { likes: 0, dislikes: 0, comments: 0 };
 
-    if (user && user.interactions) {
-      // Helper to format news interaction
-      const formatNews = (news) => {
-        if (!news || !news._id) return null;
-        return {
+    if (isConnectedToMongoDB && userId) {
+      try {
+        const News = require('../models/News');
+        const LIST_CAP = 500; // bound the payload for very active users
+        const formatNews = (news) => ({
           id: news._id.toString(),
           title: news.title || '',
           category: news.category || '',
           publishedAt: news.publishedAt ? news.publishedAt.toISOString() : new Date().toISOString()
-        };
-      };
-
-      // Format likes
-      if (user.interactions.likes && Array.isArray(user.interactions.likes)) {
-        formattedInteractions.likes = user.interactions.likes
-          .map(formatNews)
-          .filter(item => item !== null);
-      }
-
-      // Format dislikes
-      if (user.interactions.dislikes && Array.isArray(user.interactions.dislikes)) {
-        formattedInteractions.dislikes = user.interactions.dislikes
-          .map(formatNews)
-          .filter(item => item !== null);
-      }
-
-      // Format comments
-      if (user.interactions.comments && Array.isArray(user.interactions.comments)) {
-        formattedInteractions.comments = user.interactions.comments.map(comment => {
-          const news = comment.newsId; // Populated news object
-          return {
-            newsId: news && news._id ? news._id.toString() : (comment.newsId ? comment.newsId.toString() : ''),
-            newsTitle: news && news.title ? news.title : 'Unknown News',
-            comment: comment.comment || '',
-            timestamp: comment.timestamp ? comment.timestamp.toISOString() : new Date().toISOString()
-          };
         });
+
+        const [likedNews, dislikedNews, commentedNews, likeC, dislikeC, commentC] = await Promise.all([
+          News.find({ 'userInteractions.likes.userId': userId })
+            .select('title category publishedAt').sort({ publishedAt: -1 }).limit(LIST_CAP).lean(),
+          News.find({ 'userInteractions.dislikes.userId': userId })
+            .select('title category publishedAt').sort({ publishedAt: -1 }).limit(LIST_CAP).lean(),
+          News.find({ 'userInteractions.comments.userId': userId })
+            .select('title userInteractions.comments').sort({ publishedAt: -1 }).limit(LIST_CAP).lean(),
+          News.countDocuments({ 'userInteractions.likes.userId': userId }),
+          News.countDocuments({ 'userInteractions.dislikes.userId': userId }),
+          News.countDocuments({ 'userInteractions.comments.userId': userId }),
+        ]);
+        exactCounts.likes = likeC;
+        exactCounts.dislikes = dislikeC;
+        exactCounts.comments = commentC; // news the user commented on
+
+        formattedInteractions.likes = likedNews.map(formatNews);
+        formattedInteractions.dislikes = dislikedNews.map(formatNews);
+        // One profile entry per comment the user left (a news may hold several).
+        formattedInteractions.comments = commentedNews.flatMap((news) =>
+          (news.userInteractions && Array.isArray(news.userInteractions.comments)
+            ? news.userInteractions.comments
+            : []
+          )
+            .filter((c) => c && String(c.userId) === String(userId))
+            .map((c) => ({
+              newsId: news._id.toString(),
+              newsTitle: news.title || 'Unknown News',
+              comment: c.comment || '',
+              timestamp: c.timestamp ? new Date(c.timestamp).toISOString() : new Date().toISOString()
+            }))
+        );
+      } catch (e) {
+        console.error('profile interactions lookup failed:', e.message);
+        // Fall through with empty lists rather than failing the whole profile.
       }
     }
 
@@ -900,11 +997,7 @@ router.post('/api/public/user/profile', async (req, res) => {
       referralCode: user?.referralCode || null,
       createdAt: user?.createdAt?.toISOString() || new Date().toISOString(),
       lastLogin: user?.lastLogin?.toISOString() || new Date().toISOString(),
-      stats: {
-        likes: formattedInteractions.likes.length,
-        dislikes: formattedInteractions.dislikes.length,
-        comments: formattedInteractions.comments.length
-      },
+      stats: exactCounts,
       interactions: formattedInteractions
     };
 
@@ -1212,8 +1305,8 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
       scope: news.scope || 'state',
       language: news.language || 'te',
       publishedAt: news.publishedAt,
-      likes: news.likes || 0,
-      dislikes: news.dislikes || 0,
+      likes: displayLikes(news),
+      dislikes: displayDislikes(news),
       views: displayViews(news),
       comments: news.comments || 0,
       author: authorFields.author,
@@ -1274,10 +1367,23 @@ router.get('/api/public/news/smart-feed', cacheMiddleware(120), async (req, res)
 router.post('/api/public/user/location', verifyMobileUser, async (req, res) => {
   try {
     const { primaryState, primaryDistrict, lat, lng, source, additionalLocations } = req.body;
-    const userId = req.authUser?._id || req.user?.userId || req.user?._id || req.body.userId;
 
-    if (!userId) {
+    // WHO to update. The verified Google id is the trusted identity; the cached
+    // `req.authUser` can be null (new user / cache miss) and the client-supplied
+    // userId is usually the 21-digit GOOGLE id, not a Mongo _id — casting that to
+    // ObjectId used to throw a BSONError (500) and the location was never saved.
+    const { resolveUserFilter } = require('../utils/userIdentity');
+    const filter = resolveUserFilter({
+      authUser: req.authUser,
+      verifiedGoogleId: req.verifiedGoogleId,
+      bodyUserId: req.body.userId,
+    });
+
+    if (!filter) {
       return res.status(401).json({ error: 'User not authenticated' });
+    }
+    if (filter.invalid) {
+      return res.status(400).json({ error: 'Invalid user id' });
     }
 
     const update = {
@@ -1293,7 +1399,8 @@ router.post('/api/public/user/location', verifyMobileUser, async (req, res) => {
       update['locationProfile.additionalLocations'] = additionalLocations;
     }
 
-    await User.findByIdAndUpdate(userId, { $set: update });
+    // Filter is either { _id } or { googleId } — never a cast of a Google id to ObjectId.
+    await User.findOneAndUpdate(filter, { $set: update });
     res.json({ success: true });
   } catch (error) {
     console.error('Error saving user location:', error);
@@ -1336,6 +1443,10 @@ router.get('/api/public/ads', cacheMiddleware(300), async (req, res) => {
           useAdMob: adObj.useAdMob || false,
           adMobAppId: adObj.adMobAppId,
           adMobUnitId: adObj.adMobUnitId,
+          // Per-ad bottom bar toggle (Viral/WhatsApp/3-dots/Share)
+          showBottomBar: adObj.showBottomBar === true,
+          bidAmount: adObj.bidAmount || 0,
+          category: adObj.category || '',
           createdAt: adObj.createdAt
         };
       });
@@ -1366,6 +1477,10 @@ router.get('/api/public/ads', cacheMiddleware(300), async (req, res) => {
           useAdMob: ad.useAdMob || false,
           adMobAppId: ad.adMobAppId,
           adMobUnitId: ad.adMobUnitId,
+          // Per-ad bottom bar toggle (Viral/WhatsApp/3-dots/Share)
+          showBottomBar: ad.showBottomBar === true,
+          bidAmount: ad.bidAmount || 0,
+          category: ad.category || '',
           createdAt: ad.createdAt
         };
       });
@@ -1377,6 +1492,41 @@ router.get('/api/public/ads', cacheMiddleware(300), async (req, res) => {
     res.status(500).json({ error: 'Error fetching ads' });
   }
 });
+
+// Single ad by id — used by a shared `/ad/<id>` deep link so the app can open
+// that specific ad full-screen. Returns it regardless of active/schedule (the
+// link was shared intentionally); same shape as the list.
+router.get('/api/public/ads/:id([a-fA-F0-9]{24})', async (req, res) => {
+  try {
+    const ad = await Ad.findById(req.params.id).lean();
+    if (!ad) return res.status(404).json({ error: 'Ad not found' });
+    res.json({
+      id: ad._id,
+      title: ad.title,
+      content: ad.content,
+      imageUrl: ad.imageUrl || (ad.imageUrls && ad.imageUrls.length > 0 ? ad.imageUrls[0] : '/images/placeholder.png'),
+      imageUrls: ad.imageUrls || (ad.imageUrl ? [ad.imageUrl] : []),
+      linkUrl: ad.linkUrl,
+      positionInterval: ad.positionInterval || 3,
+      adFormat: ad.adFormat || 'image_only',
+      buttonText: ad.buttonText,
+      priority: ad.priority || 'medium',
+      language: ad.language || 'en',
+      useAdMob: ad.useAdMob || false,
+      adMobAppId: ad.adMobAppId,
+      adMobUnitId: ad.adMobUnitId,
+      showBottomBar: ad.showBottomBar === true,
+      createdAt: ad.createdAt,
+    });
+  } catch (error) {
+    console.error('Error fetching ad by id:', error);
+    res.status(500).json({ error: 'Error fetching ad' });
+  }
+});
+
+// Public: active "Join as a Reporter" popup (image + hotspots). Guests see this
+// before login, so no auth. Returns { active:false } when nothing is configured.
+router.get('/api/public/reporter-join-popup', cacheMiddleware(120), require('../controllers/reporterJoinPopupController').getPublic);
 
 // Public API endpoint for fetching viral videos (no authentication required)
 // Cached for 5 minutes (300 seconds)
@@ -1414,7 +1564,7 @@ router.get('/api/public/viral-videos', cacheMiddleware(300), async (req, res) =>
         language: videoObj.language || 'te',
         location: 'Viral', // Viral videos might not have location, defaulting
         publishedAt: videoObj.publishedAt,
-        views: videoObj.views || 0,
+        views: displayViralViews(videoObj), // organic + slow synthetic growth (200–800)
         likes: videoObj.likes || 0,
         dislikes: videoObj.dislikes || 0,
         comments: videoObj.comments || 0,
@@ -1612,7 +1762,7 @@ router.post('/api/public/viral-videos/:id/interact', verifyMobileUser, async (re
         category: videoObj.category,
         location: 'Viral',
         publishedAt: videoObj.publishedAt,
-        views: videoObj.views || 0,
+        views: displayViralViews(videoObj), // organic + slow synthetic growth (200–800)
         likes: videoObj.likes,
         dislikes: videoObj.dislikes,
         comments: videoObj.comments,
@@ -1964,7 +2114,9 @@ router.post('/api/public/comments/report', verifyMobileUser, async (req, res) =>
 
 
 // New endpoint for admin to get detailed user interaction analytics
-router.get('/api/admin/news/:id/analytics', async (req, res) => {
+// Admin-only: this was mounted without auth and exposed title/engagement of ANY
+// news id (including rejected ones) to anonymous callers. Locked.
+router.get('/api/admin/news/:id/analytics', require('../controllers/adminController').requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -2164,17 +2316,17 @@ const AppSettings = require('../models/AppSettings');
 // 1. Generate a short link for a given newsId
 router.post('/api/public/shorten', async (req, res) => {
   try {
-    const { newsId } = req.body;
-    if (!newsId) {
-      return res.status(400).json({ error: 'newsId is required' });
+    const { newsId, pollId } = req.body;
+    if (!newsId && !pollId) {
+      return res.status(400).json({ error: 'newsId or pollId is required' });
     }
 
-    // Check if a short link already exists for this newsId
-    let shortLink = await ShortLink.findOne({ newsId });
+    // One short link per target (news article OR poll); reuse if it exists.
+    const target = newsId ? { newsId: String(newsId) } : { pollId: String(pollId) };
+    let shortLink = await ShortLink.findOne(target);
 
     if (!shortLink) {
-      // Create a new one
-      shortLink = new ShortLink({ newsId });
+      shortLink = new ShortLink(target);
       await shortLink.save();
     }
 
@@ -2190,7 +2342,8 @@ router.post('/api/public/shorten', async (req, res) => {
       success: true,
       shortCode: shortLink.shortCode,
       shortUrl: shortUrl,
-      newsId: newsId
+      newsId: shortLink.newsId || null,
+      pollId: shortLink.pollId || null
     });
   } catch (error) {
     console.error('Error generating short link:', error);
@@ -2206,9 +2359,14 @@ router.get('/api/public/expand/:shortCode', async (req, res) => {
     if (!shortLink) {
       return res.status(404).json({ error: 'Short link not found' });
     }
+    // A pending / rejected / deactivated story must not be handed to the app.
+    if (!(await newsIsPublic(shortLink.newsId))) {
+      return res.status(404).json({ error: 'This news is no longer available', unavailable: true });
+    }
     return res.json({
       success: true,
-      newsId: shortLink.newsId
+      newsId: shortLink.newsId || null,
+      pollId: shortLink.pollId || null
     });
   } catch (error) {
     console.error('Error expanding short link:', error);
@@ -2216,47 +2374,81 @@ router.get('/api/public/expand/:shortCode', async (req, res) => {
   }
 });
 
-// 2. Handle hitting the short link — Smart Redirect (Firebase Dynamic Links style)
-// Matches exactly 6 alphanumeric characters to prevent conflicting with other routes like /admin
-router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
+// ── Smart-redirect landing (short links + /poll/:id) ─────────────────────────
+// Opens the app if installed (Android intent:// / iOS universal link), else shows
+// the store badges. Shared by news short links and poll links so both behave the
+// same; polls get their question + image as the OG preview (WhatsApp/Facebook).
+const Poll = require('../models/Poll');
+// Public-visibility rule shared with GraphQL: a short link must never open a
+// pending / rejected / deactivated / sent-back story.
+const { isPublicNews, PUBLIC_NEWS_SELECT } = require('../utils/newsVisibility');
+async function newsIsPublic(newsId) {
+  if (!newsId) return true; // poll links etc. — not a news target
   try {
-    const { shortCode } = req.params;
-    const shortLink = await ShortLink.findOne({ shortCode });
+    const n = await News.findById(newsId).select(PUBLIC_NEWS_SELECT).lean();
+    return isPublicNews(n);
+  } catch (_) { return false; }
+}
+function unavailableHtml() {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tehelka News</title><meta name="robots" content="noindex">
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:center}
+.c{padding:2rem;max-width:420px}h1{font-size:1.25rem;margin:0 0 .5rem}p{color:#bbb;margin:0}</style></head>
+<body><div class="c"><h1>This news is not available</h1><p>It may have been removed or is not published.</p></div></body></html>`;
+}
+const escHtml = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const absoluteMedia = (p) => {
+  if (!p) return null;
+  if (/^https?:\/\//.test(p)) return p;
+  const b = process.env.CLOUDFLARE_R2_PUBLIC_URL || '';
+  return b ? `${b}${p.startsWith('/') ? '' : '/'}${p}` : p;
+};
 
-    if (!shortLink) {
-      return next(); // Pass to next middleware/404 if not a valid short code
-    }
+async function pollTarget(pollId, logoUrl) {
+  let poll = null;
+  try { poll = await Poll.findById(pollId).select('question imageUrl').lean(); } catch (_) { /* bad id → generic page */ }
+  return {
+    targetPath: `/poll/${pollId}`,
+    ogTitle: (poll && poll.question) || 'Tehelka News Poll',
+    ogDescription: 'Vote on this poll in the Tehelka News app 📊',
+    ogImage: absoluteMedia(poll && poll.imageUrl) || logoUrl,
+  };
+}
 
-    // Increment clicks asynchronously
-    shortLink.clicks += 1;
-    shortLink.save().catch(err => console.error('Error updating clicks:', err));
+/** Landing details for a short link's target (news article or poll). */
+async function shortLinkTarget(shortLink, host, protocol) {
+  const logoUrl = `${protocol}://${host}/images/logo.png`;
+  if (shortLink.pollId) return pollTarget(shortLink.pollId, logoUrl);
+  return {
+    targetPath: `/news/${shortLink.newsId}`,
+    ogTitle: 'Tehelka News',
+    ogDescription: 'Read this news on Tehelka News app',
+    ogImage: logoUrl,
+  };
+}
 
-    const host = req.get('host') || 'news.tehelkanews.in';
-    const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
-
-    const newsId = shortLink.newsId;
-    const appPackage = 'com.lavish.yellowsingam';
-    const settings = await AppSettings.findOne({ key: 'update_flags' });
-    const playStoreUrl = settings?.androidUpdateUrl || `https://play.google.com/store/apps/details?id=${appPackage}`;
-    const appStoreUrl = settings?.iosUpdateUrl || 'https://apps.apple.com/app/tehelka-news-daily-news-app/id6772203356';
-    const logoUrl = `${protocol}://${host}/images/logo.png`;
-    const playStoreBadgeUrl = `${protocol}://${host}/images/google-play-badge.png`;
-    const appStoreBadgeUrl = `${protocol}://${host}/images/app-store-badge.png`;
-    const deepLinkUrl = `${protocol}://${host}/news/${newsId}`;
-    const intentUrl = `intent://${host}/news/${newsId}#Intent;scheme=https;package=${appPackage};S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};end`;
-
-    // Smart redirect page: open app if installed, otherwise show Tehelka News + store links
-    res.send(`
+async function smartRedirectHtml({ host, protocol, targetPath, ogTitle, ogDescription, ogImage }) {
+  const esc = escHtml;
+  const appPackage = 'com.lavish.yellowsingam';
+  const settings = await AppSettings.findOne({ key: 'update_flags' });
+  const playStoreUrl = settings?.androidUpdateUrl || `https://play.google.com/store/apps/details?id=${appPackage}`;
+  const appStoreUrl = settings?.iosUpdateUrl || 'https://apps.apple.com/app/tehelka-news-daily-news-app/id6772203356';
+  const logoUrl = `${protocol}://${host}/images/logo.png`;
+  const playStoreBadgeUrl = `${protocol}://${host}/images/google-play-badge.png`;
+  const appStoreBadgeUrl = `${protocol}://${host}/images/app-store-badge.png`;
+  const deepLinkUrl = `${protocol}://${host}${targetPath}`;
+  const intentUrl = `intent://${host}${targetPath}#Intent;scheme=https;package=${appPackage};S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};end`;
+  return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tehelka News - Opening...</title>
-  <meta property="og:title" content="Tehelka News" />
-  <meta property="og:description" content="Read this news on Tehelka News app" />
+  <meta property="og:title" content="${esc(ogTitle)}" />
+  <meta property="og:description" content="${esc(ogDescription)}" />
   <meta property="og:url" content="${deepLinkUrl}" />
-  <meta property="og:image" content="${logoUrl}" />
+  <meta property="og:image" content="${ogImage}" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -2407,7 +2599,105 @@ router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
   </script>
 </body>
 </html>
-    `);
+    `;
+}
+
+// Long poll link (the share text's fallback URL): same smart page as a short link.
+router.get('/poll/:id([a-fA-F0-9]{24})', async (req, res) => {
+  try {
+    const host = req.get('host') || 'news.tehelkanews.in';
+    const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+    const logoUrl = `${protocol}://${host}/images/logo.png`;
+    res.send(await smartRedirectHtml({ host, protocol, ...(await pollTarget(req.params.id, logoUrl)) }));
+  } catch (e) {
+    console.error('poll landing:', e.message);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Ad share landing → opens the app to that specific ad (App Links), with the
+// ad's image as the OG preview; falls back to the Play Store when not installed.
+async function adTarget(adId, logoUrl) {
+  let ad = null;
+  try { ad = await Ad.findById(adId).select('title imageUrl imageUrls').lean(); } catch (_) { /* bad id → generic */ }
+  const img = ad && (ad.imageUrl || (ad.imageUrls && ad.imageUrls[0]));
+  return {
+    targetPath: `/ad/${adId}`,
+    ogTitle: (ad && ad.title) || 'Tehelka News',
+    ogDescription: 'Check out this on the Tehelka News app',
+    ogImage: absoluteMedia(img) || logoUrl,
+  };
+}
+
+router.get('/ad/:id([a-fA-F0-9]{24})', async (req, res) => {
+  try {
+    const host = req.get('host') || 'news.tehelkanews.in';
+    const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+    const logoUrl = `${protocol}://${host}/images/logo.png`;
+    res.send(await smartRedirectHtml({ host, protocol, ...(await adTarget(req.params.id, logoUrl)) }));
+  } catch (e) {
+    console.error('ad landing:', e.message);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Trains-between share landing → opens the app to these trains (App Links), or
+// the Play Store when the app isn't installed (smart intent fallback).
+router.get('/train', async (req, res) => {
+  try {
+    const host = req.get('host') || 'news.tehelkanews.in';
+    const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+    const logoUrl = `${protocol}://${host}/images/logo.png`;
+    const clean = (v, n) => String(v || '').replace(/[\r\n]/g, ' ').trim().slice(0, n);
+    const from = clean(req.query.from, 8).toUpperCase();
+    const to = clean(req.query.to, 8).toUpperCase();
+    const fn = clean(req.query.fn, 60);
+    const tn = clean(req.query.tn, 60);
+    const qs = new URLSearchParams();
+    if (from) qs.set('from', from);
+    if (to) qs.set('to', to);
+    if (fn) qs.set('fn', fn);
+    if (tn) qs.set('tn', tn);
+    const targetPath = qs.toString() ? `/train?${qs.toString()}` : '/train';
+    const route = from && to ? `${fn || from} → ${tn || to}` : 'Trains between stations';
+    res.send(await smartRedirectHtml({
+      host, protocol, targetPath,
+      ogTitle: 'Where is my train — Tehelka News',
+      ogDescription: `${route} — see live trains on the Tehelka News app`,
+      ogImage: logoUrl,
+    }));
+  } catch (e) {
+    console.error('train landing:', e.message);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// 2. Handle hitting the short link — Smart Redirect (Firebase Dynamic Links style)
+// Matches exactly 6 alphanumeric characters to prevent conflicting with other routes like /admin
+router.get('/:shortCode([a-zA-Z0-9]{6})', async (req, res, next) => {
+  try {
+    const { shortCode } = req.params;
+    const shortLink = await ShortLink.findOne({ shortCode });
+
+    if (!shortLink) {
+      return next(); // Pass to next middleware/404 if not a valid short code
+    }
+
+    // Rejected / pending / deactivated story → plain "not available" page. No
+    // deep link into the app, no click counted.
+    if (!(await newsIsPublic(shortLink.newsId))) {
+      return res.status(404).send(unavailableHtml());
+    }
+
+    // Increment clicks asynchronously
+    shortLink.clicks += 1;
+    shortLink.save().catch(err => console.error('Error updating clicks:', err));
+
+    const host = req.get('host') || 'news.tehelkanews.in';
+    const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+
+    const target = await shortLinkTarget(shortLink, host, protocol);
+    res.send(await smartRedirectHtml({ host, protocol, ...target }));
   } catch (error) {
     console.error('Error handling short link:', error);
     res.status(500).send('Internal Server Error');
@@ -2420,6 +2710,47 @@ router.post('/api/zodiac/:id/like', verifyMobileUser, zodiacController.likeZodia
 router.post('/api/zodiac/:id/dislike', verifyMobileUser, zodiacController.dislikeZodiac);
 router.post('/api/zodiac/:id/comment', verifyMobileUser, zodiacController.commentZodiac);
 router.get('/api/zodiac/:id/comments', zodiacController.getZodiacComments);
+
+// --- Panchangam Public API (free self-hosted engine; cached 6h) ---
+const panchangService = require('../services/panchangService');
+const _panchLang = (q) => (['te', 'hi', 'en'].includes(q) ? q : 'te');
+const _panchLoc = (req) => {
+  // Default reference location: Hyderabad. Optional lat/lng override.
+  let lat = parseFloat(req.query.lat), lng = parseFloat(req.query.lng);
+  if (!isFinite(lat) || lat < -90 || lat > 90) lat = 17.3850;
+  if (!isFinite(lng) || lng < -180 || lng > 180) lng = 78.4867;
+  return { lat, lng };
+};
+router.get('/api/public/panchang/day', cacheMiddleware(21600), (req, res) => {
+  try {
+    const lang = _panchLang(req.query.lang);
+    const { lat, lng } = _panchLoc(req);
+    let base = new Date();
+    if (req.query.date && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)) {
+      base = new Date(`${req.query.date}T12:00:00+05:30`);
+    }
+    if (isNaN(base.getTime())) base = new Date();
+    res.json({ success: true, data: panchangService.dayPanchang(base, lat, lng, lang) });
+  } catch (e) {
+    console.error('panchang/day error:', e);
+    res.status(500).json({ success: false, error: 'panchang_failed' });
+  }
+});
+router.get('/api/public/panchang/month', cacheMiddleware(21600), (req, res) => {
+  try {
+    const lang = _panchLang(req.query.lang);
+    const { lat, lng } = _panchLoc(req);
+    const now = new Date(Date.now() + 5.5 * 3600000);
+    let year = parseInt(req.query.year, 10);
+    let month = parseInt(req.query.month, 10); // 1-12
+    if (!(year >= 1900 && year <= 2200)) year = now.getUTCFullYear();
+    if (!(month >= 1 && month <= 12)) month = now.getUTCMonth() + 1;
+    res.json({ success: true, data: panchangService.monthPanchang(year, month, lat, lng, lang) });
+  } catch (e) {
+    console.error('panchang/month error:', e);
+    res.status(500).json({ success: false, error: 'panchang_failed' });
+  }
+});
 
 // ==========================================
 // GET /tell-about-us (General App Sharing)
@@ -2437,8 +2768,46 @@ router.get('/tell-about-us', (req, res) => {
 
 // Daily Quiz — user APIs (server-authoritative; identity = verified googleId).
 const quizController = require('../controllers/quizController');
+router.get('/api/public/quiz/banner', quizController.banner);
 router.get('/api/public/quiz/today', verifyMobileUser, quizController.today);
 router.post('/api/public/quiz/answer', verifyMobileUser, quizController.answer);
+router.post('/api/public/quiz/test-mode/exit', verifyMobileUser, quizController.exitTestMode);
+
+// ── Feature master-switches (admin-controlled). Server ENFORCES them: when a
+// feature is OFF, its data endpoints return 403 — so even a hacker who calls the
+// API directly (bypassing the hidden app UI) gets nothing. 30s in-memory cache. ──
+let _featCache = { at: 0, showTrain: true, showGames: true };
+async function _featureFlags() {
+  if (Date.now() - _featCache.at < 30000) return _featCache;
+  try {
+    const s = await AppSettings.findOne({ key: 'update_flags' }).select('showTrain showGames').lean();
+    _featCache = {
+      at: Date.now(),
+      showTrain: !s ? true : s.showTrain !== false,
+      showGames: !s ? true : s.showGames !== false,
+    };
+  } catch (_) { /* keep last known / defaults on DB hiccup */ }
+  return _featCache;
+}
+function featureGate(flag) {
+  return async (req, res, next) => {
+    try {
+      const f = await _featureFlags();
+      if (f[flag] === false) return res.status(403).json({ error: 'This feature is currently disabled.', disabled: true });
+    } catch (_) { /* fail-open only on unexpected error */ }
+    next();
+  };
+}
+router.use(['/api/public/game', '/api/public/games'], featureGate('showGames'));
+
+// ── Casual in-app games (2048 / sudoku) — signed-in score sync + public leaderboard ──
+const gameController = require('../controllers/gameController');
+router.post('/api/public/game/:game/score', verifyMobileUser, gameController.submitScore);
+router.get('/api/public/game/:game/my-score', verifyMobileUser, gameController.myScore);
+router.get('/api/public/game/:game/leaderboard', gameController.leaderboard);
+// Admin-designed Games page (image + tap zones).
+const gamesLayoutController = require('../controllers/gamesLayoutController');
+router.get('/api/public/games/layout', gamesLayoutController.publicLayout);
 router.get('/api/public/quiz/week', verifyMobileUser, quizController.week);
 router.get('/api/public/quiz/winners', verifyMobileUser, quizController.winners);
 router.get('/api/public/quiz/rules', quizController.rules);
@@ -2446,5 +2815,35 @@ router.get('/api/public/quiz/rules', quizController.rules);
 // In-App Popup (Firebase/OneSignal-style) — public fetch of the active popup
 const inAppPopupController = require('../controllers/inAppPopupController');
 router.get('/api/public/in-app-popup', cacheMiddleware(120), inAppPopupController.getPublic);
+
+// Train info ("Where is my train"): live status, PNR, schedule, between stations.
+const trainController = require('../controllers/trainController');
+router.use('/api/public/train', featureGate('showTrain'));
+router.get('/api/public/train/health', trainController.health);
+router.get('/api/public/train/search', trainController.search);
+router.get('/api/public/train/live', trainController.live);
+router.get('/api/public/train/pnr', trainController.pnr);
+router.get('/api/public/train/schedule', trainController.schedule);
+router.get('/api/public/train/between', trainController.between);
+router.get('/api/public/train/station', trainController.station);
+router.get('/api/public/train/station/live', trainController.stationLive);
+
+// Reporter Hub content for the main app's "+" screen (per language, cached 60s, never errors)
+router.get('/api/public/reporter-hub', reporterHubController.getPublic);
+router.get('/api/public/reporter-advertise', require('../controllers/reporterAdvertiseController').getPublic);
+// Special deck for the main app's left-swipe world (per language, cached 60s, never errors → deck off)
+router.get('/api/public/special-deck', require('../controllers/specialDeckController').getPublic);
+router.get('/api/public/train-promo-banner', require('../controllers/trainPromoBannerController').getPublic);
+
+// "Tehelka Incharge" app self-update. Public: it holds no data, and the app
+// must be able to check before anyone signs in.
+router.get('/api/public/incharge/app-version',
+  require('../controllers/inchargeAppController').appVersion);
+
+// Notification polls — the app posts the tapped option, and can read the counts back.
+// One vote per device (voting again replaces the earlier answer, never adds one).
+const notificationStudioController = require('../controllers/notificationStudioController');
+router.post('/api/public/notification/vote', notificationStudioController.publicVote);
+router.get('/api/public/notification/poll/:id', notificationStudioController.publicPoll);
 
 module.exports = router;

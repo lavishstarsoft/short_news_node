@@ -182,7 +182,13 @@
                                     if (paginationLanguage) paginationQuery += '&language=' + paginationLanguage;
                                     if (paginationFromDate) paginationQuery += '&fromDate=' + paginationFromDate;
                                     if (paginationToDate) paginationQuery += '&toDate=' + paginationToDate;
+                                    const paginationState = (typeof selectedState !== 'undefined' && selectedState) ? selectedState : '';
+                                    const paginationIncharge = (typeof selectedInchargeId !== 'undefined' && selectedInchargeId) ? selectedInchargeId : '';
+                                    if (paginationState) paginationQuery += '&state=' + encodeURIComponent(paginationState);
+                                    if (paginationIncharge) paginationQuery += '&inchargeId=' + encodeURIComponent(paginationIncharge);
 
+                                    const currentState = paginationState;
+                                    const currentIncharge = paginationIncharge;
                                     const currentSearch = paginationSearchQuery;
                                     const currentLocation = paginationLocation;
                                     const currentStatus = paginationStatus;
@@ -190,6 +196,9 @@
                                     const currentFromDate = paginationFromDate;
                                     const currentToDate = paginationToDate;
                                     const currentTabSafe = typeof currentTab !== 'undefined' ? currentTab : 'my-list';
+                                    // Keep the active tab (e.g. team-list) on the pagination links, else
+                                    // clicking Next / 1,2,3 drops back to the default "My Articles" tab.
+                                    if (currentTabSafe) paginationQuery += '&tab=' + encodeURIComponent(currentTabSafe);
 
                                     function newsFilterUrl(overrides) {
                                         const parts = [];
@@ -201,6 +210,8 @@
                                         const from = Object.prototype.hasOwnProperty.call(overrides, 'fromDate') ? overrides.fromDate : currentFromDate;
                                         const to = Object.prototype.hasOwnProperty.call(overrides, 'toDate') ? overrides.toDate : currentToDate;
                                         const tab = Object.prototype.hasOwnProperty.call(overrides, 'tab') ? overrides.tab : currentTabSafe;
+                                        const state = Object.prototype.hasOwnProperty.call(overrides, 'state') ? overrides.state : currentState;
+                                        const inchargeId = Object.prototype.hasOwnProperty.call(overrides, 'inchargeId') ? overrides.inchargeId : currentIncharge;
 
                                         if (authorId) parts.push('authorId=' + encodeURIComponent(authorId));
                                         if (tab) parts.push('tab=' + encodeURIComponent(tab));
@@ -210,10 +221,12 @@
                                         if (language) parts.push('language=' + encodeURIComponent(language));
                                         if (from) parts.push('fromDate=' + encodeURIComponent(from));
                                         if (to) parts.push('toDate=' + encodeURIComponent(to));
+                                        if (state) parts.push('state=' + encodeURIComponent(state));
+                                        if (inchargeId) parts.push('inchargeId=' + encodeURIComponent(inchargeId));
                                         return parts.length ? '/news-list?' + parts.join('&') : '/news-list';
                                     }
 
-                                    const hasActiveFilters = !!(currentSearch || currentLocation || currentStatus || currentLanguage || currentFromDate || currentToDate);
+                                    const hasActiveFilters = !!(currentSearch || currentLocation || currentStatus || currentLanguage || currentFromDate || currentToDate || currentState || currentIncharge);
                                     const statusLabels = { active: 'Active', inactive: 'Inactive', pending: 'Pending', rejected: 'Rejected' };
                                 %>
 
@@ -226,6 +239,10 @@
                                     <input type="hidden" id="languageFilterInput" name="language" value="<%= typeof selectedLanguage !== 'undefined' ? selectedLanguage : '' %>">
                                     <input type="hidden" id="fromDateFilterInput" name="fromDate" value="<%= typeof fromDate !== 'undefined' ? fromDate : '' %>">
                                     <input type="hidden" id="toDateFilterInput" name="toDate" value="<%= typeof toDate !== 'undefined' ? toDate : '' %>">
+                                    <% if (typeof isFullAccess !== 'undefined' && isFullAccess) { %>
+                                    <input type="hidden" id="stateFilterInput" name="state" value="<%= typeof selectedState !== 'undefined' ? selectedState : '' %>">
+                                    <input type="hidden" id="inchargeFilterInput" name="inchargeId" value="<%= typeof selectedInchargeId !== 'undefined' ? selectedInchargeId : '' %>">
+                                    <% } %>
                                 </form>
 
                                 <div class="news-page">
@@ -286,7 +303,7 @@
                                 </div>
                                     </div>
                                             <% if (hasActiveFilters) { %>
-                                            <a href="<%= newsFilterUrl({ search: '', location: '', status: '', language: '', fromDate: '', toDate: '' }) %>" class="news-filters-reset">
+                                            <a href="<%= newsFilterUrl({ search: '', location: '', status: '', language: '', fromDate: '', toDate: '', state: '', inchargeId: '' }) %>" class="news-filters-reset">
                                                 <i class="fas fa-rotate-left"></i> Reset filters
                                             </a>
                                                                                         <% } %>
@@ -349,6 +366,34 @@
                                                     <i class="fas fa-chevron-down news-facet-chevron"></i>
                                                                     </div>
                                                                     </div>
+
+                                            <% if (typeof isFullAccess !== 'undefined' && isFullAccess) { %>
+                                            <div class="news-facet">
+                                                <label class="news-facet-label" for="stateFilter"><i class="fas fa-map"></i> State</label>
+                                                <div class="news-facet-select-wrap<%= currentState ? ' is-active' : '' %>">
+                                                    <select id="stateFilter" class="news-facet-select">
+                                                        <option value="">All states</option>
+                                                        <% statesList.forEach(function(st) { %>
+                                                            <option value="<%= st %>" <%= currentState === st ? 'selected' : '' %>><%= st %></option>
+                                                        <% }); %>
+                                                    </select>
+                                                    <i class="fas fa-chevron-down news-facet-chevron"></i>
+                                                </div>
+                                            </div>
+
+                                            <div class="news-facet">
+                                                <label class="news-facet-label" for="inchargeFilter"><i class="fas fa-user-tie"></i> State In-charge</label>
+                                                <div class="news-facet-select-wrap<%= currentIncharge ? ' is-active' : '' %>">
+                                                    <select id="inchargeFilter" class="news-facet-select">
+                                                        <option value="">All in-charges</option>
+                                                        <% inchargesList.forEach(function(ic) { %>
+                                                            <option value="<%= ic.id %>" data-states="<%= (ic.states || []).join('||') %>" <%= currentIncharge === ic.id ? 'selected' : '' %>><%= ic.name %><%= (ic.states && ic.states.length) ? ' · ' + ic.states.join(', ') : '' %></option>
+                                                        <% }); %>
+                                                    </select>
+                                                    <i class="fas fa-chevron-down news-facet-chevron"></i>
+                                                </div>
+                                            </div>
+                                            <% } %>
 
                                             <div class="news-facet news-facet--dates">
                                                 <label class="news-facet-label"><i class="fas fa-calendar-alt"></i> Published date</label>
@@ -824,6 +869,39 @@
                                 filterForm.submit();
                             });
 
+                            // Superadmin advanced filters: State -> State In-charge (dependent)
+                            const stateFilter = document.getElementById('stateFilter');
+                            const inchargeFilter = document.getElementById('inchargeFilter');
+                            const stateFilterInput = document.getElementById('stateFilterInput');
+                            const inchargeFilterInput = document.getElementById('inchargeFilterInput');
+                            function applyInchargeStateFilter() {
+                                if (!inchargeFilter) return;
+                                const st = stateFilter ? stateFilter.value : '';
+                                Array.prototype.forEach.call(inchargeFilter.options, function (opt) {
+                                    if (!opt.value) { opt.hidden = false; return; }
+                                    const states = (opt.getAttribute('data-states') || '').split('||').filter(Boolean);
+                                    opt.hidden = st ? states.indexOf(st) === -1 : false;
+                                });
+                                if (inchargeFilter.selectedOptions.length && inchargeFilter.selectedOptions[0].hidden) {
+                                    inchargeFilter.value = '';
+                                }
+                            }
+                            if (stateFilter) {
+                                applyInchargeStateFilter();
+                                stateFilter.addEventListener('change', function () {
+                                    if (stateFilterInput) stateFilterInput.value = this.value;
+                                    if (inchargeFilter) inchargeFilter.value = '';
+                                    if (inchargeFilterInput) inchargeFilterInput.value = '';
+                                    filterForm.submit();
+                                });
+                            }
+                            if (inchargeFilter) {
+                                inchargeFilter.addEventListener('change', function () {
+                                    if (inchargeFilterInput) inchargeFilterInput.value = this.value;
+                                    filterForm.submit();
+                                });
+                            }
+
                             fromDateFilter.addEventListener('change', function () {
                                 fromDateFilterInput.value = this.value;
                                 filterForm.submit();
@@ -1202,8 +1280,10 @@
 
                     // Edit news function
                     function editNews(newsId) {
-                        // Redirect to edit page
-                        window.location.href = `/edit-news/${newsId}`;
+                        // Carry the exact page we came from (tab + page + filters) so the
+                        // edit page can send us back here after saving — not to "My Articles".
+                        const back = encodeURIComponent(window.location.pathname + window.location.search);
+                        window.location.href = `/edit-news/${newsId}?returnUrl=${back}`;
                     }
 
                     // Delete news function

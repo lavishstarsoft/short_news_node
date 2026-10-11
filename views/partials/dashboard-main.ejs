@@ -177,6 +177,24 @@
                                     .sd-page.sd-loading .sd-dim { opacity:.6; pointer-events:none; transition:opacity .3s; }
                                     .sd-spin { display:none; text-align:center; padding:16px 0 24px; color:var(--sd-muted); font-size:14px; font-weight:600; }
                                     .sd-page.sd-loading .sd-spin { display:block; }
+
+                                    /* ===== Mobile app-like layout (no horizontal page scroll) ===== */
+                                    @media (max-width: 768px) {
+                                        html, body { overflow-x: hidden; max-width: 100%; }
+                                        .sd-page { overflow-x: hidden; }
+                                        /* every panel grid stacks to a single column */
+                                        .sd-page .sd-grid, .sd-page [id^="sdRow"] { grid-template-columns: 1fr !important; }
+                                        /* panels/cards never exceed the screen; wide children scroll inside */
+                                        .sd-page .sd-panel, .sd-page .sd-card { min-width: 0 !important; max-width: 100% !important; overflow-x: hidden; }
+                                        .sd-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; max-width: 100%; }
+                                        /* date tabs become a swipeable strip, not a page-widening row */
+                                        .sd-tabs { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+                                        .sd-tabs::-webkit-scrollbar { display: none; }
+                                        /* stat cards: two per row, tighter padding for phone */
+                                        .sd-cards { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+                                        .sd-stat { padding: 16px !important; }
+                                        .sd-stat-num { font-size: 22px; }
+                                    }
                                 </style>
 
                                 <div class="sd-page" id="scopedAnalytics">
@@ -265,6 +283,12 @@
                                             <div class="sd-card sd-panel sd-scrollable-panel" id="sdReporterPanel" style="display:none">
                                                 <div class="sd-panel-head">
                                                     <h4><i class="fas fa-users" style="color:var(--sd-blue)"></i> All Reporters</h4>
+                                                </div>
+                                                <div id="sdReporterHelp" style="display:none; margin:0 4px 10px; padding:12px 14px; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:10px; font-size:13px; line-height:1.6; color:#1e3a5f;">
+                                                    <div style="font-weight:700; margin-bottom:4px;"><i class="fas fa-circle-info" style="color:#2563eb"></i> How to read this table</div>
+                                                    <div><span style="display:inline-block;min-width:130px;font-weight:600">Today (limit)</span> = the real number of news a reporter has submitted today (what the app counts). This never crosses <b>10</b>. <span style="color:#15803d;font-weight:600">8/10</span> = can still post, <span style="color:#b45309;font-weight:600">10/10 · FULL</span> = daily limit reached.</div>
+                                                    <div><span style="display:inline-block;min-width:130px;font-weight:600">Total</span> = everything in this date range (Approved + Rejected + Pending together). <b>Rejected news is NOT counted in the daily 10 limit</b>, so Total can look higher than 10. The limit has not been increased.</div>
+                                                    <div style="margin-top:4px;color:#64748b;font-size:12px;"><b>· ∞</b> = salary reporter (no daily limit). A plain grey number = reporter with no daily cap.</div>
                                                 </div>
                                                 <div class="sd-table-wrap" id="sdReporterWrap"></div>
                                             </div>
@@ -499,13 +523,16 @@
                                         const show = reporters.length > 0 && scopeRole !== 'editor';
                                         panel.style.display = show ? '' : 'none';
                                         row4.style.gridTemplateColumns = show ? '' : '1fr';
+                                        const help = document.getElementById('sdReporterHelp');
+                                        if (help) help.style.display = show ? '' : 'none';
                                         if (!show) return;
                                         document.getElementById('sdReporterWrap').innerHTML = `
                                             <table class="sd-table">
-                                                <thead><tr><th>Reporter</th><th>Email</th><th>Mobile</th><th>State</th><th>District</th><th>Total</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>Views</th></tr></thead>
+                                                <thead><tr><th>Reporter</th><th title="Real news submitted today (max 10)">Today (limit)</th><th>Email</th><th>Mobile</th><th>State</th><th>District</th><th title="Approved + Rejected + Pending (includes rejected)">Total</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>Views</th></tr></thead>
                                                 <tbody>
                                                 ${reporters.map(r => `<tr>
                                                     <td>${esc(r.author)}</td>
+                                                    <td>${limitBadge(r)}</td>
                                                     <td>${esc(r.email || '-')}</td>
                                                     <td>${esc(r.mobile || '-')}</td>
                                                     <td>${esc(r.state || '-')}</td>
@@ -518,6 +545,23 @@
                                                 </tr>`).join('')}
                                                 </tbody>
                                             </table>`;
+                                    }
+
+                                    // "Today (limit)" pill — the REAL daily count the app enforces.
+                                    function limitBadge(r) {
+                                        const used = r.todaySubmitted || 0;
+                                        if (r.limitStatus === 'unlimited') {
+                                            return `<span title="Salary reporter — no daily limit" style="display:inline-block;padding:3px 9px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:700;font-size:12px;">${num(used)} · ∞</span>`;
+                                        }
+                                        if (r.limitStatus === 'no_cap') {
+                                            return `<span title="No daily cap on this reporter" style="display:inline-block;padding:3px 9px;border-radius:999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:12px;">${num(used)}</span>`;
+                                        }
+                                        const lim = r.dailyLimit || 10;
+                                        const full = used >= lim;
+                                        const bg = full ? '#fef3c7' : '#dcfce7';
+                                        const fg = full ? '#b45309' : '#15803d';
+                                        const label = full ? 'FULL' : '';
+                                        return `<span title="Submitted today ${used}, daily limit ${lim}" style="display:inline-block;padding:3px 10px;border-radius:999px;background:${bg};color:${fg};font-weight:800;font-size:12px;">${used}/${lim}${label ? ' · ' + label : ''}</span>`;
                                     }
 
                                     function render(data) {

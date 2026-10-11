@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Notification Studio' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Notification Studio', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'notification-studio' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <style>
+          .ns-card{border:1px solid #eef0f3;border-radius:12px;padding:14px;background:#fff;margin-bottom:14px}
+          .ns-card h6{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;font-weight:700;margin-bottom:10px}
+          .ns-types{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+          .ns-type{border:1px solid #e3e7ee;border-radius:10px;padding:8px 10px;cursor:pointer;background:#fff;transition:.12s}
+          .ns-type:hover{border-color:#b9c4d6;background:#fafbfd}
+          .ns-type.on{border-color:#1d4ed8;background:#eef3ff;box-shadow:0 0 0 1px #1d4ed8 inset}
+          .ns-type b{display:block;font-size:13px;color:#1f2937}
+          .ns-type span{font-size:11px;color:#6b7280;line-height:1.25;display:block;margin-top:2px}
+          .ns-n{float:right;font-size:10px;font-weight:700;color:#9ca3af}
+          .ns-plat{font-size:10px;margin-top:4px}
+          .ns-ok{color:#16a34a}.ns-part{color:#d97706}.ns-no{color:#9ca3af}
+          .ns-form label{font-weight:600;font-size:12px;color:#555;margin-bottom:2px;display:block}
+          .ns-form input,.ns-form select,.ns-form textarea{border:1px solid #dfe3ea;border-radius:8px;padding:7px 10px;font-size:14px;width:100%}
+          .ns-form input[type=color]{padding:2px;height:34px}
+          .ns-btnrow{display:grid;grid-template-columns:1fr 1fr 110px 60px auto;gap:6px;align-items:end;margin-bottom:6px}
+          /* the phone preview */
+          .ns-phone{background:#0f172a;border-radius:22px;padding:14px 10px;position:sticky;top:12px}
+          .ns-phone .ns-when{color:#9aa4b8;font-size:11px;text-align:center;margin-bottom:8px}
+          .ns-notif{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+          .ns-nhead{display:flex;align-items:center;gap:6px;padding:8px 10px 0;font-size:11px;color:#6b7280}
+          .ns-nhead .dot{width:14px;height:14px;border-radius:4px;background:#1d4ed8}
+          .ns-nbody{padding:4px 10px 10px}
+          .ns-ntitle{font-size:14px;font-weight:700;color:#111827;line-height:1.3}
+          .ns-ntext{font-size:12.5px;color:#4b5563;line-height:1.35;margin-top:2px}
+          .ns-nbig img{width:100%;display:block;max-height:150px;object-fit:cover}
+          .ns-nthumb{width:86px;height:86px;border-radius:10px;object-fit:cover;flex:0 0 86px}
+          /* Buttons are drawn the way the design chart shows them, and the way
+             StudioNotifications.kt draws them on the phone:
+               a button WITH a colour  → filled, full width, white bold text
+               a button WITHOUT one    → light chip, auto width            */
+          /* Buttons, chips, icons — the same shapes StudioNotifications.kt draws. */
+          .ns-nbtns{display:flex;gap:8px;padding:8px 10px 10px}
+          .ns-nbtn{flex:1 1 0;min-width:0;font-size:14px;font-weight:700;text-align:center;border-radius:9px;
+                   padding:10px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .ns-nbtn.fill{color:#fff}
+          .ns-nbtn.outline{background:transparent;border:1px solid #cbd5e1;color:#1f2937}
+          .ns-nbtn.spacer{background:none;border:0;padding:0}
+          .ns-row{display:flex;align-items:center;gap:10px}
+          .ns-col{flex:1;min-width:0}
+          .ns-lemoji{font-size:30px;line-height:1;flex:0 0 auto}
+          .ns-lthumb{position:relative;flex:0 0 86px;width:86px;height:64px;border-radius:8px;overflow:hidden;display:block}
+          .ns-lthumb img{width:100%;height:100%;object-fit:cover;display:block}
+          .ns-play{position:absolute;inset:0;margin:auto;width:34px;height:34px;border-radius:50%;
+                   background:rgba(0,0,0,.7);color:#fff;font-style:normal;font-size:15px;
+                   display:flex;align-items:center;justify-content:center}
+          .ns-chev{color:#9ca3af;font-size:24px;line-height:1;flex:0 0 auto}
+          .ns-chips{display:flex;gap:6px;margin-top:9px}
+          .ns-chip2{flex:1 1 0;min-width:0;text-align:center;font-size:12px;font-weight:700;color:#1f2937;
+                    border-radius:18px;padding:7px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .ns-prow{display:flex;align-items:center;gap:10px;margin-top:9px}
+          .ns-plabel{font-size:13px;white-space:nowrap}
+          .ns-bar2{flex:1;height:9px;background:#e5e7eb;border-radius:6px;overflow:hidden}
+          .ns-bar2 i{display:block;height:100%;background:#2563eb;border-radius:6px}
+          .ns-tally{text-align:center;font-size:12px;color:#6b7280;padding:0 10px 9px}
+          .ns-hero{position:relative;overflow:hidden}
+          .ns-hero img{width:100%;height:170px;object-fit:cover;display:block}
+          .ns-hero-txt{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);padding:10px}
+          .ns-badge{display:inline-block;background:#dc2626;color:#fff;font-size:11px;font-weight:700;
+                    padding:3px 9px;border-radius:0 4px 4px 0}
+          .ns-hero-title{color:#fff;font-size:18px;font-weight:800;margin-top:5px;line-height:1.25}
+          .ns-hero-body{color:#e5e7eb;font-size:13px;margin-top:2px}
+          /* hotspot editor */
+          .hs-modal{position:fixed;inset:0;background:rgba(15,23,42,.9);z-index:2100;display:none;overflow:auto;padding:18px}
+          .hs-modal.on{display:block}
+          .hs-wrap{max-width:900px;margin:0 auto;background:#fff;border-radius:12px;padding:14px}
+          .hs-stage{position:relative;user-select:none;touch-action:none;border:1px solid #e3e7ee;border-radius:8px;overflow:hidden;background:#f6f8fb}
+          .hs-stage img{width:100%;display:block;pointer-events:none}
+          .hs-grid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);pointer-events:none}
+          .hs-grid i{border:1px dashed rgba(29,78,216,.28)}
+          .hs-box{position:absolute;border:2px solid #1d4ed8;background:rgba(29,78,216,.22);cursor:move}
+          .hs-box.sel{border-color:#dc2626;background:rgba(220,38,38,.22)}
+          .hs-box .lb{position:absolute;left:2px;top:2px;background:#1d4ed8;color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:0 5px}
+          .hs-row{display:grid;grid-template-columns:26px 120px 1fr 34px;gap:6px;align-items:center;margin-bottom:6px}
+          .hs-row.sel{background:#fff1f2;border-radius:6px}
+          .hs-row .idx{background:#1d4ed8;color:#fff;border-radius:5px;text-align:center;font-size:12px;font-weight:700;padding:3px 0}
+          .ns-warn{font-size:12px;color:#92400e;background:#fffbea;border:1px solid #fde68a;border-radius:8px;padding:6px 9px;margin-top:6px}
+          /* The phone caps an expanded notification near 240dp of a ~360dp width,
+             so a tall picture is scaled down and centred rather than cropped.
+             212px here is that same 2:3 cap at the preview's width — otherwise
+             the desk would see a tall picture full-width that the phone shrinks. */
+          .ns-pic{position:relative;line-height:0;text-align:center}
+          .ns-pic img{max-width:100%;max-height:212px;width:auto;height:auto;display:inline-block}
+          .ns-spot{position:absolute;border:2px dashed rgba(29,78,216,.85);background:rgba(29,78,216,.14);
+                   color:#1d4ed8;font-size:11px;font-weight:700;line-height:1.6;padding:0 4px;border-radius:4px}
+          .ns-hero-chev{position:absolute;right:8px;top:50%;transform:translateY(-50%);color:#fff;font-size:28px}
+          .ns-chip{display:inline-block;font-size:11px;background:#eef2f7;color:#374151;border-radius:999px;padding:2px 9px;margin:3px 3px 0 0}
+          .ns-bar{height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:6px}
+          .ns-bar i{display:block;height:100%;background:#1d4ed8}
+          .ns-aud{font-size:12px;color:#374151;background:#f6f8fb;border-radius:8px;padding:8px 10px;margin-top:10px}
+          .ns-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700}
+          .ns-sent{background:#e8f5e9;color:#2e7d32}.ns-fail{background:#fdecea;color:#c62828}
+          .ns-people{border:1px solid #dfe3ea;border-radius:8px;max-height:150px;overflow:auto}
+          .ns-people div{padding:5px 9px;font-size:13px;cursor:pointer;border-bottom:1px solid #f4f6f9}
+          .ns-people div:hover{background:#f3f6fd}
+          .ns-tagrow{margin-top:6px}
+          .ns-tag{display:inline-flex;align-items:center;gap:5px;background:#eef3ff;color:#1e3a8a;border-radius:999px;font-size:12px;padding:2px 6px 2px 10px;margin:0 4px 4px 0}
+          .ns-tag b{cursor:pointer;color:#64748b}
+          .ns-help{background:#fffbea;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.7;color:#4b3f13}
+          .ns-help b{color:#1f2937}
+          .ns-poll{font-size:12px;margin-top:4px}
+          .ns-poll .row2{display:flex;justify-content:space-between}
+          /* reference chart — one image, cropped per design (CSS sprite) */
+          .ns-refbox{border:1px solid #e3e7ee;border-radius:10px;overflow:hidden;background:#f9fafb;margin-top:10px}
+          .ns-refbox .cap{font-size:11px;color:#6b7280;padding:6px 10px;border-bottom:1px solid #eef0f3;background:#fff}
+          .ns-refimg{background-image:url('/images/notification-types-reference.webp');background-repeat:no-repeat;display:block;cursor:zoom-in}
+          .ns-refnote{font-size:11px;color:#92400e;background:#fffbea;padding:6px 10px;border-top:1px solid #fde68a}
+          .ns-modal{position:fixed;inset:0;background:rgba(15,23,42,.88);z-index:2000;display:none;overflow:auto;padding:18px}
+          .ns-modal.on{display:block}
+          .ns-modal img{display:block;margin:0 auto;max-width:1312px;width:100%;border-radius:10px;background:#fff}
+          .ns-modal .bar{max-width:1312px;margin:0 auto 10px;display:flex;justify-content:space-between;align-items:center;color:#e2e8f0;font-size:13px}
+          .ns-modal .bar button{background:#fff;border:0;border-radius:8px;padding:5px 12px;font-weight:700;cursor:pointer}
+          table.ns-tbl{width:100%;border-collapse:collapse;font-size:13px}
+          table.ns-tbl th{background:#f4f6f9;text-align:left;padding:6px 8px;font-size:11px;text-transform:uppercase;color:#6b7280}
+          table.ns-tbl td{padding:7px 8px;border-top:1px solid #f1f3f6;vertical-align:top}
+        </style>
+
+        <div class="mb-2">
+          <h3 class="mb-1">Notification Studio</h3>
+          <p class="text-muted mb-0">18 notification designs → the Tehelka app. Pick a design, choose who gets it, see it, test it on your own phone, then send.</p>
+        </div>
+
+        <!-- తెలుగు సహాయం -->
+        <div class="ns-help">
+          <div style="font-weight:700;font-size:15px;margin-bottom:6px">ℹ️ ఈ పేజీ ఎలా వాడాలి (తెలుగు)</div>
+          <b>1.</b> కింద <b>18 డిజైన్లు</b> ఉన్నాయి — ఒక్కటి నొక్కండి (ఉదా: పెద్ద ఫోటో, రెండు బటన్లు, పోల్, అర్జెంట్…).
+          ఏ number ఎలా కనిపిస్తుందో తెలియాలంటే <b>📖 18 నమూనాలు చూడండి</b> బటన్ నొక్కండి — లేదా కుడివైపు కింద
+          <b>ఎంచుకున్న డిజైన్ నమూనా</b> అక్కడే కనిపిస్తుంది.<br>
+          <b>2.</b> <b>Title</b> (పెద్ద అక్షరాల లైన్) తప్పనిసరి. <b>Message</b> ఐచ్ఛికం. డిజైన్ అడిగితేనే ఫోటో / బటన్లు / చిప్స్ కనిపిస్తాయి.<br>
+          <b>2అ.</b> <b>Title size</b> (Small / Medium / Large / Extra large), <b>Title colour</b>, <b>Message colour</b>, <b>Bold</b> —
+          పాత "Send Notification" పేజీలో ఉన్నట్టే ఇక్కడా ఉన్నాయి. మార్చగానే కుడివైపు ప్రివ్యూలో వెంటనే కనిపిస్తుంది.<br>
+          <b>3.</b> <b>ఎవరికి పంపాలి</b> — అందరికీ / ఒక భాష / ఒక రాష్ట్రం / ఒక జిల్లా / అందరు రిపోర్టర్లు / <b>మీరు ఎంచుకున్న రిపోర్టర్లు</b> / <b>మీరు ఎంచుకున్న యూజర్లు</b> (ఒక్కరికి కూడా పంపొచ్చు — పేరు లేదా ఫోన్ నంబర్ టైప్ చేసి ఎంచుకోండి).<br>
+          <b>4.</b> కుడివైపు <b>ప్రివ్యూ</b>లో ఫోన్‌లో ఎలా కనిపిస్తుందో అచ్చం అలానే చూపిస్తుంది. పంపే ముందు అది చూడండి.<br>
+          <b>5.</b> <b>🧪 Test (నాకు మాత్రమే)</b> — మీ ఫోన్‌కి మాత్రమే వెళ్తుంది, ఎవరికీ వెళ్ళదు. మొదట ఇది చేయండి.<br>
+          <b>6.</b> తరువాత <b>🚀 Send</b> — ఇది అందరికీ వెళ్తుంది, <b>వెనక్కి తీసుకోలేము</b>. అందుకే ఒకసారి కన్ఫర్మ్ అడుగుతుంది.<br>
+          <b>🖼️ #19 "Picture only":</b> టెక్స్ట్ అక్కర్లేదు — <b>ఫోటోనే మెసేజ్</b>. ఫోటో <b>కట్ అవ్వదు</b>, మొత్తం కనిపిస్తుంది.
+          ఫోటోలో YES/NO లేదా బటన్లు గీసి ఉంటే, <b>ప్రాంతాలు గీయండి</b> బటన్ నొక్కి వాటిపై దీర్ఘచతురస్రాలు గీసి —
+          ఓటు / app page / లింక్ ఇవ్వండి. (ఫోన్ గుర్తించగలిగేది <b>12 గళ్ళు</b>, editor లో చుక్కల గీతలుగా కనిపిస్తాయి.)<br>
+          <b>⚙️ మరిన్ని options:</b> notification <b>దానంతట అదే మాయమవ్వడం</b> (ఆఫర్లు, స్కోర్లు), లేదా <b>పైనే ఉండటం</b> (live score).<br>
+          <b>📊 History లో:</b> <b>చూడు</b> నొక్కితే <b>నిజంగా ఎన్ని ఫోన్లకి చేరిందో</b> OneSignal నుంచి చెబుతుంది; <b>↻</b> నొక్కితే పాత notification form లోకి వస్తుంది (మార్చి మళ్ళీ పంపొచ్చు).<br>
+          <b>పోల్ గురించి:</b> పోల్ డిజైన్‌లో యూజర్ నొక్కిన ఓటు <b>నిజంగా లెక్కపెడతాం</b>. ఒక ఫోన్ = ఒక ఓటు; మళ్ళీ నొక్కితే ఓటు <b>మారుతుంది</b>, కొత్తది కలవదు. ఫలితాలు కింద History లో లైవ్‌గా కనిపిస్తాయి.<br>
+          <span style="color:#92400e"><b>గమనిక:</b> ఇప్పుడు Android ఫోన్లలో 18 డిజైన్లూ పూర్తిగా కనిపిస్తాయి. iPhone లో కొన్ని డిజైన్లు (చిప్స్, ప్రోగ్రెస్ బార్, మల్టిపుల్ చాయిస్ పోల్) సాదా నోటిఫికేషన్‌గా కనిపిస్తాయి — ప్రతి డిజైన్ కింద అది రాసి ఉంది.</span>
+          <div style="margin-top:8px;padding:8px 10px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px">
+            <b>✅ ఇప్పుడే పని చేసేవి (app update అక్కర్లేదు):</b> <b>Title colour, Title size, Message colour</b> — ఇవి పాత app కూడా అర్థం చేసుకుంటుంది.
+            <b>పెద్ద ఫోటో</b> కూడా వస్తుంది (notification విప్పితే పెద్దగా కనిపిస్తుంది).<br>
+            <b>⚠️ కొత్త app update అవసరం:</b> ఈ 18 డిజైన్ల <b>పూర్తి రూపం</b> (కుడివైపు పెద్ద thumbnail, చిప్స్, ప్రోగ్రెస్ బార్), బటన్లు, పోల్ ఓట్లు — ఇవన్నీ <b>కొత్త app build</b> (2.0.29+) ఉన్న ఫోన్లలోనే.
+            పాత app ఉన్న వాళ్ళకి: <b>ఒక భాష</b> కి పంపితే మామూలు notification గా కనిపిస్తుంది; <b>అందరూ / రాష్ట్రం / జిల్లా</b> కి పంపితే <b>కనిపించదు</b>
+            (పాత app భాష లేని notification ని తీసేస్తుంది). <b>రిపోర్టర్లకి</b> పంపేది పాత app లోనూ పని చేస్తుంది.
+            కొత్త app Play Store లో వచ్చే వరకు — <b>ఒక భాష</b> లేదా <b>రిపోర్టర్లు</b> మాత్రమే వాడండి.
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-lg-8">
+            <div class="ns-card">
+              <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-2">1 · Design</h6>
+                <button class="btn btn-outline-secondary btn-sm mb-2" id="nsRefBtn" type="button">
+                  📖 18 నమూనాలు చూడండి
+                </button>
+              </div>
+              <div class="ns-types" id="nsTypes"></div>
+            </div>
+
+            <div class="ns-card ns-form">
+              <h6>2 · Content</h6>
+
+              <!-- Attaching a news article is what makes a TAP open that article. -->
+              <div style="background:#f6f8fb;border:1px solid #e3e7ee;border-radius:10px;padding:10px;margin-bottom:10px">
+                <label>📰 వార్తను జత చెయ్యండి <span class="text-muted" style="font-weight:400">— ఇది పెడితేనే notification నొక్కినప్పుడు ఆ వార్త తెరుచుకుంటుంది</span></label>
+                <input id="nsNewsQ" placeholder="వార్త headline టైప్ చేయండి… (ఖాళీగా వదిలి క్లిక్ చేస్తే తాజా వార్తలు)">
+                <div class="ns-people mt-1" id="nsNewsList" style="display:none"></div>
+                <div id="nsNewsPicked" class="mt-1"></div>
+                <input type="hidden" id="nsNewsId">
+              </div>
+
+              <div class="row g-2">
+                <div class="col-md-9"><label id="nsTitleLabel">Title *</label><input id="nsTitle" maxlength="120" placeholder="e.g. Breaking: heavy rain alert"></div>
+                <div class="col-md-3"><label>Emoji</label><input id="nsEmoji" maxlength="4" placeholder="📢"></div>
+                <div class="col-12"><label>Message</label><textarea id="nsMsg" rows="2" maxlength="300" placeholder="One or two lines…"></textarea></div>
+                <div class="col-md-6" id="nsImageWrap" style="display:none">
+                  <label>Image * <span class="text-muted" style="font-weight:400">— link పెట్టండి లేదా file ఎంచుకోండి</span></label>
+                  <!-- The link box IS the field that gets sent; uploading simply
+                       fills it in, so a pasted URL works exactly the same way. -->
+                  <input id="nsImage" placeholder="https://… (ఫోటో లింక్)">
+                  <div class="d-flex align-items-center gap-2 mt-1">
+                    <input type="file" id="nsImageFile" accept="image/*" class="small" style="border:0;padding:0">
+                    <span class="small text-muted" id="nsImageOut"></span>
+                  </div>
+                  <div id="nsImageThumb" class="mt-1"></div>
+                  <div id="nsImageWarn"></div>
+                </div>
+
+                <div class="col-md-6" id="nsSpotWrap" style="display:none">
+                  <label>🖱️ ఫోటో మీద నొక్కే ప్రాంతాలు (hotspots)</label>
+                  <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-primary btn-sm" id="nsSpotOpen" type="button">ప్రాంతాలు గీయండి</button>
+                    <span class="small text-muted"><b id="nsSpotCount">0</b> ప్రాంతాలు</span>
+                  </div>
+                  <div class="small text-muted mt-1">ఫోటోలో YES/NO లేదా బటన్లు ఉంటే — వాటిపై ప్రాంతం గీసి, ఓటు/లింక్ ఇవ్వండి.</div>
+                  <div class="ns-warn mt-1">
+                    <b>ఎంచుకోండి:</b> ప్రాంతాలు <b>గీయకపోతే</b> — ఫోటో Android సొంత పద్ధతిలో <b>పూర్తి వెడల్పు</b>, ఎడమవైపు ఖాళీ ఉండదు.
+                    ప్రాంతాలు <b>గీస్తే</b> — నొక్కడం పని చేస్తుంది, కానీ కొన్ని ఫోన్లలో (Xiaomi/HyperOS) ఎడమవైపు
+                    <b>logo స్థలం</b> వచ్చి ఫోటో కొద్దిగా చిన్నదవుతుంది. Android అనుమతించే పరిమితి ఇది.
+                  </div>
+                  <div class="ns-warn mt-1" style="background:#eef6ff;border-color:#bfdbfe;color:#1e3a8a">
+                    <b>ఫోటో కొలతలు:</b> <b>1280 × 720 px</b> (16:9). ఒక గడి = <b>320 × 240 px</b>.
+                    బటన్లు <b>కింది వరుసలో మాత్రమే</b> (y 480–720) పెట్టండి.
+                    <a href="/images/notification-grid-template.png" target="_blank" download>📐 గడుల template దించుకోండి</a>
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <details>
+                    <summary class="small text-muted" style="cursor:pointer">⚙️ మరిన్ని options</summary>
+                    <div class="row g-2 mt-1">
+                      <div class="col-md-4">
+                        <label>దానంతట అదే మాయమవ్వాలి</label>
+                        <select id="nsExpire">
+                          <option value="0">వద్దు — యూజర్ తీసేసే వరకు ఉంటుంది</option>
+                          <option value="1">1 గంట తర్వాత</option>
+                          <option value="3">3 గంటల తర్వాత</option>
+                          <option value="6">6 గంటల తర్వాత</option>
+                          <option value="12">12 గంటల తర్వాత</option>
+                          <option value="24">1 రోజు తర్వాత</option>
+                        </select>
+                      </div>
+                      <div class="col-md-8">
+                        <label>పైనే ఉండాలి (live score లాంటివి)</label>
+                        <div style="padding-top:7px">
+                          <input type="checkbox" id="nsOngoing">
+                          <span class="small">తీసెయ్యలేని notification — score update అయ్యే వరకు పైనే ఉంటుంది</span>
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                </div>
+                <div class="col-md-3">
+                  <label>Title size</label>
+                  <select id="nsTitleSize">
+                    <option value="small">Small</option>
+                    <option value="normal" selected>Medium (normal)</option>
+                    <option value="large">Large</option>
+                    <option value="xlarge">Extra large</option>
+                  </select>
+                </div>
+                <div class="col-md-2"><label>Title colour</label><input type="color" id="nsTitleColor" value="#ff6f00"></div>
+                <div class="col-md-2"><label>Message colour</label><input type="color" id="nsMsgColor" value="#333333"></div>
+                <div class="col-md-2">
+                  <label>Bold title</label>
+                  <div style="padding-top:7px"><input type="checkbox" id="nsTitleBold" checked> <span class="small">Bold</span></div>
+                </div>
+                <div class="col-md-3"><label>Accent / bar colour</label><input type="color" id="nsAccent" value="#1d4ed8"></div>
+                <div class="col-md-4">
+                  <label>👆 Tap opens</label>
+                  <select id="nsRoute">
+                    <option value="">App మాత్రమే (ఏమీ లేదు)</option>
+                    <!-- filled from the server so the list can never name a screen the app does not have -->
+                    <option value="__ext__">🔗 బయటి link…</option>
+                  </select>
+                </div>
+                <div class="col-md-5" id="nsUrlWrap" style="display:none">
+                  <label>బయటి link (browser లో తెరుచుకుంటుంది)</label>
+                  <input id="nsUrl" placeholder="https://…">
+                </div>
+
+                <div class="col-12" id="nsChipsWrap" style="display:none">
+                  <label>Category chips (comma separated, max 6)</label>
+                  <input id="nsChips" placeholder="Politics, Sports, Cinema">
+                </div>
+
+                <div class="col-12" id="nsProgWrap" style="display:none">
+                  <label>Progress / score</label>
+                  <div class="row g-2">
+                    <div class="col-4"><input id="nsProgCur" type="number" placeholder="Current (e.g. 120)"></div>
+                    <div class="col-4"><input id="nsProgTot" type="number" placeholder="Total (e.g. 200)"></div>
+                    <div class="col-4"><input id="nsProgLbl" maxlength="80" placeholder="Label (e.g. IND 120/3)"></div>
+                  </div>
+                </div>
+
+                <div class="col-12" id="nsBtnsWrap" style="display:none">
+                  <label>Buttons <span class="text-muted" id="nsBtnMax"></span></label>
+                  <div id="nsBtns"></div>
+                  <button class="btn btn-outline-secondary btn-sm mt-1" id="nsAddBtn" type="button">+ add button</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="ns-card ns-form">
+              <h6>3 · Who gets it</h6>
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <label>Audience</label>
+                  <select id="nsAud">
+                    <option value="all">Everyone</option>
+                    <option value="language">One language</option>
+                    <option value="state">One state</option>
+                    <option value="district">One district</option>
+                    <option value="reporters">All reporters</option>
+                    <option value="reporter_list">Selected reporters</option>
+                    <option value="user_list">Selected app users</option>
+                  </select>
+                </div>
+                <div class="col-md-4" id="nsLangWrap" style="display:none"><label>Language</label><select id="nsLang"></select></div>
+                <div class="col-md-4" id="nsStateWrap" style="display:none"><label>State</label><select id="nsState"></select></div>
+                <div class="col-md-4" id="nsDistWrap" style="display:none"><label>District</label><select id="nsDist"></select></div>
+                <div class="col-12" id="nsPeopleWrap" style="display:none">
+                  <label id="nsPeopleLbl">Search</label>
+                  <input id="nsPeopleQ" placeholder="Type a name, username or mobile number (2+ letters)">
+                  <div class="ns-people mt-1" id="nsPeopleList" style="display:none"></div>
+                  <div class="ns-tagrow" id="nsPicked"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ns-card">
+              <h6>4 · Send</h6>
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button class="btn btn-outline-primary btn-sm" id="nsTest">🧪 Test — my phone only</button>
+                <button class="btn btn-danger btn-sm" id="nsSend">🚀 Send for real</button>
+                <span id="nsSendOut" class="small ms-1"></span>
+              </div>
+              <div class="small text-muted mt-2">
+                A real send cannot be taken back. Test first.
+                A test goes to <b>one phone only</b> — the person you picked above, or else your own account
+                (you must be signed into the Tehelka app with it).
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="ns-phone">
+              <div class="ns-when">Tehelka News · now</div>
+              <div id="nsPreview"></div>
+            </div>
+            <div class="ns-aud" id="nsAudOut">Choosing…</div>
+
+            <!-- the design chart, cropped to just the design that is selected -->
+            <div class="ns-refbox">
+              <div class="cap">📖 నమూనా — <b id="nsRefName">#1</b> <span class="text-muted">(నొక్కితే పూర్తి chart)</span></div>
+              <div class="ns-refimg" id="nsRefImg" title="పూర్తి chart చూడటానికి నొక్కండి"></div>
+              <div class="ns-refnote">ఇది <b>నమూనా బొమ్మ</b> — ఏ రకం ఎలా ఉంటుందో అర్థం చేసుకోవడానికి. నిజమైన ఫోన్‌లో Android system style ప్రకారం కొద్దిగా తేడా ఉంటుంది; పైన ఉన్న <b>ప్రివ్యూ</b> మీరు టైప్ చేసిన నిజమైన content చూపిస్తుంది.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- the whole reference chart -->
+        <div class="ns-modal" id="nsModal">
+          <div class="bar">
+            <span>📖 18 రకాల notification నమూనాలు — మీరు ఎంచుకున్న <b>number</b> ఇక్కడి number తోనే సరిపోతుంది</span>
+            <button type="button" id="nsModalClose">✕ మూసివేయి</button>
+          </div>
+          <img src="/images/notification-types-reference.webp" alt="18 notification designs reference">
+        </div>
+
+        <!-- draw tappable areas on the picture -->
+        <div class="hs-modal" id="nsSpotModal">
+          <div class="hs-wrap">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <b>🖱️ ఫోటో మీద నొక్కే ప్రాంతాలు</b>
+              <button class="btn btn-sm btn-dark" id="nsSpotClose" type="button">✕ మూసివేయి</button>
+            </div>
+            <div class="small text-muted mb-2">
+              ఫోటోపై <b>మౌస్‌తో గీయండి</b> — ప్రాంతం వస్తుంది. లాగి జరపొచ్చు, ✕ తో తీసెయ్యొచ్చు.
+              చుక్కల గీతలు ఫోన్ గుర్తించగలిగే <b>12 గళ్ళు</b>; మీరు గీసినది వాటికి సర్దుకుంటుంది —
+              అందుకే మీరు చూసేదే ఫోన్‌లో పని చేస్తుంది.
+            </div>
+            <div class="hs-stage" id="nsSpotStage"></div>
+            <div class="mt-2" id="nsSpotList"></div>
+            <div class="small text-muted" id="nsSpotEmpty">ఇంకా ఏ ప్రాంతమూ గీయలేదు.</div>
+          </div>
+        </div>
+
+        <div class="ns-card mt-3">
+          <h6>Recent sends &amp; live poll results</h6>
+          <div class="table-responsive"><table class="ns-tbl">
+            <thead><tr><th>When</th><th>Design</th><th>Title</th><th>Audience</th><th>Delivered</th><th>Poll result</th><th>By</th><th></th></tr></thead>
+            <tbody id="nsHistory"><tr><td colspan="7" class="text-muted py-3">Loading…</td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+<script>
+const NS_TYPES = <%- JSON.stringify(notificationTypes) %>;
+const S = { type: 'simple', buttons: [], picked: [] };   // picked = [{id,name}]
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const platBadge = (v) => v === 'full' ? '<span class="ns-ok">✓ full</span>'
+  : v === 'buttons-only' ? '<span class="ns-part">buttons only</span>' : '<span class="ns-no">plain</span>';
+
+/**
+ * Where each of the 18 designs sits in the reference chart
+ * (public/images/notification-types-reference.webp, 1312×1199).
+ * Measured from the chart's own numbered badges — index = design number.
+ */
+const REF_SHEET = { w: 1312, h: 1199 };
+const REF_BOX = [{"n":1,"x":15,"y":118,"w":431,"h":189},{"n":2,"x":449,"y":118,"w":423,"h":189},{"n":3,"x":873,"y":118,"w":428,"h":189},{"n":4,"x":15,"y":307,"w":431,"h":205},{"n":5,"x":449,"y":307,"w":423,"h":205},{"n":6,"x":873,"y":307,"w":428,"h":205},{"n":7,"x":15,"y":512,"w":431,"h":194},{"n":8,"x":449,"y":512,"w":423,"h":194},{"n":9,"x":873,"y":512,"w":428,"h":194},{"n":10,"x":15,"y":706,"w":431,"h":182},{"n":11,"x":449,"y":706,"w":423,"h":182},{"n":12,"x":873,"y":706,"w":428,"h":182},{"n":13,"x":15,"y":888,"w":431,"h":165},{"n":14,"x":449,"y":888,"w":423,"h":165},{"n":15,"x":873,"y":888,"w":428,"h":165},{"n":16,"x":15,"y":1053,"w":431,"h":146},{"n":17,"x":449,"y":1053,"w":423,"h":146},{"n":18,"x":873,"y":1053,"w":428,"h":146}];
+
+/** Show only this design's card from the chart, scaled to the panel width. */
+function drawRef(n) {
+  const box = REF_BOX[n - 1];
+  const el = $('nsRefImg');
+  if (!box || !el) return;
+  const width = el.parentElement.clientWidth || 340;
+  const s = width / box.w;
+  el.style.width = width + 'px';
+  el.style.height = Math.round(box.h * s) + 'px';
+  el.style.backgroundSize = `${Math.round(REF_SHEET.w * s)}px ${Math.round(REF_SHEET.h * s)}px`;
+  el.style.backgroundPosition = `-${Math.round(box.x * s)}px -${Math.round(box.y * s)}px`;
+  const d = NS_TYPES.find(t => t.n === n);
+  $('nsRefName').textContent = `#${n} ${d ? d.label : ''}`;
+}
+
+function def(key) { return NS_TYPES.find(t => t.key === key) || NS_TYPES[0]; }
+function maxButtons(key) {
+  const n = def(key).needs || [];
+  return n.includes('buttons4') ? 4 : n.includes('buttons2') ? 2 : n.includes('buttons1') ? 1 : 0;
+}
+
+// ── design picker ───────────────────────────────────────────────────────────
+$('nsTypes').innerHTML = NS_TYPES.map(t => `
+  <div class="ns-type" data-key="${t.key}">
+    <span class="ns-n">${t.n}</span><b>${esc(t.label)}</b>
+    <span>${esc(t.help)}</span>
+    <div class="ns-plat">Android ${platBadge(t.android)} · iPhone ${platBadge(t.ios)}</div>
+  </div>`).join('');
+$('nsTypes').addEventListener('click', (e) => {
+  const el = e.target.closest('.ns-type'); if (!el) return;
+  pickType(el.dataset.key);
+});
+
+function pickType(key) {
+  S.type = key;
+  const d = def(key);
+  document.querySelectorAll('.ns-type').forEach(el => el.classList.toggle('on', el.dataset.key === key));
+  const needs = d.needs || [];
+  $('nsImageWrap').style.display = needs.includes('imageUrl') ? '' : 'none';
+  $('nsSpotWrap').style.display = needs.includes('hotspots') ? '' : 'none';
+  if (!needs.includes('hotspots')) spots = [];
+  // The picture design carries its own words, so no headline is asked for.
+  $('nsTitleLabel').innerHTML = d.noTitle
+    ? 'Title <span class="text-muted" style="font-weight:400">— అవసరం లేదు, ఖాళీగా వదిలెయ్యండి</span>'
+    : 'Title *';
+  $('nsChipsWrap').style.display = needs.includes('chips') ? '' : 'none';
+  $('nsProgWrap').style.display  = needs.includes('progress') ? '' : 'none';
+  const max = maxButtons(key);
+  $('nsBtnsWrap').style.display = max ? '' : 'none';
+  $('nsBtnMax').textContent = max ? `(max ${max}${d.poll ? ' — these are the poll options' : ''})` : '';
+  // a design's own defaults, so "Urgent" is red and "Poll" already has options
+  S.buttons = (d.defaults && d.defaults.buttons ? d.defaults.buttons : []).map(b => ({ ...b }));
+  // A design's own colour also becomes the title colour, so picking "Urgent"
+  // gives a red headline without the desk having to set anything.
+  if (d.defaults && d.defaults.accentColor) {
+    $('nsAccent').value = d.defaults.accentColor;
+    $('nsTitleColor').value = d.defaults.accentColor;
+  }
+  if (d.defaults && d.defaults.emoji) $('nsEmoji').value = d.defaults.emoji;
+  drawButtons();
+  drawRef(d.n);
+  refresh();
+}
+
+// ── the reference chart ─────────────────────────────────────────────────────
+const openRef = () => $('nsModal').classList.add('on');
+const closeRef = () => $('nsModal').classList.remove('on');
+$('nsRefBtn').addEventListener('click', openRef);
+$('nsRefImg').addEventListener('click', openRef);
+$('nsModalClose').addEventListener('click', closeRef);
+$('nsModal').addEventListener('click', (e) => { if (e.target.id === 'nsModal') closeRef(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeRef(); });
+window.addEventListener('resize', () => drawRef(def(S.type).n));
+
+// ── buttons editor ──────────────────────────────────────────────────────────
+function drawButtons() {
+  const max = maxButtons(S.type);
+  $('nsBtns').innerHTML = S.buttons.slice(0, max).map((b, i) => `
+    <div class="ns-btnrow">
+      <div><label>Label ${i + 1}</label><input data-i="${i}" data-f="label" value="${esc(b.label || '')}" maxlength="40"></div>
+      <div><label>Opens (URL)</label><input data-i="${i}" data-f="url" value="${esc(b.url || '')}" placeholder="optional"></div>
+      <div><label>Action</label>
+        <select data-i="${i}" data-f="action">
+          ${['open','vote','link','dismiss','remind'].map(a => `<option value="${a}" ${b.action === a ? 'selected' : ''}>${a}</option>`).join('')}
+        </select></div>
+      <div><label>Colour</label><input type="color" data-i="${i}" data-f="color" value="${/^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : '#1d4ed8'}"></div>
+      <div><button class="btn btn-outline-danger btn-sm" data-del="${i}" type="button">✕</button></div>
+    </div>`).join('');
+  $('nsAddBtn').style.display = S.buttons.length < max ? '' : 'none';
+}
+$('nsBtns').addEventListener('input', (e) => {
+  const t = e.target; if (t.dataset.i === undefined) return;
+  S.buttons[+t.dataset.i][t.dataset.f] = t.value;
+  refresh();
+});
+$('nsBtns').addEventListener('change', (e) => {
+  const t = e.target; if (t.dataset.i === undefined) return;
+  S.buttons[+t.dataset.i][t.dataset.f] = t.value;
+  refresh();
+});
+$('nsBtns').addEventListener('click', (e) => {
+  const d = e.target.dataset.del; if (d === undefined) return;
+  S.buttons.splice(+d, 1); drawButtons(); refresh();
+});
+$('nsAddBtn').addEventListener('click', () => {
+  S.buttons.push({ id: 'opt_' + S.buttons.length, label: '', action: def(S.type).poll ? 'vote' : 'open' });
+  drawButtons(); refresh();
+});
+
+// ── audience ────────────────────────────────────────────────────────────────
+$('nsAud').addEventListener('change', () => {
+  const k = $('nsAud').value;
+  $('nsLangWrap').style.display  = k === 'language' ? '' : 'none';
+  $('nsStateWrap').style.display = (k === 'state' || k === 'district') ? '' : 'none';
+  $('nsDistWrap').style.display  = k === 'district' ? '' : 'none';
+  $('nsPeopleWrap').style.display = (k === 'reporter_list' || k === 'user_list') ? '' : 'none';
+  $('nsPeopleLbl').textContent = k === 'user_list' ? 'Search app users' : 'Search reporters';
+  S.picked = []; drawPicked();
+  refresh();
+});
+$('nsState').addEventListener('change', async () => {
+  if ($('nsAud').value === 'district') {
+    const r = await fetch('/admin/api/notification-studio/districts?state=' + encodeURIComponent($('nsState').value)).then(r => r.json());
+    $('nsDist').innerHTML = (r.districts || []).map(d => `<option>${esc(d)}</option>`).join('');
+  }
+  refresh();
+});
+
+// ── attach a news article ───────────────────────────────────────────────────
+let newsTimer;
+async function loadNews() {
+  const q = $('nsNewsQ').value.trim();
+  const r = await fetch('/admin/api/notification-studio/news?q=' + encodeURIComponent(q)).then(x => x.json()).catch(() => ({}));
+  const list = r.news || [];
+  $('nsNewsList').innerHTML = list.length
+    ? list.map(n => `<div data-id="${n.id}" data-title="${esc(n.title)}" data-summary="${esc(n.summary)}" data-image="${esc(n.image)}" data-video="${n.isVideo ? 1 : 0}">
+        ${esc(n.title)}<br><span class="text-muted small">${esc(n.sub || '')}</span></div>`).join('')
+    : '<div class="text-muted">సరిపోయే వార్త లేదు</div>';
+  $('nsNewsList').style.display = '';
+}
+$('nsNewsQ').addEventListener('focus', loadNews);
+$('nsNewsQ').addEventListener('input', () => { clearTimeout(newsTimer); newsTimer = setTimeout(loadNews, 300); });
+$('nsNewsList').addEventListener('click', (e) => {
+  const el = e.target.closest('div[data-id]'); if (!el) return;
+  $('nsNewsId').value = el.dataset.id;
+  // Fill the text from the article, but never overwrite something already typed.
+  if (!$('nsTitle').value.trim()) $('nsTitle').value = el.dataset.title || '';
+  if (!$('nsMsg').value.trim()) $('nsMsg').value = el.dataset.summary || '';
+  if (!$('nsImage').value && el.dataset.image) {
+    $('nsImage').value = el.dataset.image;
+    $('nsImageOut').textContent = 'వార్త ఫోటో వాడుతున్నాం';
+    showImageThumb();
+  }
+  if (el.dataset.video === '1' && S.type !== 'video') pickType('video');
+  $('nsNewsQ').value = '';
+  $('nsNewsList').style.display = 'none';
+  $('nsNewsPicked').innerHTML =
+    `<span class="ns-tag" style="background:#dcfce7;color:#166534">📰 ${esc(el.dataset.title)} <b data-clearnews="1">✕</b></span>
+     <div class="small text-success mt-1">✅ notification నొక్కితే ఈ వార్త తెరుచుకుంటుంది</div>`;
+  refresh();
+});
+$('nsNewsPicked').addEventListener('click', (e) => {
+  if (!e.target.dataset.clearnews) return;
+  $('nsNewsId').value = '';
+  $('nsNewsPicked').innerHTML = '';
+  refresh();
+});
+
+let peopleTimer;
+$('nsPeopleQ').addEventListener('input', () => {
+  clearTimeout(peopleTimer);
+  peopleTimer = setTimeout(async () => {
+    const q = $('nsPeopleQ').value.trim();
+    if (q.length < 2) { $('nsPeopleList').style.display = 'none'; return; }
+    const who = $('nsAud').value === 'user_list' ? 'user' : 'reporter';
+    const r = await fetch(`/admin/api/notification-studio/people?who=${who}&q=${encodeURIComponent(q)}`).then(r => r.json());
+    const list = r.people || [];
+    $('nsPeopleList').innerHTML = list.length
+      ? list.map(p => `<div data-id="${p.id}" data-name="${esc(p.name)}">${esc(p.name)}${p.inactive ? ' <span class="text-danger small">(inactive)</span>' : ''} <span class="text-muted small">${esc(p.sub || '')}</span></div>`).join('')
+      : '<div class="text-muted">No match</div>';
+    $('nsPeopleList').style.display = '';
+  }, 300);
+});
+$('nsPeopleList').addEventListener('click', (e) => {
+  const el = e.target.closest('div[data-id]'); if (!el) return;
+  if (!S.picked.some(p => p.id === el.dataset.id)) S.picked.push({ id: el.dataset.id, name: el.dataset.name });
+  $('nsPeopleQ').value = ''; $('nsPeopleList').style.display = 'none';
+  drawPicked(); refresh();
+});
+function drawPicked() {
+  $('nsPicked').innerHTML = S.picked.map((p, i) =>
+    `<span class="ns-tag">${esc(p.name)} <b data-un="${i}">✕</b></span>`).join('');
+  updateTestLabel();
+}
+
+/** The test goes to the first picked person, so the button says whose phone. */
+function updateTestLabel() {
+  const k = $('nsAud').value;
+  const named = (k === 'reporter_list' || k === 'user_list') && S.picked.length ? S.picked[0].name : '';
+  $('nsTest').textContent = named ? `🧪 Test — ${named} only` : '🧪 Test — my phone only';
+}
+$('nsPicked').addEventListener('click', (e) => {
+  const i = e.target.dataset.un; if (i === undefined) return;
+  S.picked.splice(+i, 1); drawPicked(); refresh();
+});
+
+// ── the payload we send ─────────────────────────────────────────────────────
+function body() {
+  const k = $('nsAud').value;
+  const max = maxButtons(S.type);
+  return {
+    type: S.type,
+    title: $('nsTitle').value,
+    message: $('nsMsg').value,
+    emoji: $('nsEmoji').value,
+    accentColor: $('nsAccent').value,
+    titleColor: $('nsTitleColor').value,
+    messageColor: $('nsMsgColor').value,
+    titleSize: $('nsTitleSize').value,
+    titleBold: $('nsTitleBold').checked,
+    imageUrl: $('nsImage').value,
+    launchUrl: $('nsRoute').value === '__ext__' ? $('nsUrl').value : '',
+    route: $('nsRoute').value === '__ext__' ? '' : $('nsRoute').value,
+    newsId: $('nsNewsId').value,   // set → tapping the notification opens that article
+    hotspots: spots,
+    expireHours: Number($('nsExpire').value) || 0,
+    ongoing: $('nsOngoing').checked,
+    chips: $('nsChips').value.split(',').map(s => s.trim()).filter(Boolean),
+    progress: { current: $('nsProgCur').value, total: $('nsProgTot').value, label: $('nsProgLbl').value },
+    buttons: S.buttons.slice(0, max).map((b, i) => ({ ...b, id: b.id || 'opt_' + i })),
+    audience: {
+      kind: k,
+      language: $('nsLang').value,
+      state: $('nsState').value,
+      district: $('nsDist').value,
+      reporterIds: k === 'reporter_list' ? S.picked.map(p => p.id) : [],
+      userIds: k === 'user_list' ? S.picked.map(p => p.id) : [],
+    },
+  };
+}
+
+// ── preview (drawn from exactly what the server would send) ─────────────────
+let previewTimer;
+function refresh() { clearTimeout(previewTimer); previewTimer = setTimeout(doPreview, 350); }
+
+async function doPreview() {
+  let r;
+  try {
+    r = await fetch('/admin/api/notification-studio/preview', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body()),
+    }).then(x => x.json());
+  } catch (e) { return; }
+  if (r.error) {
+    $('nsPreview').innerHTML = `<div class="ns-notif"><div class="ns-nbody text-muted small">${esc(r.error)}</div></div>`;
+    return;
+  }
+  $('nsPreview').innerHTML = drawNotif(r.preview);
+  const a = r.audience || {};
+  // Same order the phone uses: an article wins, then an in-app page, then a link.
+  const px = r.preview || {};
+  const routeLabel = ($('nsRoute').selectedOptions[0] || {}).text || '';
+  const tap = px.newsId
+    ? '<div class="small text-success mt-1">👆 నొక్కితే: జత చేసిన <b>వార్త</b> app లో తెరుచుకుంటుంది</div>'
+    : (px.route
+      ? `<div class="small text-success mt-1">👆 నొక్కితే: app లో <b>${esc(routeLabel)}</b> తెరుచుకుంటుంది</div>`
+      : (px.url
+        ? '<div class="small text-muted mt-1">👆 నొక్కితే: <b>బయటి link</b> (browser) తెరుచుకుంటుంది</div>'
+        : '<div class="small text-warning mt-1">👆 నొక్కితే: app మాత్రమే తెరుచుకుంటుంది — ఏమీ ఎంచుకోలేదు</div>'));
+  $('nsAudOut').innerHTML = `<b>Goes to:</b> ${esc(a.describe || '—')}` +
+    (a.estimate != null ? ` <span class="text-muted">(~${a.estimate} known ${a.estimate === 1 ? 'person' : 'people'})</span>` : '') +
+    tap +
+    `<div class="small text-muted mt-1">Only phones that have the app installed and notifications allowed will receive it.</div>`;
+}
+
+/**
+ * The same 18 designs the phone draws (StudioNotifications.kt). The look table
+ * below mirrors LOOKS there — pale card, big left icon, chevron, full-bleed
+ * photo — so what the desk sees here is what a reader gets.
+ */
+const LOOKS = {
+  simple:      {},
+  image:       { rightThumb: 1 },
+  big_image:   { hero: 1, chevron: 1 },
+  actions:     {},
+  poll_yes_no: {},
+  poll_choice: {},
+  categories:  {},
+  progress:    { leftEmoji: 1, chevron: 1 },
+  links:       {},
+  promo:       { card: '#FFF6E5', leftEmoji: 1, chevron: 1 },
+  reminder:    { leftEmoji: 1 },
+  location:    { leftEmoji: 1, chevron: 1 },
+  video:       { leftThumb: 1, play: 1, chevron: 1 },
+  update:      { leftEmoji: 1 },
+  achievement: { card: '#E9F8EE', leftEmoji: 1, chevron: 1 },
+  urgent:      { card: '#FDECEC', chevron: 1 },
+  silent:      { leftEmoji: 1 },
+  birthday:    { card: '#F5EBFF', leftEmoji: 1, chevron: 1 },
+  image_only:  { picture: 1 },
+};
+const CHIP_TINTS = ['#FFF1E0', '#EDF1F7', '#E9F7EE', '#F3ECFF'];
+const TITLE_PX = { small: 13, normal: 15, large: 18, xlarge: 21 };
+
+function drawNotif(x) {
+  const look = LOOKS[x.type] || {};
+  const accent = x.accent || '#1d4ed8';
+  const emoji = x.emoji || '';
+  // An emoji shown as the big left icon must not also sit inside the title.
+  const title = (emoji && !look.leftEmoji ? emoji + ' ' : '') + (x.title || '');
+  const titleStyle = `color:${esc(x.titleColor || accent)};`
+    + `font-size:${TITLE_PX[x.titleSize] || 15}px;`
+    + `font-weight:${x.titleBold === false ? '500' : '800'}`;
+  // On a tinted card the body must be dark, exactly as the phone forces it.
+  const bodyCol = x.bodyColor || (look.card ? '#374151' : '');
+  const bodyStyle = bodyCol ? `color:${esc(bodyCol)}` : '';
+  const chev = look.chevron ? '<span class="ns-chev">›</span>' : '';
+
+  // ── the picture IS the message: shown whole, with its tappable areas ──
+  if (look.picture && x.image) {
+    const areas = (x.spots || []).map((h, i) =>
+      `<span class="ns-spot" style="left:${h.x * 100}%;top:${h.y * 100}%;width:${h.w * 100}%;height:${h.h * 100}%">${i + 1}</span>`).join('');
+    return `<div class="ns-notif">
+      <div class="ns-nhead"><span class="dot" style="background:${esc(accent)}"></span> Tehelka News</div>
+      <div class="ns-pic">
+        <img src="${esc(x.image)}" alt="">${areas}
+      </div></div>`;
+  }
+
+  // ── the full-bleed photo design ──
+  if (look.hero && x.image) {
+    return `<div class="ns-notif">
+      <div class="ns-nhead"><span class="dot" style="background:${esc(accent)}"></span> Tehelka News</div>
+      <div class="ns-hero">
+        <img src="${esc(x.image)}" alt="">
+        <div class="ns-hero-txt">
+          <span class="ns-badge">BREAKING NEWS</span>
+          <div class="ns-hero-title">${esc(title)}</div>
+          ${x.body ? `<div class="ns-hero-body">${esc(x.body)}</div>` : ''}
+        </div>
+        <span class="ns-hero-chev">›</span>
+      </div></div>`;
+  }
+
+  // ── headline row ──
+  let left = '';
+  if (look.leftEmoji && emoji) left = `<span class="ns-lemoji">${esc(emoji)}</span>`;
+  else if (look.leftThumb && x.image) {
+    left = `<span class="ns-lthumb"><img src="${esc(x.image)}" alt="">${look.play ? '<i class="ns-play">▶</i>' : ''}</span>`;
+  }
+  const right = look.rightThumb && x.image ? `<img class="ns-nthumb" src="${esc(x.image)}" alt="">` : '';
+
+  let inner = `<div class="ns-row">${left}
+      <div class="ns-col"><div class="ns-ntitle" style="${titleStyle}">${esc(title)}</div>
+      ${x.body ? `<div class="ns-ntext" style="${bodyStyle}">${esc(x.body)}</div>` : ''}</div>
+      ${chev}${right}</div>`;
+
+  // ── chips, each on its own tint ──
+  if ((x.chips || []).length) {
+    inner += `<div class="ns-chips">${x.chips.map((c, i) =>
+      `<span class="ns-chip2" style="background:${CHIP_TINTS[i % 4]}">${esc(c)}</span>`).join('')}</div>`;
+  }
+
+  // ── live score / progress ──
+  if (x.progress) {
+    const cur = Number(x.progress.current) || 0, tot = Number(x.progress.total) || 0;
+    const pct = tot > 0 ? Math.min(100, Math.round(cur * 100 / tot)) : 0;
+    const label = String(x.progress.label || '');
+    const open = label.indexOf('(');
+    const twoTone = (open > 0 && label.endsWith(')'))
+      ? `${esc(label.slice(0, open))}<span style="color:${esc(accent)}">${esc(label.slice(open))}</span>`
+      : esc(label);
+    inner += `<div class="ns-prow"><span class="ns-plabel" style="${bodyStyle}">${twoTone}</span>
+        ${tot > 0 ? `<span class="ns-bar2"><i style="width:${pct}%"></i></span>` : ''}</div>`;
+  }
+
+  // ── buttons ──
+  const list = x.buttons || [];
+  let btns = '';
+  if (list.length) {
+    const lone = list.length === 1;
+    btns = `<div class="ns-nbtns">${lone ? '<span class="ns-nbtn spacer"></span>' : ''}${list.map(b =>
+      b.color
+        ? `<span class="ns-nbtn fill" style="background:${esc(b.color)}">${esc(b.label)}</span>`
+        : `<span class="ns-nbtn outline">${esc(b.label)}</span>`).join('')}</div>`;
+  }
+
+  const total = x.poll ? (x.poll.total || 0) : 0;
+  const tally = total > 0 ? `<div class="ns-tally">${total} people voted</div>` : '';
+
+  return `<div class="ns-notif" style="${look.card ? 'background:' + look.card : ''}">
+      <div class="ns-nhead"><span class="dot" style="background:${esc(accent)}"></span> Tehelka News
+        ${x.urgent ? '<span class="ns-pill ns-fail">urgent</span>' : ''}
+        ${x.silent ? '<span class="ns-pill" style="background:#eceff1;color:#546e7a">silent</span>' : ''}</div>
+      <div class="ns-nbody">${inner}</div>${btns}${tally}
+    </div>`;
+}
+
+// ── hotspots: draw tappable areas on the picture ────────────────────────────
+// The phone can only make a GRID of cells clickable (RemoteViews cannot place a
+// view at a free position before Android 12), so everything here snaps to the
+// same 4x3 grid StudioNotifications uses. What the desk draws is exactly what a
+// reader can tap — no silent mismatch.
+const HS_COLS = 4, HS_ROWS = 3;
+let spots = [];
+let hsSel = -1;
+
+const snap = (v, n) => Math.round(v * n) / n;
+function snapSpot(h) {
+  const x = Math.min(snap(h.x, HS_COLS), 1 - 1 / HS_COLS);
+  const y = Math.min(snap(h.y, HS_ROWS), 1 - 1 / HS_ROWS);
+  return {
+    ...h,
+    x, y,
+    w: Math.max(1 / HS_COLS, Math.min(1 - x, snap(h.w, HS_COLS))),
+    h: Math.max(1 / HS_ROWS, Math.min(1 - y, snap(h.h, HS_ROWS))),
+  };
+}
+
+function hsStage() {
+  const stage = $('nsSpotStage');
+  const url = $('nsImage').value.trim();
+  stage.innerHTML = url ? `<img src="${esc(url)}" draggable="false" alt="">` : '';
+  const grid = document.createElement('div');
+  grid.className = 'hs-grid';
+  grid.innerHTML = '<i></i>'.repeat(HS_COLS * HS_ROWS);
+  stage.appendChild(grid);
+  spots.forEach((h, i) => {
+    const b = document.createElement('div');
+    b.className = 'hs-box' + (i === hsSel ? ' sel' : '');
+    b.dataset.i = i;
+    b.style.cssText = `left:${h.x * 100}%;top:${h.y * 100}%;width:${h.w * 100}%;height:${h.h * 100}%`;
+    b.innerHTML = `<div class="lb">${i + 1}</div>`;
+    stage.appendChild(b);
+  });
+}
+
+function hsList() {
+  const host = $('nsSpotList');
+  $('nsSpotEmpty').style.display = spots.length ? 'none' : 'block';
+  $('nsSpotCount').textContent = spots.length;
+  host.innerHTML = spots.map((h, i) => `
+    <div class="hs-row${i === hsSel ? ' sel' : ''}" data-i="${i}">
+      <div class="idx">${i + 1}</div>
+      <select data-f="action">
+        <option value="open"${h.action === 'open' ? ' selected' : ''}>App తెరువు</option>
+        <option value="route"${h.action === 'route' ? ' selected' : ''}>App లో page</option>
+        <option value="link"${h.action === 'link' ? ' selected' : ''}>బయటి link</option>
+        <option value="vote"${h.action === 'vote' ? ' selected' : ''}>పోల్ ఓటు</option>
+      </select>
+      <span data-slot="value"></span>
+      <button class="btn btn-outline-danger btn-sm" data-del="${i}" type="button">✕</button>
+    </div>`).join('');
+
+  // the value control depends on what the area does
+  host.querySelectorAll('.hs-row').forEach((row) => {
+    const i = +row.dataset.i, h = spots[i];
+    const slot = row.querySelector('[data-slot="value"]');
+    if (h.action === 'route') {
+      slot.innerHTML = `<select data-f="value">${
+        Array.from($('nsRoute').options)
+          .filter(o => o.value && o.value !== '__ext__')
+          .map(o => `<option value="${esc(o.value)}"${h.value === o.value ? ' selected' : ''}>${o.text}</option>`).join('')
+      }</select>`;
+    } else if (h.action === 'vote') {
+      const opts = S.buttons.length
+        ? S.buttons.map(b => `<option value="${esc(b.id)}"${h.value === b.id ? ' selected' : ''}>${esc(b.label || b.id)}</option>`).join('')
+        : '<option value="">(మొదట poll డిజైన్ ఎంచుకుని options పెట్టండి)</option>';
+      slot.innerHTML = `<select data-f="value">${opts}</select>`;
+    } else if (h.action === 'link') {
+      slot.innerHTML = `<input data-f="value" placeholder="https://…" value="${esc(h.value || '')}">`;
+    } else {
+      slot.innerHTML = '<span class="small text-muted">— app తెరుచుకుంటుంది</span>';
+    }
+  });
+}
+
+function hsAll() { hsStage(); hsList(); }
+
+$('nsSpotOpen').addEventListener('click', () => {
+  if (!$('nsImage').value.trim()) { alert('మొదట ఫోటో link పెట్టండి లేదా upload చేయండి.'); return; }
+  hsSel = -1;
+  $('nsSpotModal').classList.add('on');
+  hsAll();
+});
+$('nsSpotClose').addEventListener('click', () => { $('nsSpotModal').classList.remove('on'); refresh(); });
+$('nsSpotModal').addEventListener('click', (e) => {
+  if (e.target.id === 'nsSpotModal') { e.currentTarget.classList.remove('on'); refresh(); }
+});
+
+$('nsSpotList').addEventListener('input', (e) => {
+  const row = e.target.closest('.hs-row'); if (!row) return;
+  const h = spots[+row.dataset.i]; if (!h) return;
+  if (e.target.dataset.f === 'action') { h.action = e.target.value; h.value = ''; hsList(); }
+  else if (e.target.dataset.f === 'value') h.value = e.target.value;
+});
+$('nsSpotList').addEventListener('change', (e) => {
+  const row = e.target.closest('.hs-row'); if (!row) return;
+  const h = spots[+row.dataset.i]; if (!h) return;
+  if (e.target.dataset.f === 'action') { h.action = e.target.value; h.value = ''; hsList(); }
+  else if (e.target.dataset.f === 'value') h.value = e.target.value;
+});
+$('nsSpotList').addEventListener('click', (e) => {
+  const d = e.target.dataset.del;
+  if (d !== undefined) { spots.splice(+d, 1); hsSel = -1; hsAll(); return; }
+  const row = e.target.closest('.hs-row');
+  if (row && !e.target.closest('select,input')) { hsSel = +row.dataset.i; hsAll(); }
+});
+
+(function bindStage() {
+  const stage = $('nsSpotStage');
+  let drag = null;
+  stage.addEventListener('pointerdown', (e) => {
+    const rect = stage.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const px = (e.clientX - rect.left) / rect.width, py = (e.clientY - rect.top) / rect.height;
+    const box = e.target.closest('.hs-box');
+    if (box) {
+      hsSel = +box.dataset.i;
+      const h = spots[hsSel];
+      drag = { mode: 'move', i: hsSel, rect, offx: px - h.x, offy: py - h.y };
+    } else {
+      if (spots.length >= 12) { alert('గరిష్ఠంగా 12 ప్రాంతాలు.'); return; }
+      spots.push({ x: px, y: py, w: 0, h: 0, action: 'open', value: '' });
+      hsSel = spots.length - 1;
+      drag = { mode: 'draw', i: hsSel, rect, sx: px, sy: py };
+    }
+    stage.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  stage.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const r = drag.rect;
+    const px = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    const py = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+    const h = spots[drag.i]; if (!h) return;
+    if (drag.mode === 'draw') {
+      h.x = Math.min(drag.sx, px); h.y = Math.min(drag.sy, py);
+      h.w = Math.abs(px - drag.sx); h.h = Math.abs(py - drag.sy);
+    } else {
+      h.x = Math.max(0, Math.min(1 - h.w, px - drag.offx));
+      h.y = Math.max(0, Math.min(1 - h.h, py - drag.offy));
+    }
+    hsStage();
+  });
+  stage.addEventListener('pointerup', () => {
+    if (!drag) return;
+    // Snap to the grid the phone can actually hit, then drop anything too small.
+    const h = spots[drag.i];
+    if (h) Object.assign(h, snapSpot(h));
+    drag = null;
+    hsAll();
+  });
+})();
+
+// ── where a tap goes ────────────────────────────────────────────────────────
+$('nsRoute').addEventListener('change', () => {
+  $('nsUrlWrap').style.display = $('nsRoute').value === '__ext__' ? '' : 'none';
+  refresh();
+});
+$('nsUrl').addEventListener('input', refresh);
+
+// ── image: a pasted link works exactly like an upload ───────────────────────
+/**
+ * Android caps how tall an expanded notification may be. A wide picture is shown
+ * whole; a tall one gets cut however we draw it, so say so BEFORE it is sent.
+ */
+function checkImageShape(img) {
+  const warn = $('nsImageWarn');
+  if (!img || !img.naturalWidth) { warn.innerHTML = ''; return; }
+  const ratio = img.naturalHeight / img.naturalWidth;
+  warn.innerHTML = ratio > 0.7
+    ? `<div class="ns-warn">⚠️ ఈ ఫోటో ఎత్తుగా ఉంది (${img.naturalWidth}×${img.naturalHeight}).
+       మొత్తం కనిపిస్తుంది కానీ <b>చిన్నదై పక్కన ఖాళీ</b> వస్తుంది — పూర్తి వెడల్పు రావాలంటే <b>1280×720 (16:9)</b> వాడండి.
+       <br>ఇంకో విషయం: ఫోటో చిన్నదైతే <b>నొక్కే ప్రాంతాలు (hotspots) కొద్దిగా జరుగుతాయి</b> — 16:9 అయితే అచ్చంగా సరిపోతాయి.</div>`
+    : '';
+}
+
+function showImageThumb() {
+  const u = $('nsImage').value.trim();
+  $('nsImageWarn').innerHTML = '';
+  $('nsImageThumb').innerHTML = u
+    ? `<img src="${esc(u)}" style="max-height:64px;border-radius:8px;border:1px solid #e3e7ee"
+         onload="checkImageShape(this)"
+         onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'small text-danger',textContent:'ఈ లింక్ లో ఫోటో కనిపించలేదు'}))">`
+    : '';
+}
+$('nsImage').addEventListener('input', () => { showImageThumb(); refresh(); });
+
+// ── image upload ────────────────────────────────────────────────────────────
+$('nsImageFile').addEventListener('change', async (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  $('nsImageOut').textContent = 'Uploading…';
+  const fd = new FormData(); fd.append('image', f);
+  try {
+    const r = await fetch('/admin/api/notification-studio/upload-image', { method: 'POST', body: fd }).then(x => x.json());
+    if (r.imageUrl) {
+      $('nsImage').value = r.imageUrl;     // the link box is the single source
+      $('nsImageOut').textContent = 'Uploaded ✓';
+      showImageThumb();
+      refresh();
+    }
+    else $('nsImageOut').textContent = r.error || 'Upload failed';
+  } catch (err) { $('nsImageOut').textContent = 'Upload failed'; }
+});
+
+// ── send ────────────────────────────────────────────────────────────────────
+/**
+ * Both buttons are locked while a send is in flight. A second click while the
+ * first request is still running is the easiest way to send everyone the same
+ * notification twice — so it is simply not possible here.
+ */
+let sending = false;
+function lockButtons(on, label) {
+  sending = on;
+  $('nsTest').disabled = on;
+  $('nsSend').disabled = on;
+  $('nsSendOut').innerHTML = on ? `<span class="text-muted">${esc(label)}</span>` : $('nsSendOut').innerHTML;
+}
+
+async function post(test, confirmDuplicate) {
+  if (sending) return;
+  const out = $('nsSendOut');
+  lockButtons(true, test ? 'Sending test…' : 'Sending…');
+  try {
+    const r = await fetch('/admin/api/notification-studio/send', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...body(), test, confirmDuplicate: confirmDuplicate === true }),
+    }).then(x => x.json());
+
+    // The server spotted the same notification going out again.
+    if (r.duplicate) {
+      lockButtons(false);
+      out.innerHTML = `<span class="text-warning">⚠ ${esc(r.error)}</span>`;
+      if (confirm(r.error + '\n\nSend it AGAIN anyway?')) return post(test, true);
+      return;
+    }
+    if (r.error) { out.innerHTML = `<span class="text-danger">${esc(r.error)}</span>`; return; }
+    if (r.warning) { out.innerHTML = `<span class="text-warning">⚠ ${esc(r.warning)}</span>`; return; }
+    out.innerHTML = `<span class="text-success">${test ? 'Test sent' : 'Sent'} → ${esc(r.describe)} · ${r.recipients} device(s)</span>`;
+    if (!test) loadHistory();
+  } catch (e) {
+    out.innerHTML = '<span class="text-danger">Network error — check the history below before sending again, it may have gone out.</span>';
+  } finally {
+    lockButtons(false);
+  }
+}
+$('nsTest').addEventListener('click', () => post(true));
+$('nsSend').addEventListener('click', () => {
+  const a = $('nsAudOut').textContent.replace('Goes to:', '').trim();
+  if (confirm('Send this notification for real?\n\n' + a + '\n\nThis cannot be taken back.')) post(false);
+});
+
+// ── history ─────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  try {
+    const r = await fetch('/admin/api/notification-studio/history').then(x => x.json());
+    const rows = r.campaigns || [];
+    $('nsHistory').innerHTML = rows.length ? rows.map(c => {
+      let poll = '<span class="text-muted">—</span>';
+      if (c.poll) {
+        const total = c.poll.total || 0;
+        poll = c.poll.options.map(o => {
+          const n = (c.poll.counts || {})[o.id] || 0;
+          const pct = total ? Math.round(n * 100 / total) : 0;
+          return `<div class="ns-poll"><div class="row2"><span>${esc(o.label)}</span><b>${n} · ${pct}%</b></div>
+                  <div class="ns-bar"><i style="width:${pct}%"></i></div></div>`;
+        }).join('') + `<div class="small text-muted mt-1">${total} vote(s)</div>`;
+      }
+      return `<tr data-id="${c.id}">
+        <td class="small">${new Date(c.sentAt).toLocaleString()}</td>
+        <td>${esc(c.typeLabel)}</td>
+        <td>${esc(c.title)}<br><span class="ns-pill ${c.status === 'sent' ? 'ns-sent' : 'ns-fail'}">${c.status}</span>
+            ${c.error ? `<div class="small text-danger">${esc(c.error)}</div>` : ''}</td>
+        <td class="small">${esc(c.audience || '')}</td>
+        <td class="small" data-cell="report">${c.hasReport
+            ? `<button class="btn btn-outline-secondary btn-sm" data-report="${c.id}" type="button">చూడు</button>`
+            : '<span class="text-muted">—</span>'}</td>
+        <td style="min-width:170px">${poll}</td>
+        <td class="small">${esc(c.sentByName || '')}</td>
+        <td><button class="btn btn-outline-primary btn-sm" data-clone="${c.id}" type="button" title="ఇదే మళ్ళీ పంపడానికి form నింపు">↻</button></td></tr>`;
+    }).join('') : '<tr><td colspan="8" class="text-muted py-3">Nothing sent from this page yet.</td></tr>';
+    // keep the payloads so "send again" can refill the form without another call
+    historyById = {};
+    rows.forEach(c => { historyById[c.id] = c; });
+  } catch (e) {
+    $('nsHistory').innerHTML = '<tr><td colspan="8" class="text-danger py-3">Could not load history.</td></tr>';
+  }
+}
+
+// ── delivery report + send-again ────────────────────────────────────────────
+let historyById = {};
+
+$('nsHistory').addEventListener('click', async (e) => {
+  const reportId = e.target.dataset.report;
+  if (reportId) {
+    const cell = e.target.closest('td');
+    cell.innerHTML = '<span class="text-muted">…</span>';
+    try {
+      const r = await fetch('/admin/api/notification-studio/report/' + reportId).then(x => x.json());
+      if (r.error) cell.innerHTML = `<span class="text-danger small">${esc(r.error)}</span>`;
+      else if (r.pending) cell.innerHTML = '<span class="text-muted small">ఇంకా లేదు</span>';
+      else if (r.estimate) cell.innerHTML = `<b class="text-success">~${r.delivered}</b> మందికి పంపింది`
+        + `<br><span class="text-muted small">(అంచనా · FCM)</span>`;
+      else cell.innerHTML = `<b class="text-success">${r.delivered}</b> చేరింది`
+        + (r.failed ? `<br><span class="text-danger small">${r.failed} విఫలం</span>` : '')
+        + (r.remaining ? `<br><span class="text-muted small">${r.remaining} పంపుతోంది…</span>` : '');
+    } catch (err) { cell.innerHTML = '<span class="text-danger small">తెలియలేదు</span>'; }
+    return;
+  }
+
+  const cloneId = e.target.dataset.clone;
+  if (cloneId) {
+    const c = (historyById[cloneId] || {}).clone;
+    if (!c) return;
+    fillForm(c);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    $('nsSendOut').innerHTML = '<span class="text-muted">పాత notification form లోకి వచ్చింది — మార్చి పంపండి.</span>';
+  }
+});
+
+/** Refill every control from a past send, so it can be edited and sent again. */
+function fillForm(c) {
+  pickType(c.type || 'simple');
+  $('nsTitle').value = c.title || '';
+  $('nsMsg').value = c.message || '';
+  $('nsEmoji').value = c.emoji || '';
+  $('nsImage').value = c.imageUrl || '';
+  $('nsTitleColor').value = c.titleColor || '#ff6f00';
+  $('nsMsgColor').value = c.messageColor || '#333333';
+  $('nsAccent').value = c.accentColor || '#1d4ed8';
+  $('nsTitleSize').value = c.titleSize || 'normal';
+  $('nsTitleBold').checked = c.titleBold !== false;
+  $('nsChips').value = (c.chips || []).join(', ');
+  $('nsExpire').value = String(c.expireHours || 0);
+  $('nsOngoing').checked = !!c.ongoing;
+  $('nsNewsId').value = c.newsId || '';
+  $('nsNewsPicked').innerHTML = c.newsId ? '<span class="ns-tag">📰 జత చేసిన వార్త <b data-clearnews="1">✕</b></span>' : '';
+  $('nsRoute').value = c.route || (c.launchUrl ? '__ext__' : '');
+  $('nsUrl').value = c.launchUrl || '';
+  $('nsUrlWrap').style.display = $('nsRoute').value === '__ext__' ? '' : 'none';
+  S.buttons = (c.buttons || []).map(b => ({ ...b }));
+  spots = (c.hotspots || []).map(h => ({ ...h }));
+  $('nsSpotCount').textContent = spots.length;
+  const a = c.audience || { kind: 'all' };
+  $('nsAud').value = a.kind || 'all';
+  $('nsAud').dispatchEvent(new Event('change'));
+  if (a.language) $('nsLang').value = a.language;
+  if (a.state) $('nsState').value = a.state;
+  drawButtons();
+  showImageThumb();
+  refresh();
+}
+
+// ── boot ────────────────────────────────────────────────────────────────────
+['nsTitle','nsMsg','nsEmoji','nsAccent','nsTitleColor','nsMsgColor','nsUrl','nsChips','nsProgCur','nsProgTot','nsProgLbl','nsLang','nsDist']
+  .forEach(id => $(id).addEventListener('input', refresh));
+['nsLang','nsDist','nsTitleSize','nsTitleBold','nsExpire','nsOngoing'].forEach(id => $(id).addEventListener('change', refresh));
+
+(async function init() {
+  try {
+    const o = await fetch('/admin/api/notification-studio/options').then(r => r.json());
+    const ext = '<option value="__ext__">🔗 బయటి link…</option>';
+    $('nsRoute').innerHTML = '<option value="">App మాత్రమే (ఏమీ లేదు)</option>'
+      + (o.appRoutes || []).map(r => `<option value="${esc(r.key)}">${r.label}</option>`).join('')
+      + ext;
+    $('nsState').innerHTML = (o.states || []).map(s => `<option>${esc(s)}</option>`).join('');
+    $('nsLang').innerHTML = (o.languages || []).map(l => `<option value="${esc(l.code)}">${esc(l.name)} (${esc(l.code)})</option>`).join('')
+      || '<option value="te">Telugu (te)</option>';
+  } catch (e) { /* the page still works; only the dropdowns are empty */ }
+  pickType('simple');
+  loadHistory();
+})();
+</script>
+</body>
+</html>

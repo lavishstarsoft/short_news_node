@@ -1,5 +1,6 @@
 const ViralVideo = require('../models/ViralVideo');
 const { deleteFromR2 } = require('../config/cloudflare');
+const { displayViralViews } = require('../services/viralViews');
 
 // Get all viral videos (paginated)
 exports.getAllViralVideos = async (req, res) => {
@@ -61,6 +62,17 @@ exports.getAllViralVideos = async (req, res) => {
             totalViews: 0,
             totalLikes: 0
         };
+
+        // Show the same natural view count admins' consumers see: pristine `views`
+        // (organic) + slow synthetic growth (services/viralViews). Overrides the raw
+        // per-card value; the DB stays untouched (display-only).
+        videos.forEach(v => { v.views = displayViralViews(v); });
+
+        // Global "total views" stat over ALL videos (light projection, computed sum).
+        try {
+            const allForViews = await ViralVideo.find({}).select('_id publishedAt views').lean();
+            globalStats.totalViews = allForViews.reduce((sum, v) => sum + displayViralViews(v), 0);
+        } catch (e) { /* keep the aggregate total on failure */ }
 
         const totalPages = Math.max(1, Math.ceil(totalFiltered / limit));
         const safePage = Math.min(page, totalPages);

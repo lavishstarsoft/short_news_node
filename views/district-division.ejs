@@ -17,6 +17,14 @@
           <select id="dvState" class="form-select"><option value="">Loading states…</option></select>
         </div>
 
+        <!-- Live district counts for the selected state -->
+        <div id="dvSummary" class="d-none mb-3 p-2 px-3 bg-white border rounded d-flex flex-wrap gap-3 align-items-center" style="font-size:13px">
+          <span>మొత్తం జిల్లాలు: <b id="dvTotal">0</b></span>
+          <span class="text-success">✅ పంచినవి: <b id="dvAssigned">0</b></span>
+          <span class="text-muted">⬜ ఖాళీ: <b id="dvUnassigned">0</b></span>
+          <span id="dvDupWarn" class="text-danger d-none">⚠️ <b id="dvDup">0</b> జిల్లా(లు) ఇద్దరికి టిక్ అయ్యాయి — ఒక్కరికే ఉంచండి!</span>
+        </div>
+
         <div id="dvBody"><div class="text-muted p-3">Pick a state to divide its districts.</div></div>
       </div>
     </div>
@@ -56,22 +64,47 @@
           }).join('');
           return '<div class="border rounded p-3 bg-white mb-3" data-incharge="'+inc._id+'">'
             +'<div class="d-flex justify-content-between align-items-center mb-2">'
-              +'<h6 class="mb-0">'+esc(inc.name||inc.username)+' <span class="text-muted" style="font-size:12px">('+esc(inc.displayRole||'State In-Charge')+')</span></h6>'
+              +'<h6 class="mb-0">'+esc(inc.name||inc.username)+' <span class="text-muted" style="font-size:12px">('+esc(inc.displayRole||'State In-Charge')+')</span> <span class="dv-cardcount badge bg-primary ms-1" style="font-size:11px">0</span></h6>'
               +'<div><button class="btn btn-sm btn-outline-secondary me-1 dv-none">Clear</button><button class="btn btn-sm btn-primary dv-save">Save</button></div>'
             +'</div>'
             +'<div class="dv-grid">'+checks+'</div>'
             +'<div class="dv-msg small mt-1"></div>'
           +'</div>';
         }).join('');
+        updateCounts();
       }catch(e){ box.innerHTML='<div class="text-danger p-3">'+esc(e.message)+'</div>'; }
     }
+
+    // Live counts: total / assigned (unique ticked) / unassigned + per-card badge.
+    // Also warns when the same district is ticked on two cards (one-district-one-incharge).
+    function updateCounts(){
+      const cards=[...document.querySelectorAll('#dvBody [data-incharge]')];
+      const seen={};
+      cards.forEach(function(c){
+        const checked=[...c.querySelectorAll('.dv-chk:checked')];
+        const b=c.querySelector('.dv-cardcount'); if(b) b.textContent=checked.length+' జిల్లాలు';
+        checked.forEach(ch=>{ seen[ch.value]=(seen[ch.value]||0)+1; });
+      });
+      const assigned=Object.keys(seen);
+      const dup=assigned.filter(d=>seen[d]>1).length;
+      document.getElementById('dvTotal').textContent=DISTRICTS.length;
+      document.getElementById('dvAssigned').textContent=assigned.length;
+      document.getElementById('dvUnassigned').textContent=Math.max(0,DISTRICTS.length-assigned.length);
+      document.getElementById('dvDup').textContent=dup;
+      document.getElementById('dvDupWarn').classList.toggle('d-none',dup===0);
+      document.getElementById('dvSummary').classList.toggle('d-none',!(DISTRICTS.length&&cards.length));
+    }
+
+    document.getElementById('dvBody').addEventListener('change',function(e){
+      if(e.target.classList&&e.target.classList.contains('dv-chk')) updateCounts();
+    });
 
     document.getElementById('dvState').addEventListener('change',function(){ loadDivision(this.value); });
 
     document.getElementById('dvBody').addEventListener('click',async function(e){
       const card=e.target.closest('[data-incharge]'); if(!card) return;
       if(e.target.classList.contains('dv-none')){
-        card.querySelectorAll('.dv-chk').forEach(c=>c.checked=false); return;
+        card.querySelectorAll('.dv-chk').forEach(c=>c.checked=false); updateCounts(); return;
       }
       if(e.target.classList.contains('dv-save')){
         const btn=e.target, msg=card.querySelector('.dv-msg');

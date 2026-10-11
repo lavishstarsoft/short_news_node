@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Tehelka News — Verification Request</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Telugu:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1220; --card:#0f1a2e; --panel:#13203a; --line:#22304d;
+    --ink:#eaf1ff; --muted:#93a4c4; --green:#16a34a; --green2:#22c55e;
+    --amber:#f59e0b; --amberbg:#3a2c12; --red:#ef4444; --blue:#3b82f6; --bluebg:#132444;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter','Noto Sans Telugu',system-ui,Arial,sans-serif}
+  .te{font-family:'Noto Sans Telugu','Inter',sans-serif}
+  .wrap{max-width:460px;margin:0 auto;padding:18px 14px 120px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden}
+  /* header */
+  .hd{display:flex;align-items:flex-start;gap:12px;padding:18px 18px 6px}
+  .logo{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#e11d2a,#b91c1c);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#fff;flex:0 0 auto;box-shadow:0 2px 8px rgba(225,29,42,.4)}
+  .hd .t{flex:1;min-width:0}
+  .hd .t .name{font-weight:800;font-size:17px;line-height:1.1}
+  .hd .t .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .hd .time{color:var(--muted);font-size:12px;white-space:nowrap}
+  .intro{padding:8px 18px 4px;color:#cdd8ef;font-size:13.5px;line-height:1.55}
+  /* section band */
+  .band{margin:14px 14px 0;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+  .band > .bh{background:linear-gradient(90deg,#0f7a3d,#16a34a);color:#fff;font-weight:700;font-size:14px;padding:9px 12px;display:flex;align-items:center;gap:8px}
+  .band > .bb{background:var(--panel);padding:12px}
+  /* news details */
+  .nd{display:flex;gap:12px}
+  .nd .img{width:118px;height:88px;border-radius:10px;overflow:hidden;flex:0 0 auto;background:#0a1424;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+  .nd .img img{width:100%;height:100%;object-fit:cover;display:block}
+  .nd .img .ph{color:var(--muted);font-size:11px;text-align:center;padding:6px}
+  .nd .meta{flex:1;min-width:0}
+  .nd .meta .ttl{font-weight:700;font-size:16px;line-height:1.3}
+  .loc{display:flex;align-items:flex-start;gap:6px;margin-top:8px;color:#cdd8ef;font-size:13px}
+  .loc .pin{color:var(--red)}
+  /* grid facts */
+  .facts{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 18px 4px}
+  .fact{display:flex;gap:9px;align-items:flex-start}
+  .fact .ic{font-size:16px;line-height:1}
+  .fact .k{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+  .fact .v{font-weight:700;font-size:13.5px;margin-top:2px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:700;font-size:12px}
+  .pill.amber{background:var(--amberbg);color:#fcd34d;border:1px solid #6b4c15}
+  /* nexa */
+  .nexa .bh{background:linear-gradient(90deg,#1e3a8a,#2563eb)}
+  .nrow{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed #26365a;font-size:13px}
+  .nrow:last-child{border-bottom:0}
+  .nrow .k{color:var(--muted)}
+  .nrow .v{font-weight:700;text-align:right}
+  .noai{color:#fcd34d;font-size:13px;line-height:1.5}
+  /* images gallery */
+  .gal{display:flex;gap:8px;flex-wrap:wrap}
+  .gal .g{width:78px;height:78px;border-radius:9px;overflow:hidden;border:1px solid var(--line);background:#0a1424}
+  .gal .g img{width:100%;height:100%;object-fit:cover;display:block}
+  /* link */
+  .linkbtn{display:flex;align-items:center;gap:12px;margin:14px;padding:14px;border-radius:12px;background:linear-gradient(135deg,#0f3d2a,#0f7a3d);border:1px solid #1c6b47;color:#fff;text-decoration:none}
+  .linkbtn .ic{font-size:20px}
+  .linkbtn .tt{flex:1}
+  .linkbtn .tt b{font-size:14.5px}
+  .linkbtn .tt span{display:block;color:#c9f0da;font-size:12px;margin-top:2px}
+  .linkbtn .ch{font-size:20px;color:#cdeeda}
+  /* confirm */
+  .confirm{margin:0 14px;padding:14px;border-radius:12px;background:var(--bluebg);border:1px solid #1e3a6e}
+  .confirm .ch{color:#8fb6ff;font-weight:700;font-size:14px;display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .confirm ol{margin:0;padding-left:20px;color:#dce7ff;font-size:13px;line-height:1.7}
+  /* important */
+  .imp{margin:14px;padding:12px 14px;border-radius:12px;background:#2a1a12;border:1px solid #6b3f1c;color:#fcd7ad;font-size:12.5px;line-height:1.6}
+  .imp b{color:#fdba74}
+  /* footer */
+  .ft{text-align:center;padding:16px 18px 22px;color:var(--muted)}
+  .ft .ty{color:#cdd8ef;font-size:13px}
+  .ft .tm{font-weight:800;color:var(--ink);font-size:15px;margin-top:2px}
+  .ft .sl{font-style:italic;font-size:12px;margin-top:6px}
+  .ft .gen{font-size:10.5px;margin-top:10px;opacity:.7}
+  /* download bar */
+  .dlbar{position:fixed;left:0;right:0;bottom:0;background:#0a1220ee;backdrop-filter:blur(6px);border-top:1px solid var(--line);padding:12px 14px;display:flex;gap:10px;max-width:460px;margin:0 auto}
+  .btn{flex:1;border:0;border-radius:12px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit}
+  .btn.primary{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff}
+  .btn.ghost{background:#16233d;color:#cdd8ef;border:1px solid var(--line);flex:0 0 auto;padding:13px 16px}
+  .hint{max-width:460px;margin:6px auto 0;color:var(--muted);font-size:11.5px;text-align:center;padding:0 14px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- everything inside #card is what gets captured as the image -->
+    <div class="card" id="card">
+      <div class="hd">
+        <div class="logo">T</div>
+        <div class="t">
+          <div class="name">Tehelka News</div>
+          <div class="sub">News Verification Request</div>
+        </div>
+        <div class="time"><%= submittedTime || '' %></div>
+      </div>
+      <div class="intro">
+        Hello Sir,<br>
+        We have received a news report from your state and request you to kindly verify the details and confirm whether it is correct and suitable for publication.
+        Your verification will help us maintain accurate and reliable news.
+      </div>
+
+      <!-- NEWS DETAILS -->
+      <div class="band">
+        <div class="bh">📄 News Details</div>
+        <div class="bb">
+          <div class="nd">
+            <div class="img">
+              <% if (imageCount > 0) { %>
+                <img src="<%= imageProxyUrls[0] %>" alt="news image" crossorigin="anonymous">
+              <% } else { %>
+                <div class="ph">No image<br>available</div>
+              <% } %>
+            </div>
+            <div class="meta">
+              <div class="ttl te"><%= title %></div>
+              <% if (state) { %><div class="loc"><span class="pin">📍</span><span><span style="color:var(--muted);font-size:11px;display:block;text-transform:uppercase;letter-spacing:.4px">Location</span><span class="te"><%= state %></span></span></div><% } %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FACTS GRID -->
+      <div class="facts">
+        <div class="fact"><span class="ic">📅</span><div><div class="k">News Submitted</div><div class="v"><%= submittedDate %></div><div class="v" style="font-weight:600;color:var(--muted)"><%= submittedTime %></div></div></div>
+        <div class="fact"><span class="ic">👤</span><div><div class="k">Reporter</div><div class="v te"><%= reporter %></div></div></div>
+        <div class="fact"><span class="ic">⏳</span><div><div class="k">Pending For</div><div class="v"><%= pendingText %></div></div></div>
+        <div class="fact"><span class="ic">📌</span><div><div class="k">Current Status</div><div class="v"><span class="pill amber"><%= status %></span></div></div></div>
+      </div>
+
+      <!-- NEXA STATUS -->
+      <div class="band nexa">
+        <div class="bh">🤖 NEXA Status</div>
+        <div class="bb">
+          <% if (nexa && nexa.analyzed) { %>
+            <div class="nrow"><span class="k">Recommendation</span><span class="v"><%= nexa.recommendationLabel || '—' %></span></div>
+            <div class="nrow"><span class="k">Confidence</span><span class="v"><%= nexa.confidence != null ? nexa.confidence + '%' : '—' %></span></div>
+            <div class="nrow"><span class="k">Reason</span><span class="v te" style="max-width:60%"><%= nexa.reason || '—' %></span></div>
+          <% } else { %>
+            <div class="noai">🕒 NEXA has not analyzed this News yet. No AI recommendation is available — the decision is entirely with the Human Team.</div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- IMAGE GALLERY (only if more than one) -->
+      <% if (imageCount > 1) { %>
+      <div class="band">
+        <div class="bh">📷 News Images (<%= imageCount %>)</div>
+        <div class="bb">
+          <div class="gal">
+            <% imageProxyUrls.forEach(function(u){ %><div class="g"><img src="<%= u %>" alt="news image" crossorigin="anonymous"></div><% }) %>
+          </div>
+        </div>
+      </div>
+      <% } %>
+
+      <!-- DIRECT LINK -->
+      <a class="linkbtn" href="<%= dashboardUrl %>" target="_blank" rel="noopener">
+        <span class="ic">🔗</span>
+        <span class="tt"><b>View Full News in Tehelka Dashboard</b><span>Opens this exact News with full details, images &amp; reporter info</span></span>
+        <span class="ch">›</span>
+      </a>
+
+      <!-- CONFIRM -->
+      <div class="confirm">
+        <div class="ch">ℹ️ Please Verify</div>
+        <ol>
+          <li>Whether the information is correct.</li>
+          <li>Whether the News is suitable for publication.</li>
+          <li>Whether any correction is required.</li>
+          <li>Whether the attached News image / details are correct.</li>
+        </ol>
+      </div>
+
+      <!-- IMPORTANT -->
+      <div class="imp">
+        ⚠️ <b>This News is currently awaiting Human Verification.</b><br>
+        NEXA has <b>not</b> approved or rejected this News. The final decision must be made by the Human Team.
+      </div>
+
+      <!-- FOOTER -->
+      <div class="ft">
+        <div class="ty">Thank you for your support.</div>
+        <div class="tm">Team Tehelka News</div>
+        <div class="sl">People's News · Trusted Information · Stronger Together</div>
+        <div class="gen">Generated <%= generatedTime %><%= inchargeName ? ' · For: ' + inchargeName : '' %></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- action bar (NOT part of the captured image) -->
+  <div class="dlbar" data-html2canvas-ignore="true">
+    <button class="btn primary" id="sh">📤 Share via WhatsApp</button>
+    <button class="btn ghost" id="dl" title="Download image">📥</button>
+    <button class="btn ghost" id="pr" title="Open print dialog">🖨️</button>
+  </div>
+  <div class="hint" id="shHint" data-html2canvas-ignore="true">On a phone: “Share” opens your device share sheet — pick <b>WhatsApp</b> to send this exact image. On desktop it downloads the image and opens the chat; attach it and press <b>Send</b>. (WhatsApp does not let websites auto-attach images.)</div>
+
+  <!-- html2canvas: same CDN pattern already used across the admin dashboard.
+       Runs fully in the browser; no news data is uploaded anywhere. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+    (function(){
+      var card=document.getElementById('card'),
+          sh=document.getElementById('sh'),
+          dl=document.getElementById('dl'),
+          pr=document.getElementById('pr'),
+          hint=document.getElementById('shHint');
+      var fname='Tehelka-Verification-<%= newsId %>.png';
+      // Server-provided (superadmin page). Number is used ONLY to build the
+      // desktop-fallback WhatsApp Web link; it is never shown in the card.
+      var IN_PHONE=<%- JSON.stringify(String(inchargePhone || '').replace(/\D/g,'')) %>;
+      var IN_NAME=<%- JSON.stringify(String(inchargeName || '')) %>;
+      var NEWS_TITLE=<%- JSON.stringify(String(title || '')) %>;
+      var DASH_URL=<%- JSON.stringify(String(dashboardUrl || '')) %>;
+      function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+      function ready(){ return typeof window.html2canvas==='function'; }
+      async function render(){
+        if(!ready()) throw new Error('lib');
+        return await window.html2canvas(card,{scale:2,useCORS:true,backgroundColor:getComputedStyle(document.body).backgroundColor||'#0b1220',logging:false});
+      }
+      function canvasToFile(canvas){
+        return new Promise(function(resolve,reject){
+          if(canvas.toBlob){
+            canvas.toBlob(function(b){ b ? resolve(new File([b], fname, {type:'image/png'})) : reject(new Error('blob')); }, 'image/png');
+          } else { reject(new Error('noblob')); }
+        });
+      }
+      function downloadCanvas(canvas){
+        var a=document.createElement('a'); a.download=fname; a.href=canvas.toDataURL('image/png'); a.click();
+      }
+      function waText(){
+        var m='Hello Sir,\n\nNews Verification Request — '+NEWS_TITLE;
+        m+='\n\nVerification summary image has been downloaded. Please attach the image and send it for verification.';
+        if(DASH_URL) m+='\n\nFull News: '+DASH_URL;
+        m+='\n\nTeam Tehelka News';
+        return m;
+      }
+      var HAS_PHONE = IN_PHONE.length>=10;
+      // Desktop: WhatsApp Web direct-chat URL for the resolved State In-charge.
+      function waUrl(){ return 'https://web.whatsapp.com/send?phone='+encodeURIComponent(IN_PHONE)+'&text='+encodeURIComponent(waText()); }
+      function setHint(t){ if(hint) hint.innerHTML=t; }
+
+      // SYNCHRONOUS feature-detect (no await): can this browser share a PNG file?
+      function supportsFileShare(){
+        try{
+          if(!navigator.share || !navigator.canShare) return false;
+          var probe=new File([new Blob(['x'],{type:'image/png'})],'probe.png',{type:'image/png'});
+          return navigator.canShare({files:[probe]})===true;
+        }catch(e){ return false; }
+      }
+      // Desktop fallback: the WhatsApp window MUST be opened synchronously inside
+      // the click (before any await) or the popup blocker kills it. We open a
+      // small "preparing" page now and navigate it to WhatsApp once the image is ready.
+      function openPreparingWindow(){
+        try{
+          var w=window.open('','_blank');
+          if(!w) return null;
+          try{
+            w.document.write('<!doctype html><title>Opening WhatsApp…</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1220;color:#eaf1ff;font-family:sans-serif;font-size:15px">⏳ Preparing verification image… WhatsApp Web will open here.</body>');
+            w.document.close();
+          }catch(e){}
+          return w;
+        }catch(e){ return null; }
+      }
+      // If even the synchronous open was blocked, give a real user-gesture link.
+      function showOpenLink(){
+        if(!HAS_PHONE || !hint || document.getElementById('waOpenLink')) return;
+        var a=document.createElement('a'); a.id='waOpenLink'; a.href=waUrl(); a.target='_blank'; a.rel='noopener';
+        a.className='btn primary'; a.style.cssText='display:block;margin:8px auto 0;max-width:460px;text-align:center;text-decoration:none';
+        a.textContent='📲 Open State In-charge WhatsApp chat';
+        hint.appendChild(a);
+      }
+
+      async function share(){
+        sh.disabled=true; var old=sh.textContent; sh.textContent='⏳ Preparing image…';
+        function reset(ms){ setTimeout(function(){ sh.textContent=old; sh.disabled=false; }, ms||0); }
+
+        var useNative=supportsFileShare();
+        // Desktop path: open the WhatsApp window NOW (still inside the user gesture).
+        var waWin=(!useNative && HAS_PHONE) ? openPreparingWindow() : null;
+
+        var canvas;
+        try{ canvas=await render(); }
+        catch(e){
+          if(waWin){ try{ waWin.close(); }catch(_){} }
+          reset(); alert('Image generate కాలేదు. దయచేసి screenshot తీసి WhatsAppలో attach చేయండి.'); return;
+        }
+
+        // PRIMARY (mobile / supported): native share sheet with the REAL PNG file.
+        if(useNative){
+          try{
+            var file=await canvasToFile(canvas);
+            await navigator.share({ files:[file], title:'Tehelka News — Verification', text:waText() });
+            sh.textContent='✅ Shared'; setHint('Share sheet పూర్తయింది. WhatsApp ఎంచుకుంటే ఈ image నేరుగా State In-charge‌కి వెళ్తుంది.');
+            reset(2600); return;
+          }catch(err){
+            if(err && err.name==='AbortError'){ reset(); return; } // user cancelled
+            // else fall through to the download fallback below
+          }
+        }
+
+        // FALLBACK (desktop): download the SAME image, then open the in-charge chat.
+        try{ downloadCanvas(canvas); }catch(e){}
+        sh.textContent='⬇️ Downloaded';
+        if(!HAS_PHONE){
+          if(waWin){ try{ waWin.close(); }catch(_){} }
+          setHint('⬇️ Image downloaded. ⚠️ <b>State In-charge WhatsApp number is not configured</b> — open WhatsApp, pick the In-charge chat and attach the downloaded image manually.');
+          reset(3200); return;
+        }
+        var opened=false;
+        if(waWin && !waWin.closed){
+          try{ waWin.location.href=waUrl(); opened=true; }catch(e){ opened=false; }
+        } else {
+          // No pre-opened window (e.g. native share failed mid-way): best effort.
+          try{ opened=!!window.open(waUrl(),'_blank'); }catch(e){ opened=false; }
+        }
+        if(opened){
+          setHint('⬇️ Image downloaded and WhatsApp Web chat opened'+(IN_NAME?' ('+esc(IN_NAME)+')':'')+'. <b>Attach the downloaded image</b> in that chat and press <b>Send</b>. (Not sent automatically.)');
+        } else {
+          setHint('⬇️ Image downloaded. WhatsApp could not be opened automatically (popup blocked). Please open WhatsApp and attach the downloaded image manually.');
+          showOpenLink();
+        }
+        reset(3200);
+      }
+
+      async function download(){
+        try{
+          dl.disabled=true; var od=dl.textContent; dl.textContent='⏳';
+          var canvas=await render(); downloadCanvas(canvas);
+          dl.textContent='✅'; setTimeout(function(){dl.textContent=od; dl.disabled=false;},1800);
+        }catch(e){ dl.disabled=false; alert('Image generate కాలేదు. దయచేసి screenshot తీయండి.'); }
+      }
+
+      if(sh) sh.addEventListener('click', share);
+      if(dl) dl.addEventListener('click', download);
+      if(pr) pr.addEventListener('click', function(){ window.print(); });
+    })();
+  </script>
+</body>
+</html>

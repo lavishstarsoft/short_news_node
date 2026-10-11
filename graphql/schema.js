@@ -121,6 +121,10 @@ const typeDefs = gql`
     approvalStatus: ApprovalStatus
     revisionStatus: RevisionStatus
     actionHistory: [NewsActionHistory!]
+    # Reporter's actual earning for THIS approved news (₹): the daily reward
+    # (maxReward), paid only when the submission day met the target, split across
+    # that day's approved news. 0 for unapproved / non-eligible days.
+    earnedAmount: Float
   }
 
   type Category {
@@ -223,6 +227,7 @@ const typeDefs = gql`
     id: ID!
     question: String!
     language: String!
+    imageUrl: String
     options: [PollOption!]!
     totalVotes: Int!
     votedUsers: [VotedUser!]

@@ -1,0 +1,180 @@
+<%- include('partials/header') %>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'Sub-Editor Work Report', backButton: true, backUrl: '/admin/editors' }) %>
+<%- include('partials/sidebar', { activePage: 'sub-editor-work-report' }) %>
+
+<style>
+  .settings-card { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.04); }
+  .settings-card .card-header { background:#fff; border-bottom:1px solid #f0f0f0; padding:16px 22px; }
+  .settings-card .card-body { padding: 22px; }
+  .help-card { background:#FFF8E6; border:1px solid #F5D78E; border-radius:12px; padding:14px 18px; }
+  .kpi { border-radius:10px; padding:12px 14px; background:#FFF4F4; }
+  .kpi .v { font-size:22px; font-weight:800; color:#E31E24; line-height:1; }
+  .kpi .l { font-size:11px; color:#6b7280; margin-top:4px; }
+  .kpi.green { background:#EEF9F1; } .kpi.green .v { color:#15803D; }
+  .kpi.amber { background:#FFF8E6; } .kpi.amber .v { color:#B45309; }
+  .kpi.pink { background:#FDF2F8; } .kpi.pink .v { color:#BE185D; }
+  .kpi.blue { background:#EFF6FF; } .kpi.blue .v { color:#1D4ED8; }
+  .kpi.grey { background:#F3F4F6; } .kpi.grey .v { color:#15181C; }
+  table.sewr td, table.sewr th { font-size:12.5px; white-space:nowrap; }
+  tr.zero td { background:#FFF7ED; }
+  .mode-btn.active { background:#E31E24; color:#fff; border-color:#E31E24; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-3 border-bottom d-flex flex-wrap align-items-end justify-content-between gap-2">
+    <div>
+      <h1 class="h2 page-title mb-1">Sub-Editor Work Report</h1>
+      <p class="text-muted mb-0">Sub editors రోజువారీ పని — ఎన్ని news పెట్టారు, duplicates, edits, deletes, language wise — ఒక PDF గా.</p>
+    </div>
+    <span class="badge bg-danger">Super Admin only</span>
+  </div>
+
+  <div class="help-card mb-4">
+    <strong>ఇది ఏమిటి? (సహాయం)</strong>
+    <ul class="mb-0 mt-2 small">
+      <li><strong>Today / Yesterday / Date / Range</strong> ఎంచుకోండి (Range గరిష్టం <%= maxRangeDays %> రోజులు). Language లేదా ఒక sub editor కి మాత్రమే కావాలంటే filter పెట్టండి.</li>
+      <li><strong>Preview</strong> నొక్కితే numbers ఇక్కడే కనిపిస్తాయి. <strong>Download PDF</strong> నొక్కితే admin department కి file చేయడానికి పూర్తి report (summary, sub editor wise, language wise, duplicate details, edits/deletes, rejected, attention list, hour wise, top viewed, signature block).</li>
+      <li>అన్ని లెక్కలు <strong>IST</strong> ప్రకారం. <em>Posted</em> = ఆ రోజు submit చేసినవి; <em>Published</em> = ఆ రోజు approve అయినవి; <em>AI dup</em> = duplicate check flag చేసినవి; <em>Pub.any</em> = AI flag చేసినా publish చేసినవి.</li>
+      <li>Delete / Publish-anyway ఎవరు చేశారో ఈరోజు (<%= today %>) నుండి record అవుతుంది. పాత రోజుల్లో ఆ కాలమ్ "Not recorded" రావొచ్చు.</li>
+    </ul>
+  </div>
+
+  <div class="card settings-card mb-4">
+    <div class="card-header"><h5 class="mb-0 fw-bold">Report period &amp; filters</h5></div>
+    <div class="card-body">
+      <div class="d-flex flex-wrap gap-2 mb-3" id="modeBtns">
+        <button type="button" class="btn btn-outline-secondary btn-sm mode-btn active" data-mode="today">Today</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm mode-btn" data-mode="yesterday">Yesterday</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm mode-btn" data-mode="date">Pick a date</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm mode-btn" data-mode="range">Date range</button>
+      </div>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-2" id="wrapDate" style="display:none"><label class="form-label small mb-1">Date</label><input type="date" class="form-control" id="fDate" value="<%= today %>" max="<%= today %>"></div>
+        <div class="col-md-2" id="wrapFrom" style="display:none"><label class="form-label small mb-1">From</label><input type="date" class="form-control" id="fFrom" max="<%= today %>"></div>
+        <div class="col-md-2" id="wrapTo" style="display:none"><label class="form-label small mb-1">To</label><input type="date" class="form-control" id="fTo" value="<%= today %>" max="<%= today %>"></div>
+        <div class="col-md-2"><label class="form-label small mb-1">Language</label>
+          <select class="form-select" id="fLang"><option value="">All languages</option><% languages.forEach(l => { %><option value="<%= l.code %>"><%= l.name %> (<%= l.code.toUpperCase() %>)</option><% }) %></select></div>
+        <div class="col-md-3"><label class="form-label small mb-1">Sub editor</label>
+          <select class="form-select" id="fAuthor"><option value="">All sub editors (<%= subEditors.length %>)</option><% subEditors.forEach(s => { %><option value="<%= s._id %>"><%= s.name || s.username %><%= s.isActive === false ? ' (inactive)' : '' %></option><% }) %></select></div>
+        <div class="col-md-3 d-flex gap-2">
+          <button type="button" class="btn btn-outline-dark" id="btnPreview"><i class="fas fa-eye me-1"></i> Preview</button>
+          <button type="button" class="btn btn-danger" id="btnPdf"><i class="fas fa-file-pdf me-1"></i> Download PDF</button>
+        </div>
+      </div>
+      <div id="alertBox" class="mt-3"></div>
+    </div>
+  </div>
+
+  <div class="card settings-card mb-4">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <h5 class="mb-0 fw-bold"><i class="fas fa-star text-warning me-1"></i> Performance Report — sub editors ఎంచుకోండి</h5>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="selAll">Select all</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="selNone">Clear</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="selActive">Only active</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <p class="small text-muted mb-2">ఒక చూపులో అర్థమయ్యే clean report (logo, table, 24h timeline, <strong>Performance Score + Grade</strong>, insights). పైన ఎంచుకున్న period/language దీనికీ వర్తిస్తుంది.</p>
+      <div class="row g-2 mb-3" id="editorPicks">
+        <% subEditors.forEach(s => { %>
+        <div class="col-6 col-md-4 col-lg-3">
+          <label class="form-check small"><input class="form-check-input pick" type="checkbox" value="<%= s._id %>" data-active="<%= s.isActive === false ? '0' : '1' %>"> <%= s.name || s.username %><%= s.isActive === false ? ' (inactive)' : '' %></label>
+        </div>
+        <% }) %>
+      </div>
+      <button type="button" class="btn btn-primary" id="btnPerf"><i class="fas fa-file-pdf me-1"></i> Download Performance PDF (<span id="pickCount">0</span> selected)</button>
+      <div id="perfAlert" class="mt-2"></div>
+    </div>
+  </div>
+
+  <div id="preview" style="display:none">
+    <div class="card settings-card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center"><h5 class="mb-0 fw-bold">Summary — <span id="pLabel"></span></h5><small class="text-muted" id="pMeta"></small></div>
+      <div class="card-body">
+        <div class="row g-2 mb-3" id="kpis"></div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover sewr mb-0">
+            <thead class="table-light"><tr><th>#</th><th>Sub editor</th><th>Langs</th><th class="text-end">Posted</th><th class="text-end">Published</th><th class="text-end">Pending</th><th class="text-end">AI dup</th><th class="text-end">Dup %</th><th class="text-end">Pub.any</th><th class="text-end">Rejected</th><th class="text-end">Sent back</th><th class="text-end">Edited</th><th class="text-end">Deleted</th><th class="text-end">Views</th><th class="text-end">Avg→pub</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="small text-muted mt-3" id="attention"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const today = '<%= today %>';
+  let mode = 'today';
+  const $ = (id) => document.getElementById(id);
+  const isoShift = (days) => { const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
+
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll('.mode-btn').forEach((b) => b.classList.toggle('active', b.dataset.mode === m));
+    $('wrapDate').style.display = m === 'date' ? '' : 'none';
+    $('wrapFrom').style.display = m === 'range' ? '' : 'none';
+    $('wrapTo').style.display = m === 'range' ? '' : 'none';
+    if (m === 'range' && !$('fFrom').value) $('fFrom').value = isoShift(-6);
+  }
+  document.querySelectorAll('.mode-btn').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+  function params() {
+    const p = new URLSearchParams();
+    if (mode === 'today') p.set('date', today);
+    else if (mode === 'yesterday') p.set('date', isoShift(-1));
+    else if (mode === 'date') p.set('date', $('fDate').value || today);
+    else { p.set('from', $('fFrom').value); p.set('to', $('fTo').value || today); }
+    if ($('fLang').value) p.set('language', $('fLang').value);
+    if ($('fAuthor').value) p.set('authorId', $('fAuthor').value);
+    return p.toString();
+  }
+  function alertBox(type, msg) { $('alertBox').innerHTML = msg ? `<div class="alert alert-${type} py-2 mb-0">${msg}</div>` : ''; }
+
+  $('btnPdf').addEventListener('click', () => { alertBox('', ''); window.location.href = '/admin/api/sub-editor-work-report/pdf?' + params(); });
+
+  // Performance PDF (selected sub editors)
+  const picks = () => Array.from(document.querySelectorAll('.pick'));
+  const updateCount = () => { $('pickCount').textContent = picks().filter((c) => c.checked).length; };
+  picks().forEach((c) => c.addEventListener('change', updateCount));
+  $('selAll').addEventListener('click', () => { picks().forEach((c) => { c.checked = true; }); updateCount(); });
+  $('selNone').addEventListener('click', () => { picks().forEach((c) => { c.checked = false; }); updateCount(); });
+  $('selActive').addEventListener('click', () => { picks().forEach((c) => { c.checked = c.dataset.active === '1'; }); updateCount(); });
+  $('btnPerf').addEventListener('click', () => {
+    const ids = picks().filter((c) => c.checked).map((c) => c.value);
+    if (!ids.length) { $('perfAlert').innerHTML = '<div class="alert alert-warning py-2 mb-0">కనీసం ఒక sub editor ని ఎంచుకోండి.</div>'; return; }
+    $('perfAlert').innerHTML = '';
+    const p = new URLSearchParams(params()); p.delete('authorId'); p.set('authorIds', ids.join(','));
+    window.location.href = '/admin/api/sub-editor-work-report/performance.pdf?' + p.toString();
+  });
+
+  $('btnPreview').addEventListener('click', async () => {
+    const btn = $('btnPreview'); btn.disabled = true; alertBox('', '');
+    try {
+      const res = await fetch('/admin/api/sub-editor-work-report/summary?' + params(), { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+      const d = await res.json();
+      if (!res.ok || !d.success) throw new Error(d.message || 'Could not load');
+      render(d);
+    } catch (e) { alertBox('danger', e.message); }
+    finally { btn.disabled = false; }
+  });
+
+  function kpi(cls, v, l) { return `<div class="col-6 col-md-3 col-xl"><div class="kpi ${cls}"><div class="v">${v}</div><div class="l">${l}</div></div></div>`; }
+  function render(d) {
+    const t = d.totals;
+    $('pLabel').textContent = d.period.label;
+    $('pMeta').textContent = `${d.rows.length} sub editors • duplicates ${d.counts.duplicates} • edits ${d.counts.edits} • deletes ${d.counts.deletes} • rejects ${d.counts.rejects}`;
+    $('kpis').innerHTML = kpi('', t.posted, 'News posted') + kpi('green', t.published, 'Published') + kpi('amber', t.pendingNow, 'Pending now') + kpi('pink', t.aiFlagged, 'AI duplicate flagged') + kpi('pink', t.publishedAnyway, 'Published anyway') + kpi('', `${t.rejected} (${t.autoRejected})`, 'Rejected (auto)') + kpi('blue', t.edited, 'Edited by desk') + kpi('', t.deleted, 'Deleted') + kpi('grey', t.views, 'Views');
+    $('rows').innerHTML = d.rows.map((r, i) => `<tr class="${r.posted === 0 && r.isActive ? 'zero' : ''}"><td>${r.posted ? i + 1 : ''}</td><td class="fw-semibold">${esc(r.name)}${r.isActive ? '' : ' <span class="badge bg-secondary">inactive</span>'}</td><td>${r.languages.map((x) => x.toUpperCase()).join(', ') || '—'}</td><td class="text-end">${r.posted}</td><td class="text-end">${r.published}</td><td class="text-end">${r.pendingNow}</td><td class="text-end ${r.aiFlagged ? 'text-danger fw-bold' : ''}">${r.aiFlagged}</td><td class="text-end">${r.posted ? r.duplicateRate + '%' : '—'}</td><td class="text-end">${r.publishedAnyway}</td><td class="text-end">${r.rejected}</td><td class="text-end">${r.sentBack}</td><td class="text-end">${r.edited}</td><td class="text-end ${r.deleted ? 'text-danger fw-bold' : ''}">${r.deleted}</td><td class="text-end">${r.views}</td><td class="text-end">${r.avgPublishMinutes == null ? '—' : r.avgPublishMinutes + 'm'}</td></tr>`).join('') || '<tr><td colspan="15" class="text-center text-muted">No sub editors</td></tr>';
+    $('attention').innerHTML = (d.zeroActivity.length ? `<div><strong>Posted nothing:</strong> ${d.zeroActivity.map(esc).join(', ')}</div>` : '<div>Every active sub editor posted at least once.</div>') + (d.repeatOffenders.length ? `<div class="text-danger"><strong>Repeat duplicate offenders (3 days):</strong> ${d.repeatOffenders.map((r) => esc(r.name)).join(', ')}</div>` : '');
+    $('preview').style.display = '';
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+});
+</script>
+
+<%- include('partials/footer') %>

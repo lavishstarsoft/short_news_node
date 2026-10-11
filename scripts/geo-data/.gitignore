@@ -1,0 +1,3 @@
+# The India-wide village file is ~100 MB — seed it into Mongo, never commit it.
+data/4-village.csv
+data/4-village.csv.zip

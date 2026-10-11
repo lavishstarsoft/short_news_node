@@ -1,0 +1,121 @@
+<%- include('partials/header') %>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'Shadow Mode', backButton: true, backUrl: '/admin/organization' }) %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .sm-card { border-radius:12px; border:1px solid #f0f0f0; box-shadow:0 4px 6px rgba(0,0,0,.04); background:#fff; }
+  .sm-stat { border-radius:12px; padding:16px; background:#fff; border:1px solid #f0f0f0; }
+  .sm-stat .num { font-size:1.6rem; font-weight:800; line-height:1; }
+  .badge-status { font-size:.8rem; font-weight:700; padding:6px 12px; border-radius:999px; }
+  .cmp { font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .cmp-mismatch { background:#fff3cd; color:#8a6d00; }
+  .cmp-unknown { background:#eef0f2; color:#555; }
+  .info-box { background:#f0f7ff; border:1px solid #cfe6ff; border-radius:12px; padding:14px 16px; }
+  .mono { font-family:monospace; font-size:12px; word-break:break-all; }
+  @media (max-width:576px){ table.sm-table thead{display:none;} }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-3">
+
+    <!-- Status banner -->
+    <div class="sm-card p-3 p-md-4 mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div>
+        <h4 class="fw-bold mb-1"><i class="fas fa-user-shield me-2 text-primary"></i>Shadow Mode</h4>
+        <p class="text-muted mb-0" style="max-width:640px">
+          Shadow Mode checks the <strong>new permission system in the background</strong> without blocking anyone.
+          It only <strong>compares</strong> the new rules with the current (authoritative) access — it never denies a request.
+        </p>
+      </div>
+      <div class="text-end">
+        <% if (shadowOn) { %>
+          <span class="badge-status" style="background:#d1e7dd;color:#0f5132"><i class="fas fa-circle me-1" style="font-size:8px"></i> ON — monitoring</span>
+        <% } else { %>
+          <span class="badge-status" style="background:#eef0f2;color:#555"><i class="far fa-circle me-1" style="font-size:8px"></i> OFF — disabled</span>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- What it does / does NOT do -->
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-md-6">
+        <div class="sm-card p-3 h-100">
+          <h6 class="fw-bold text-success mb-2"><i class="fas fa-check-circle me-1"></i> What it DOES</h6>
+          <ul class="mb-0 small text-muted ps-3">
+            <li>Calculates what the new permission system <em>would</em> decide.</li>
+            <li>Compares it with the existing access on 14 high-risk routes.</li>
+            <li>Records only disagreements (mismatch / unknown) for review.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-12 col-md-6">
+        <div class="sm-card p-3 h-100">
+          <h6 class="fw-bold text-danger mb-2"><i class="fas fa-ban me-1"></i> What it does NOT do</h6>
+          <ul class="mb-0 small text-muted ps-3">
+            <li>Never blocks or denies any user.</li>
+            <li>Never changes access, roles, permissions, or data.</li>
+            <li>Never touches financial or editorial workflows.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md-3"><div class="sm-stat"><div class="num text-warning"><%= stats.mismatch %></div><div class="small text-muted mt-1">🟠 Mismatches</div></div></div>
+      <div class="col-6 col-md-3"><div class="sm-stat"><div class="num text-secondary"><%= stats.unknown %></div><div class="small text-muted mt-1">⚪ Unknown</div></div></div>
+      <div class="col-6 col-md-3"><div class="sm-stat"><div class="num">🟢</div><div class="small text-muted mt-1">Matches — not stored*</div></div></div>
+      <div class="col-6 col-md-3"><div class="sm-stat"><div class="num"><%= stats.total %></div><div class="small text-muted mt-1">Recorded events</div></div></div>
+    </div>
+    <p class="small text-muted mb-3">*Matches are the normal case and are intentionally not recorded, to keep this lightweight. Only disagreements are logged.</p>
+
+    <!-- Activation note (read-only, safe) -->
+    <div class="info-box mb-3">
+      <h6 class="fw-bold mb-1"><i class="fas fa-info-circle me-1 text-primary"></i> How to enable / disable</h6>
+      <p class="small mb-1">Shadow Mode is controlled by the server setting <span class="mono">AUTH_SHADOW_MODE</span> and is currently
+        <strong><%= shadowOn ? 'ON' : 'OFF' %></strong>. For safety it is <strong>not</strong> toggled from this screen.</p>
+      <p class="small mb-0 text-muted">To turn it on, set <span class="mono">AUTH_SHADOW_MODE=true</span> via the approved server configuration and restart the app.
+        Even when ON, <strong>no user is ever blocked</strong> — it only observes.</p>
+    </div>
+
+    <!-- Recent disagreements -->
+    <div class="sm-card">
+      <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0">Recent disagreements</h6>
+        <span class="small text-muted">latest 50</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 sm-table">
+          <thead class="table-light">
+            <tr>
+              <th class="small">Time</th><th class="small">User / Role</th><th class="small">Route</th>
+              <th class="small">Permission</th><th class="small">New decision</th><th class="small">Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!stats.available || !stats.recent || stats.recent.length === 0) { %>
+              <tr><td colspan="6" class="text-center text-muted py-4">
+                <% if (!shadowOn) { %>No data yet — Shadow Mode is OFF. Enable it to start observing.<% } else { %>No disagreements recorded. The new rules currently match live access. 🟢<% } %>
+              </td></tr>
+            <% } else { stats.recent.forEach(function(r){ %>
+              <tr>
+                <td class="small text-nowrap"><%= r.createdAt ? new Date(r.createdAt).toLocaleString('en-IN') : '' %></td>
+                <td class="small"><span class="mono"><%= r.userId || '—' %></span><br><span class="text-muted"><%= r.role || '' %></span></td>
+                <td class="small mono"><%= r.method %> <%= r.route %></td>
+                <td class="small mono"><%= r.permission %></td>
+                <td class="small fw-bold"><%= r.newDecision %></td>
+                <td><span class="cmp <%= r.comparison === 'MISMATCH' ? 'cmp-mismatch' : 'cmp-unknown' %>"><%= r.comparison === 'MISMATCH' ? '🟠 Mismatch' : '⚪ Unknown' %></span></td>
+              </tr>
+            <% }); } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<%- include('partials/footer') %>
+</body>
+</html>

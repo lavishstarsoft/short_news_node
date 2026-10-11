@@ -28,7 +28,20 @@ const adSchema = new mongoose.Schema({
   adMobAppId: { type: String }, // AdMob App ID
   adMobUnitId: { type: String }, // AdMob Unit ID
   priority: { type: String, enum: ['high', 'medium', 'low'], default: 'medium' }, // Ad priority
+  // Bid / weight: how much the advertiser pays → higher = shown MORE (weighted
+  // auction among the language's due ads). 0 = no bid (falls back to priority).
+  bidAmount: { type: Number, default: 0 },
+  // Impression budget: auto-pause the ad once it has been shown this many times
+  // (0 = unlimited). impressionCount is incremented on every 'view'.
+  maxImpressions: { type: Number, default: 0 },
+  impressionCount: { type: Number, default: 0 },
+  // Per-ad toggle for the app's ad bottom bar (Viral / WhatsApp / 3-dots / Share).
+  // Default OFF — the bar shows only on ads the admin explicitly enables.
+  showBottomBar: { type: Boolean, default: false },
   language: { type: String, required: true }, // The language this ad belongs to (e.g. 'en', 'te', 'hi')
+  // Optional content category (same taxonomy as News) — used by Phase 2b to match
+  // an ad to a user's implicitly-learned interests. '' = general / uncategorised.
+  category: { type: String, default: '' },
 });
 
 adSchema.index({ scheduleEnabled: 1, scheduleStart: 1, scheduleEnd: 1 });

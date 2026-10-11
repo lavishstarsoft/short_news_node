@@ -108,6 +108,9 @@
                                                     <button class="btn btn-outline-success" onclick="actionCampaign('<%= c._id %>', 'activate')" title="Resume"><i class="fas fa-play"></i></button>
                                                 <% } %>
                                                 
+                                                <% if (['draft','active','paused'].includes(c.status)) { %>
+                                                    <button class="btn btn-outline-secondary" onclick="openEditCampaign('<%= c._id %>')" title="Edit"><i class="fas fa-pen"></i></button>
+                                                <% } %>
                                                 <button class="btn btn-outline-info" onclick="duplicateCampaign('<%= c._id %>')" title="Duplicate"><i class="fas fa-copy"></i></button>
                                                 <button class="btn btn-outline-primary" onclick="restartCampaign('<%= c._id %>')" title="Restart"><i class="fas fa-redo"></i></button>
                                                 <button class="btn btn-outline-danger" onclick="deleteCampaign('<%= c._id %>')" title="Delete"><i class="fas fa-trash"></i></button>
@@ -188,7 +191,83 @@ async function deleteCampaign(id) {
         else alert(data.error || 'Failed');
     } catch(e) { alert('Network error'); }
 }
+
+// ── Edit campaign ──────────────────────────────────────────────────────────
+async function openEditCampaign(id) {
+    try {
+        const res = await fetch(`/admin/view-engine/campaigns/${id}`);
+        const data = await res.json();
+        if (!data.success || !data.campaign) { alert(data.error || 'Could not load'); return; }
+        const c = data.campaign;
+        document.getElementById('editCampaignId').value = c._id;
+        document.getElementById('editName').value = c.name || '';
+        document.getElementById('editMin').value = c.minViews;
+        document.getElementById('editMax').value = c.maxViews;
+        // Active/paused → only name + views editable (window stays). Draft → same here.
+        const live = (c.status === 'active' || c.status === 'paused');
+        document.getElementById('editStatusNote').textContent = live
+            ? `Status: ${c.status.toUpperCase()} — name & views range edit అవుతాయి (duration/strategy running window కాబట్టి మారవు).`
+            : `Status: ${c.status.toUpperCase()} — name & views range edit అవుతాయి.`;
+        new bootstrap.Modal(document.getElementById('editCampaignModal')).show();
+    } catch(e) { alert('Network error'); }
+}
+
+async function submitEditCampaign(event) {
+    event.preventDefault();
+    const id = document.getElementById('editCampaignId').value;
+    const body = {
+        name: document.getElementById('editName').value.trim(),
+        minViews: parseInt(document.getElementById('editMin').value, 10),
+        maxViews: parseInt(document.getElementById('editMax').value, 10),
+    };
+    try {
+        const res = await fetch(`/admin/view-engine/campaigns/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.success) location.reload();
+        else alert((data.error || 'Update failed') + (data.errors ? (': ' + data.errors.join(', ')) : ''));
+    } catch(e) { alert('Network error'); }
+}
 </script>
+
+<!-- Edit Campaign Modal -->
+<div class="modal fade" id="editCampaignModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form onsubmit="submitEditCampaign(event)">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title"><i class="fas fa-pen me-2 text-secondary"></i>Edit Campaign</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="hidden" id="editCampaignId">
+                    <div class="alert alert-info py-2 small" id="editStatusNote"></div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Campaign Name</label>
+                        <input type="text" class="form-control" id="editName" required>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Min Views</label>
+                            <input type="number" class="form-control" id="editMin" min="0" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Max Views</label>
+                            <input type="number" class="form-control" id="editMax" min="0" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <%- include('../partials/footer') %>
 

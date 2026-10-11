@@ -61,7 +61,15 @@ async function socketAuthMiddleware(socket, next) {
       id: String(staff.id),
       role: staff.role || 'editor',
       permissions: staff.permissions || {},
+      // ONE-DEVICE LOGIN: the socket remembers which login session it belongs to, so a
+      // 'session_revoked' event can be ignored by the device that still holds the session.
+      sid: staff.sid || null,
     };
+    // socket.data survives across the PM2 cluster (io.fetchSockets() only sees `data`),
+    // so the one-device kick can find and disconnect the replaced device.
+    socket.data = socket.data || {};
+    socket.data.sid = staff.sid || null;
+    socket.data.staffId = String(staff.id);
     return next();
   }
 

@@ -1,0 +1,380 @@
+<%- include('partials/header') %>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'Special Deck (Left swipe)', backButton: true, backUrl: '/ads/ads' }) %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.04); }
+  .settings-card .card-body { padding: 22px; }
+  .help-card { background:#FFF8E6; border:1px solid #F5D78E; border-radius:12px; padding:14px 18px; }
+  .lang-pill { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:7px 13px; font-weight:600; font-size:13px; color:#374151; margin:0 6px 8px 0; }
+  .lang-pill.active { background:#E31E24; border-color:#E31E24; color:#fff; }
+  .lang-pill .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-left:6px; background:#9ca3af; }
+  .lang-pill .dot.on { background:#16a34a; }
+  .section-label { font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#6b7280; margin:18px 0 10px; }
+  .card-item { border:1px solid #eef0f3; border-radius:10px; padding:12px; margin-bottom:10px; background:#fafbfc; display:flex; gap:12px; align-items:flex-start; }
+  .card-item.off { opacity:.55; }
+  .card-item .th { width:84px; height:64px; object-fit:cover; border-radius:8px; background:#e5e7eb; flex:none; }
+  .card-item .tp { font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:2px 8px; border-radius:999px; background:#111; color:#fff; }
+  .tp.news { background:#E31E24; } .tp.quiz { background:#7c3aed; } .tp.train { background:#0ea5e9; } .tp.ad { background:#f59e0b; } .tp.banner { background:#16a34a; }
+  .card-item .body { flex:1; min-width:0; }
+  .card-item .ttl { font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card-item .sub { font-size:12px; color:#6b7280; }
+  .card-item .ctl { display:flex; flex-direction:column; gap:4px; align-items:flex-end; flex:none; }
+  .card-item .ctl .btn { padding:0 6px; line-height:1.4; }
+  .picker { border:1px solid #e5e7eb; border-radius:10px; background:#fff; padding:12px; margin-top:8px; }
+  .pick-row { display:flex; gap:10px; align-items:center; padding:6px; border-radius:8px; cursor:pointer; }
+  .pick-row:hover { background:#f3f4f6; }
+  .pick-row img { width:56px; height:42px; object-fit:cover; border-radius:6px; background:#e5e7eb; }
+  .pick-row .t { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pick-list { max-height:320px; overflow:auto; }
+  .pv { max-width:300px; margin:0 auto; border:8px solid #111; border-radius:22px; overflow:hidden; background:#000; color:#fff; }
+  .pv-top { display:flex; justify-content:space-between; font-size:11px; padding:8px 12px; background:#111; }
+  .pv-card { position:relative; height:420px; background:#222 center/cover no-repeat; }
+  .pv-card .ov { position:absolute; left:0; right:0; bottom:0; padding:14px; background:linear-gradient(0deg,rgba(0,0,0,.85),transparent); }
+  .pv-card .ov .t { font-weight:900; font-size:16px; line-height:1.2; }
+  .pv-card .ov .s { font-size:12px; opacity:.85; margin-top:4px; }
+  .pv-card .tag { position:absolute; top:10px; left:10px; font-size:10px; font-weight:800; padding:2px 8px; border-radius:999px; background:#fff; color:#111; }
+  .pv-nav { display:flex; justify-content:center; gap:6px; padding:8px; background:#111; }
+  .pv-nav button { background:#333; color:#fff; border:none; border-radius:6px; font-size:11px; padding:3px 8px; }
+  .pv-nav button.on { background:#E31E24; }
+  /* Hotspot editor modal */
+  .hs-modal { position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:1080; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .hs-dialog { background:#fff; border-radius:14px; width:min(920px,96vw); max-height:92vh; overflow:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .hs-head { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid #eef0f3; position:sticky; top:0; background:#fff; }
+  .hs-body { display:flex; gap:20px; flex-wrap:wrap; padding:18px; }
+  .hs-stage { position:relative; width:440px; max-width:100%; border:2px dashed #cbd5e1; border-radius:12px; overflow:hidden; background:#f1f5f9; user-select:none; touch-action:none; }
+  .hs-stage img { width:100%; display:block; pointer-events:none; }
+  .hs-stage.empty { min-height:300px; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:14px; text-align:center; padding:20px; }
+  .hs-box { position:absolute; border:2px solid #2563eb; background:rgba(37,99,235,.14); box-sizing:border-box; cursor:move; }
+  .hs-box .lb { position:absolute; top:-19px; left:0; font-size:11px; font-weight:700; color:#fff; background:#2563eb; padding:1px 6px; border-radius:5px; white-space:nowrap; }
+  .hs-box .hd { position:absolute; right:-6px; bottom:-6px; width:14px; height:14px; background:#2563eb; border:2px solid #fff; border-radius:3px; cursor:nwse-resize; }
+  .hs-box.sel { border-color:#dc2626; background:rgba(220,38,38,.16); } .hs-box.sel .lb, .hs-box.sel .hd { background:#dc2626; }
+  .hs-side { flex:1; min-width:300px; }
+  .hs-row { display:grid; grid-template-columns:22px 1fr auto; gap:8px; align-items:center; padding:8px; border:1px solid #eef0f3; border-radius:10px; margin-bottom:8px; }
+  .hs-row .idx { width:22px; height:22px; border-radius:50%; background:#2563eb; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+</style>
+
+<div class="main-content" id="mainContent">
+  <div class="container-fluid py-3" style="max-width:1200px;">
+    <div class="help-card mb-3">
+      <div class="fw-bold mb-1">🎴 Special Deck — app లో news page ని <strong>ఎడమకు swipe</strong> చేస్తే వచ్చే "special world"</div>
+      <ul class="mb-0 small" style="padding-left:18px;">
+        <li>ప్రతి language కి వేరుగా cards పెట్టండి: <strong>News</strong> (search చేసి pick), <strong>Quiz</strong>, <strong>Where is my train</strong>, <strong>Ad</strong> (Ads Management లోని active ad), <strong>Banner</strong> (image + link).</li>
+        <li>App లో ఈ cards <strong>నిలువుగా 3D flip</strong> swipe తో వస్తాయి (news లాగే). కుడికి swipe చేస్తే మళ్ళీ news.</li>
+        <li><strong>Enabled</strong> OFF ఉంటే ఆ language users కి ఎడమ swipe ఏమీ చేయదు (app పాతలాగే). Cards పెట్టి, తర్వాత ON చేయండి. Delete/inactive అయిన news/ad cards app లో automatic గా దాటవేయబడతాయి.</li>
+        <li>Save చేసిన 1 నిమిషంలో app లో live అవుతుంది.</li>
+      </ul>
+    </div>
+
+    <div id="alertBox"></div>
+    <div class="mb-3"><div class="section-label mb-1">Language</div><div id="langPills"></div></div>
+
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="card settings-card">
+          <div class="card-body">
+            <input type="hidden" id="language" value="">
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" id="enabled">
+              <label class="form-check-label fw-bold" for="enabled">Enabled for this language (left swipe opens the deck)</label>
+            </div>
+
+            <div class="section-label d-flex justify-content-between align-items-center">Cards (top = first)
+              <span>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="openNewsPicker()">+ News</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addCard({type:'quiz', title:'Daily Quiz', subtitle:'Play & win rewards'})">+ Quiz</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addCard({type:'train', title:'Where is my train?', subtitle:'Live running status, PNR, trains between stations'})">+ Train</button>
+                <button type="button" class="btn btn-sm btn-outline-warning" onclick="openAdPicker()">+ Ad</button>
+                <button type="button" class="btn btn-sm btn-outline-success" onclick="addCard({type:'banner'})">+ Banner</button>
+              </span>
+            </div>
+            <div id="picker" class="picker d-none"></div>
+            <div id="cards"></div>
+            <div id="cardsEmpty" class="text-muted small">No cards yet — add news / quiz / train / ad / banner above.</div>
+
+            <button type="button" id="saveBtn" class="btn btn-primary fw-bold px-4 mt-3">Save for this language</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <div class="section-label">Live preview (tap a number to see that card)</div>
+        <div class="pv" id="pv"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hotspot editor modal (banner cards) -->
+<div id="hsModal" class="hs-modal d-none">
+  <div class="hs-dialog">
+    <div class="hs-head">
+      <b>🎯 Clickable areas on the banner</b>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="closeHotspots()">Done</button>
+    </div>
+    <div class="hs-body">
+      <div>
+        <div class="hs-stage empty" id="hsStage">Upload a background image on the banner card first.</div>
+        <div class="text-muted" style="font-size:12px;margin-top:6px;">Drag on empty area = new box · drag box = move · corner = resize · click = select</div>
+      </div>
+      <div class="hs-side">
+        <h6 class="fw-bold">Areas (<span id="hsCount">0</span>)</h6>
+        <div id="hsList"></div>
+        <div class="text-muted" id="hsEmpty" style="font-size:12px;">No areas yet — draw a box on the image.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let items = [];
+  let cards = []; // working copy for the selected language
+  let pvIndex = 0;
+
+  function showAlert(kind, msg) {
+    $('alertBox').innerHTML = '<div class="alert alert-' + kind + ' alert-dismissible fade show">' + msg + '<button class="btn-close" data-bs-dismiss="alert"></button></div>';
+  }
+  function esc(s) { return String(s || '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+  const TYPE_LABEL = { news: 'News', quiz: 'Quiz', train: 'Train', ad: 'Ad', banner: 'Banner' };
+
+  // ---------- cards
+  function addCard(c) { cards.push({ enabled: true, title: '', subtitle: '', imageUrl: '', linkUrl: '', newsId: '', adId: '', hotspots: [], aspectRatio: 0, ...c }); pvIndex = cards.length - 1; renderCards(); }
+  function removeCard(i) { cards.splice(i, 1); pvIndex = Math.max(0, Math.min(pvIndex, cards.length - 1)); renderCards(); }
+  function moveCard(i, d) { const j = i + d; if (j < 0 || j >= cards.length) return; [cards[i], cards[j]] = [cards[j], cards[i]]; pvIndex = j; renderCards(); }
+  function setField(i, k, v) { cards[i][k] = v; renderPreview(); }
+
+  function cardRow(c, i) {
+    const el = document.createElement('div');
+    el.className = 'card-item' + (c.enabled ? '' : ' off');
+    const img = c.type === 'news' || c.type === 'ad' ? c.refImage : c.imageUrl;
+    let body = '';
+    if (c.type === 'news' || c.type === 'ad') {
+      body = '<div class="ttl">' + esc(c.refLabel || '(untitled)') + '</div>' +
+        '<div class="sub">' + (c.refActive === false ? '<span class="text-danger">⚠ not active / deleted — will be skipped in app</span>' : (c.type === 'news' ? 'Opens as a normal news card' : 'Shows this advertisement')) + '</div>';
+    } else {
+      body =
+        '<input class="form-control form-control-sm mb-1" maxlength="160" placeholder="Title shown on the card" value="' + esc(c.title) + '" oninput="setField(' + i + ',\'title\',this.value)">' +
+        '<input class="form-control form-control-sm mb-1" maxlength="200" placeholder="Subtitle (optional)" value="' + esc(c.subtitle) + '" oninput="setField(' + i + ',\'subtitle\',this.value)">' +
+        '<div class="d-flex gap-1 mb-1"><input class="form-control form-control-sm" placeholder="Background image URL (optional)" value="' + esc(c.imageUrl) + '" oninput="setField(' + i + ',\'imageUrl\',this.value)">' +
+        '<label class="btn btn-sm btn-outline-secondary mb-0">Upload<input type="file" accept="image/*" hidden onchange="uploadFor(' + i + ',this)"></label></div>' +
+        (c.type === 'banner'
+          ? '<input class="form-control form-control-sm mb-1" maxlength="600" placeholder="Whole-card tap link (used only when there are no clickable areas): https://… or app://quiz" value="' + esc(c.linkUrl) + '" oninput="setField(' + i + ',\'linkUrl\',this.value)">' +
+            '<button type="button" class="btn btn-sm btn-outline-primary" onclick="openHotspots(' + i + ')">🎯 Clickable areas (<span class="hs-count">' + ((c.hotspots || []).length) + '</span>)</button>' +
+            '<div class="text-muted" style="font-size:11px;margin-top:2px;">Draw boxes on the image → each box its own link. Areas take priority over the whole-card link.</div>'
+          : '');
+    }
+    el.innerHTML =
+      (img ? '<img class="th" src="' + esc(img) + '">' : '<div class="th d-flex align-items-center justify-content-center text-muted small">' + TYPE_LABEL[c.type] + '</div>') +
+      '<div class="body"><div class="mb-1"><span class="tp ' + c.type + '">' + TYPE_LABEL[c.type] + '</span> <span class="text-muted small">#' + (i + 1) + '</span></div>' + body + '</div>' +
+      '<div class="ctl">' +
+        '<div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" ' + (c.enabled ? 'checked' : '') + ' onchange="cards[' + i + '].enabled=this.checked; renderCards();"></div>' +
+        '<span><button type="button" class="btn btn-sm btn-link" onclick="moveCard(' + i + ',-1)">▲</button><button type="button" class="btn btn-sm btn-link" onclick="moveCard(' + i + ',1)">▼</button></span>' +
+        '<button type="button" class="btn btn-sm btn-link text-danger" onclick="removeCard(' + i + ')">Remove</button>' +
+      '</div>';
+    return el;
+  }
+  function renderCards() {
+    const box = $('cards'); box.innerHTML = '';
+    cards.forEach((c, i) => box.appendChild(cardRow(c, i)));
+    $('cardsEmpty').classList.toggle('d-none', cards.length > 0);
+    renderPreview();
+  }
+
+  async function uploadFor(i, input) {
+    const f = input.files[0]; if (!f) return;
+    const fd = new FormData(); fd.append('image', f);
+    try {
+      const r = await fetch('/admin/api/special-deck/upload-image', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error('upload failed');
+      const d = await r.json(); cards[i].imageUrl = d.imageUrl;
+      // Capture the true aspect ratio so the app shows the banner uncropped
+      // (hotspots then land exactly where they were drawn).
+      const probe = new Image(); probe.onload = () => { cards[i].aspectRatio = probe.width / probe.height; }; probe.src = d.imageUrl;
+      renderCards();
+    } catch (e) { showAlert('danger', 'Image upload failed'); }
+  }
+
+  // ---------- pickers
+  function closePicker() { $('picker').classList.add('d-none'); $('picker').innerHTML = ''; }
+  async function openNewsPicker() {
+    const p = $('picker'); p.classList.remove('d-none');
+    p.innerHTML = '<div class="d-flex gap-2 mb-2"><input id="nq" class="form-control form-control-sm" placeholder="Search news title in this language…"><button type="button" class="btn btn-sm btn-secondary" onclick="closePicker()">Close</button></div><div id="nlist" class="pick-list small text-muted">Loading…</div>';
+    const run = async () => {
+      const q = $('nq').value.trim();
+      const r = await fetch('/admin/api/special-deck/search-news?lang=' + encodeURIComponent($('language').value) + '&q=' + encodeURIComponent(q));
+      const d = await r.json();
+      $('nlist').innerHTML = (d.items || []).map((n) =>
+        '<div class="pick-row" onclick=\'pickNews(' + JSON.stringify(n).replace(/'/g, '&#39;') + ')\'><img src="' + esc(n.image) + '"><div class="t">' + esc(n.title) + '<div class="text-muted" style="font-size:11px">' + esc(n.category) + ' · ' + (n.publishedAt ? new Date(n.publishedAt).toLocaleDateString() : '') + '</div></div></div>'
+      ).join('') || 'No news found';
+    };
+    let t; $('nq').addEventListener('input', () => { clearTimeout(t); t = setTimeout(run, 300); });
+    run();
+  }
+  function pickNews(n) { addCard({ type: 'news', newsId: n.id, refLabel: n.title, refImage: n.image, refActive: true }); closePicker(); }
+  async function openAdPicker() {
+    const p = $('picker'); p.classList.remove('d-none');
+    p.innerHTML = '<div class="d-flex justify-content-between mb-2"><span class="fw-bold small">Active ads in this language</span><button type="button" class="btn btn-sm btn-secondary" onclick="closePicker()">Close</button></div><div id="alist" class="pick-list small text-muted">Loading…</div>';
+    const r = await fetch('/admin/api/special-deck/ads?lang=' + encodeURIComponent($('language').value));
+    const d = await r.json();
+    $('alist').innerHTML = (d.items || []).map((a) =>
+      '<div class="pick-row" onclick=\'pickAd(' + JSON.stringify(a).replace(/'/g, '&#39;') + ')\'><img src="' + esc(a.image) + '"><div class="t">' + esc(a.title) + '</div></div>'
+    ).join('') || 'No active ads for this language (create one in Ads Management first)';
+  }
+  function pickAd(a) { addCard({ type: 'ad', adId: a.id, refLabel: a.title, refImage: a.image, refActive: true }); closePicker(); }
+
+  // ---------- preview
+  function renderPreview() {
+    const live = cards.filter((c) => c.enabled);
+    if (!live.length) { $('pv').innerHTML = '<div class="pv-top"><span>✦ SPECIAL</span><span>‹ news</span></div><div class="pv-card d-flex align-items-center justify-content-center text-muted">No cards</div>'; return; }
+    const i = Math.min(pvIndex, live.length - 1);
+    const c = live[i];
+    const img = c.type === 'news' || c.type === 'ad' ? c.refImage : c.imageUrl;
+    const title = c.type === 'news' || c.type === 'ad' ? c.refLabel : (c.title || TYPE_LABEL[c.type]);
+    $('pv').innerHTML =
+      '<div class="pv-top"><span>✦ SPECIAL</span><span>' + (i + 1) + '/' + live.length + ' · ‹ news</span></div>' +
+      '<div class="pv-card" style="' + (img ? 'background-image:url(' + esc(img) + ')' : '') + '"><span class="tag">' + TYPE_LABEL[c.type] + '</span><div class="ov"><div class="t">' + esc(title) + '</div><div class="s">' + esc(c.subtitle || '') + '</div></div></div>' +
+      '<div class="pv-nav">' + live.map((_, k) => '<button type="button" class="' + (k === i ? 'on' : '') + '" onclick="pvIndex=' + k + ';renderPreview()">' + (k + 1) + '</button>').join('') + '</div>';
+  }
+
+  // ---------- collect / fill
+  function collect() {
+    return {
+      language: $('language').value,
+      enabled: $('enabled').checked,
+      cards: cards.map((c, i) => ({ order: i + 1, type: c.type, enabled: !!c.enabled, newsId: c.newsId || '', adId: c.adId || '', title: c.title || '', subtitle: c.subtitle || '', imageUrl: c.imageUrl || '', linkUrl: c.linkUrl || '', hotspots: c.type === 'banner' ? (c.hotspots || []) : [], aspectRatio: c.type === 'banner' ? (c.aspectRatio || 0) : 0 })),
+    };
+  }
+  function fill(d) {
+    $('enabled').checked = !!d.enabled;
+    cards = (d.cards || []).map((c) => ({ ...c }));
+    pvIndex = 0; closePicker(); renderCards();
+  }
+
+  // ---------- hotspot editor (banner cards) ----------
+  // Reuses the reporter join-popup image-map logic: draw / move / resize boxes
+  // on the banner image; each box carries its own link. Edits the card in place.
+  let hsCardIndex = -1;
+  let hsSel = -1;
+  function openHotspots(i) {
+    const c = cards[i];
+    if (!c || c.type !== 'banner') return;
+    if (!c.imageUrl) { showAlert('warning', 'Upload a background image for this banner card first, then draw clickable areas.'); return; }
+    c.hotspots = c.hotspots || [];
+    hsCardIndex = i; hsSel = -1;
+    $('hsModal').classList.remove('d-none');
+    hsRenderAll();
+  }
+  function closeHotspots() {
+    $('hsModal').classList.add('d-none');
+    hsCardIndex = -1; hsSel = -1;
+    renderCards(); // refresh the card row's "Clickable areas (N)" count
+  }
+  function hsCard() { return hsCardIndex >= 0 ? cards[hsCardIndex] : null; }
+  function hsRenderStage() {
+    const stage = $('hsStage'); const c = hsCard(); stage.innerHTML = '';
+    if (!c || !c.imageUrl) { stage.classList.add('empty'); stage.textContent = 'Upload a background image on the banner card first.'; return; }
+    stage.classList.remove('empty');
+    const img = document.createElement('img'); img.src = c.imageUrl; img.draggable = false; stage.appendChild(img);
+    (c.hotspots || []).forEach((h, i) => {
+      const b = document.createElement('div'); b.className = 'hs-box' + (i === hsSel ? ' sel' : ''); b.dataset.i = i;
+      b.style.left = (h.x * 100) + '%'; b.style.top = (h.y * 100) + '%'; b.style.width = (h.w * 100) + '%'; b.style.height = (h.h * 100) + '%';
+      const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = (i + 1); b.appendChild(lb);
+      const hd = document.createElement('div'); hd.className = 'hd'; hd.dataset.resize = '1'; b.appendChild(hd);
+      stage.appendChild(b);
+    });
+  }
+  function hsRenderList() {
+    const c = hsCard(); const host = $('hsList'); host.innerHTML = '';
+    const hs = (c && c.hotspots) || [];
+    $('hsCount').textContent = hs.length;
+    $('hsEmpty').style.display = hs.length ? 'none' : 'block';
+    hs.forEach((h, i) => {
+      const row = document.createElement('div'); row.className = 'hs-row' + (i === hsSel ? ' sel' : ''); row.dataset.i = i;
+      row.innerHTML = '<div class="idx">' + (i + 1) + '</div>' +
+        '<input class="form-control form-control-sm hs-link" placeholder="https://… or app://quiz, app://train, app://games" value="' + esc(h.linkUrl || '') + '">' +
+        '<button type="button" class="btn btn-outline-danger btn-sm hs-del"><i class="fas fa-times"></i>✕</button>';
+      row.querySelector('.hs-link').addEventListener('input', (e) => { h.linkUrl = e.target.value; });
+      row.querySelector('.hs-del').addEventListener('click', () => { hs.splice(i, 1); if (hsSel === i) hsSel = -1; hsRenderAll(); });
+      row.addEventListener('click', (e) => { if (e.target.closest('.hs-del') || e.target.closest('input')) return; hsSelect(i); });
+      host.appendChild(row);
+    });
+  }
+  function hsRenderAll() { hsRenderStage(); hsRenderList(); }
+  function hsSelect(i) {
+    hsSel = i;
+    document.querySelectorAll('#hsList .hs-row').forEach((r) => r.classList.toggle('sel', (+r.dataset.i) === i));
+    document.querySelectorAll('#hsStage .hs-box').forEach((b) => b.classList.toggle('sel', (+b.dataset.i) === i));
+  }
+  (function bindHsStage() {
+    const stage = $('hsStage'); let drag = null;
+    stage.addEventListener('pointerdown', (e) => {
+      const c = hsCard(); if (!c || !c.imageUrl) return;
+      const rect = stage.getBoundingClientRect();
+      const box = e.target.closest('.hs-box');
+      const px = (e.clientX - rect.left) / rect.width, py = (e.clientY - rect.top) / rect.height;
+      if (box) {
+        const i = +box.dataset.i; hsSelect(i);
+        if (e.target.dataset.resize) drag = { mode: 'resize', i, rect };
+        else { const h = c.hotspots[i]; drag = { mode: 'move', i, rect, offx: px - h.x, offy: py - h.y }; }
+      } else {
+        c.hotspots.push({ x: px, y: py, w: 0, h: 0, linkUrl: '', label: '' });
+        hsSel = c.hotspots.length - 1;
+        drag = { mode: 'draw', i: hsSel, rect, sx: px, sy: py };
+      }
+      stage.setPointerCapture(e.pointerId); e.preventDefault();
+    });
+    stage.addEventListener('pointermove', (e) => {
+      if (!drag) return; const c = hsCard(); if (!c) return;
+      const r = drag.rect; const px = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), py = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+      const h = c.hotspots[drag.i]; if (!h) return;
+      if (drag.mode === 'draw') { h.x = Math.min(drag.sx, px); h.y = Math.min(drag.sy, py); h.w = Math.abs(px - drag.sx); h.h = Math.abs(py - drag.sy); }
+      else if (drag.mode === 'move') { h.x = Math.max(0, Math.min(1 - h.w, px - drag.offx)); h.y = Math.max(0, Math.min(1 - h.h, py - drag.offy)); }
+      else if (drag.mode === 'resize') { h.w = Math.max(0.02, Math.min(1 - h.x, px - h.x)); h.h = Math.max(0.02, Math.min(1 - h.y, py - h.y)); }
+      hsRenderStage();
+    });
+    stage.addEventListener('pointerup', () => {
+      if (!drag) return; const c = hsCard();
+      if (c && c.hotspots[drag.i] && drag.mode === 'draw' && (c.hotspots[drag.i].w < 0.02 || c.hotspots[drag.i].h < 0.02)) { c.hotspots.splice(drag.i, 1); hsSel = -1; }
+      drag = null; hsRenderAll();
+    });
+  })();
+
+  // ---------- languages
+  function renderPills() {
+    const box = $('langPills'); box.innerHTML = '';
+    items.forEach((it) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'lang-pill'; b.dataset.lang = it.language;
+      b.innerHTML = it.name + '<span class="dot ' + (it.enabled ? 'on' : '') + '"></span>';
+      b.onclick = () => select(it.language); box.appendChild(b);
+    });
+    if (items.length) select(items.find((i) => i.language === 'te') ? 'te' : items[0].language);
+  }
+  function select(code) {
+    $('language').value = code;
+    const it = items.find((i) => i.language === code); if (it) fill(it);
+    [...$('langPills').querySelectorAll('.lang-pill')].forEach((b) => b.classList.toggle('active', b.dataset.lang === code));
+  }
+  async function load() {
+    const r = await fetch('/admin/api/special-deck'); if (!r.ok) throw new Error('load failed');
+    const d = await r.json(); items = d.items || []; renderPills();
+  }
+  $('saveBtn').addEventListener('click', async () => {
+    const btn = $('saveBtn'); const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = 'Saving...';
+    try {
+      const r = await fetch('/admin/api/special-deck', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(collect()) });
+      const d = await r.json(); if (!r.ok || !d.success) throw new Error(d.error || 'save failed');
+      // Re-load so news/ad labels come back resolved.
+      await load(); select(d.item.language);
+      showAlert('success', 'Saved ' + d.item.language.toUpperCase() + ' — ' + (d.item.enabled ? 'ENABLED (live within 1 min)' : 'still OFF (left swipe does nothing)'));
+    } catch (err) { showAlert('danger', err.message || 'Could not save'); }
+    finally { btn.disabled = false; btn.innerHTML = orig; }
+  });
+
+  load().catch((err) => { console.error(err); showAlert('danger', 'Could not load languages / content'); });
+</script>
+
+<%- include('partials/footer') %>
+</body>
+</html>

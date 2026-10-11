@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'In-Charge Monitor' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'In-Charge Monitor', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'incharge-monitor' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <style>
+          .im-card{border:1px solid #eef0f3;border-radius:12px;background:#fff;padding:12px;margin-bottom:10px}
+          .im-card.late{border-color:#fecaca;background:#fff8f8}
+          .im-card.esc{border-color:#dc2626;background:#fff1f1}
+          .im-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+          .im-name{font-weight:800;font-size:15px}
+          .im-pill{font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px}
+          .on{background:#dcfce7;color:#166534}.off{background:#f1f5f9;color:#475569}
+          .duty{background:#dbeafe;color:#1e40af}
+          .warn{background:#fef3c7;color:#92400e}.bad{background:#fee2e2;color:#991b1b}
+          .im-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:9px;font-size:12.5px}
+          .im-grid b{display:block;font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+          .im-help{background:#fffbea;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.7;color:#4b3f13}
+          .bars{letter-spacing:1px}
+        </style>
+
+        <div class="mb-2">
+          <h3 class="mb-1">In-Charge Monitor</h3>
+          <p class="text-muted mb-0">"Tehelka Incharge" app ఉన్న State In-Charges — ఎవరు online, ఎక్కడ, signal ఎంత, ఎన్ని వార్తలు ఎదురుచూస్తున్నాయి.</p>
+        </div>
+
+        <div class="im-help">
+          <div style="font-weight:700;font-size:15px;margin-bottom:6px">ℹ️ ఈ పేజీ ఎలా చదవాలి (తెలుగు)</div>
+          <b>🟢 Online</b> — ఫోన్ గత <b>12 నిమిషాల్లో</b> సమాచారం పంపింది. 🔴 Offline అంటే app మూసేశారు, లేదా ఫోన్ దాన్ని ఆపేసింది.<br>
+          <b>Duty ON/OFF</b> — వాళ్ళే ఆన్/ఆఫ్ చేసుకుంటారు. <b>Location ON లో ఉన్నప్పుడే</b> నమోదవుతుంది (ఒప్పందం ప్రకారం).<br>
+          <b>Signal / WiFi</b> — *"సిగ్నల్ లేదు అందుకే approve చెయ్యలేదు"* అన్నప్పుడు — <b>History</b> నొక్కి ఆ సమయంలో నిజంగా ఎంత ఉందో చూడండి.<br>
+          <b>⏱ Oldest</b> — ఆ incharge దగ్గర <b>అత్యధికంగా ఎదురుచూస్తున్న</b> వార్త. <span class="im-pill warn">30+ నిమి</span> = వాళ్ళ ఫోన్‌లో alarm మోగుతోంది.
+          <span class="im-pill bad">40+ నిమి</span> = మీకు తెలియాల్సిన స్థాయి.<br>
+          <b>⚠️ Setup</b> — ఫోన్ autostart/battery సరిగా పెట్టుకోకపోతే ఇక్కడ కనిపిస్తుంది. అది సరిచెయ్యకపోతే <b>GPS, alarm పని చెయ్యవు</b> — వాళ్ళకి చెప్పండి.
+        </div>
+
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <button class="btn btn-sm btn-outline-secondary" id="imRefresh" type="button">↻ Refresh</button>
+          <span class="small text-muted" id="imWhen"></span>
+        </div>
+
+        <div id="imList"><div class="text-muted py-3">Loading…</div></div>
+      </div>
+    </div>
+  </div></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const mins = (m) => {
+  if (!m) return '—';
+  if (m < 60) return m + ' నిమి';
+  const h = Math.floor(m / 60), r = m % 60;
+  return r ? `${h} గం ${r} నిమి` : `${h} గం`;
+};
+const ago = (iso) => {
+  if (!iso) return 'ఎప్పుడూ లేదు';
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  return m < 1 ? 'ఇప్పుడే' : mins(m) + ' క్రితం';
+};
+const barsOf = (n) => n == null ? '—' : '▮'.repeat(n) + '▯'.repeat(4 - n) + ` (${n}/4)`;
+
+async function load() {
+  try {
+    const r = await fetch('/admin/api/incharge/monitor').then(x => x.json());
+    if (r.error) { $('imList').innerHTML = `<div class="text-danger py-3">${esc(r.error)}</div>`; return; }
+    $('imWhen').textContent = 'చివరిసారి: ' + new Date(r.generatedAt).toLocaleTimeString();
+
+    if (!r.staff.length) { $('imList').innerHTML = '<div class="text-muted py-3">In-Charge ఎవరూ కనిపించలేదు.</div>'; return; }
+
+    $('imList').innerHTML = r.staff.map(s => {
+      const cls = s.level === 'escalate' || s.level === 'escalate2' ? 'esc' : (s.level === 'alarm' ? 'late' : '');
+      const map = s.gps
+        ? `<a href="https://maps.google.com/?q=${s.gps.lat},${s.gps.lng}" target="_blank" rel="noopener">📍 మ్యాప్‌లో చూడు</a>`
+          + (s.gps.mock ? ' <span class="im-pill bad">నకిలీ GPS!</span>' : '')
+        : '<span class="text-muted">—</span>';
+      return `<div class="im-card ${cls}">
+        <div class="im-top">
+          <span class="im-name">${esc(s.name)}</span>
+          <span class="text-muted small">${esc(s.displayRole)}</span>
+          <span class="im-pill ${s.online ? 'on' : 'off'}">${s.online ? '🟢 Online' : '🔴 Offline'}</span>
+          <span class="im-pill ${s.duty === 'on' ? 'duty' : 'off'}">Duty ${s.duty === 'on' ? 'ON' : 'OFF'}</span>
+          ${!s.installed ? '<span class="im-pill warn">App install చెయ్యలేదు</span>' : ''}
+          ${s.powerSaveMode ? '<span class="im-pill warn">Battery saver ON</span>' : ''}
+          ${(s.setupWarnings || []).length ? `<span class="im-pill bad">⚠️ Setup: ${esc(s.setupWarnings.join(', '))}</span>` : ''}
+          ${s.oldestMinutes >= r.thresholds.escalate
+            ? `<span class="im-pill bad">⏱ ${mins(s.oldestMinutes)} ఎదురుచూపు!</span>`
+            : (s.oldestMinutes >= r.thresholds.alarm ? `<span class="im-pill warn">⏱ ${mins(s.oldestMinutes)}</span>` : '')}
+        </div>
+        <div class="im-grid">
+          <div><b>Pending</b>${s.pendingCount} వార్తలు</div>
+          <div><b>అత్యంత పాతది</b>${mins(s.oldestMinutes)}</div>
+          <div><b>చివరి సమాచారం</b>${ago(s.lastSeenAt)}</div>
+          <div><b>Signal</b><span class="bars">${barsOf(s.signal && s.signal.bars)}</span></div>
+          <div><b>Network</b>${s.signal && s.signal.wifi ? 'WiFi' : esc((s.signal && s.signal.network) || '—')}</div>
+          <div><b>Battery</b>${s.batteryPercent == null ? '—' : s.batteryPercent + '%' + (s.batteryCharging ? ' ⚡' : '')}</div>
+          <div><b>Location</b>${map}</div>
+          <div><b>Phone</b>${esc(s.deviceModel || '—')}</div>
+          <div><b>App</b>${esc(s.appVersion || '—')}</div>
+          <div><b>History</b><a href="#" data-hist="${s.id}" data-name="${esc(s.name)}">signal చరిత్ర</a></div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    $('imList').innerHTML = '<div class="text-danger py-3">లోడ్ కాలేదు.</div>';
+  }
+}
+
+$('imList').addEventListener('click', async (e) => {
+  const id = e.target.dataset.hist;
+  if (!id) return;
+  e.preventDefault();
+  const name = e.target.dataset.name || '';
+  const r = await fetch(`/admin/api/incharge/monitor/${id}/history?hours=12`).then(x => x.json()).catch(() => ({}));
+  const pts = (r.points || []);
+  const rows = pts.length
+    ? pts.slice(-60).reverse().map(p => `${new Date(p.at).toLocaleTimeString()}  ·  signal ${p.signal && p.signal.bars != null ? p.signal.bars + '/4' : '—'}`
+        + `  ·  ${p.signal && p.signal.wifi ? 'WiFi' : (p.signal && p.signal.network) || '—'}`
+        + `  ·  battery ${p.batteryPercent == null ? '—' : p.batteryPercent + '%'}`
+        + `  ·  duty ${p.duty}`).join('\n')
+    : 'ఈ 12 గంటల్లో ఏ సమాచారమూ రాలేదు (app ఆగిపోయి ఉండొచ్చు).';
+  alert(`${name} — గత 12 గంటలు\n\n${rows}`);
+});
+
+$('imRefresh').addEventListener('click', load);
+load();
+setInterval(load, 60000);   // the desk leaves this page open
+</script>
+</body>
+</html>

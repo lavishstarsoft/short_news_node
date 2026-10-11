@@ -595,12 +595,14 @@
                                         return '<div class="dropdown">'+
                                           '<button class="team-actions-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-ellipsis-vertical"></i></button>'+
                                           '<ul class="dropdown-menu dropdown-menu-end team-dropdown-menu">'+
+                                            '<li><a class="dropdown-item" href="#" onclick="openStaffOverview(\''+id+'\'); return false;"><i class="fas fa-id-card me-2"></i>Profile Overview</a></li>'+
                                             '<li><a class="dropdown-item" href="/admin/editors/'+id+'/news-list'+newsTab+'" target="_blank"><i class="fas fa-eye me-2"></i>View News List</a></li>'+
                                             '<li><a class="dropdown-item" href="/admin/performance-analytics?authorId='+id+'"><i class="fas fa-chart-line me-2"></i>Analytics</a></li>'+
                                             '<li><a class="dropdown-item" href="#" onclick="openEditEditorModal(\''+id+'\'); return false;"><i class="fas fa-pen me-2"></i>Edit profile</a></li>'+
                                             '<li><a class="dropdown-item text-primary fw-bold" href="#" onclick="showAdvancedReport(\''+id+'\'); return false;"><i class="fas fa-chart-pie me-2"></i>Advanced Report</a></li>'+
                                             '<li><a class="dropdown-item" href="#" onclick="showEditorInsightsById(\''+id+'\'); return false;"><i class="fas fa-chart-bar me-2"></i>Insights</a></li>'+
                                             '<li><a class="dropdown-item" href="#" onclick="openPasswordModal(\''+id+'\'); return false;"><i class="fas fa-key me-2"></i>Change password</a></li>'+
+                                            '<li><a class="dropdown-item" href="#" onclick="openReporterMessageModal(\''+id+'\'); return false;"><i class="fas fa-paper-plane me-2"></i>Send message</a></li>'+
                                             '<li><a class="dropdown-item" href="#" onclick="toggleEditorStatus(\''+id+'\','+(x.isActive?'true':'false')+'); return false;"><i class="fas fa-lock me-2"></i>'+(x.isActive?'Lock account':'Unlock account')+'</a></li>'+
                                             '<li><hr class="dropdown-divider"></li>'+
                                             '<li><a class="dropdown-item text-danger" href="#" onclick="deleteEditor(\''+id+'\'); return false;"><i class="fas fa-trash me-2"></i>Remove user</a></li>'+
@@ -1278,7 +1280,9 @@
                                                     { id: 'viralVideos', label: 'Viral Videos' }, { id: 'polls', label: 'Polls' },
                                                     { id: 'longVideos', label: 'Long Videos' }, { id: 'categories', label: 'Categories' },
                                                     { id: 'programCategories', label: 'Program Categories' }, { id: 'locations', label: 'Locations' },
-                                                    { id: 'reports', label: 'Reports' }, { id: 'zodiac', label: 'Zodiac Calendar' }
+                                                    { id: 'reports', label: 'Reports' }, { id: 'zodiac', label: 'Zodiac Calendar' },
+                                                    { id: 'assignReporters', label: 'Assign Reporters' }, { id: 'reporterAccess', label: 'Reporter Access' },
+                                                    { id: 'coverageMap', label: 'Coverage Map' }
                                                 ]; %>
                                                 <% sidebarMenus.forEach(menu => { %>
                                                 <div class="form-check">
@@ -1668,6 +1672,74 @@
                                 </div>
                             </div>
 
+                            <!-- ===== Wallet / Earnings & Withdrawals (additive, read-only) ===== -->
+                            <div class="card shadow-sm border-0 mb-3" id="reportWalletSection" style="display:none;">
+                                <div class="card-body">
+                                    <h6 class="fw-bold mb-3"><i class="fas fa-wallet me-2 text-success"></i>Wallet — సంపాదన &amp; Withdrawals</h6>
+                                    <div class="row g-2 text-center mb-3" id="reportWalletCards">
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-2 rounded" style="background:#e8f5e9">
+                                                <div class="small text-muted">Total Earned (admit)</div>
+                                                <div class="fw-bold text-success" id="walTotalEarned">₹0</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-2 rounded" style="background:#e3f2fd">
+                                                <div class="small text-muted">Total Withdrawn</div>
+                                                <div class="fw-bold text-primary" id="walTotalWithdrawn">₹0</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-2 rounded" style="background:#fff8e1">
+                                                <div class="small text-muted">Current Balance</div>
+                                                <div class="fw-bold" style="color:#b8860b" id="walBalance">₹0</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-3">
+                                            <div class="p-2 rounded" style="background:#fce4ec">
+                                                <div class="small text-muted">Pending Withdrawal</div>
+                                                <div class="fw-bold text-danger" id="walPending">₹0</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="fw-bold small mb-1 d-flex justify-content-between">
+                                                <span><i class="fas fa-coins me-1 text-success"></i>రోజువారీ సంపాదన (ఏ రోజు ఎంత credit)</span>
+                                                <span class="badge bg-success-subtle text-success" id="walDaysCount">0 days</span>
+                                            </div>
+                                            <div class="table-responsive border rounded" style="max-height:230px; overflow-y:auto;">
+                                                <table class="table table-sm table-hover text-center mb-0">
+                                                    <thead class="table-light" style="position:sticky; top:0;">
+                                                        <tr><th>Date</th><th>Amount</th><th>News</th></tr>
+                                                    </thead>
+                                                    <tbody id="walEarningsBody">
+                                                        <tr><td colspan="3" class="text-muted py-3">—</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="fw-bold small mb-1"><i class="fas fa-money-bill-transfer me-1 text-primary"></i>Withdrawals (request → clear)</div>
+                                            <div class="table-responsive border rounded" style="max-height:230px; overflow-y:auto;">
+                                                <table class="table table-sm table-hover text-center mb-0" style="font-size:12px;">
+                                                    <thead class="table-light" style="position:sticky; top:0;">
+                                                        <tr><th>Amount</th><th>Requested</th><th>Status</th><th>Cleared</th><th>Method</th></tr>
+                                                    </thead>
+                                                    <tbody id="walWithdrawalsBody">
+                                                        <tr><td colspan="5" class="text-muted py-3">—</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-light border small text-muted" id="reportWalletOff" style="display:none;">
+                                <i class="fas fa-info-circle me-1"></i>ఈ staff కి Wallet OFF లో ఉంది — సంపాదన/withdrawal data లేదు.
+                            </div>
+
                             <!-- Date-wise Breakdown -->
                             <div class="card shadow-sm border-0">
                                 <div class="card-body">
@@ -1838,6 +1910,231 @@
 
 
             <%- include('partials/footer') %>
+
+            <%# ============================================================
+                Staff Profile Overview — read-only side panel (row chevron /
+                "Profile Overview"). Data: GET /admin/api/staff/:id/overview.
+                Additive: nothing else on this page is touched.
+               ============================================================ %>
+            <div class="offcanvas offcanvas-end so-panel" tabindex="-1" id="staffOverviewPanel" aria-labelledby="soTitle">
+                <div class="offcanvas-header so-head">
+                    <div>
+                        <h5 class="mb-0" id="soTitle"><i class="fas fa-id-card me-2 text-danger"></i>Profile Overview</h5>
+                        <div class="so-head-sub" id="soSub">Live assignment data</div>
+                    </div>
+                    <div class="so-head-actions">
+                        <button type="button" class="so-btn" id="soPrintBtn" title="Print-friendly overview"><i class="fas fa-print"></i></button>
+                        <a class="so-btn" href="/admin/api/staff/hierarchy.xlsx" title="Export complete hierarchy (Excel)"><i class="fas fa-sitemap"></i></a>
+                        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                    </div>
+                </div>
+                <div class="offcanvas-body so-body" id="soBody"><div class="so-loading"><div class="spinner-border spinner-border-sm text-danger"></div> Loading…</div></div>
+            </div>
+            <script>
+            (function(){
+              var SO = { data: null, teamOpen: false, q: '' };
+              function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+              function fmtDate(d){ if(!d) return '—'; try{ return new Date(d).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric'}); }catch(e){ return String(d).slice(0,10); } }
+              function fmtDateTime(d){ if(!d) return '—'; try{ return new Date(d).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }catch(e){ return String(d); } }
+              function kv(k,v,cls){ return '<div class="so-kv'+(cls?' '+cls:'')+'"><span class="k">'+esc(k)+'</span><span class="v">'+(v==null||v===''?'<span class="so-na">Not Assigned</span>':v)+'</span></div>'; }
+              function na(){ return '<span class="so-na">Not Assigned</span>'; }
+              function avatar(p){ return p.profileImage ? '<img class="so-avatar" src="'+esc(p.profileImage)+'" alt="">' : '<img class="so-avatar" src="https://ui-avatars.com/api/?name='+encodeURIComponent(p.name||'User')+'&background=E31E24&color=fff&size=160" alt="">'; }
+
+              function sectionAssignment(d){
+                var a=d.assignment, p=d.person, html='';
+                if(a.notAssigned){ html += '<div class="so-empty">'+na()+(a.legacyLocations&&a.legacyLocations.length?' <span class="so-muted">(legacy location: '+esc(a.legacyLocations.join(', '))+')</span>':'')+'</div>'; return html; }
+                if(p.kind==='subeditor' && a.scope){ html += kv('Approval scope', esc(a.scope==='all'?'All reporters':a.scope.replace(/_/g,' & ')) + (a.explicitTeamCount?' <span class="so-muted">· '+a.explicitTeamCount+' hand-picked reporter(s)</span>':'')); }
+                var stChips = a.states.length ? a.states : (a.derivedStates||[]);
+                html += kv('Assigned State'+(stChips.length>1?'s':''), stChips.length ? stChips.map(function(s){ return '<span class="so-chip">'+esc(s)+'</span>'; }).join(' ')+(a.states.length?'':' <span class="so-muted so-small">(derived from assigned districts)</span>') : null);
+                var groups = Object.keys(a.districtsByState||{});
+                if(!groups.length){ html += kv('Assigned Districts', null); }
+                groups.forEach(function(st){
+                  var list = a.districtsByState[st].map(function(x){
+                    if(x.duplicates&&x.duplicates.length){
+                      var others = x.duplicates.map(function(o){ return o.name; }).join(', ');
+                      return '<li class="so-dist so-dist--dup" tabindex="0" title="Duplicate Assignment – Also assigned to '+esc(others)+'" data-dup="Duplicate Assignment – Also assigned to '+esc(others)+'">'+esc(x.name)+' <i class="fas fa-circle"></i></li>';
+                    }
+                    return '<li class="so-dist">'+esc(x.name)+'</li>';
+                  }).join('');
+                  html += '<div class="so-kv so-kv--block"><span class="k">'+(groups.length>1?'Districts · '+esc(st):'Assigned Districts')+' <span class="so-muted">('+a.districtsByState[st].length+')</span></span><ul class="so-dist-list">'+list+'</ul><div class="so-dup-note" hidden></div></div>';
+                });
+                if(a.constituencies&&a.constituencies.length){ html += kv('Constituencies', a.constituencies.map(function(c){ return '<span class="so-chip so-chip--soft">'+esc(c)+'</span>'; }).join(' ')); }
+                (a.stateOverlaps||[]).forEach(function(o){ html += '<div class="so-note so-note--info"><i class="fas fa-info-circle"></i> State <b>'+esc(o.state)+'</b> is also managed by '+esc(o.others.map(function(x){ return x.name+' ('+x.role+')'; }).join(', '))+'</div>'; });
+                return html;
+              }
+              function sectionResponsibility(d){
+                var r=d.responsibility, p=d.person, html='';
+                if(p.kind==='subeditor'){
+                  var selfStates = (r.self&&r.self.length) ? r.self : (r.selfDerived||[]);
+                  html += kv('State Responsibility', selfStates.length ? 'Self · '+esc(selfStates.join(', '))+(r.self&&r.self.length?'':' <span class="so-muted so-small">(via assigned districts)</span>') : null);
+                  return html;
+                }
+                var byRole={}; (r.state||[]).forEach(function(x){ (byRole[x.role]=byRole[x.role]||[]).push(x.name+(x.state?' ('+x.state+')':'')); });
+                var roles=Object.keys(byRole);
+                if(!roles.length) html += kv('State In-Charge', null);
+                roles.forEach(function(role){ html += kv(role, esc(byRole[role].join(', '))); });
+                if(p.kind!=='district_incharge'){ html += kv('District In-Charge', r.district&&r.district.length ? esc(r.district.map(function(x){ return x.name+(x.district?' ('+x.district+')':''); }).join(', ')) : null); }
+                else { html += kv('District In-Charge', 'Self'); }
+                return html;
+              }
+              function cards(o){
+                var items=[['Assigned States',o.assignedStates,''],['Assigned Districts',o.assignedDistricts,''],['Total Reporters',o.totalReporters,''],['Active Reporters',o.activeReporters,'ok'],['Inactive Reporters',o.inactiveReporters,o.inactiveReporters?'warn':''],['Duplicate Districts',o.duplicateDistricts,o.duplicateDistricts?'bad':''],['Unassigned Reporters',o.unassignedReporters,o.unassignedReporters?'warn':''],['Conflicts',o.conflicts,o.conflicts?'bad':'']];
+                return '<div class="so-cards">'+items.map(function(i){ return '<div class="so-card '+i[2]+'"><div class="v">'+i[1]+'</div><div class="l">'+esc(i[0])+'</div></div>'; }).join('')+'</div>';
+              }
+              function warnings(list){
+                if(!list.length) return '<div class="so-note so-note--ok"><i class="fas fa-check-circle"></i> No conflicts or warnings detected.</div>';
+                return list.map(function(w){
+                  var icon = w.level==='danger'?'fa-triangle-exclamation':(w.level==='warn'?'fa-circle-exclamation':'fa-info-circle');
+                  var det = Array.isArray(w.detail) ? '<div class="so-note-detail">'+esc(w.detail.slice(0,12).join(' · '))+(w.detail.length>12?' …':'')+'</div>' : '';
+                  if(w.code==='duplicate_district' && w.detail && w.detail.districts){ det=''; }
+                  return '<div class="so-note so-note--'+esc(w.level)+'"><i class="fas '+icon+'"></i> '+esc(w.text)+det+'</div>';
+                }).join('');
+              }
+              function teamTable(d){
+                var t=d.team, q=SO.q.toLowerCase();
+                var rows=t.members.filter(function(m){ if(!q) return true; return (m.name+' '+m.role+' '+m.mobile+' '+m.email+' '+m.state+' '+m.districts.join(' ')+' '+m.language).toLowerCase().indexOf(q)>=0; });
+                if(!t.members.length) return '<div class="so-empty so-muted">No reporters under this in-charge.</div>';
+                var head='<tr><th>#</th><th>Name</th><th>Role</th><th>Mobile</th><th>Email</th><th>State</th><th>District</th><th>Lang</th><th>Status</th><th>Created</th><th class="num">Published</th></tr>';
+                var body=rows.map(function(m,i){
+                  var flags=[]; if(m.flags.noDistrict) flags.push('<span class="so-flag warn" title="No district assigned">no district</span>'); if(m.flags.multiInCharge) flags.push('<span class="so-flag info" title="Covered by: '+esc(m.inCharges.join(', '))+'">'+m.inCharges.length+' in-charges</span>');
+                  return '<tr><td>'+(i+1)+'</td><td><b>'+esc(m.name)+'</b>'+(flags.length?'<div>'+flags.join(' ')+'</div>':'')+'</td><td>'+esc(m.role)+'</td><td>'+esc(m.mobile||'—')+'</td><td class="so-ell" title="'+esc(m.email)+'">'+esc(m.email||'—')+'</td><td>'+esc(m.states.join(', ')||m.state||'—')+'</td><td>'+esc(m.districts.join(', ')||'—')+'</td><td>'+esc(m.language||'—')+'</td><td><span class="so-flag '+(m.isActive?'ok':'bad')+'">'+(m.isActive?'Active':'Inactive')+'</span></td><td>'+fmtDate(m.createdAt)+'</td><td class="num">'+m.published+'</td></tr>';
+                }).join('');
+                return '<div class="so-team-tools"><input type="search" class="form-control form-control-sm so-search" id="soTeamSearch" placeholder="Search within assigned reporters…" value="'+esc(SO.q)+'"><span class="so-muted">'+rows.length+' of '+t.members.length+'</span></div>'+
+                       '<div class="so-table-wrap"><table class="so-table"><thead>'+head+'</thead><tbody>'+(body||'<tr><td colspan="11" class="so-muted">No match.</td></tr>')+'</tbody></table></div>';
+              }
+              function history(list, last){
+                if(!list.length) return '<div class="so-empty so-muted">No assignment history recorded yet.</div>';
+                return '<div class="so-muted so-small">Last assignment update: <b>'+fmtDateTime(last)+'</b></div><ul class="so-timeline">'+list.map(function(h){
+                  return '<li><div class="t">'+fmtDateTime(h.at)+(h.by?' · <b>'+esc(h.by)+'</b>':'')+'</div><div class="x">'+esc(h.text)+'</div></li>';
+                }).join('')+'</ul>';
+              }
+              // Search within assigned reporters: re-render only the table, keep focus/caret.
+              function bindTeamSearch(){
+                var si=document.getElementById('soTeamSearch'); if(!si) return;
+                si.addEventListener('input', function(){
+                  SO.q=si.value;
+                  var wrap=document.getElementById('soTeamWrap'); if(!wrap) return;
+                  wrap.innerHTML=teamTable(SO.data);
+                  var n=document.getElementById('soTeamSearch'); if(n){ n.focus(); n.setSelectionRange(SO.q.length,SO.q.length); }
+                  bindTeamSearch();
+                });
+              }
+              function render(){
+                var d=SO.data, p=d.person, s=d.stats;
+                var status = '<span class="so-flag '+(p.isActive?'ok':'bad')+'">'+(p.isActive?'Active':'Locked')+'</span>';
+                var html =
+                  '<div class="so-hero">'+avatar(p)+'<div class="so-hero-body"><div class="so-name">'+esc(p.name)+'</div><div class="so-role"><span class="so-chip so-chip--role">'+esc(p.role)+'</span> '+status+' <span class="so-muted">@'+esc(p.username)+'</span></div></div></div>'+
+                  '<div class="so-stats"><div><b>'+s.published+'</b><span>Published</span></div><div><b>'+s.today+'</b><span>Today</span></div><div><b>'+s.weekly+'</b><span>7 Days</span></div><div><b>'+d.team.count+'</b><span>Reporters</span></div></div>'+
+                  '<div class="so-sec"><div class="so-sec-t"><i class="fas fa-user"></i> Profile</div>'+
+                    kv('Email', p.email?'<a href="mailto:'+esc(p.email)+'">'+esc(p.email)+'</a>':'—')+kv('Mobile', p.mobile?'<a href="tel:'+esc(p.mobile)+'">'+esc(p.mobile)+'</a>':'—')+kv('Role', esc(p.role)+(p.displayRole&&p.displayRole!==p.role?' <span class="so-muted">('+esc(p.displayRole)+')</span>':''))+kv('Language', p.language?esc(p.language):'<span class="so-flag warn">Not set</span>')+kv('Account Status', status)+kv('Created Date', fmtDate(p.createdAt))+kv('Last Login', fmtDateTime(p.lastLogin))+
+                  '</div>'+
+                  '<div class="so-sec"><div class="so-sec-t"><i class="fas fa-map-marked-alt"></i> Assignment <span class="so-muted so-small">State → District</span></div>'+sectionAssignment(d)+'</div>'+
+                  '<div class="so-sec"><div class="so-sec-t"><i class="fas fa-user-shield"></i> Reporting Responsibility <span class="so-muted so-small">who is responsible for this person</span></div>'+sectionResponsibility(d)+'</div>'+
+                  '<div class="so-sec"><div class="so-sec-t"><i class="fas fa-chart-pie"></i> Assignment Overview</div>'+cards(d.overview)+'</div>'+
+                  '<div class="so-sec"><div class="so-sec-t"><i class="fas fa-triangle-exclamation"></i> Conflicts & Warnings</div>'+warnings(d.warnings)+'</div>'+
+                  '<div class="so-sec"><div class="so-sec-t"><i class="fas fa-users"></i> Reporter Hierarchy</div>'+
+                    '<button type="button" class="so-count-btn" id="soTeamToggle" '+(d.team.members.length?'':'disabled')+'>Total Reporters Under This In-Charge: <b>'+d.team.count+'</b> <span class="so-muted">('+d.team.active+' active · '+d.team.inactive+' inactive)</span> <i class="fas fa-chevron-'+(SO.teamOpen?'up':'down')+'"></i></button>'+
+                    '<div class="so-dl"><a class="so-btn so-btn--text" href="/admin/api/staff/'+esc(p.id)+'/team.csv"><i class="fas fa-file-csv"></i> CSV</a><a class="so-btn so-btn--text" href="/admin/api/staff/'+esc(p.id)+'/team.xlsx"><i class="fas fa-file-excel"></i> Excel</a></div>'+
+                    '<div id="soTeamWrap" '+(SO.teamOpen?'':'hidden')+'>'+teamTable(d)+'</div>'+
+                  '</div>'+
+                  '<div class="so-sec"><div class="so-sec-t"><i class="fas fa-history"></i> Assignment History</div>'+history(d.history, d.lastAssignmentUpdate)+'</div>'+
+                  '<div class="so-foot so-muted so-small">Generated '+fmtDateTime(d.generatedAt)+' · read-only, from live assignment data</div>';
+                var body=document.getElementById('soBody'); body.innerHTML=html;
+                document.getElementById('soSub').textContent = p.role+(d.assignment.states.length?' · '+d.assignment.states.join(', '):'');
+                var tg=document.getElementById('soTeamToggle'); if(tg) tg.addEventListener('click', function(){ SO.teamOpen=!SO.teamOpen; render(); if(SO.teamOpen){ var w=document.getElementById('soTeamWrap'); if(w) w.scrollIntoView({block:'nearest'}); } });
+                bindTeamSearch();
+                body.querySelectorAll('.so-dist--dup').forEach(function(el){ el.addEventListener('click', function(){ var note=el.closest('.so-kv--block').querySelector('.so-dup-note'); note.textContent=el.getAttribute('data-dup'); note.hidden=!note.hidden; }); });
+              }
+              window.openStaffOverview = function(id){
+                var el=document.getElementById('staffOverviewPanel');
+                var oc=bootstrap.Offcanvas.getOrCreateInstance(el); oc.show();
+                SO.data=null; SO.teamOpen=false; SO.q='';
+                document.getElementById('soBody').innerHTML='<div class="so-loading"><div class="spinner-border spinner-border-sm text-danger"></div> Loading profile overview…</div>';
+                document.getElementById('soSub').textContent='Live assignment data';
+                fetch('/admin/api/staff/'+encodeURIComponent(id)+'/overview',{credentials:'same-origin'}).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); }).then(function(x){
+                  if(!x.ok||!x.j.ok){ document.getElementById('soBody').innerHTML='<div class="so-note so-note--danger"><i class="fas fa-triangle-exclamation"></i> '+esc((x.j&&x.j.error)||'Could not load')+'</div>'; return; }
+                  SO.data=x.j; render();
+                }).catch(function(){ document.getElementById('soBody').innerHTML='<div class="so-note so-note--danger"><i class="fas fa-triangle-exclamation"></i> Network error</div>'; });
+              };
+              // Print-friendly overview: a dedicated A4 document built from the same data
+              // (not the panel markup) — branded header, labelled tiles, district chip grid,
+              // fixed-column reporter table with repeating header. Browser print → PDF.
+              function printDoc(d){
+                var p=d.person, a=d.assignment, r=d.responsibility, o=d.overview, s=d.stats;
+                var chip=function(t,cls){ return '<span class="chip '+(cls||'')+'">'+esc(t)+'</span>'; };
+                var stChips=(a.states.length?a.states:(a.derivedStates||[]));
+                var groups=Object.keys(a.districtsByState||{});
+                var districtsHtml = groups.length ? groups.map(function(st){
+                  var list=a.districtsByState[st];
+                  return '<div class="dgroup"><div class="dgroup-t">'+esc(st)+' <span class="muted">· '+list.length+' district'+(list.length>1?'s':'')+'</span></div><div class="chips">'+list.map(function(x){
+                    if(x.duplicates&&x.duplicates.length){ return '<span class="chip dup" title="Duplicate">'+esc(x.name)+' <small>· also: '+esc(x.duplicates.map(function(q){return q.name;}).join(', '))+'</small></span>'; }
+                    return chip(x.name);
+                  }).join('')+'</div></div>';
+                }).join('') : '<div class="na">Not Assigned</div>';
+                var respHtml='';
+                if(p.kind==='subeditor'){ var selfStates=(r.self&&r.self.length)?r.self:(r.selfDerived||[]); respHtml=row('State Responsibility', selfStates.length?'Self · '+esc(selfStates.join(', ')):'<span class="na">Not Assigned</span>'); }
+                else { var byRole={}; (r.state||[]).forEach(function(x){ (byRole[x.role]=byRole[x.role]||[]).push(x.name+(x.state?' ('+x.state+')':'')); }); var roles=Object.keys(byRole);
+                  respHtml += roles.length ? roles.map(function(k){ return row(k, esc(byRole[k].join(', '))); }).join('') : row('State In-Charge','<span class="na">Not Assigned</span>');
+                  respHtml += row('District In-Charge', p.kind==='district_incharge'?'Self':((r.district&&r.district.length)?esc(r.district.map(function(x){return x.name+(x.district?' ('+x.district+')':'');}).join(', ')):'<span class="na">Not Assigned</span>')); }
+                function row(k,v){ return '<div class="kv"><div class="k">'+esc(k)+'</div><div class="v">'+v+'</div></div>'; }
+                var tiles=[['Assigned States',o.assignedStates,''],['Assigned Districts',o.assignedDistricts,''],['Total Reporters',o.totalReporters,''],['Active',o.activeReporters,'ok'],['Inactive',o.inactiveReporters,o.inactiveReporters?'warn':''],['Duplicate Districts',o.duplicateDistricts,o.duplicateDistricts?'bad':''],['Unassigned',o.unassignedReporters,o.unassignedReporters?'warn':''],['Conflicts',o.conflicts,o.conflicts?'bad':'']];
+                var warnHtml = d.warnings.length ? d.warnings.map(function(w){ var det=Array.isArray(w.detail)?'<div class="wdet">'+esc(w.detail.slice(0,15).join(' · '))+(w.detail.length>15?' …':'')+'</div>':''; return '<div class="warn '+esc(w.level)+'">'+esc(w.text)+det+'</div>'; }).join('') : '<div class="warn ok">No conflicts or warnings detected.</div>';
+                var team=d.team.members;
+                var teamHtml = team.length ? '<table><thead><tr><th class="c">#</th><th>Name</th><th>Role</th><th>Mobile</th><th>Email</th><th>State</th><th>District</th><th>Lang</th><th>Status</th><th>Created</th><th class="n">Published</th></tr></thead><tbody>'+team.map(function(m,i){
+                  return '<tr><td class="c">'+(i+1)+'</td><td class="nm">'+esc(m.name)+(m.flags.noDistrict?' <em class="fl">no district</em>':'')+'</td><td class="nw">'+esc(m.role)+'</td><td class="nw">'+esc(m.mobile||'—')+'</td><td class="em">'+esc(m.email||'—')+'</td><td>'+esc(m.states.join(', ')||m.state||'—')+'</td><td>'+esc(m.districts.join(', ')||'—')+'</td><td>'+esc(m.language||'—')+'</td><td class="nw '+(m.isActive?'st-ok':'st-bad')+'">'+(m.isActive?'Active':'Inactive')+'</td><td class="nw">'+fmtDate(m.createdAt)+'</td><td class="n">'+m.published+'</td></tr>';
+                }).join('')+'</tbody></table>' : '<div class="na">No reporters under this in-charge.</div>';
+                var histHtml = d.history.length ? '<table class="hist"><tbody>'+d.history.slice(0,15).map(function(h){ return '<tr><td class="nw muted">'+fmtDateTime(h.at)+'</td><td class="nw">'+esc(h.by||'—')+'</td><td>'+esc(h.text)+'</td></tr>'; }).join('')+'</tbody></table>' : '<div class="na">No assignment history recorded yet.</div>';
+                var photo = p.profileImage ? esc(p.profileImage) : 'https://ui-avatars.com/api/?name='+encodeURIComponent(p.name||'User')+'&background=E31E24&color=fff&size=160';
+                var css = [
+                  '@page{size:A4;margin:12mm 11mm}', '*{box-sizing:border-box}',
+                  'body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#111827;margin:0;font-size:10.5px;line-height:1.35}',
+                  '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #E31E24;padding-bottom:8px;margin-bottom:12px}',
+                  '.hdr img{height:40px}.hdr .t{font-size:17px;font-weight:800;color:#E31E24;letter-spacing:.3px;text-transform:uppercase}.hdr .st{font-size:9.5px;color:#6b7280}.hdr .meta{text-align:right;font-size:9.5px;color:#6b7280}',
+                  '.id{display:flex;gap:14px;align-items:center;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-bottom:10px;background:#fafafa}',
+                  '.id img{width:58px;height:58px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.15)}',
+                  '.id .nm{font-size:17px;font-weight:800}.id .sub{margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}',
+                  '.chip{display:inline-block;border:1px solid #e2e8f0;background:#f8fafc;color:#334155;border-radius:999px;padding:1.5px 8px;font-size:9.5px;font-weight:600;margin:0 4px 4px 0}',
+                  '.chip.role{background:#fff3e0;color:#e65100;border-color:#ffcc80}.chip.ok{background:#ecfdf5;color:#047857;border-color:#a7f3d0}.chip.bad{background:#fef2f2;color:#b91c1c;border-color:#fecaca}',
+                  '.chip.dup{background:#fef2f2;color:#b91c1c;border-color:#ef4444;font-weight:700}.chip.dup small{font-weight:500;color:#991b1b}',
+                  '.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}',
+                  '.kv{display:grid;grid-template-columns:120px 1fr;gap:6px;padding:3px 0;border-bottom:1px dashed #eef2f7}.kv .k{color:#6b7280}.kv .v{font-weight:600;word-break:break-word}',
+                  '.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}.kpi div{border:1px solid #e5e7eb;border-radius:8px;padding:7px;text-align:center}.kpi b{display:block;font-size:16px}.kpi span{font-size:8.5px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em}',
+                  '.sec{border:1px solid #e5e7eb;border-radius:10px;padding:9px 12px;margin-bottom:9px;break-inside:avoid}',
+                  '.sec-t{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#111827;border-bottom:1px solid #f1f5f9;padding-bottom:4px;margin-bottom:7px}.sec-t .muted{text-transform:none;letter-spacing:0;font-weight:500}',
+                  '.muted{color:#6b7280;font-weight:500}.na{display:inline-block;color:#b45309;background:#fffbeb;border:1px dashed #fcd34d;border-radius:5px;padding:1px 7px;font-weight:600}',
+                  '.dgroup{margin-bottom:6px}.dgroup-t{font-weight:700;margin-bottom:3px}.chips{display:flex;flex-wrap:wrap}',
+                  '.tiles{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}.tiles div{border:1px solid #e5e7eb;border-radius:8px;padding:6px 3px;text-align:center;background:#f8fafc}.tiles b{display:block;font-size:15px}.tiles span{font-size:8px;color:#6b7280}.tiles .ok b{color:#047857}.tiles .warn b{color:#b45309}.tiles .bad b{color:#b91c1c}',
+                  '.warn{border-left:3px solid #9ca3af;background:#f9fafb;padding:4px 8px;margin-bottom:4px;border-radius:0 6px 6px 0}.warn.danger{border-color:#ef4444;background:#fef2f2;color:#991b1b}.warn.warn{border-color:#f59e0b;background:#fffbeb;color:#92400e}.warn.info{border-color:#3b82f6;background:#eff6ff;color:#1e40af}.warn.ok{border-color:#10b981;background:#ecfdf5;color:#065f46}.wdet{font-size:9px;opacity:.85;margin-top:2px}',
+                  'table{width:100%;border-collapse:collapse;font-size:9px}th{background:#f1f5f9;color:#475569;text-align:left;padding:4px 5px;border-bottom:1px solid #cbd5e1;font-size:8.5px;text-transform:uppercase;letter-spacing:.03em}td{padding:3.5px 5px;border-bottom:1px solid #eef2f7;vertical-align:top}tbody tr:nth-child(even) td{background:#fafafa}',
+                  'thead{display:table-header-group}tr{break-inside:avoid}.nw{white-space:nowrap}.nm{white-space:nowrap;font-weight:700}.em{word-break:break-all;max-width:150px}.c{text-align:center;width:22px}.n{text-align:right;font-weight:700}',
+                  '.st-ok{color:#047857;font-weight:700}.st-bad{color:#b91c1c;font-weight:700}.fl{color:#b45309;font-style:normal;font-size:8px;font-weight:600}',
+                  '.hist td{font-size:9px}.ftr{margin-top:10px;border-top:1px solid #e5e7eb;padding-top:5px;font-size:8.5px;color:#9ca3af;display:flex;justify-content:space-between}'
+                ].join('');
+                var status = chip(p.isActive?'Active':'Locked', p.isActive?'ok':'bad');
+                return '<!doctype html><html><head><meta charset="utf-8"><title>Profile Overview – '+esc(p.name)+'</title><style>'+css+'</style></head><body>'+
+                  '<div class="hdr"><div style="display:flex;align-items:center;gap:12px"><img src="/images/logo.png" alt=""><div><div class="t">Staff Profile Overview</div><div class="st">Tehelka News · Admin · Confidential</div></div></div><div class="meta"><div><b>Generated:</b> '+fmtDateTime(d.generatedAt)+'</div><div><b>Source:</b> live assignment data</div></div></div>'+
+                  '<div class="id"><img src="'+photo+'" alt=""><div style="flex:1"><div class="nm">'+esc(p.name)+'</div><div class="sub">'+chip(p.role,'role')+status+'<span class="muted">@'+esc(p.username)+'</span></div>'+
+                    '<div class="grid2" style="margin-top:6px">'+row('Email',esc(p.email||'—'))+row('Mobile',esc(p.mobile||'—'))+row('Language',p.language?esc(p.language):'<span class="na">Not set</span>')+row('Created Date',fmtDate(p.createdAt))+row('Role',esc(p.role)+(p.displayRole&&p.displayRole!==p.role?' <span class="muted">('+esc(p.displayRole)+')</span>':''))+row('Last Login',fmtDateTime(p.lastLogin))+'</div></div></div>'+
+                  '<div class="kpi"><div><b>'+s.published+'</b><span>Published News</span></div><div><b>'+s.today+'</b><span>Today</span></div><div><b>'+s.weekly+'</b><span>Last 7 Days</span></div><div><b>'+d.team.count+'</b><span>Reporters Under</span></div></div>'+
+                  '<div class="sec"><div class="sec-t">Assignment <span class="muted">· State → District</span></div>'+(p.kind==='subeditor'&&a.scope?row('Approval scope',esc(a.scope==='all'?'All reporters':a.scope.replace(/_/g,' & '))+(a.explicitTeamCount?' <span class="muted">· '+a.explicitTeamCount+' hand-picked reporter(s)</span>':'')):'')+
+                    row('Assigned State'+(stChips.length>1?'s':''), stChips.length?stChips.map(function(x){return chip(x);}).join('')+(a.states.length?'':' <span class="muted">(derived from districts)</span>'):'<span class="na">Not Assigned</span>')+
+                    '<div style="margin-top:6px"><div class="muted" style="margin-bottom:3px">Assigned Districts</div>'+districtsHtml+'</div>'+(a.constituencies&&a.constituencies.length?row('Constituencies',a.constituencies.map(function(x){return chip(x);}).join('')):'')+'</div>'+
+                  '<div class="sec"><div class="sec-t">Reporting Responsibility <span class="muted">· who is responsible for this person</span></div>'+respHtml+'</div>'+
+                  '<div class="sec"><div class="sec-t">Assignment Overview</div><div class="tiles">'+tiles.map(function(t){return '<div class="'+t[2]+'"><b>'+t[1]+'</b><span>'+esc(t[0])+'</span></div>';}).join('')+'</div></div>'+
+                  '<div class="sec"><div class="sec-t">Conflicts &amp; Warnings</div>'+warnHtml+'</div>'+
+                  '<div class="sec" style="break-inside:auto"><div class="sec-t">Reporter Hierarchy <span class="muted">· '+d.team.count+' reporter(s) · '+d.team.active+' active · '+d.team.inactive+' inactive</span></div>'+teamHtml+'</div>'+
+                  '<div class="sec"><div class="sec-t">Assignment History <span class="muted">· last update '+fmtDateTime(d.lastAssignmentUpdate)+'</span></div>'+histHtml+'</div>'+
+                  '<div class="ftr"><span>Tehelka News · Staff Profile Overview · '+esc(p.name)+'</span><span>Confidential · For admin use only</span></div>'+
+                  '</body></html>';
+              }
+              document.getElementById('soPrintBtn').addEventListener('click', function(){
+                if(!SO.data) return;
+                var w=window.open('','_blank'); if(!w){ alert('Popup blocked — allow popups to print.'); return; }
+                w.document.write(printDoc(SO.data)); w.document.close(); w.focus();
+                setTimeout(function(){ w.print(); }, 500);
+              });
+            })();
+            </script>
                 <script>
                     let editors = [];
                     let selectedInsightsEditorId = null;
@@ -1959,9 +2256,67 @@
                         document.getElementById('reportMonthFilter').value = '';
                         document.getElementById('reportStartDate').value = '';
                         document.getElementById('reportEndDate').value = '';
+                        document.getElementById('reportWalletSection').style.display = 'none';
+                        document.getElementById('reportWalletOff').style.display = 'none';
 
                         modal.show();
                         fetchEditorReportData(id);
+                    }
+
+                    function rupee(n) { return '₹' + (Number(n) || 0).toLocaleString('en-IN'); }
+                    function fmtDateTime(dateStr) {
+                        if (!dateStr) return '—';
+                        const d = new Date(dateStr);
+                        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+                    }
+
+                    // Renders the Wallet / Earnings section of the Advanced Report. Hidden entirely
+                    // when wallet is OFF (nothing to show) so it never confuses non-wallet staff.
+                    function renderEditorWallet(w) {
+                        const sec = document.getElementById('reportWalletSection');
+                        const off = document.getElementById('reportWalletOff');
+                        if (!w || !w.enabled) {
+                            sec.style.display = 'none';
+                            off.style.display = w && w.error ? 'none' : 'block';
+                            return;
+                        }
+                        off.style.display = 'none';
+                        sec.style.display = 'block';
+
+                        document.getElementById('walTotalEarned').textContent = rupee(w.totalEarned);
+                        document.getElementById('walTotalWithdrawn').textContent = rupee(w.totalWithdrawn);
+                        document.getElementById('walBalance').textContent = rupee(w.balance);
+                        document.getElementById('walPending').textContent = rupee(w.pendingAmount);
+
+                        const days = w.earningsByDate || [];
+                        document.getElementById('walDaysCount').textContent = days.length + ' days';
+                        const eb = document.getElementById('walEarningsBody');
+                        if (days.length) {
+                            eb.innerHTML = days.map(d => '<tr>' +
+                                '<td>' + fmtDateTime(d.date) + '</td>' +
+                                '<td class="fw-bold text-success">' + rupee(d.amount) + '</td>' +
+                                '<td>' + (d.count || 0) + '</td></tr>').join('');
+                        } else {
+                            eb.innerHTML = '<tr><td colspan="3" class="text-muted py-3">సంపాదన లేదు</td></tr>';
+                        }
+
+                        const wds = w.withdrawals || [];
+                        const wb = document.getElementById('walWithdrawalsBody');
+                        const badge = { pending: 'warning', approved: 'success', rejected: 'danger' };
+                        if (wds.length) {
+                            wb.innerHTML = wds.map(x => {
+                                const method = (x.payoutType || '').toUpperCase();
+                                const utr = x.utr ? '<div class="text-muted" style="font-size:10px">UTR: ' + x.utr + '</div>' : '';
+                                return '<tr>' +
+                                    '<td class="fw-bold">' + rupee(x.amount) + '</td>' +
+                                    '<td>' + fmtDateTime(x.requestedAt) + '</td>' +
+                                    '<td><span class="badge bg-' + (badge[x.status] || 'secondary') + '">' + (x.status || '') + '</span></td>' +
+                                    '<td>' + (x.status === 'approved' ? fmtDateTime(x.clearedAt) : '—') + '</td>' +
+                                    '<td>' + (method || '—') + utr + '</td></tr>';
+                            }).join('');
+                        } else {
+                            wb.innerHTML = '<tr><td colspan="5" class="text-muted py-3">Withdrawals లేవు</td></tr>';
+                        }
                     }
 
                     function formatDateDDMMYYYY(dateStr) {
@@ -1990,6 +2345,8 @@
                             document.getElementById('reportTotalViews').textContent = data.totalViews || 0;
                             document.getElementById('reportApprovedCount').textContent = data.approvedCount;
                             document.getElementById('reportRejectedCount').textContent = data.rejectedCount;
+
+                            renderEditorWallet(data.wallet);
 
                             // Populate PDF template as well
                             document.getElementById('pdfGeneratedDate').textContent = formatDateDDMMYYYY(new Date());
@@ -3297,6 +3654,63 @@
                     }
 
                     // Open password modal
+                    // Admin → reporter personal message. Lands in the reporter app's
+                    // Alerts list and as a push notification. Modal is built once on demand.
+                    function openReporterMessageModal(id) {
+                        var el = document.getElementById('reporterMessageModal');
+                        if (!el) {
+                            var wrap = document.createElement('div');
+                            wrap.innerHTML =
+                                '<div class="modal fade" id="reporterMessageModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">' +
+                                  '<div class="modal-header"><h5 class="modal-title"><i class="fas fa-paper-plane me-2"></i>Send message to reporter</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>' +
+                                  '<div class="modal-body">' +
+                                    '<input type="hidden" id="rmTargetId">' +
+                                    '<div class="mb-2"><label class="form-label mb-1">Title <span class="text-muted">(optional)</span></label><input id="rmTitle" class="form-control" maxlength="80" placeholder="Message from Tehelka News"></div>' +
+                                    '<div class="mb-1"><label class="form-label mb-1">Message</label><textarea id="rmBody" class="form-control" rows="4" maxlength="1000" placeholder="Type your message to this reporter…"></textarea></div>' +
+                                    '<div class="form-text">The reporter gets a push notification and sees this in their Alerts.</div>' +
+                                    '<div id="rmErr" class="text-danger small mt-2" style="display:none"></div>' +
+                                  '</div>' +
+                                  '<div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="rmSend"><i class="fas fa-paper-plane me-1"></i>Send</button></div>' +
+                                '</div></div></div>';
+                            el = wrap.firstChild;
+                            document.body.appendChild(el);
+                            document.getElementById('rmSend').addEventListener('click', sendReporterMessage);
+                        }
+                        document.getElementById('rmTargetId').value = id;
+                        document.getElementById('rmTitle').value = '';
+                        document.getElementById('rmBody').value = '';
+                        var err = document.getElementById('rmErr'); err.style.display = 'none'; err.textContent = '';
+                        new bootstrap.Modal(el).show();
+                        setTimeout(function () { var b = document.getElementById('rmBody'); if (b) b.focus(); }, 300);
+                    }
+                    function sendReporterMessage() {
+                        var id = document.getElementById('rmTargetId').value;
+                        var title = document.getElementById('rmTitle').value.trim();
+                        var message = document.getElementById('rmBody').value.trim();
+                        var err = document.getElementById('rmErr');
+                        var btn = document.getElementById('rmSend');
+                        if (!message) { err.textContent = 'Please type a message.'; err.style.display = ''; return; }
+                        btn.disabled = true;
+                        fetch('/admin/editors/' + encodeURIComponent(id) + '/message', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ title: title, message: message })
+                        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                          .then(function (x) {
+                              btn.disabled = false;
+                              if (!x.ok || !x.j || !x.j.success) {
+                                  err.textContent = (x.j && x.j.error) || 'Could not send the message.';
+                                  err.style.display = '';
+                                  return;
+                              }
+                              var m = bootstrap.Modal.getInstance(document.getElementById('reporterMessageModal'));
+                              if (m) m.hide();
+                              if (typeof showToast === 'function') showToast('Message sent to reporter', 'success'); else alert('Message sent to reporter');
+                          })
+                          .catch(function () { btn.disabled = false; err.textContent = 'Network error. Please try again.'; err.style.display = ''; });
+                    }
+
                     function openPasswordModal(editorId) {
                         document.getElementById('passwordEditorId').value = editorId;
                         document.getElementById('newPassword').value = '';

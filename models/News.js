@@ -11,6 +11,20 @@ const newsSchema = new mongoose.Schema({
   sourceLink: { type: String }, // New field for source link assigned by super admin
   category: { type: String, required: true },
   location: { type: String },
+
+  /**
+   * The exact place the reporter picked in the app's step-1/4 search, with its
+   * mandal/district context. `location` keeps just the name because the reader
+   * feed groups on it; this is DISPLAY-ONLY (the desk shows the full village →
+   * district). Absent on web posts and older app versions.
+   */
+  postedPlace: {
+    name: { type: String },
+    mandal: { type: String },
+    district: { type: String },
+    state: { type: String },
+    type: { type: String }, // village | mandal | district
+  },
   scope: {
     type: String,
     enum: ['district', 'state', 'national', 'international'],
@@ -34,6 +48,10 @@ const newsSchema = new mongoose.Schema({
    * so the organic write path and engine $inc stay lean.
    */
   syntheticViews: { type: Number, default: 0 },
+  // Engine-owned synthetic likes/dislikes — organic likes/dislikes are NEVER
+  // touched; these are blended for display only, in displayViews.js.
+  syntheticLikes: { type: Number, default: 0 },
+  syntheticDislikes: { type: Number, default: 0 },
   /** Exclusive lock to guarantee One News = One Campaign. Set by View Engine allocator. */
   viewEngineCampaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'ViewCampaign', default: null },
   comments: { type: Number, default: 0 },
@@ -78,7 +96,48 @@ const newsSchema = new mongoose.Schema({
     matchSource: { type: String },
     reasonLabel: { type: String },
     reasonMessage: { type: String },
-    similarArticles: { type: mongoose.Schema.Types.Mixed, default: [] }
+    similarArticles: { type: mongoose.Schema.Types.Mixed, default: [] },
+    // Phase-0 Same-Event SHADOW (compute-only, additive). Populated ONLY when
+    // DUP_SAMEEVENT_SHADOW_WRITE_NEWS=true. Never read by production duplicate/
+    // rejection logic; safe to ignore. Default undefined = unchanged behaviour.
+    shadow: { type: mongoose.Schema.Types.Mixed, default: undefined }
+  },
+
+  /**
+   * Where this news was filed from (Reporter Security Phase 2). Set by the SERVER
+   * from the request (never from the client body), so Admin / Super Admin can see the
+   * phone and place behind every story. Absent on older app versions and on news
+   * created before this existed.
+   */
+  postedFrom: {
+    deviceId: { type: String },      // stable per-phone id sent by the reporter app
+    deviceModel: { type: String },   // e.g. "Redmi Note 12"
+    platform: { type: String },      // android | ios
+    appVersion: { type: String },
+    appSource: { type: String },     // X-App-Source header (reporter-app / portal)
+    sid: { type: String },           // login session the story came from
+    ip: { type: String },
+    ipCity: { type: String },
+    ipRegion: { type: String },
+    lat: { type: Number },           // GPS from the phone (not the IP)
+    lng: { type: Number },
+    accuracy: { type: Number },      // metres
+    gpsAt: { type: Date },
+    mockLocation: { type: Boolean }, // phone reported a fake-GPS app
+    capturedAt: { type: Date },
+  },
+
+  /** Reporter-app pre-submit attestation (Create Article "Confirm" step). Additive:
+   *  what the reporter was shown and what they ticked before filing. */
+  reporterAttestation: {
+    checked: { type: Boolean },        // pre-check completed (false = engine timed out)
+    preCheckFound: { type: Boolean },  // similar news was shown to the reporter
+    crossChecked: { type: Boolean },   // "I have cross-checked"
+    claimedUnique: { type: Boolean },  // "This is unique news — nobody has published it yet"
+    acceptedTerms: { type: Boolean },  // "Terms & Conditions"
+    similarNewsIds: { type: [String], default: undefined },
+    similarCount: { type: Number },
+    checkedAt: { type: Date },
   },
 
   // AI verification workflow status (Sub Editor async publish gate)
@@ -219,8 +278,16 @@ newsSchema.index({ language: 1, isActive: 1, publishedAt: -1 }); // Language-fil
 newsSchema.index({ category: 1, isActive: 1, publishedAt: -1 }); // Category feed
 newsSchema.index({ location: 1, isActive: 1, publishedAt: -1 }); // Location feed
 newsSchema.index({ scope: 1, location: 1, language: 1, isActive: 1, publishedAt: -1 }); // Smart feed
-newsSchema.index({ authorId: 1, publishedAt: -1 }); // Reporter's own news list
+newsSchema.index({ authorId: 1, publishedAt: -1 });
+// Reporter Security: "which stories came from this phone?"
+newsSchema.index({ 'postedFrom.deviceId': 1, publishedAt: -1 }, { sparse: true }); // Reporter's own news list
 newsSchema.index({ aiStatus: 1, isActive: 1, publishedAt: -1 }); // AI verification queue
+// Per-user reaction lookups ("which news did I like/dislike/comment on?"). Multikey
+// on the interaction sub-arrays — turns the my-reactions / getUserNewsInteractions
+// / profile queries from a full collection scan into an index hit.
+newsSchema.index({ 'userInteractions.likes.userId': 1 });
+newsSchema.index({ 'userInteractions.dislikes.userId': 1 });
+newsSchema.index({ 'userInteractions.comments.userId': 1 });
 // One create per reporter + Idempotency-Key (partial so older docs without key are fine)
 newsSchema.index(
   { authorId: 1, clientIdempotencyKey: 1 },

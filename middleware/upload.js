@@ -56,6 +56,10 @@ const uploadToR2 = async (buffer, folder, originalName, mimetype) => {
                 Key: key,
                 Body: buffer,
                 ContentType: mimetype,
+                // Filenames are content-addressed random hashes (never change),
+                // so the object can be cached forever. This lets Cloudflare serve
+                // clean long-term HITs instead of revalidating R2 on every request.
+                CacheControl: 'public, max-age=31536000, immutable',
             },
         });
 

@@ -103,10 +103,12 @@
                                                 <% pendingNews.forEach((news) => { %>
                                                     <%- include('partials/pending-news-card', { 
                                                         news: news, 
-                                                        isAIQueue: true, 
-                                                        pendingLangLabels: pendingLangLabels, 
-                                                        showFullDetails: showFullDetails, 
-                                                        canApproveNews: canApproveNews 
+                                                        isAIQueue: true,
+                                                        pendingLangLabels: pendingLangLabels,
+                                                        showFullDetails: showFullDetails,
+                                                        canApproveNews: canApproveNews,
+                                                        isSuperAdmin: admin.role === 'superadmin',
+                                                        canDeleteAiQueue: true
                                                     }) %>
                                                 <% }); %>
                                             </div>
@@ -704,6 +706,61 @@
                 count.textContent = `${current}/${limits.contentMax}`;
             }
 
+            // Delete one of my own AI-queue drafts (soft delete on the server).
+            // Works even if SweetAlert (Swal) failed to load: falls back to the
+            // browser's native confirm/alert so the button never silently dies.
+            async function deleteMyAiQueueNews(newsId, title) {
+                const t = String(title || 'this article').slice(0, 90);
+                const hasSwal = (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function');
+                let confirmed;
+                if (hasSwal) {
+                    confirmed = await Swal.fire({
+                        title: 'Delete this article?',
+                        html: `"${t}"<br><small>It will be removed from your AI queue. It is not published.</small>`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#dc2626',
+                        confirmButtonText: '<i class="fas fa-trash"></i> Delete',
+                        cancelButtonText: 'Cancel'
+                    }).then(r => r.isConfirmed);
+                } else {
+                    confirmed = window.confirm(`Delete this article?\n\n"${t}"\n\nIt will be removed from your AI queue. It is not published.`);
+                }
+                if (!confirmed) return;
+                try {
+                    const res = await fetch(`/admin/api/my-ai-queue/${newsId}`, {
+                        method: 'DELETE',
+                        credentials: 'same-origin',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data.success) {
+                        throw new Error(data.message || data.error || `Delete failed (HTTP ${res.status})`);
+                    }
+                    if (hasSwal) {
+                        await Swal.fire({ icon: 'success', title: 'Deleted', timer: 1000, showConfirmButton: false });
+                    }
+                    // Remove the card live — no page refresh.
+                    const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
+                    if (card) {
+                        card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0.95)';
+                        setTimeout(() => {
+                            card.remove();
+                            try { if (typeof newsDataCache !== 'undefined') delete newsDataCache[newsId]; } catch (_) {}
+                            if (typeof updatePendingEmptyState === 'function') updatePendingEmptyState();
+                            else if (typeof filterNews === 'function') filterNews();
+                        }, 400);
+                    } else if (typeof filterNews === 'function') {
+                        filterNews();
+                    }
+                } catch (e) {
+                    if (hasSwal) Swal.fire('Error', e.message || 'Could not delete', 'error');
+                    else window.alert('Could not delete: ' + (e.message || 'unknown error'));
+                }
+            }
+
             async function savePendingChanges(newsId, approveAfterSave = false) {
                 const titleInput = document.getElementById(`editTitle-${newsId}`);
                 const categoryInput = document.getElementById(`editCategory-${newsId}`);
@@ -744,8 +801,12 @@
                     return;
                 }
 
-                if (CURRENT_USER_ROLE === 'subeditor' && stripTags(payload.content).length < (limits.contentMin || 0)) {
-                    alert(`Content must be at least ${limits.contentMin} characters for Sub Editors.`);
+                // The content MINIMUM applies only to a sub editor's / state incharge's OWN
+                // news (author role = subeditor). A reporter's post (stringer / district
+                // incharge, role = editor) must save / approve at any length.
+                const authorRole = (newsDataCache[newsId] && newsDataCache[newsId].authorDetails && newsDataCache[newsId].authorDetails.role) || '';
+                if (authorRole === 'subeditor' && stripTags(payload.content).length < (limits.contentMin || 0)) {
+                    alert(`Content must be at least ${limits.contentMin} characters for a Sub Editor's own news.`);
                     return;
                 }
 
@@ -2043,9 +2104,23 @@
             document.removeEventListener('ai_status_updated_received', handleAiStatusUpdate);
             document.addEventListener('ai_status_updated_received', handleAiStatusUpdate);
 
+            let _aiQueueAutoReloading = false;
             function updateArticleCard(articleId, payload) {
                 const card = document.querySelector(`.news-card[data-id="${articleId}"]`);
-                if (!card) return;
+                if (!card) {
+                    // A brand-new item just entered MY AI queue (posted from the app /
+                    // elsewhere) and isn't rendered on this open page yet. Pull it in
+                    // automatically — the user never has to hit refresh. (verified items
+                    // aren't in the queue, so nothing to add for those.)
+                    if ((payload.status === 'review_required' || payload.status === 'failed') && !_aiQueueAutoReloading) {
+                        _aiQueueAutoReloading = true;
+                        if (typeof window.showToast === 'function') {
+                            window.showToast('AI Queue', 'New article added to your queue.', 'info');
+                        }
+                        setTimeout(() => { location.reload(); }, 800);
+                    }
+                    return;
+                }
 
                 // Case 2: Verified (Fade out and remove)
                 if (payload.status === 'verified') {

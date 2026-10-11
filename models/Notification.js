@@ -61,5 +61,9 @@ notificationSchema.index({ sentAt: -1 });
 notificationSchema.index({ type: 1 });
 notificationSchema.index({ priority: 1 });
 notificationSchema.index({ "recipients.userId": 1 });
+// Every delivered news triggers a `news_received` ack per user, each of which
+// looks up notifications by newsId. Without this index that was a full
+// collection scan per ack — the main cause of CPU spikes at posting peaks.
+notificationSchema.index({ newsId: 1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

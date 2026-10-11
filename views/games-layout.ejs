@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Games Page' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Games Page', backButton: true, backUrl: '/' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'games-layout' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+
+        <div class="mb-3">
+          <h3 class="mb-1"><i class="fas fa-gamepad me-2 text-primary"></i>Games Page (image + tap zones)</h3>
+          <p class="text-muted mb-0">Upload one Games-page image, then drag a box over each game. Tapping that box in the app opens the game. Boxes are saved as % so they fit all device sizes.</p>
+        </div>
+
+        <!-- Telugu help card -->
+        <div class="mb-3 p-3 rounded" style="background:#eef2ff;border:1px solid #c7d2fe;font-size:13.5px;line-height:1.7">
+          <b>📋 ఎలా వాడాలి (తెలుగు)</b>
+          <ol class="mb-0 mt-1" style="padding-left:18px">
+            <li>మీ Games page <b>image ని upload</b> చేయండి (Canva లో అందంగా design చేసి).</li>
+            <li><b>"Add Game Zone"</b> నొక్కి — వచ్చే <b>పచ్చ box ని drag</b> చేసి ఒక game మీద పెట్టండి. కుడి-కింద మూల లాగి <b>size</b> మార్చండి.</li>
+            <li>ఆ box పక్కన dropdown లో <b>ఏ game</b> అని ఎంచుకోండి (ఇప్పుడు live: Sudoku, Block Puzzle).</li>
+            <li>ప్రతి game కి ఒక box పెట్టండి → <b>Save</b> నొక్కండి.</li>
+            <li>App లో user ఆ box మీద tap చేస్తే → ఆ game తెరుచుకుంటుంది. (Image లేకపోతే app default grid చూపిస్తుంది.)</li>
+          </ol>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <label class="btn btn-primary mb-0"><i class="fas fa-upload me-1"></i>Upload Image
+            <input type="file" id="glFile" accept="image/*" hidden>
+          </label>
+          <button class="btn btn-success" onclick="glAddZone()"><i class="fas fa-plus me-1"></i>Add Game Zone</button>
+          <button class="btn btn-outline-danger" onclick="glRemoveImage()"><i class="fas fa-trash me-1"></i>Remove image</button>
+          <div class="form-check form-switch ms-2 d-flex align-items-center">
+            <input class="form-check-input" type="checkbox" id="glEnabled" checked>
+            <label class="form-check-label ms-2" for="glEnabled">Use image page (off = app default grid)</label>
+          </div>
+          <button class="btn btn-dark ms-auto" onclick="glSave()"><i class="fas fa-save me-1"></i>Save</button>
+        </div>
+        <div id="glMsg" class="mb-2"></div>
+
+        <div class="row">
+          <div class="col-lg-7">
+            <div id="glWrap" style="position:relative;max-width:420px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#f8fafc">
+              <img id="glImg" src="" alt="Games page" style="width:100%;display:none">
+              <div id="glEmpty" class="text-muted text-center p-5">Upload a Games-page image to begin.</div>
+            </div>
+          </div>
+          <div class="col-lg-5">
+            <h6 class="mt-3 mt-lg-0">Game zones</h6>
+            <div id="glZoneList" class="small text-muted">No zones yet. Click "Add Game Zone".</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div></div>
+
+  <!-- Crop (9:20) overlay — same as the quiz page -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+  <div id="glCropOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1060;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:16px;max-width:520px;width:92%">
+      <h6 class="fw-bold mb-2">Crop image (9:20 — phone screen)</h6>
+      <div style="max-height:62vh;overflow:hidden"><img id="glCropImg" style="max-width:100%;display:block"></div>
+      <div class="mt-2 d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="glCropCancel()">Cancel</button>
+        <button type="button" id="glCropBtn" class="btn btn-sm btn-primary" onclick="glCropUpload()">Crop &amp; Upload</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  let _cropper = null;
+  // Live games only. Server (/api/games-layout → games) is the source of truth and
+  // overwrites this on load; this is just the fallback if the fetch fails.
+  let GAMES = [['sudoku','Sudoku'],['blocks','Block Puzzle']];
+  let imageUrl = '';
+  let zones = []; // {game, rect:{x,y,w,h}, box}
+  const DEF = {x:0.1,y:0.1,w:0.35,h:0.14};
+
+  function say(h,c){ $('glMsg').innerHTML = h ? '<div class="alert alert-'+(c||'info')+' py-2 mb-0">'+h+'</div>' : ''; }
+
+  async function load(){
+    try{
+      const r = await fetch('/admin/api/games-layout'); const d = await r.json();
+      // Use the server's live-games catalog for the dropdown (single source of truth).
+      if(Array.isArray(d.games) && d.games.length){
+        GAMES = d.games.map(g => Array.isArray(g) ? g : [g.key, g.name]);
+      }
+      imageUrl = d.imageUrl||'';
+      $('glEnabled').checked = d.enabled !== false;
+      if(imageUrl){ $('glImg').src=imageUrl; $('glImg').style.display='block'; $('glEmpty').style.display='none'; }
+      // Only restore zones whose game is still live (drop old 2048/spin/word).
+      const liveKeys = GAMES.map(g=>g[0]);
+      (d.zones||[]).filter(z=>liveKeys.includes(z.game)).forEach(z=> addZone(z.game, {x:z.x,y:z.y,w:z.w,h:z.h}));
+    }catch(e){}
+  }
+
+  // Pick file → show crop preview (9:20) → crop → upload.
+  $('glFile').addEventListener('change', (e)=>{
+    const f = e.target.files && e.target.files[0]; if(!f) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      $('glCropImg').src = ev.target.result;
+      $('glCropOverlay').style.display = 'flex';
+      if(_cropper){ _cropper.destroy(); _cropper=null; }
+      _cropper = new Cropper($('glCropImg'), { aspectRatio:9/20, viewMode:1, autoCropArea:1, background:false, movable:true, zoomable:true });
+    };
+    reader.readAsDataURL(f); e.target.value='';
+  });
+
+  window.glCropCancel = function(){ if(_cropper){ _cropper.destroy(); _cropper=null; } $('glCropOverlay').style.display='none'; };
+
+  window.glCropUpload = function(){
+    if(!_cropper) return;
+    const canvas = _cropper.getCroppedCanvas({ width:1080, height:2400 });
+    if(!canvas){ alert('Crop failed'); return; }
+    canvas.toBlob((blob)=>{
+      if(!blob){ alert('Crop failed'); return; }
+      const fd = new FormData(); fd.append('image', blob, 'games-page.jpg');
+      const btn=$('glCropBtn'); btn.disabled=true; btn.textContent='Uploading…';
+      fetch('/admin/api/in-app-popup/upload-image', {method:'POST', body:fd})
+        .then(r=>r.json())
+        .then(d=>{
+          if(d.imageUrl){ imageUrl=d.imageUrl; $('glImg').src=imageUrl; $('glImg').style.display='block'; $('glEmpty').style.display='none'; say('Image uploaded ✓ — now position zones & Save.','success'); glCropCancel(); setTimeout(repositionAll, 200); }
+          else { alert(d.error||'Upload failed'); }
+        })
+        .catch(()=>alert('Network error'))
+        .finally(()=>{ btn.disabled=false; btn.textContent='Crop & Upload'; });
+    }, 'image/jpeg', 0.9);
+  };
+
+  window.glRemoveImage = function(){ imageUrl=''; $('glImg').src=''; $('glImg').style.display='none'; $('glEmpty').style.display='block'; };
+
+  window.glAddZone = function(){
+    if(!imageUrl){ say('Upload an image first.','warning'); return; }
+    addZone('sudoku', Object.assign({}, DEF));
+  };
+
+  function addZone(game, rect){
+    const wrap = $('glWrap');
+    const box = document.createElement('div');
+    box.style.cssText = 'position:absolute;border:2px solid #16a34a;background:rgba(22,163,74,.20);cursor:move;box-sizing:border-box;z-index:5';
+    const handle = document.createElement('div');
+    handle.style.cssText = 'position:absolute;right:-7px;bottom:-7px;width:15px;height:15px;background:#16a34a;border:2px solid #fff;border-radius:50%;cursor:se-resize';
+    const label = document.createElement('div');
+    label.style.cssText='position:absolute;left:2px;top:2px;font-size:10px;font-weight:700;color:#065f46;background:#fff;padding:0 4px;border-radius:4px';
+    box.appendChild(label); box.appendChild(handle); wrap.appendChild(box);
+    const z = { game, rect, box, label };
+    zones.push(z);
+    makeDraggable(z, handle);
+    position(z);
+    renderList();
+  }
+
+  function position(z){
+    const img = $('glImg'); const W=img.clientWidth, H=img.clientHeight;
+    z.box.style.left=(z.rect.x*W)+'px'; z.box.style.top=(z.rect.y*H)+'px';
+    z.box.style.width=(z.rect.w*W)+'px'; z.box.style.height=(z.rect.h*H)+'px';
+    z.label.textContent = (GAMES.find(g=>g[0]===z.game)||['',''])[1] || z.game;
+  }
+  function repositionAll(){ zones.forEach(position); }
+  window.addEventListener('resize', repositionAll);
+  $('glImg').addEventListener('load', repositionAll);
+
+  function makeDraggable(z, handle){
+    const img=$('glImg');
+    function pt(e){ return e.touches? e.touches[0] : e; }
+    // move
+    z.box.addEventListener('mousedown', startMove); z.box.addEventListener('touchstart', startMove, {passive:false});
+    function startMove(e){ if(e.target===handle) return; e.preventDefault();
+      const W=img.clientWidth,H=img.clientHeight, s=pt(e), r=Object.assign({},z.rect);
+      function mv(ev){ const p=pt(ev); z.rect.x=Math.min(1-r.w,Math.max(0, r.x+(p.clientX-s.clientX)/W)); z.rect.y=Math.min(1-r.h,Math.max(0, r.y+(p.clientY-s.clientY)/H)); position(z); }
+      function up(){ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.removeEventListener('touchmove',mv); document.removeEventListener('touchend',up); }
+      document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up); document.addEventListener('touchmove',mv,{passive:false}); document.addEventListener('touchend',up);
+    }
+    // resize
+    handle.addEventListener('mousedown', startResize); handle.addEventListener('touchstart', startResize, {passive:false});
+    function startResize(e){ e.preventDefault(); e.stopPropagation();
+      const W=img.clientWidth,H=img.clientHeight, s=pt(e), r=Object.assign({},z.rect);
+      function mv(ev){ const p=pt(ev); z.rect.w=Math.min(1-z.rect.x,Math.max(0.05, r.w+(p.clientX-s.clientX)/W)); z.rect.h=Math.min(1-z.rect.y,Math.max(0.04, r.h+(p.clientY-s.clientY)/H)); position(z); }
+      function up(){ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.removeEventListener('touchmove',mv); document.removeEventListener('touchend',up); }
+      document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up); document.addEventListener('touchmove',mv,{passive:false}); document.addEventListener('touchend',up);
+    }
+  }
+
+  function renderList(){
+    const el=$('glZoneList');
+    if(!zones.length){ el.innerHTML='No zones yet. Click "Add Game Zone".'; return; }
+    el.innerHTML='';
+    zones.forEach((z,i)=>{
+      const row=document.createElement('div'); row.className='d-flex align-items-center gap-2 mb-2';
+      const sel=document.createElement('select'); sel.className='form-select form-select-sm'; sel.style.maxWidth='150px';
+      GAMES.forEach(g=>{ const o=document.createElement('option'); o.value=g[0]; o.textContent=g[1]; if(g[0]===z.game)o.selected=true; sel.appendChild(o); });
+      sel.onchange=()=>{ z.game=sel.value; position(z); };
+      const del=document.createElement('button'); del.className='btn btn-sm btn-outline-danger'; del.innerHTML='<i class="fas fa-times"></i>';
+      del.onclick=()=>{ z.box.remove(); zones.splice(i,1); renderList(); };
+      const lbl=document.createElement('span'); lbl.className='text-muted small'; lbl.textContent='Zone '+(i+1)+':';
+      row.appendChild(lbl); row.appendChild(sel); row.appendChild(del); el.appendChild(row);
+    });
+  }
+
+  window.glSave = async function(){
+    say('Saving…');
+    const payload = { imageUrl, enabled: $('glEnabled').checked, zones: zones.map(z=>({game:z.game, x:z.rect.x, y:z.rect.y, w:z.rect.w, h:z.rect.h})) };
+    try{
+      const r = await fetch('/admin/api/games-layout', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+      const d = await r.json();
+      if(r.ok && d.ok) say('Saved! ✓ App will show this Games page.','success');
+      else say(d.error||'Save failed','danger');
+    }catch(e){ say('Save failed','danger'); }
+  };
+
+  load();
+})();
+</script>
+</body>
+</html>

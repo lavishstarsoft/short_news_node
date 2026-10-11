@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'News-in-AR - Short News Admin' }) %>
+  <style>
+    * { box-sizing: border-box; }
+    /* body styles inherited from the dashboard shell */
+    .topbar { background: #3f2a7a; color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 10px; }
+    .topbar h2 { margin: 0; font-size: 18px; }
+    .wrap { max-width: 100%; margin: 12px 0; padding: 0; }
+    .card { background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.05); margin-bottom: 16px; }
+    .help { background: #eef2ff; border: 1px solid #d6dcff; border-radius: 10px; padding: 14px 16px; line-height: 1.5; font-size: 14px; }
+    label { display: block; font-weight: 600; margin: 10px 0 4px; }
+    input[type=text] { width: 100%; padding: 9px 11px; border: 1px solid #cfd4dc; border-radius: 8px; font-size: 14px; }
+    .btn-primary { background: #3f2a7a; color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-weight: 600; cursor: pointer; }
+    .muted { color: #6b7280; font-size: 13px; }
+    .switch { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+    #newsResults { border: 1px solid #e0e4ea; border-radius: 8px; margin-top: 4px; max-height: 220px; overflow-y: auto; display: none; }
+    #newsResults.show { display: block; }
+    .news-opt { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid #f0f2f5; font-size: 14px; }
+    .news-opt:hover { background: #f3f0ff; }
+    #chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .chip { background: #eef9f0; border: 1px solid #cdeccf; border-radius: 16px; padding: 5px 10px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+    .chip .cx { color: #c62828; cursor: pointer; font-weight: 700; }
+  </style>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'News-in-AR', backButton: false }) %>
+<div class="container-fluid"><div class="row">
+<%- include('partials/sidebar', { activePage: 'news-ar' }) %>
+<div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+<div class="content-area">
+  <div class="wrap">
+    <div class="help">
+      ప్రతి news card లో <b>👓 AR (cube) button</b> చూపించాలా వద్దా ఇక్కడ control చేయండి.<br>
+      • <b>"అన్ని news లో"</b> ON చేస్తే → అన్ని cards లో AR.<br>
+      • OFF ఉంచి, కింద కొన్ని news ఎంచుకుంటే → <b>ఆ ఎంచుకున్న news లో మాత్రమే</b> AR, మిగతా వాటిలో రాదు.<br>
+      • రెండూ ఖాళీ → AR ఎక్కడా రాదు.
+    </div>
+
+    <div class="card">
+      <div class="switch">
+        <input type="checkbox" id="showOnAll" />
+        <label for="showOnAll" style="margin:0">అన్ని news cards లో AR చూపించు</label>
+      </div>
+      <div class="muted" style="margin-top:4px">దీన్ని OFF ఉంచితే, కింద ఎంచుకున్న news కి మాత్రమే AR వస్తుంది.</div>
+    </div>
+
+    <div class="card" id="pickCard">
+      <label>AR enable చేయాల్సిన news (ఒకటి లేదా ఎక్కువ)</label>
+      <input type="text" id="newsSearch" placeholder="🔎 News title వెతికి ఎంచుకోండి…" autocomplete="off" />
+      <div id="newsResults"></div>
+      <div id="chips"></div>
+    </div>
+
+    <button class="btn-primary" id="saveBtn" onclick="save()">Save</button>
+    <span id="status" class="muted" style="margin-left:10px"></span>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let _chosen = []; // [{id,title}]
+    function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+    function renderChips(){ $('chips').innerHTML = _chosen.map(n=>'<span class="chip">🎯 '+esc(n.title)+'<span class="cx" data-id="'+n.id+'">✕</span></span>').join(''); }
+    $('chips').addEventListener('click', e=>{const x=e.target.closest('.cx'); if(x){_chosen=_chosen.filter(n=>n.id!==x.dataset.id);renderChips();}});
+
+    let _t;
+    $('newsSearch').addEventListener('input', ()=>{
+      clearTimeout(_t); const q=$('newsSearch').value.trim();
+      if(!q){$('newsResults').classList.remove('show');return;}
+      _t=setTimeout(async()=>{
+        try{
+          const r=await fetch('/admin/api/notification-studio/news?q='+encodeURIComponent(q));
+          const d=await r.json();
+          $('newsResults').innerHTML=(d.news||[]).map(n=>'<div class="news-opt" data-id="'+n.id+'" data-title="'+esc(n.title)+'">'+esc(n.title)+'</div>').join('')||'<div class="news-opt muted">ఏదీ దొరకలేదు</div>';
+          $('newsResults').classList.add('show');
+        }catch(e){$('newsResults').classList.remove('show');}
+      },300);
+    });
+    $('newsResults').addEventListener('click', e=>{const o=e.target.closest('.news-opt'); if(o&&o.dataset.id){ if(!_chosen.some(n=>n.id===o.dataset.id)) _chosen.push({id:o.dataset.id,title:o.dataset.title}); renderChips(); $('newsResults').classList.remove('show'); $('newsSearch').value='';}});
+
+    async function load(){
+      try{
+        const r=await fetch('/ar-ads/news-ar/api'); const d=await r.json();
+        $('showOnAll').checked=!!d.showOnAll;
+        _chosen=(d.enabledNewsIds||[]).map(id=>({id:id,title:'News ('+String(id).slice(-6)+')'}));
+        renderChips();
+      }catch(e){}
+    }
+    async function save(){
+      $('saveBtn').disabled=true; $('status').textContent='Saving…';
+      try{
+        const r=await fetch('/ar-ads/news-ar/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({showOnAll:$('showOnAll').checked, enabledNewsIds:_chosen.map(n=>n.id)})});
+        const d=await r.json(); if(!d.ok) throw new Error(d.error||'failed');
+        $('status').textContent='Saved ✓';
+      }catch(e){ $('status').textContent='Save failed'; }
+      finally{ $('saveBtn').disabled=false; }
+    }
+    load();
+  </script>
+  </div></div></div></div>
+  <%- include('partials/footer') %>
+  <script>(function(){var t=document.getElementById('menuToggle'),s=document.getElementById('sidebar'),m=document.getElementById('mainContent');if(t&&s)t.addEventListener('click',function(e){e.stopPropagation();s.classList.toggle('active');if(m)m.classList.toggle('sidebar-active');});})();</script>
+</body>
+</html>

@@ -36,6 +36,20 @@ class OneSignalService {
     }
   }
 
+  // Global OneSignal send switch — now DEFAULT OFF: all pushes go over our own FCM.
+  // Set ONESIGNAL_SEND_ENABLED=true to turn OneSignal sending back on (revert).
+  // Read calls (delivery report, app details) are unaffected — only sending is gated.
+  oneSignalSendEnabled() {
+    return String(process.env.ONESIGNAL_SEND_ENABLED || 'false').trim().toLowerCase() === 'true';
+  }
+
+  async _createNotification(notification) {
+    if (!this.oneSignalSendEnabled()) {
+      return { id: '', skipped: 'onesignal_disabled' };
+    }
+    return this.client.createNotification(notification);
+  }
+
   normalizeTargetLanguage(languageCode) {
     if (!languageCode || typeof languageCode !== 'string') return null;
     const normalized = languageCode.trim().toLowerCase();
@@ -150,7 +164,7 @@ class OneSignalService {
         included_segments: notification.included_segments
       });
 
-      const response = await this.client.createNotification(notification);
+      const response = await this._createNotification(notification);
       console.log('OneSignal notification sent successfully:', response);
       return response;
     } catch (error) {
@@ -208,7 +222,7 @@ class OneSignalService {
         included_segments: notification.included_segments
       });
 
-      const response = await this.client.createNotification(notification);
+      const response = await this._createNotification(notification);
       console.log('OneSignal notification with URL sent successfully:', response);
       return response;
     } catch (error) {
@@ -255,7 +269,7 @@ class OneSignalService {
       notification.data = data;
       notification.include_player_ids = playerIds;
 
-      const response = await this.client.createNotification(notification);
+      const response = await this._createNotification(notification);
       console.log('OneSignal notification sent to users:', response);
       return response;
     } catch (error) {
@@ -331,7 +345,7 @@ class OneSignalService {
       notification.small_icon = 'ic_stat_onesignal_default';
       notification.large_icon = 'tehelka_notif_large';
 
-      const response = await this.client.createNotification(notification);
+      const response = await this._createNotification(notification);
       console.log('OneSignal news notification sent successfully:', response);
       return response;
     } catch (error) {
@@ -472,7 +486,7 @@ class OneSignalService {
         }
       }
 
-      const response = await this.client.createNotification(notification);
+      const response = await this._createNotification(notification);
       console.log('OneSignal admin notification sent:', response);
       return response;
     } catch (error) {

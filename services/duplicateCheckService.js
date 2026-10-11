@@ -1,7 +1,12 @@
 const News = require('../models/News');
-const { checkDuplicateFast, generateContentHash } = require('../utils/similarityDetector');
+const { checkDuplicateFast, generateContentHash, isRecurringTopic } = require('../utils/similarityDetector');
 
-const CORPUS_DAYS = 3;
+// Duplicate corpus lookback. Env-driven (DUP_CORPUS_DAYS), default 7 days.
+// Exact-hash matching stays UNLIMITED regardless of this window.
+const CORPUS_DAYS = (() => {
+  const n = parseInt(process.env.DUP_CORPUS_DAYS, 10);
+  return Number.isFinite(n) && n > 0 ? n : 7;
+})();
 const MIN_MATCH_SCORE = 50;
 
 function normalizeDuplicateCheck(raw) {
@@ -118,7 +123,7 @@ async function fetchPublishedCorpus(language, excludeId = null) {
   }
 
   return News.find(query)
-    .select('_id title content publishedAt author category location language contentHash')
+    .select('_id title content publishedAt author category location language contentHash scope')
     .lean();
 }
 
@@ -137,7 +142,7 @@ async function fetchPendingCorpus(language, excludeId = null) {
   }
 
   return News.find(query)
-    .select('_id title content publishedAt author category location language contentHash')
+    .select('_id title content publishedAt author category location language contentHash scope')
     .sort({ publishedAt: -1 })
     .limit(100)
     .lean();
@@ -165,7 +170,9 @@ async function runDuplicateCheck(article, options = {}) {
   const title = article.title || '';
   const content = article.content || '';
   const language = (article.language || 'te').toLowerCase();
+  const category = article.category || '';
   const contentHash = generateContentHash(title, content);
+  const recurring = isRecurringTopic({ title, content, category });
 
   const exactMatch = await findExactHashMatch(contentHash, excludeId);
   if (exactMatch) {
@@ -183,8 +190,9 @@ async function runDuplicateCheck(article, options = {}) {
   }
 
   const duplicateResults = checkDuplicateFast(
-    { title, content, language },
-    corpus
+    { title, content, language, category },
+    corpus,
+    { recurring }
   );
 
   duplicateResults.forEach((result) => {

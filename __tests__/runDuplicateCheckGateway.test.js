@@ -309,4 +309,92 @@ describe('mapAiResponseToDuplicateCheck', () => {
     expect(mapped.matchSource).toBe('content');
     expect(mapped.reasonLabel).toBe('Content');
   });
+
+  // A same-looking image with different text: shown to the In-Charge to verify.
+  const lookalikeImage = (similarity) => {
+    const payload = validAiPayload();
+    payload.overall = { score: 10, label: 'unique', is_duplicate: false, is_suspicious: false };
+    payload.exact = { matched: false, score: 0, matched_candidate_id: null };
+    payload.near = { matched: false, best_score: 0, matches: [] };
+    payload.media = { duplicate: true, method: 'openclip', similarity, matchedNewsId: 'c1', query_sha256: 'q' };
+    return mapAiResponseToDuplicateCheck(payload, [{ id: 'c1', title: 'Other', content: 'Different' }]);
+  };
+
+  test('a look-alike image at 85%+ with different text is shown for REVIEW, not auto-duplicate', () => {
+    const m = lookalikeImage(90);
+    expect(m.isDuplicate).toBe(false);       // never auto-rejected
+    expect(m.isSuspicious).toBe(true);       // but the In-Charge sees it
+    expect(m.similarArticles).toHaveLength(1);
+    expect(m.similarArticles[0].matchSource).toBe('image');
+  });
+
+  test('at exactly 85% it still surfaces for review', () => {
+    expect(lookalikeImage(85).isSuspicious).toBe(true);
+  });
+
+  test('below 85% it is dropped — too weak to bother the In-Charge', () => {
+    const m = lookalikeImage(84);
+    expect(m.isDuplicate).toBe(false);
+    expect(m.isSuspicious).toBe(false);
+    expect(m.similarArticles).toHaveLength(0);
+    expect(m.demotedLookalikes).toBeDefined();
+  });
+
+  test('a near-EXACT image (98%+) is still a confirmed duplicate', () => {
+    const m = lookalikeImage(99);
+    expect(m.isDuplicate).toBe(true);
+  });
+
+  // Symmetric content/text review floor (85%): a text match the AI labelled
+  // weakly is still surfaced for review once it crosses the floor; below it,
+  // dropped so near-misses don't clutter the In-Charge queue.
+  const contentNear = (score, label) => {
+    const p = validAiPayload();
+    p.exact = { matched: false, score: 0, matched_candidate_id: null };
+    p.near = {
+      matched: true,
+      best_score: score,
+      matches: [{
+        candidate_id: 'c1', score,
+        title_score: score, content_score: score, keyword_score: score,
+        label,
+      }],
+    };
+    p.overall = { score, label: 'unique', is_duplicate: false, is_suspicious: false };
+    return mapAiResponseToDuplicateCheck(p, [{ id: 'c1', title: 'Other', content: 'Different' }]);
+  };
+
+  test('a weakly-labelled text match at 85%+ is surfaced for REVIEW', () => {
+    const m = contentNear(90, 'similar'); // weak label → would NOT show before
+    expect(m.isDuplicate).toBe(false);
+    expect(m.isSuspicious).toBe(true);
+    expect(m.matchSource).toBe('content');
+    expect(m.similarArticles).toHaveLength(1);
+  });
+
+  test('at exactly 85% the text match still surfaces', () => {
+    expect(contentNear(85, 'similar').isSuspicious).toBe(true);
+  });
+
+  test('below 85% a content-only text match is dropped', () => {
+    const m = contentNear(84, 'similar');
+    expect(m.isDuplicate).toBe(false);
+    expect(m.isSuspicious).toBe(false);
+    expect(m.similarArticles).toHaveLength(0);
+  });
+
+  test('a strong AI label (very_similar) stays a duplicate regardless of the floor', () => {
+    const m = contentNear(90, 'very_similar');
+    expect(m.isDuplicate).toBe(true);
+  });
+
+  test('an EXACT text hash is always a duplicate (floor never applies)', () => {
+    const p = validAiPayload();
+    p.exact = { matched: true, score: 100, matched_candidate_id: 'c1', matched_content_hash: 'h' };
+    p.near = { matched: false, best_score: 0, matches: [] };
+    p.overall = { score: 100, label: 'exact_duplicate', is_duplicate: true, is_suspicious: false };
+    const m = mapAiResponseToDuplicateCheck(p, [{ id: 'c1', title: 'Same', content: 'Same' }]);
+    expect(m.isDuplicate).toBe(true);
+    expect(m.matchSource).toBe('content');
+  });
 });

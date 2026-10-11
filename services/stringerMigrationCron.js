@@ -10,14 +10,17 @@ async function processStringerMigration() {
       return; // Not yet time
     }
 
-    // Update all reporters to stringer. Sub-editors are ignored because we filter by role: 'editor'
+    // Give reporters WITHOUT a tier a baseline 'stringer' tier. Sub-editors are
+    // ignored (role: 'editor' filter). CRITICAL: never touch district_incharge —
+    // $nin keeps both stringer and district_incharge untouched, so promoted
+    // in-charges are not silently demoted back to stringer on the hourly run.
     const result = await Admin.updateMany(
-      { 
-        role: 'editor', 
-        reporterTier: { $ne: 'stringer' } 
+      {
+        role: 'editor',
+        reporterTier: { $nin: ['stringer', 'district_incharge'] }
       },
-      { 
-        $set: { reporterTier: 'stringer' } 
+      {
+        $set: { reporterTier: 'stringer' }
       }
     );
 
@@ -30,14 +33,11 @@ async function processStringerMigration() {
 }
 
 function startStringerMigrationCron() {
-  // Run immediately once on server start
-  processStringerMigration();
-
-  // Then run every hour
-  const INTERVAL_MS = 60 * 60 * 1000; // 1 hour
-  setInterval(processStringerMigration, INTERVAL_MS);
-
-  console.log('🕐 [StringerMigration] Started — scheduled to run migration on or after 25 Aug 2026');
+  // DISABLED: this was a ONE-TIME migration to give tier-less reporters a baseline
+  // 'stringer' tier. Every reporter now has a tier, so there is nothing left to do.
+  // It no longer runs on startup and no hourly interval is scheduled.
+  // (processStringerMigration is kept exported for manual one-off use if ever needed.)
+  console.log('🛑 [StringerMigration] Disabled — one-time migration already complete.');
 }
 
 module.exports = { startStringerMigrationCron, processStringerMigration };

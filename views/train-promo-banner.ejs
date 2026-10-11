@@ -1,0 +1,264 @@
+<%- include('partials/header') %>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'Train Promo Banner', backButton: true, backUrl: '/ads/ads' }) %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .settings-card { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.04); }
+  .settings-card .card-body { padding: 22px; }
+  .help-card { background:#FFF8E6; border:1px solid #F5D78E; border-radius:12px; padding:14px 18px; }
+  .section-label { font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#6b7280; margin:18px 0 10px; }
+  .tpb-preview { border-radius:14px; overflow:hidden; background:#e5e7eb; position:relative; }
+  .tpb-preview img { width:100%; display:block; }
+  /* Hotspot editor modal */
+  .hs-modal { position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:1080; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .hs-dialog { background:#fff; border-radius:14px; width:min(920px,96vw); max-height:92vh; overflow:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .hs-head { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid #eef0f3; position:sticky; top:0; background:#fff; }
+  .hs-body { display:flex; gap:20px; flex-wrap:wrap; padding:18px; }
+  .hs-stage { position:relative; width:440px; max-width:100%; border:2px dashed #cbd5e1; border-radius:12px; overflow:hidden; background:#f1f5f9; user-select:none; touch-action:none; }
+  .hs-stage img { width:100%; display:block; pointer-events:none; }
+  .hs-stage.empty { min-height:220px; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:14px; text-align:center; padding:20px; }
+  .hs-box { position:absolute; border:2px solid #2563eb; background:rgba(37,99,235,.14); box-sizing:border-box; cursor:move; }
+  .hs-box .lb { position:absolute; top:-19px; left:0; font-size:11px; font-weight:700; color:#fff; background:#2563eb; padding:1px 6px; border-radius:5px; white-space:nowrap; }
+  .hs-box .hd { position:absolute; right:-6px; bottom:-6px; width:14px; height:14px; background:#2563eb; border:2px solid #fff; border-radius:3px; cursor:nwse-resize; }
+  .hs-box.sel { border-color:#dc2626; background:rgba(220,38,38,.16); } .hs-box.sel .lb, .hs-box.sel .hd { background:#dc2626; }
+  .hs-side { flex:1; min-width:300px; }
+  .hs-row { display:grid; grid-template-columns:22px 1fr auto; gap:8px; align-items:center; padding:8px; border:1px solid #eef0f3; border-radius:10px; margin-bottom:8px; }
+  .hs-row .idx { width:22px; height:22px; border-radius:50%; background:#2563eb; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+</style>
+
+<div class="main-content" id="mainContent">
+  <div class="container-fluid py-3" style="max-width:1100px;">
+    <div class="help-card mb-3">
+      <div class="fw-bold mb-1">🚆 Train Promo Banner — app లో <strong>"Where is my train"</strong> page లో <strong>Search history కింద</strong> కనిపించే banner</div>
+      <ul class="mb-0 small" style="padding-left:18px;">
+        <li>ఒక <strong>image upload</strong> చేయండి (లేదా URL paste). App దాన్ని అలాగే (crop అవకుండా) చూపిస్తుంది.</li>
+        <li><strong>🎯 Clickable areas</strong> లో image మీద boxes గీసి, ఒక్కో box కి ఒక link ఇవ్వండి — <code>https://…</code> లేదా app లోపలి pages: <code>app://quiz</code>, <code>app://train</code>, <code>app://games</code>, <code>app://viral</code>, <code>app://long</code>, <code>app://referral</code>, <code>app://profile</code>.</li>
+        <li>Boxes ఏమీ లేకపోతే, మొత్తం banner tap కి "Whole-banner link" వాడబడుతుంది.</li>
+        <li><strong>Enabled</strong> OFF ఉంటే app లో పాత static "Travel Smarter" card కనిపిస్తుంది. Image పెట్టి, ON చేసి, Save చేయండి — 1 నిమిషంలో live.</li>
+      </ul>
+    </div>
+
+    <div id="alertBox"></div>
+
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="card settings-card">
+          <div class="card-body">
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" id="enabled">
+              <label class="form-check-label fw-bold" for="enabled">Enabled (show this banner in the app)</label>
+            </div>
+
+            <div class="section-label">Banner image</div>
+            <div class="d-flex gap-1 mb-2">
+              <input class="form-control form-control-sm" id="imageUrl" placeholder="Image URL (or use Upload →)" oninput="onImageUrl(this.value)">
+              <label class="btn btn-sm btn-outline-secondary mb-0">Upload<input type="file" accept="image/*" hidden onchange="uploadImage(this)"></label>
+            </div>
+
+            <div class="section-label">Whole-banner tap link <span class="text-muted text-lowercase fw-normal">(used only when there are no clickable areas)</span></div>
+            <input class="form-control form-control-sm mb-2" id="linkUrl" maxlength="600" placeholder="https://…  or  app://quiz">
+
+            <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="openHotspots()">🎯 Clickable areas (<span id="hsBtnCount">0</span>)</button>
+
+            <details class="mb-3">
+              <summary class="section-label" style="cursor:pointer;">Optional text (title / subtitle)</summary>
+              <input class="form-control form-control-sm my-2" id="title" maxlength="160" placeholder="Title (optional)">
+              <input class="form-control form-control-sm" id="subtitle" maxlength="200" placeholder="Subtitle (optional)">
+            </details>
+
+            <button type="button" id="saveBtn" class="btn btn-primary fw-bold px-4">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <div class="section-label">Preview</div>
+        <div class="tpb-preview" id="pv"><div class="p-4 text-muted text-center small">No image yet — upload one.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hotspot editor modal -->
+<div id="hsModal" class="hs-modal d-none">
+  <div class="hs-dialog">
+    <div class="hs-head">
+      <b>🎯 Clickable areas on the banner</b>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="closeHotspots()">Done</button>
+    </div>
+    <div class="hs-body">
+      <div>
+        <div class="hs-stage empty" id="hsStage">Upload a banner image first.</div>
+        <div class="text-muted" style="font-size:12px;margin-top:6px;">Drag on empty area = new box · drag box = move · corner = resize · click = select</div>
+      </div>
+      <div class="hs-side">
+        <h6 class="fw-bold">Areas (<span id="hsCount">0</span>)</h6>
+        <div id="hsList"></div>
+        <div class="text-muted" id="hsEmpty" style="font-size:12px;">No areas yet — draw a box on the image.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  // Single banner working copy.
+  let banner = { enabled: false, imageUrl: '', aspectRatio: 0, title: '', subtitle: '', linkUrl: '', hotspots: [] };
+
+  function showAlert(kind, msg) {
+    $('alertBox').innerHTML = '<div class="alert alert-' + kind + ' alert-dismissible fade show">' + msg + '<button class="btn-close" data-bs-dismiss="alert"></button></div>';
+  }
+  function esc(s) { return String(s || '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+
+  function renderPreview() {
+    const pv = $('pv');
+    $('hsBtnCount').textContent = (banner.hotspots || []).length;
+    if (!banner.imageUrl) { pv.innerHTML = '<div class="p-4 text-muted text-center small">No image yet — upload one.</div>'; return; }
+    pv.innerHTML = '<img src="' + esc(banner.imageUrl) + '">';
+  }
+
+  function onImageUrl(v) {
+    banner.imageUrl = v.trim();
+    if (banner.imageUrl) {
+      const probe = new Image(); probe.onload = () => { banner.aspectRatio = probe.width / probe.height; }; probe.src = banner.imageUrl;
+    }
+    renderPreview();
+  }
+
+  async function uploadImage(input) {
+    const f = input.files[0]; if (!f) return;
+    const fd = new FormData(); fd.append('image', f);
+    try {
+      const r = await fetch('/admin/api/train-promo-banner/upload-image', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error('upload failed');
+      const d = await r.json();
+      banner.imageUrl = d.imageUrl; $('imageUrl').value = d.imageUrl;
+      const probe = new Image(); probe.onload = () => { banner.aspectRatio = probe.width / probe.height; }; probe.src = d.imageUrl;
+      renderPreview();
+    } catch (e) { showAlert('danger', 'Image upload failed'); }
+  }
+
+  // ---------- hotspot editor ----------
+  let hsSel = -1;
+  function openHotspots() {
+    if (!banner.imageUrl) { showAlert('warning', 'Upload a banner image first, then draw clickable areas.'); return; }
+    banner.hotspots = banner.hotspots || [];
+    hsSel = -1;
+    $('hsModal').classList.remove('d-none');
+    hsRenderAll();
+  }
+  function closeHotspots() { $('hsModal').classList.add('d-none'); hsSel = -1; renderPreview(); }
+  function hsRenderStage() {
+    const stage = $('hsStage'); stage.innerHTML = '';
+    if (!banner.imageUrl) { stage.classList.add('empty'); stage.textContent = 'Upload a banner image first.'; return; }
+    stage.classList.remove('empty');
+    const img = document.createElement('img'); img.src = banner.imageUrl; img.draggable = false; stage.appendChild(img);
+    (banner.hotspots || []).forEach((h, i) => {
+      const b = document.createElement('div'); b.className = 'hs-box' + (i === hsSel ? ' sel' : ''); b.dataset.i = i;
+      b.style.left = (h.x * 100) + '%'; b.style.top = (h.y * 100) + '%'; b.style.width = (h.w * 100) + '%'; b.style.height = (h.h * 100) + '%';
+      const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = (i + 1); b.appendChild(lb);
+      const hd = document.createElement('div'); hd.className = 'hd'; hd.dataset.resize = '1'; b.appendChild(hd);
+      stage.appendChild(b);
+    });
+  }
+  function hsRenderList() {
+    const host = $('hsList'); host.innerHTML = '';
+    const hs = banner.hotspots || [];
+    $('hsCount').textContent = hs.length;
+    $('hsEmpty').style.display = hs.length ? 'none' : 'block';
+    hs.forEach((h, i) => {
+      const row = document.createElement('div'); row.className = 'hs-row' + (i === hsSel ? ' sel' : ''); row.dataset.i = i;
+      row.innerHTML = '<div class="idx">' + (i + 1) + '</div>' +
+        '<input class="form-control form-control-sm hs-link" placeholder="https://… or app://quiz, app://train, app://games" value="' + esc(h.linkUrl || '') + '">' +
+        '<button type="button" class="btn btn-outline-danger btn-sm hs-del">✕</button>';
+      row.querySelector('.hs-link').addEventListener('input', (e) => { h.linkUrl = e.target.value; });
+      row.querySelector('.hs-del').addEventListener('click', () => { hs.splice(i, 1); if (hsSel === i) hsSel = -1; hsRenderAll(); });
+      row.addEventListener('click', (e) => { if (e.target.closest('.hs-del') || e.target.closest('input')) return; hsSelect(i); });
+      host.appendChild(row);
+    });
+  }
+  function hsRenderAll() { hsRenderStage(); hsRenderList(); }
+  function hsSelect(i) {
+    hsSel = i;
+    document.querySelectorAll('#hsList .hs-row').forEach((r) => r.classList.toggle('sel', (+r.dataset.i) === i));
+    document.querySelectorAll('#hsStage .hs-box').forEach((b) => b.classList.toggle('sel', (+b.dataset.i) === i));
+  }
+  (function bindHsStage() {
+    const stage = $('hsStage'); let drag = null;
+    stage.addEventListener('pointerdown', (e) => {
+      if (!banner.imageUrl) return;
+      const rect = stage.getBoundingClientRect();
+      const box = e.target.closest('.hs-box');
+      const px = (e.clientX - rect.left) / rect.width, py = (e.clientY - rect.top) / rect.height;
+      if (box) {
+        const i = +box.dataset.i; hsSelect(i);
+        if (e.target.dataset.resize) drag = { mode: 'resize', i, rect };
+        else { const h = banner.hotspots[i]; drag = { mode: 'move', i, rect, offx: px - h.x, offy: py - h.y }; }
+      } else {
+        banner.hotspots.push({ x: px, y: py, w: 0, h: 0, linkUrl: '', label: '' });
+        hsSel = banner.hotspots.length - 1;
+        drag = { mode: 'draw', i: hsSel, rect, sx: px, sy: py };
+      }
+      stage.setPointerCapture(e.pointerId); e.preventDefault();
+    });
+    stage.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const r = drag.rect; const px = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), py = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+      const h = banner.hotspots[drag.i]; if (!h) return;
+      if (drag.mode === 'draw') { h.x = Math.min(drag.sx, px); h.y = Math.min(drag.sy, py); h.w = Math.abs(px - drag.sx); h.h = Math.abs(py - drag.sy); }
+      else if (drag.mode === 'move') { h.x = Math.max(0, Math.min(1 - h.w, px - drag.offx)); h.y = Math.max(0, Math.min(1 - h.h, py - drag.offy)); }
+      else if (drag.mode === 'resize') { h.w = Math.max(0.02, Math.min(1 - h.x, px - h.x)); h.h = Math.max(0.02, Math.min(1 - h.y, py - h.y)); }
+      hsRenderStage();
+    });
+    stage.addEventListener('pointerup', () => {
+      if (!drag) return;
+      const h = banner.hotspots[drag.i];
+      if (h && drag.mode === 'draw' && (h.w < 0.02 || h.h < 0.02)) { banner.hotspots.splice(drag.i, 1); hsSel = -1; }
+      drag = null; hsRenderAll();
+    });
+  })();
+
+  // ---------- collect / fill ----------
+  function collect() {
+    return {
+      enabled: $('enabled').checked,
+      imageUrl: banner.imageUrl || '',
+      aspectRatio: banner.aspectRatio || 0,
+      title: $('title').value || '',
+      subtitle: $('subtitle').value || '',
+      linkUrl: $('linkUrl').value || '',
+      hotspots: banner.hotspots || [],
+    };
+  }
+  function fill(d) {
+    banner = { enabled: !!d.enabled, imageUrl: d.imageUrl || '', aspectRatio: d.aspectRatio || 0, title: d.title || '', subtitle: d.subtitle || '', linkUrl: d.linkUrl || '', hotspots: (d.hotspots || []).map((h) => ({ ...h })) };
+    $('enabled').checked = banner.enabled;
+    $('imageUrl').value = banner.imageUrl;
+    $('linkUrl').value = banner.linkUrl;
+    $('title').value = banner.title;
+    $('subtitle').value = banner.subtitle;
+    renderPreview();
+  }
+
+  async function load() {
+    const r = await fetch('/admin/api/train-promo-banner'); if (!r.ok) throw new Error('load failed');
+    const d = await r.json(); fill(d.item || {});
+  }
+  $('saveBtn').addEventListener('click', async () => {
+    const btn = $('saveBtn'); const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = 'Saving...';
+    try {
+      const r = await fetch('/admin/api/train-promo-banner', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(collect()) });
+      const d = await r.json(); if (!r.ok || !d.success) throw new Error(d.error || 'save failed');
+      fill(d.item);
+      showAlert('success', 'Saved — ' + (d.item.enabled ? 'ENABLED (live within 1 min)' : 'still OFF (app shows the static card)'));
+    } catch (err) { showAlert('danger', err.message || 'Could not save'); }
+    finally { btn.disabled = false; btn.innerHTML = orig; }
+  });
+
+  load().catch((err) => { console.error(err); showAlert('danger', 'Could not load banner'); });
+</script>
+
+<%- include('partials/footer') %>
+</body>
+</html>

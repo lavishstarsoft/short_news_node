@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Winners (Manual)' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Winners (Manual)', backButton: true, backUrl: '/admin/quiz/dashboard' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'quiz-manual-winners' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+
+        <div class="mb-3">
+          <h3 class="mb-1"><i class="fas fa-trophy me-2 text-warning"></i>Quiz Winners — Manual</h3>
+          <p class="text-muted mb-0">Tick the members the system found eligible <b>and/or</b> type extra members by hand. The combined list becomes this week's winners shown in the app.</p>
+        </div>
+
+        <!-- Telugu help card -->
+        <div class="mb-3 p-3 rounded" style="background:#fff7ed;border:1px solid #fed7aa;font-size:13.5px;line-height:1.7">
+          <b>📋 ఎలా వాడాలి (తెలుగు)</b>
+          <ol class="mb-0 mt-1" style="padding-left:18px">
+            <li>పైన <b>System eligible members</b> లో — quiz పూర్తిగా ఆడిన నిజమైన members కనిపిస్తారు. వాళ్లలో winners గా పెట్టాలనుకున్నవాళ్ల పక్కన ☑️ tick చేయండి.</li>
+            <li>మీకు ఇంకా మంది కావాలంటే <b>“+ Add member”</b> నొక్కి — <b>పేరు + mobile number</b> టైప్ చేయండి (dummy data అయినా పర్వాలేదు).</li>
+            <li>కింద <b>Final winners list</b> లో — ticked members + మీరు టైప్ చేసినవాళ్లు కలిపి, rank 1,2,3… order లో కనిపిస్తారు. (గరిష్ఠంగా <b>10</b> మంది.)</li>
+            <li><b>“Save winners”</b> నొక్కండి → ఈ list app లో <b>ఆదివారం 10 AM తర్వాత</b> అందరికీ కనిపిస్తుంది (normal winners లాగే).</li>
+            <li>మళ్ళీ మార్చాలంటే — tick/టైప్ మార్చి మళ్ళీ Save చేయండి. పాత list పోయి కొత్తది వస్తుంది.</li>
+            <li><b>“Clear all”</b> నొక్కితే — ఈ week winners list మొత్తం తీసేయబడుతుంది.</li>
+            <li>ప్రతి member పక్కన tags: <span class="badge bg-success">6/6 ✓</span> అన్నీ సరైనవి · <span class="badge bg-danger">🏆 Won before</span> గతంలో గెలిచారు (అదే account / mobile / phone) · <span class="badge bg-warning text-dark">⚠ same name</span> పేరు మాత్రమే కలిసింది. ఇక్కడ మేము ఆపము — మీరే చూసి నిర్ణయించండి. చేతితో టైప్ చేసినవాళ్ళు గతంలో గెలిచి ఉంటే Save తర్వాత చెబుతాం.</li>
+          </ol>
+          <div class="mt-2 text-danger"><b>⚠️ జాగ్రత్త:</b> ఇది live app. Save నొక్కేముందు list సరిచూసుకోండి. ఇక్కడ manual గా పెట్టిన members కి ₹1,000 payment మీరే offline చేయాలి (system automatic గా ఇవ్వదు).</div>
+        </div>
+
+        <div id="msg" class="mb-3"></div>
+
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span class="badge bg-dark">Week: <span id="weekId">…</span></span>
+          <span class="text-muted small">This week's quiz.</span>
+        </div>
+
+        <div class="row g-3">
+          <!-- System eligible -->
+          <div class="col-lg-6">
+            <div class="card h-100">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <b>System eligible members</b>
+                <span class="badge bg-secondary" id="eligCount">0</span>
+              </div>
+              <div class="table-responsive" style="max-height:340px;overflow:auto">
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light"><tr>
+                    <th style="width:40px"></th><th>Name</th><th>Mobile</th><th>Location</th><th class="text-end">Correct</th><th style="min-width:130px">Tags</th>
+                  </tr></thead>
+                  <tbody id="eligRows"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manual add -->
+          <div class="col-lg-6">
+            <div class="card h-100">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <b>Add members manually</b>
+                <button id="addRow" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i>Add member</button>
+              </div>
+              <div class="card-body" id="manualRows" style="max-height:340px;overflow:auto"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Final preview -->
+        <div class="card mt-3">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span><b>Final winners list</b> (order = ranks shown in app)</span>
+            <span class="badge" id="finalBadge">0 / 10</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead class="table-light"><tr>
+                <th style="width:60px">Rank</th><th>Name</th><th>Mobile</th><th>Source</th>
+              </tr></thead>
+              <tbody id="finalRows"></tbody>
+            </table>
+          </div>
+          <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <button id="clearBtn" class="btn btn-outline-danger"><i class="fas fa-trash me-1"></i>Clear all</button>
+            <div class="d-flex gap-2">
+              <button id="pdfBtn" class="btn btn-outline-primary" title="Download the SAVED winners (Name, Mobile, Location) as a PDF"><i class="fas fa-file-pdf me-1"></i>Download PDF</button>
+              <button id="saveBtn" class="btn btn-success"><i class="fas fa-save me-1"></i>Save winners</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div></div>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const MAX = 10;
+  let WEEK = null;
+  function say(html, cls){ $('msg').innerHTML = html ? '<div class="alert alert-'+(cls||'info')+' py-2 mb-0">'+html+'</div>' : ''; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  async function load(){
+    say('Loading…');
+    try{
+      // Respect ?weekId= from the URL (the dashboard links here with the drawn
+      // week) so the just-selected winners load for editing.
+      const urlWeek = new URLSearchParams(location.search).get('weekId');
+      const r = await fetch('/admin/quiz/api/manual-winners' + (urlWeek ? ('?weekId=' + encodeURIComponent(urlWeek)) : ''));
+      const d = await r.json();
+      if(!r.ok){ say(d.error||'Load failed.','danger'); return; }
+      WEEK = d.weekId; $('weekId').textContent = d.weekId;
+      renderEligible(d.eligible||[], d.saved||[]);
+      prefillManual(d.eligible||[], d.saved||[]);
+      say('');
+      recalc();
+    }catch(e){ say('Network error.','danger'); }
+  }
+
+  function renderEligible(list, saved){
+    $('eligCount').textContent = list.length;
+    const savedIds = new Set((saved||[]).map(s=>s.userId));
+    if(!list.length){
+      $('eligRows').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No fully-eligible members this week.</td></tr>';
+      return;
+    }
+    $('eligRows').innerHTML = list.map(e => (
+      '<tr>'
+      + '<td><input class="form-check-input elig" type="checkbox" '
+        + 'data-uid="'+esc(e.userId)+'" data-name="'+esc(e.name)+'" data-mobile="'+esc(e.mobile)+'" '
+        + 'data-photo="'+esc(e.photo)+'" data-score="'+e.correct+'" data-answered="'+e.answered+'" '
+        + (savedIds.has(e.userId)?'checked':'') + '></td>'
+      + '<td><b>'+esc(e.name)+'</b></td>'
+      + '<td>'+esc(e.mobile||'—')+'</td>'
+      + '<td class="small">'+esc(e.location||'—')+'</td>'
+      + '<td class="text-end">'+e.correct+'/'+e.answered+'</td>'
+      + '<td>'+tagsFor(e)+'</td>'
+      + '</tr>'
+    )).join('');
+    document.querySelectorAll('.elig').forEach(c => c.onchange = recalc);
+  }
+
+  const REASON = { account:'same account', phone:'same mobile number', device:'same phone / app install', name:'same name only' };
+  // 6/6? won before? same name as a past winner? — shown, never blocked.
+  function tagsFor(e){
+    const t = [];
+    const wrap = ' style="white-space:normal;text-align:left;line-height:1.3"';
+    if(e.perfect) t.push('<span class="badge bg-success">6/6 ✓</span>');
+    if(e.pastWin) t.push('<span class="badge bg-danger"'+wrap+' title="'+esc(REASON[e.pastWin.reason]||e.pastWin.reason)+'">🏆 Won '+esc(e.pastWin.weekId)+' · '+esc(REASON[e.pastWin.reason]||e.pastWin.reason)+'</span>');
+    if(e.nameMatch) t.push('<span class="badge bg-warning text-dark"'+wrap+' title="Only the name matches">⚠ same name · '+esc(e.nameMatch.weekId)+'</span>');
+    return t.join(' ');
+  }
+
+  function manualRowHtml(name, mobile){
+    return '<div class="input-group input-group-sm mb-2 mrow">'
+      + '<input type="text" class="form-control mname" placeholder="Name" value="'+esc(name||'')+'">'
+      + '<input type="text" class="form-control mmobile" placeholder="Mobile (optional)" value="'+esc(mobile||'')+'">'
+      + '<button class="btn btn-outline-danger mdel" type="button"><i class="fas fa-times"></i></button>'
+      + '</div>';
+  }
+  function addManualRow(name, mobile){
+    const wrap = document.createElement('div');
+    wrap.innerHTML = manualRowHtml(name, mobile);
+    const el = wrap.firstChild;
+    $('manualRows').appendChild(el);
+    el.querySelector('.mdel').onclick = () => { el.remove(); recalc(); };
+    el.querySelectorAll('input').forEach(i => i.addEventListener('input', recalc));
+    recalc();
+  }
+  function prefillManual(eligible, saved){
+    $('manualRows').innerHTML = '';
+    const manualSaved = (saved||[]).filter(s => s.manual);
+    if(manualSaved.length){ manualSaved.forEach(s => addManualRow(s.name, s.mobile)); }
+    else { addManualRow('', ''); }
+  }
+
+  function collect(){
+    const winners = [];
+    // Ticked eligible first, in table order.
+    document.querySelectorAll('.elig:checked').forEach(c => {
+      winners.push({ userId:c.getAttribute('data-uid'), name:c.getAttribute('data-name'),
+        mobile:c.getAttribute('data-mobile'), photo:c.getAttribute('data-photo'),
+        score:+c.getAttribute('data-score')||0, answered:+c.getAttribute('data-answered')||0, source:'System' });
+    });
+    // Then manual rows that have a name.
+    document.querySelectorAll('#manualRows .mrow').forEach(row => {
+      const name = row.querySelector('.mname').value.trim();
+      const mobile = row.querySelector('.mmobile').value.trim();
+      if(name) winners.push({ name, mobile, source:'Manual' });
+    });
+    return winners;
+  }
+
+  function recalc(){
+    const w = collect();
+    const badge = $('finalBadge');
+    badge.textContent = w.length + ' / ' + MAX;
+    badge.className = 'badge ' + (w.length===0 ? 'bg-secondary' : (w.length>MAX ? 'bg-danger' : 'bg-success'));
+    if(!w.length){
+      $('finalRows').innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Tick or add members to build the list.</td></tr>';
+    } else {
+      $('finalRows').innerHTML = w.map((x,i) => (
+        '<tr'+(i>=MAX?' class="table-danger"':'')+'>'
+        + '<td><b>'+(i+1)+'</b></td>'
+        + '<td>'+esc(x.name)+'</td>'
+        + '<td>'+esc(x.mobile||'—')+'</td>'
+        + '<td><span class="badge '+(x.source==='System'?'bg-primary':'bg-info text-dark')+'">'+x.source+'</span></td>'
+        + '</tr>'
+      )).join('');
+    }
+    $('saveBtn').disabled = w.length===0 || w.length>MAX;
+  }
+
+  async function save(){
+    const winners = collect();
+    if(!winners.length){ say('Add at least one winner.','warning'); return; }
+    if(winners.length>MAX){ say('Maximum '+MAX+' winners. Remove '+(winners.length-MAX)+'.','danger'); return; }
+    if(!confirm('Save '+winners.length+' winner(s) for week '+WEEK+'?\nThis replaces the current app winners list. They appear in the app on Sunday after 10 AM.')) return;
+    $('saveBtn').disabled = true; say('Saving…');
+    try{
+      const r = await fetch('/admin/quiz/api/manual-winners',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ winners, weekId: WEEK })});
+      const d = await r.json();
+      if(!r.ok || !d.ok){ say(d.error||'Save failed.','danger'); recalc(); return; }
+      const rep = (d.repeats||[]);
+      say('✅ Saved '+d.count+' winner(s) for week '+d.weekId+'. They will show in the app on Sunday after 10 AM.'
+        + (rep.length ? '<div class="mt-2 text-danger"><b>🏆 '+rep.length+' of them won before:</b><br>'
+            + rep.map(x => '#'+x.rank+' '+esc(x.name)+' — week '+esc(x.weekId)+' · '+esc(REASON[x.reason]||x.reason)).join('<br>')
+            + '<br>Change and save again if that was not intended.</div>' : ''),
+        rep.length ? 'warning' : 'success');
+    }catch(e){ say('Network error while saving.','danger'); }
+    recalc();
+  }
+
+  async function clearAll(){
+    if(!confirm('Remove ALL winners for week '+WEEK+'? The app winners list becomes empty.')) return;
+    say('Clearing…');
+    try{
+      const r = await fetch('/admin/quiz/api/manual-winners' + (WEEK ? ('?weekId=' + encodeURIComponent(WEEK)) : ''),{method:'DELETE'});
+      const d = await r.json();
+      if(!r.ok || !d.ok){ say(d.error||'Clear failed.','danger'); return; }
+      say('🗑️ Cleared '+(d.deleted||0)+' winner(s).','success');
+      load();
+    }catch(e){ say('Network error while clearing.','danger'); }
+  }
+
+  $('addRow').onclick = () => addManualRow('', '');
+  $('saveBtn').onclick = save;
+  $('clearBtn').onclick = clearAll;
+  // Downloads the SAVED winners (Name, Mobile, Location). Save first if you edited.
+  $('pdfBtn').onclick = () => { window.location.href = '/admin/quiz/api/manual-winners/pdf' + (WEEK ? ('?weekId=' + encodeURIComponent(WEEK)) : ''); };
+  load();
+})();
+</script>
+</body>
+</html>

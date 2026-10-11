@@ -1,6 +1,7 @@
 const Admin = require('../models/Admin');
 const Location = require('../models/Location');
 const DistrictAssignmentRequest = require('../models/DistrictAssignmentRequest');
+const AuditLog = require('../models/AuditLog');
 
 const norm = (s) => String(s || '').trim().toLowerCase();
 const isAdmin = (req) => !!(req.admin && (req.admin.role === 'admin' || req.admin.role === 'superadmin'));
@@ -10,12 +11,19 @@ async function loadIncharge(req) {
   const id = req.admin && (req.admin.id || req.admin._id);
   if (!id) return null;
   const doc = await Admin.findById(id)
-    .select('name username displayRole role assignedState assignedStates managedDistricts managedStates')
+    .select('name username displayRole role assignedState assignedStates managedDistricts managedStates permissions.managedDistricts permissions.managedStates')
     .lean();
   if (!doc) return null;
   const states = [...new Set([doc.assignedState, ...(doc.assignedStates || [])].filter(Boolean))];
   const isStateIncharge = doc.displayRole === 'State In-Charge' || states.length > 0;
-  return { doc, states, districts: doc.managedDistricts || [], isStateIncharge };
+  // The District Division page saves each in-charge's districts under
+  // permissions.managedDistricts — read that FIRST (top-level managedDistricts is a
+  // legacy/empty field). Without this, every in-charge fell back to the WHOLE state's
+  // districts and could assign into another in-charge's districts (overlap).
+  const districts = (doc.permissions && doc.permissions.managedDistricts && doc.permissions.managedDistricts.length)
+    ? doc.permissions.managedDistricts
+    : (doc.managedDistricts || []);
+  return { doc, states, districts, isStateIncharge };
 }
 
 // ── STATE IN-CHARGE: propose an assignment (goes to admin as "pending") ──
@@ -75,6 +83,26 @@ exports.createRequest = async (req, res) => {
           error: `"${district}" already has an in-charge: ${assigned.name || assigned.username}.`,
         });
       }
+      // STRICT (other direction): one district in-charge = ONE district. A reporter
+      // who already holds a district as in-charge, or has another in-charge
+      // proposal pending, cannot be proposed for a second district.
+      const held = await Admin.findOne({
+        _id: reporterId, reporterTier: 'district_incharge',
+        assignedDistricts: { $exists: true, $ne: [] },
+      }).select('assignedDistricts').lean();
+      if (held) {
+        return res.status(409).json({
+          error: `${reporter.name || reporter.username} is already district in-charge of "${(held.assignedDistricts || []).join(', ')}". One person can be in-charge of only one district — remove that first.`,
+        });
+      }
+      const otherPending = await DistrictAssignmentRequest.findOne({
+        reporterId, tier: 'district_incharge', status: 'pending', district: { $ne: district },
+      }).select('district').lean();
+      if (otherPending) {
+        return res.status(409).json({
+          error: `${reporter.name || reporter.username} already has a pending in-charge request for "${otherPending.district}". One person can be in-charge of only one district.`,
+        });
+      }
     }
 
     const doc = await DistrictAssignmentRequest.create({
@@ -108,7 +136,7 @@ exports.myRequests = async (req, res) => {
 exports.listPending = async (req, res) => {
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: 'Admins only.' });
-    const status = ['pending', 'approved', 'rejected'].includes(req.query.status) ? req.query.status : 'pending';
+    const status = ['pending', 'approved', 'rejected', 'revoked'].includes(req.query.status) ? req.query.status : 'pending';
     const rows = await DistrictAssignmentRequest.find({ status })
       .sort({ createdAt: -1 }).limit(300).lean();
     return res.json({ ok: true, status, requests: rows });
@@ -139,13 +167,28 @@ exports.approve = async (req, res) => {
           error: `"${reqDoc.district}" already has an in-charge: ${conflict.name || conflict.username}. Reject this or remove them first.`,
         });
       }
+      // STRICT (other direction): one district in-charge = ONE district.
+      const held = await Admin.findOne({
+        _id: reqDoc.reporterId, reporterTier: 'district_incharge',
+        assignedDistricts: { $exists: true, $ne: [] },
+      }).select('name username assignedDistricts').lean();
+      const otherHeld = held ? (held.assignedDistricts || []).filter(d => norm(d) !== norm(reqDoc.district)) : [];
+      if (otherHeld.length) {
+        return res.status(409).json({
+          error: `${held.name || held.username || reqDoc.reporterName} is already district in-charge of "${otherHeld.join(', ')}". One person can be in-charge of only one district — remove that assignment first.`,
+        });
+      }
     }
 
+    // Remember the tier we are replacing so "Remove" can restore it later.
+    const beforeReporter = await Admin.findById(reqDoc.reporterId).select('reporterTier').lean();
     await Admin.updateOne(
       { _id: reqDoc.reporterId },
       { $addToSet: { assignedDistricts: reqDoc.district }, $set: { reporterTier: reqDoc.tier } }
     );
 
+    // 'none' = the reporter had no tier (regular reporter); null = not captured (old records).
+    reqDoc.previousTier = (beforeReporter && beforeReporter.reporterTier) || 'none';
     reqDoc.status = 'approved';
     reqDoc.reviewedBy = req.admin.id || req.admin._id || null;
     reqDoc.reviewedByName = req.admin.username || req.admin.name || '';
@@ -170,6 +213,75 @@ exports.approve = async (req, res) => {
   } catch (e) {
     console.error('approve error:', e);
     return res.status(500).json({ error: 'Could not approve.' });
+  }
+};
+
+// ── ADMIN: revoke (remove) an APPROVED assignment ──
+// Undoes what approve() applied: pulls the district from the reporter and, when
+// the reporter has no other approved district in-charge assignment left, restores
+// the tier they had before approval (or 'stringer' for old records without it).
+exports.revoke = async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admins only.' });
+    const reqDoc = await DistrictAssignmentRequest.findById(req.params.id);
+    if (!reqDoc) return res.status(404).json({ error: 'Request not found.' });
+    if (reqDoc.status !== 'approved') return res.status(409).json({ error: 'Only approved assignments can be removed (this one is ' + reqDoc.status + ').' });
+
+    const reporter = await Admin.findById(reqDoc.reporterId).select('name username reporterTier assignedDistricts').lean();
+    const before = reporter ? { reporterTier: reporter.reporterTier || null, assignedDistricts: (reporter.assignedDistricts || []).slice() } : null;
+    const update = {};
+    let restoredTier = null;
+    if (reporter) {
+      // Case-insensitive match so a district saved with different casing still gets removed.
+      const match = (reporter.assignedDistricts || []).find(d => norm(d) === norm(reqDoc.district));
+      if (match) update.$pull = { assignedDistricts: match };
+
+      if (reqDoc.tier === 'district_incharge') {
+        const stillIncharge = await DistrictAssignmentRequest.exists({
+          _id: { $ne: reqDoc._id }, reporterId: reqDoc.reporterId, tier: 'district_incharge', status: 'approved',
+        });
+        if (!stillIncharge && reporter.reporterTier === 'district_incharge') {
+          // Tier from BEFORE the reporter first became in-charge: a later request's
+          // previousTier is 'district_incharge' (captured while already in-charge),
+          // so walk back to the earliest capture that is not. 'none' → regular
+          // reporter; nothing captured (old records) → 'stringer'.
+          let prev = reqDoc.previousTier;
+          if (!prev || prev === 'district_incharge') {
+            const earliest = await DistrictAssignmentRequest.findOne({
+              reporterId: reqDoc.reporterId, tier: 'district_incharge',
+              previousTier: { $nin: [null, 'district_incharge'] },
+            }).sort({ reviewedAt: 1 }).select('previousTier').lean();
+            prev = earliest ? earliest.previousTier : null;
+          }
+          restoredTier = prev === 'none' ? null : (prev || 'stringer');
+          update.$set = { reporterTier: restoredTier };
+        }
+      }
+      if (Object.keys(update).length) await Admin.updateOne({ _id: reqDoc.reporterId }, update);
+    }
+
+    reqDoc.status = 'revoked';
+    reqDoc.revokeReason = String((req.body && req.body.reason) || '').trim();
+    reqDoc.revokedBy = req.admin.id || req.admin._id || null;
+    reqDoc.revokedByName = req.admin.username || req.admin.name || '';
+    reqDoc.revokedAt = new Date();
+    await reqDoc.save();
+
+    const after = reporter ? (await Admin.findById(reqDoc.reporterId).select('reporterTier assignedDistricts').lean()) : null;
+    try {
+      await AuditLog.create({
+        actorId: req.admin.id || req.admin._id || null, actorName: req.admin.username || req.admin.name || '', actorRole: req.admin.role,
+        action: 'district_assignment_revoke', entityType: 'DistrictAssignmentRequest', entityId: String(reqDoc._id),
+        targetId: String(reqDoc.reporterId), targetName: reqDoc.reporterName || (reporter && (reporter.name || reporter.username)) || '',
+        description: `Removed ${reqDoc.tier === 'stringer' ? 'stringer' : 'district in-charge'} assignment "${reqDoc.district}" (${reqDoc.state})` + (reqDoc.revokeReason ? ` — ${reqDoc.revokeReason}` : ''),
+        before, after: after ? { reporterTier: after.reporterTier || null, assignedDistricts: after.assignedDistricts || [], restoredTier } : null,
+      });
+    } catch (logErr) { console.error('revoke audit log failed:', logErr.message); }
+
+    return res.json({ ok: true, request: reqDoc, restoredTier });
+  } catch (e) {
+    console.error('revoke error:', e);
+    return res.status(500).json({ error: 'Could not remove the assignment.' });
   }
 };
 
@@ -277,10 +389,33 @@ exports.divisionData = async (req, res) => {
     if (!state) return res.status(400).json({ error: 'state is required.' });
     const districts = (await Location.find({ locationType: 'district', parentName: state })
       .select('name').sort({ name: 1 }).lean()).map((r) => r.name);
-    const incharges = await Admin.find({
-      role: { $in: ['editor', 'subeditor'] }, isActive: { $ne: false },
+    // In-charges only — reporters/desk editors must NOT appear here. Prefer the
+    // org "State In-Charge" role tag (Phase-D metadata, display-filter only, not
+    // authorization); fall back to all sub-editors of the state if roles are
+    // absent. The real division lives in permissions.managedDistricts (top-level
+    // managedDistricts is not in the Admin schema, so the old read/write was
+    // silently broken).
+    const baseQuery = {
+      role: 'subeditor', isActive: { $ne: false },
       $or: [{ assignedState: state }, { assignedStates: state }],
-    }).select('name username managedDistricts displayRole').sort({ name: 1 }).lean();
+    };
+    let query = baseQuery;
+    try {
+      const sicRole = await require('../models/Role').findOne({ name: 'State In-Charge' }).select('_id').lean();
+      if (sicRole) {
+        const n = await Admin.countDocuments({ ...baseQuery, roleIds: sicRole._id });
+        if (n > 0) query = { ...baseQuery, roleIds: sicRole._id };
+      }
+    } catch (_) { /* Role model/collection unavailable → sub-editor fallback */ }
+    const incharges = (await Admin.find(query)
+      .select('name username displayRole permissions.managedDistricts').sort({ name: 1 }).lean())
+      .map((a) => ({
+        _id: a._id,
+        name: a.name,
+        username: a.username,
+        displayRole: a.displayRole,
+        managedDistricts: (a.permissions && a.permissions.managedDistricts) || [],
+      }));
     return res.json({ ok: true, state, districts, incharges });
   } catch (e) {
     console.error('divisionData error:', e);
@@ -296,7 +431,9 @@ exports.saveDivision = async (req, res) => {
     const districts = Array.isArray(req.body && req.body.districts)
       ? [...new Set(req.body.districts.map((d) => String(d).trim()).filter(Boolean))] : [];
     if (!inchargeId) return res.status(400).json({ error: 'inchargeId is required.' });
-    await Admin.updateOne({ _id: inchargeId }, { $set: { managedDistricts: districts } });
+    // Write to the REAL field (schema path). The old top-level $set was silently
+    // stripped by strict mode — "Saved ✓" without saving anything.
+    await Admin.updateOne({ _id: inchargeId }, { $set: { 'permissions.managedDistricts': districts } });
     return res.json({ ok: true, managedDistricts: districts });
   } catch (e) {
     console.error('saveDivision error:', e);

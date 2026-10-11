@@ -43,11 +43,30 @@ function displayViews(source) {
  * @param {object} [source=target] - the doc carrying organic + synthetic counts.
  * @returns {object} the same target (mutated).
  */
+/** Combined display likes = organic likes + engine-owned synthetic likes. */
+function displayLikes(source) {
+  const organic = toInt(source && source.likes);
+  if (!isEnabledCached()) return organic;
+  return organic + toInt(source && source.syntheticLikes);
+}
+
+/** Combined display dislikes = organic + synthetic. */
+function displayDislikes(source) {
+  const organic = toInt(source && source.dislikes);
+  if (!isEnabledCached()) return organic;
+  return organic + toInt(source && source.syntheticDislikes);
+}
+
 function applyDisplayViews(target, source = target) {
   if (target && typeof target === 'object') {
     target.views = displayViews(source);
+    // Blend synthetic likes/dislikes the same way — only when the field is a
+    // number on the payload (so non-news payloads are untouched). Flag OFF or
+    // missing synthetic => byte-identical to today.
+    if (typeof target.likes === 'number') target.likes = displayLikes(source);
+    if (typeof target.dislikes === 'number') target.dislikes = displayDislikes(source);
   }
   return target;
 }
 
-module.exports = { displayViews, applyDisplayViews };
+module.exports = { displayViews, displayLikes, displayDislikes, applyDisplayViews };

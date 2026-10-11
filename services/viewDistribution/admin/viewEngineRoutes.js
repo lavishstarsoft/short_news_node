@@ -284,16 +284,35 @@ router.put('/campaigns/:id', async (req, res) => {
   try {
     const campaign = await ViewCampaign.findById(req.params.id);
     if (!campaign) return res.status(404).json({ error: 'not_found' });
-    if (campaign.status !== 'draft') {
-      return res.status(409).json({ error: 'only draft campaigns can be edited' });
+
+    // Draft → anything. Active/paused → only the safe TARGET fields (name, min,
+    // max); the running window (duration/mode) stays untouched so the allocator
+    // isn't disrupted. Completed/cancelled → not editable.
+    let applied;
+    if (campaign.status === 'draft') {
+      applied = value;
+    } else if (campaign.status === 'active' || campaign.status === 'paused') {
+      applied = {};
+      if (value.name !== undefined) applied.name = value.name;
+      if (value.minViews !== undefined) applied.minViews = value.minViews;
+      if (value.maxViews !== undefined) applied.maxViews = value.maxViews;
+      if (Object.keys(applied).length === 0) {
+        return res.status(400).json({ error: 'for active/paused campaigns only name, minViews, maxViews can be edited' });
+      }
+    } else {
+      return res.status(409).json({ error: `cannot edit a ${campaign.status} campaign` });
     }
+
     const before = campaign.toObject();
-    Object.assign(campaign, value);
+    Object.assign(campaign, applied);
+    if (campaign.maxViews < campaign.minViews) {
+      return res.status(400).json({ error: 'maxViews must be >= minViews' });
+    }
     await campaign.save();
     await writeAudit(req, {
       action: 'view_engine_campaign_update',
       entityId: campaign._id,
-      description: 'Updated draft campaign',
+      description: `Updated ${before.status} campaign`,
       before,
       after: campaign.toObject()
     });

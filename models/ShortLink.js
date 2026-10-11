@@ -8,9 +8,15 @@ const ShortLinkSchema = new mongoose.Schema({
         unique: true,
         index: true
     },
+    // Exactly one target: a news article OR a poll (see pre-validate below).
     newsId: {
         type: String,
-        required: true
+        required: false
+    },
+    pollId: {
+        type: String,
+        required: false,
+        index: true
     },
     createdAt: {
         type: Date,
@@ -21,6 +27,12 @@ const ShortLinkSchema = new mongoose.Schema({
         type: Number,
         default: 0
     }
+});
+
+// A short link must point at something.
+ShortLinkSchema.pre('validate', function (next) {
+    if (!this.newsId && !this.pollId) return next(new Error('newsId or pollId is required'));
+    next();
 });
 
 // Generate a random 6-character short code if none is provided

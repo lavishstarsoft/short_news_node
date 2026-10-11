@@ -295,15 +295,41 @@ function applyReporterCoverageFields(editor, body = {}) {
   const oldDist = editor.assignedDistricts || [];
   const oldConst = editor.assignedConstituencies || [];
 
+  // REPLACEMENT semantics: when the caller supplies the structured coverage
+  // (state/district/constituency selection — i.e. the Edit Member form), the
+  // new selection IS the assignment. Old legacy `assignedLocations` (e.g. a
+  // previous "all districts / all locations" scope) must NOT be carried forward,
+  // otherwise the stale scope silently survives the edit (seen as "+28").
+  // Legacy carry-forward is kept ONLY for callers that send no structured
+  // fields at all (pure legacy updates), for backward compatibility.
+  const structuredProvided =
+    body.assignedStates !== undefined ||
+    body.assignedState !== undefined ||
+    body.assignedDistricts !== undefined ||
+    body.assignedConstituencies !== undefined;
+
   const legacy = body.assignedLocations !== undefined
     ? uniqueStrings(body.assignedLocations)
-    : (editor.assignedLocations || []).filter(loc => 
-        !oldStates.includes(loc) && 
-        !oldDist.includes(loc) && 
-        !oldConst.includes(loc) &&
-        loc !== editor.assignedState &&
-        loc !== editor.location
-      );
+    : structuredProvided
+      ? []
+      : (editor.assignedLocations || []).filter(loc =>
+          !oldStates.includes(loc) &&
+          !oldDist.includes(loc) &&
+          !oldConst.includes(loc) &&
+          loc !== editor.assignedState &&
+          loc !== editor.location
+        );
+
+  // A replacement edit must not keep a stale constituency from the previous
+  // (possibly other-state) assignment: none selected → clear it; some selected
+  // but the stored one isn't among them → adopt the first selected.
+  if (structuredProvided && body.constituency === undefined) {
+    if (!editor.assignedConstituencies.length) {
+      editor.constituency = null;
+    } else if (!editor.assignedConstituencies.includes(editor.constituency)) {
+      editor.constituency = editor.assignedConstituencies[0];
+    }
+  }
 
   editor.assignedLocations = computeAssignedLocations({
     states: editor.assignedStates,
@@ -442,6 +468,50 @@ async function findReporterStateInchargeDoc(Admin, reporterDoc) {
   );
 }
 
+/**
+ * Batch form of findReporterStateInchargeDoc for list pages (display only): ONE
+ * sub-editor query, then per reporter: Bureau → "State In-Charge" → any other active
+ * sub-editor whose approval geography covers them (explicit team match wins at each
+ * step). Returns { [reporterId]: { name, displayRole, mobileNumber, email, state } };
+ * reporters with no covering sub-editor are simply absent. Pure read.
+ */
+async function findStateInchargesForReporters(Admin, reporterDocs = []) {
+  const out = {};
+  if (!reporterDocs.length) return out;
+  const subEditors = await Admin.find({ role: 'subeditor', isActive: { $ne: false } })
+    .select('name username email displayRole mobileNumber permissions assignedStates assignedState')
+    .lean();
+  const isBureau = (s) => /bureau/i.test(s.displayRole || '');
+  const prepared = subEditors.map(s => ({
+    doc: s,
+    coverage: getSubEditorManagedCoverage(s),
+    explicitIds: uniqueStrings(s.permissions?.managedReporterIds || []),
+  }));
+  for (const reporterDoc of reporterDocs) {
+    const reporterId = getAdminId(reporterDoc);
+    const explicitMatches = [];
+    const geoMatches = [];
+    for (const p of prepared) {
+      if (p.explicitIds.includes(reporterId)) explicitMatches.push(p.doc);
+      else if (reporterMatchesCoverage(reporterDoc, p.coverage)) geoMatches.push(p.doc);
+    }
+    const isStateIncharge = (s) => /state\s*in-?\s*charge/i.test(s.displayRole || '');
+    const pick = explicitMatches.find(isBureau) || geoMatches.find(isBureau)
+      || explicitMatches.find(isStateIncharge) || geoMatches.find(isStateIncharge)
+      || explicitMatches[0] || geoMatches[0] || null;
+    if (!pick) continue;
+    const states = uniqueStrings([...(pick.assignedStates || []), ...(pick.assignedState ? [pick.assignedState] : []), ...(pick.permissions?.managedStates || [])]);
+    out[reporterId] = {
+      name: pick.name || pick.username || 'State In-Charge',
+      displayRole: (pick.displayRole || '').trim(),
+      mobileNumber: pick.mobileNumber || '',
+      email: pick.email || '',
+      state: states[0] || '',
+    };
+  }
+  return out;
+}
+
 async function resolveReporterStateIncharge(Admin, reporterDoc) {
   const pick = await findReporterStateInchargeDoc(Admin, reporterDoc);
   if (!pick) return null;
@@ -451,11 +521,110 @@ async function resolveReporterStateIncharge(Admin, reporterDoc) {
   };
 }
 
+/** Staff kind used by the directory / profile overview: subeditor | district_incharge | stringer | reporter */
+function staffKind(p) {
+  if (!p) return 'reporter';
+  if (p.role === 'subeditor') return 'subeditor';
+  if (p.reporterTier === 'district_incharge') return 'district_incharge';
+  if (p.reporterTier === 'stringer') return 'stringer';
+  return 'reporter';
+}
+
+function staffRoleLabel(p) {
+  const k = staffKind(p);
+  if (k === 'subeditor') return (p.displayRole || '').trim() || 'Sub-Editor';
+  if (k === 'district_incharge') return 'District In-Charge';
+  if (k === 'stringer') return 'Stringer';
+  return (p.displayRole || '').trim() || 'Reporter';
+}
+
+const isStateInChargeRole = (s) => /state\s*in-?\s*charge/i.test((s && s.displayRole) || '');
+const isBureauRole = (s) => /bureau/i.test((s && s.displayRole) || '');
+const subEditorRoleLabel = (s) => isStateInChargeRole(s) ? 'State In-Charge' : (isBureauRole(s) ? 'Bureau' : 'Sub-Editor');
+
+/**
+ * "Assigned Responsibility" for one staff member, computed in memory over the
+ * full staff list (no queries): who is responsible for them at STATE level (an
+ * active sub-editor whose explicit team or approval geography covers them —
+ * labelled by their real role) and at DISTRICT level (an active District
+ * In-Charge holding one of their districts, never themselves). Sub-editors get
+ * their own managed states under `self`. Empty arrays = no assignment.
+ */
+function resolveResponsibilityFor(person, staff = []) {
+  const out = { state: [], district: [], self: [] };
+  if (!person) return out;
+  if (person.role === 'subeditor') {
+    out.self = getSubEditorManagedCoverage(person).states;
+    return out;
+  }
+  const active = (s) => s.isActive !== false;
+  const subs = staff.filter(s => s.role === 'subeditor' && active(s));
+  const dics = staff.filter(s => s.role === 'editor' && s.reporterTier === 'district_incharge' && active(s));
+  const rid = getAdminId(person);
+  const cov = getReporterCoverage(person);
+  const normKey = (v) => String(v || '').trim().toLowerCase();
+  const pick = (list) => list.find(isStateInChargeRole) || list.find(isBureauRole) || list[0] || null;
+  // When several in-charges match only by geography (e.g. two MP bureaus), prefer
+  // the one whose assigned DISTRICTS actually include the reporter's district over
+  // one that merely covers the whole state. This makes the pick both specific and
+  // DETERMINISTIC — the same answer everywhere (news card, editor list, PDF),
+  // regardless of the order the staff list happens to be in.
+  const repDistrictKeys = (cov.districts || []).map(normKey).filter(Boolean);
+  const coversReporterDistrict = (s) => {
+    if (!repDistrictKeys.length) return false;
+    const sd = (getSubEditorManagedCoverage(s).districts || []).map(normKey);
+    return repDistrictKeys.some((d) => sd.includes(d));
+  };
+  const pickGeo = (list) => {
+    const districtScoped = (list || []).filter(coversReporterDistrict);
+    return pick(districtScoped.length ? districtScoped : (list || []));
+  };
+  const explicit = [], geo = [];
+  for (const s of subs) {
+    const ids = uniqueStrings(s.permissions && s.permissions.managedReporterIds || []);
+    if (ids.includes(rid)) explicit.push(s);
+    else if (reporterMatchesCoverage(person, getSubEditorManagedCoverage(s))) geo.push(s);
+  }
+  const seen = new Set();
+  const addState = (s, stateName) => {
+    if (!s) return;
+    const k = String(s._id);
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.state.push({ id: k, name: s.name || s.username || '', role: subEditorRoleLabel(s), state: stateName || '' });
+  };
+  addState(pick(explicit), '');
+  if (cov.states.length > 1) {
+    for (const st of cov.states) {
+      const forState = geo.filter(s => { const c = getSubEditorManagedCoverage(s); return !c.states.length || c.states.map(normKey).includes(normKey(st)); });
+      addState(pickGeo(forState), st);
+    }
+  } else {
+    addState(pickGeo(geo), '');
+  }
+  if (person.reporterTier !== 'district_incharge') {
+    for (const d of cov.districts) {
+      const dic = dics.find(x => String(x._id) !== rid && (x.assignedDistricts || []).some(ad => normKey(ad) === normKey(d)));
+      if (dic && !out.district.some(x => x.id === String(dic._id))) {
+        out.district.push({ id: String(dic._id), name: dic.name || dic.username || '', district: cov.districts.length > 1 ? d : '' });
+      }
+    }
+  }
+  return out;
+}
+
 module.exports = {
+  staffKind,
+  staffRoleLabel,
+  isStateInChargeRole,
+  isBureauRole,
+  subEditorRoleLabel,
+  resolveResponsibilityFor,
   uniqueStrings,
   normalizeApprovalScope,
   resolveReporterStateIncharge,
   findReporterStateInchargeDoc,
+  findStateInchargesForReporters,
   syncApprovalScopeToAssigned,
   getAdminId,
   getSubEditorManagedCoverage,

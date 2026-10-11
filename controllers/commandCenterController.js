@@ -5,7 +5,18 @@ try { Location = require('../models/Location'); } catch (e) { Location = null; }
 
 async function renderCommandCenter(req, res) {
   try {
-    res.render('command-center', { admin: req.admin });
+    // TEHELKA NEXA monitoring section — shown to SUPERADMINS only, and gathered
+    // best-effort so it can NEVER break the existing Command Center. Read-only.
+    let nexa = null;
+    if (req.admin && req.admin.role === 'superadmin') {
+      try {
+        nexa = await require('../nexa/commandCenterData').gather();
+      } catch (e) {
+        console.warn('[NEXA] command-center data skipped (non-fatal):', e && e.message);
+        nexa = null;
+      }
+    }
+    res.render('command-center', { admin: req.admin, nexa });
   } catch (error) {
     console.error('Command center error:', error);
     res.status(500).send('Error loading command center');

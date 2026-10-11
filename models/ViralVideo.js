@@ -12,6 +12,10 @@ const viralVideoSchema = new mongoose.Schema({
     views: { type: Number, default: 0 },
     likes: { type: Number, default: 0 },
     dislikes: { type: Number, default: 0 },
+    // Engine-owned synthetic hearts/dislikes — organic likes/dislikes are NEVER
+    // touched; blended for display only (GraphQL ViralVideo resolver).
+    syntheticLikes: { type: Number, default: 0 },
+    syntheticDislikes: { type: Number, default: 0 },
     comments: { type: Number, default: 0 },
     author: { type: String, required: true },
     authorId: { type: String, required: true },

@@ -475,3 +475,10 @@
   .ra-filters { flex-direction: column; align-items: stretch; }
   .ra-search-wrap { max-width: none; }
 }
+
+/* State shown in brackets next to the applicant name (from their form data). */
+.ra-state-tag {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #4f46e5;
+}

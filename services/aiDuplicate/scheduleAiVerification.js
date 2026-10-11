@@ -47,16 +47,25 @@ async function verifyArticle(news) {
           thumbnailUrl: news.thumbnailUrl,
           videoUrl: news.videoUrl,
         },
-        { includePendingCorpus: true }
+        // excludeId keeps the article from matching its OWN saved record: it is
+        // stored as pending (isActive:false) before this runs, so without this
+        // it appears in the candidate corpus and flags itself as a 100% duplicate.
+        { includePendingCorpus: true, excludeId: news._id },
       );
 
       const duplicateCheck = normalizeDuplicateCheck(
         result.duplicateCheck || result
       );
+      // A duplicate flag is only actionable if there is a matched article to
+      // show. If similarArticles is empty ("Comparison data is not available"),
+      // the flag can't be substantiated — publish instead of trapping the news.
+      const hasComparison =
+        Array.isArray(duplicateCheck.similarArticles) &&
+        duplicateCheck.similarArticles.length > 0;
       const isDuplicate =
-        duplicateCheck.isDuplicate === true ||
-        duplicateCheck.isSuspicious === true;
-
+        (duplicateCheck.isDuplicate === true ||
+          duplicateCheck.isSuspicious === true) &&
+        hasComparison;
       if (isDuplicate) {
         // Duplicate suspected — keep Pending for human review
         const updateRes = await News.updateOne(

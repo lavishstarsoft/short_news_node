@@ -14,19 +14,21 @@ const DEFAULT_REVEAL = '23:30';
 const DEFAULT_WINNER_RELEASE = '10:00';
 const DEFAULT_FEED_POSITION = 1;
 const DEFAULT_FEED_POSITION_PLAYED = 7;
-const _base = () => ({ at: 0, langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE, feedPosition: DEFAULT_FEED_POSITION, feedPositionPlayed: DEFAULT_FEED_POSITION_PLAYED });
+const DEFAULT_ROLLOVER_HOUR = 10; // new daily question appears at 10:00 AM IST
+const _rollOr = (v, def) => (Number.isInteger(v) && v >= 0 && v <= 23 ? v : def);
+const _base = () => ({ at: 0, langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE, feedPosition: DEFAULT_FEED_POSITION, feedPositionPlayed: DEFAULT_FEED_POSITION_PLAYED, dayRolloverHour: DEFAULT_ROLLOVER_HOUR });
 let _cache = _base();
-const _view = () => ({ langs: _cache.langs, isEnabled: _cache.isEnabled, revealTime: _cache.revealTime, winnerReleaseTime: _cache.winnerReleaseTime, feedPosition: _cache.feedPosition, feedPositionPlayed: _cache.feedPositionPlayed });
+const _view = () => ({ langs: _cache.langs, isEnabled: _cache.isEnabled, revealTime: _cache.revealTime, winnerReleaseTime: _cache.winnerReleaseTime, feedPosition: _cache.feedPosition, feedPositionPlayed: _cache.feedPositionPlayed, dayRolloverHour: _cache.dayRolloverHour });
 const _posOr = (v, def) => (Number.isInteger(v) && v >= 1 ? v : def);
 
 /** The configured quiz languages, master toggle, reveal/release times + feed positions. Short TTL cache. */
 async function getQuizConfig() {
-  const fallback = { langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE, feedPosition: DEFAULT_FEED_POSITION, feedPositionPlayed: DEFAULT_FEED_POSITION_PLAYED };
+  const fallback = { langs: [], isEnabled: false, revealTime: DEFAULT_REVEAL, winnerReleaseTime: DEFAULT_WINNER_RELEASE, feedPosition: DEFAULT_FEED_POSITION, feedPositionPlayed: DEFAULT_FEED_POSITION_PLAYED, dayRolloverHour: DEFAULT_ROLLOVER_HOUR };
   if (mongoose.connection.readyState !== 1) return fallback; // no DB (e.g. tests)
   const now = Date.now();
   if (now - _cache.at < 60000) return _view();
   try {
-    const s = await QuizSettings.findOne({ key: 'quiz_config' }).select('enabledLanguages isEnabled revealTime winnerReleaseTime feedPosition feedPositionPlayed').lean();
+    const s = await QuizSettings.findOne({ key: 'quiz_config' }).select('enabledLanguages isEnabled revealTime winnerReleaseTime feedPosition feedPositionPlayed dayRolloverHour').lean();
     if (s) {
       const feedPosition = _posOr(s.feedPosition, DEFAULT_FEED_POSITION);
       _cache = {
@@ -38,6 +40,7 @@ async function getQuizConfig() {
         feedPosition,
         // Backward-compatible: if a doc predates this field, reuse the unplayed value.
         feedPositionPlayed: _posOr(s.feedPositionPlayed, feedPosition),
+        dayRolloverHour: _rollOr(s.dayRolloverHour, DEFAULT_ROLLOVER_HOUR),
       };
     } else {
       _cache = { ..._base(), at: now }; // Strict default

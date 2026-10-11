@@ -16,6 +16,35 @@ const MEDIA_METHODS = new Set([
   'image',
 ]);
 
+// Visual "look-alike" methods (embedding / nearest-neighbour). These say
+// "this picture LOOKS like that one", not "this IS that picture". Two different
+// airports, two different Trump photos, etc. can score 85+ here. Such a hit is
+// only a duplicate signal when it is corroborated by text similarity, or when the
+// score is so high it is effectively the same picture.
+const LOOKALIKE_METHODS = new Set(['ann', 'openclip', 'media', 'image']);
+const LOOKALIKE_EXACT_FLOOR = 98; // ANN >= 98 ≈ identical image → treat as exact
+// A same-looking image with DIFFERENT text at/above this score is not auto-marked
+// a duplicate, but is surfaced to the In-Charge to eyeball ("is this the same
+// picture?") — they verify and decide. Below it, too weak to be worth a look.
+const IMAGE_REVIEW_FLOOR = (() => {
+  const n = parseInt(process.env.DUP_IMAGE_REVIEW_FLOOR, 10);
+  return Number.isFinite(n) && n > 0 ? n : 85;
+})();
+// Symmetric rule for TEXT: a content/text match at/above this score is surfaced
+// to the In-Charge as a REVIEW (duplicate suspicion) — even if the AI service's
+// own label ('possible_duplicate' etc.) was weak — and a content-only row BELOW
+// it is dropped so near-misses never clutter the queue. Exact text (hash,
+// score 100) is always a duplicate regardless. Env-tunable without a deploy.
+const CONTENT_REVIEW_FLOOR = (() => {
+  const n = parseInt(process.env.DUP_CONTENT_REVIEW_FLOOR, 10);
+  return Number.isFinite(n) && n > 0 ? n : 85;
+})();
+function isExactMediaMethod(method, score) {
+  const m = String(method || '');
+  if (!LOOKALIKE_METHODS.has(m)) return true; // url / bytes / phash / dhash
+  return typeof score === 'number' && score >= LOOKALIKE_EXACT_FLOOR;
+}
+
 function buildMatchReason(hasImage, hasContent) {
   if (hasImage && hasContent) {
     return {
@@ -226,6 +255,15 @@ function mapAiResponseToDuplicateCheck(aiData, candidates = []) {
   }
 
   const similarArticles = Array.from(similarById.values());
+  // Stamp each match's language from its candidate so the In-Charge dashboard
+  // can keep duplicates SAME-LANGUAGE (te↔te, hi↔hi, ta↔ta): the same photo
+  // reused on a different-language story is not a duplicate for that desk.
+  for (const row of similarArticles) {
+    if (!row.language) {
+      const c = byId.get(String(row.articleId));
+      row.language = c && c.language ? String(c.language).toLowerCase() : '';
+    }
+  }
   // Prefer image / both first for admin visibility
   similarArticles.sort((a, b) => {
     const rank = (s) =>
@@ -257,26 +295,83 @@ function mapAiResponseToDuplicateCheck(aiData, candidates = []) {
     }
   }
 
+  // Demote unconfirmed look-alike image hits: image-only row (no text overlap),
+  // look-alike method, below the exact floor → NOT a duplicate. Text-corroborated
+  // rows (matchSource 'both') and exact media matches are untouched.
+  const demoted = [];
+  for (let i = similarArticles.length - 1; i >= 0; i--) {
+    const row = similarArticles[i];
+    const sim = row.similarity || {};
+    const ov = typeof sim.overall === 'number' ? sim.overall : 0;
+    const imageOnly = row.matchSource === 'image' && !textScoresIndicateContent(sim);
+    const lookalike = !isExactMediaMethod(row.matchType, ov);
+    if (imageOnly && lookalike) {
+      if (ov >= IMAGE_REVIEW_FLOOR) {
+        // Same-looking image, different text: not a confirmed duplicate, but the
+        // In-Charge must SEE it and verify. Keep it as a REVIEW (suspicious) hit.
+        row.isDuplicate = false;
+        row.isSuspicious = true;
+      } else {
+        demoted.push({ articleId: row.articleId, method: row.matchType, overall: ov });
+        similarArticles.splice(i, 1);
+      }
+    }
+  }
+
+  // Symmetric content pass (mirror of the image review floor). A content-only
+  // text row at/above CONTENT_REVIEW_FLOOR is surfaced as a REVIEW even if the
+  // AI label was weak; below it, drop so near-misses don't clutter the queue.
+  // Exact text (hash, already isDuplicate) and image/both rows are untouched.
+  // Pure re-reading of scores the AI already returned → no extra server/AI work.
+  for (let i = similarArticles.length - 1; i >= 0; i--) {
+    const row = similarArticles[i];
+    if (row.matchSource !== 'content' || row.isDuplicate) continue;
+    const sim = row.similarity || {};
+    const ov = typeof sim.overall === 'number' ? sim.overall : 0;
+    if (ov >= CONTENT_REVIEW_FLOOR) {
+      row.isSuspicious = true; // 85%+ reworded/near text → In-Charge verifies
+    } else {
+      demoted.push({ articleId: row.articleId, method: row.matchType, overall: ov });
+      similarArticles.splice(i, 1);
+    }
+  }
+
+  // Recompute after both passes — a kept image row still counts as an image hit,
+  // and a kept 85%+ text row still counts as a content hit.
+  hasImage = similarArticles.some((r) => r.matchSource === 'image' || r.matchSource === 'both');
+  hasContent = similarArticles.some((r) => r.matchSource === 'content' || r.matchSource === 'both');
+  // Media hit only counts at top level when it is exact, or when the matched
+  // article survived demotion (i.e. text corroborated it).
+  const mediaRowSurvived =
+    !!mediaId && similarArticles.some((r) => String(r.articleId) === mediaId);
+  const mediaConfirmed =
+    mediaDup && (isExactMediaMethod(mediaMethod, mediaScore) || mediaRowSurvived);
+  const rowsDup = similarArticles.some((r) => r.isDuplicate === true);
+  const rowsSus = similarArticles.some((r) => r.isSuspicious === true);
+  const anyEvidence = rowsDup || rowsSus || mediaConfirmed;
+
   const overall = (aiData && aiData.overall) || {};
   const isDuplicate =
-    overall.is_duplicate === true ||
-    (mediaDup &&
+    rowsDup ||
+    (overall.is_duplicate === true && anyEvidence) ||
+    (mediaConfirmed &&
       (mediaMethod === 'url' ||
         mediaMethod === 'bytes' ||
-        mediaScore >= 85));
+        mediaScore >= LOOKALIKE_EXACT_FLOOR));
   const isSuspicious =
     !isDuplicate &&
-    (overall.is_suspicious === true ||
-      (mediaDup && mediaScore >= 70));
+    (rowsSus ||
+      (overall.is_suspicious === true && anyEvidence) ||
+      (mediaConfirmed && mediaScore >= 70));
 
   const reason = buildMatchReason(
-    hasImage || (mediaDup && isDuplicate),
+    hasImage || (mediaConfirmed && isDuplicate),
     hasContent ||
-      (!mediaDup && (isDuplicate || isSuspicious || similarArticles.length > 0))
+      (!mediaConfirmed && (isDuplicate || isSuspicious || similarArticles.length > 0))
   );
 
   // If only media flagged overall but no rows, still expose image reason
-  if ((isDuplicate || isSuspicious) && !hasImage && !hasContent && mediaDup) {
+  if ((isDuplicate || isSuspicious) && !hasImage && !hasContent && mediaConfirmed) {
     Object.assign(reason, buildMatchReason(true, false));
   }
 
@@ -292,7 +387,7 @@ function mapAiResponseToDuplicateCheck(aiData, candidates = []) {
   const score = isDuplicate
     ? Math.max(
         typeof overall.score === 'number' ? overall.score : 0,
-        mediaScore,
+        mediaConfirmed ? mediaScore : 0,
         ...similarArticles.map((s) =>
           s.similarity && typeof s.similarity.overall === 'number'
             ? s.similarity.overall
@@ -314,6 +409,7 @@ function mapAiResponseToDuplicateCheck(aiData, candidates = []) {
     reasonLabel: reason.reasonLabel,
     reasonMessage: reason.reasonMessage,
     similarArticles: similarArticles.slice(0, 20),
+    ...(demoted.length ? { demotedLookalikes: demoted } : {}),
   };
 }
 

@@ -26,7 +26,7 @@ const withdrawalRequestSchema = new mongoose.Schema({
   },
   payoutType: {
     type: String,
-    enum: ['upi', 'bank'],
+    enum: ['upi', 'bank', 'phonepe'],
     default: null
   },
   processedBy: {
@@ -46,6 +46,25 @@ const withdrawalRequestSchema = new mongoose.Schema({
   utr: {
     type: String,
     default: ''
+  },
+  // Normalised payout destination ("upi:name@ybl" / "bank:<account no>") — lets the
+  // system spot one UPI / bank account used by several reporter accounts.
+  payoutKey: {
+    type: String,
+    default: null,
+    index: true
+  },
+  // Reporter Security: same UPI / bank / mobile as another reporter account → the
+  // request waits for Super Admin review. The reporter sees a normal pending request.
+  fraudHold: {
+    held: { type: Boolean, default: false },
+    reasons: [{ kind: String, label: String, adminIds: [String] }],
+    linkedAdminIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Admin' }],
+    at: { type: Date, default: null },
+    clearedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
+    clearedByName: { type: String, default: '' },
+    clearedAt: { type: Date, default: null },
+    clearNote: { type: String, default: '' }
   }
 }, { timestamps: true });
 

@@ -180,9 +180,48 @@
                                     <div class="col-lg-8">
                                         <div class="card">
                                             <div class="card-body">
-                                                <h3 class="card-title mb-4">
+                                                <h3 class="card-title mb-3">
                                                     <%= typeof ad !=='undefined' ? 'Edit Ad' : 'Create New Ad' %>
                                                 </h3>
+
+                                                <!-- 📖 Complete Telugu guide (bible) — collapsible -->
+                                                <div class="mb-4">
+                                                    <button class="btn btn-outline-primary w-100 text-start d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#adsGuide" aria-expanded="false">
+                                                        <span><i class="fas fa-book-open me-2"></i><b>📖 Ads పూర్తి గైడ్</b> — ఏ field ఎందుకు, ఎలా పెట్టాలి (తెలుగులో)</span>
+                                                        <i class="fas fa-chevron-down"></i>
+                                                    </button>
+                                                    <div class="collapse mt-2" id="adsGuide">
+                                                        <div class="p-3" style="background:#f7f9ff;border:1px solid #d9e2ff;border-radius:10px;font-size:13.5px;line-height:1.7;color:#2b3440">
+                                                            <div style="color:#555;margin-bottom:10px">👉 ఒక ad పెట్టడం = ① భాష ② Title + Image ③ ఎక్కడికి వెళ్ళాలి (link) ④ ఎంత తరచుగా, ఎంత display. కింద ప్రతిదీ వివరంగా ఉంది.</div>
+
+                                                            <div class="mb-2"><b>① Language</b> — ఈ ad ఏ భాష feed లో చూపించాలి. (Telugu ఎంచుకుంటే Telugu users కే కనిపిస్తుంది.)</div>
+                                                            <div class="mb-2"><b>② Ad Format</b> — <b>Image Only</b> (full-screen image, సాధారణం) లేదా <b>News Format</b> (image + text + button). మొదటిది recommended.</div>
+                                                            <div class="mb-2"><b>③ Title / Content</b> — Title తప్పనిసరి (మీ గుర్తుకి + news format లో చూపిస్తుంది). Content optional.</div>
+                                                            <div class="mb-2"><b>④ Image</b> — <b>9:20 (1080×2400) portrait</b>. Upload నొక్కి crop చేయండి (ads అన్నీ ఇదే size). పూర్తి screen నిండుతుంది.</div>
+                                                            <div class="mb-2"><b>⑤ Ad destination (link)</b> — ad మీద tap చేస్తే ఎక్కడికి వెళ్ళాలి: external website (https://…) లేదా in-app page (Quiz/Games/Viral… dropdown). ఖాళీగా ఉంటే ఎక్కడికీ వెళ్ళదు.</div>
+
+                                                            <hr style="margin:12px 0">
+                                                            <div style="font-weight:700;color:#1b5e20;margin-bottom:6px">💠 ఎంత తరచుగా / ఎంత display (ముఖ్యం)</div>
+                                                            <div class="mb-2"><b>⑥ Position Interval</b> — ఈ ad <b>ప్రతి ఎన్ని news cards కి ఒకసారి</b> రావాలి. ⚠️ ఒకే భాషలో చాలా ads ఉంటే అవన్నీ కలిసి వస్తాయి — కింద 🟢/🟡/🔴 suggestion చూస్తూ పెట్టండి. <b>ప్రతి 6+ cards కి ఒక ad మంచిది</b> (irritation రాదు).</div>
+                                                            <div class="mb-2"><b>⑦ Priority</b> — ఒకే spot లో రెండు ads వస్తే <b>High</b> ముందు (ఎక్కువసార్లు). important/paid → High, filler → Low. అన్నిటికీ High వద్దు.</div>
+                                                            <div class="mb-2"><b>⑧ 💰 Bid / Amount</b> — advertiser ఎంత చెల్లిస్తున్నారో. <b>ఎక్కువ amount = ఎక్కువ display</b> (auction లా). ₹500 ad, ₹100 ad కన్నా ~5× ఎక్కువ కనిపిస్తుంది. 0 = bid లేదు.</div>
+                                                            <div class="mb-2"><b>⑨ 🎯 Impression budget</b> — ఈ ad <b>మొత్తం ఎన్నిసార్లు</b> చూపించాలి. ఆ limit చేరగానే ad <b>automatic ఆగిపోతుంది</b>. 0 = unlimited. (paid ad కి advertiser కొన్న impressions పెట్టండి.)</div>
+
+                                                            <hr style="margin:12px 0">
+                                                            <div style="font-weight:700;color:#7a4f01;margin-bottom:6px">⚙️ Advanced (irritation రాకుండా)</div>
+                                                            <div class="mb-2"><b>⑩ Max Views Per Day</b> — <b>ఒక user కి రోజుకి</b> ఈ ad max ఎన్నిసార్లు. (ఉదా 3 → ఒక్కొక్కరికి రోజుకి 3 సార్లే.)</div>
+                                                            <div class="mb-2"><b>⑪ Cooldown (hours)</b> — ఒక user ఈ ad చూశాక <b>మళ్ళీ చూపించేలోపు కనీస gap</b> (గంటల్లో).</div>
+                                                            <div class="mb-2"><b>⑫ Schedule</b> — ad ని <b>ఒక తేదీ నుంచి ఒక తేదీ వరకే</b> active చేయాలంటే ON చేసి dates పెట్టండి. (లేకపోతే ఎప్పుడూ active.)</div>
+                                                            <div class="mb-2"><b>⑬ AdMob</b> — మన image కాకుండా <b>Google ads</b> చూపించాలంటే ON. (సాధారణ promotions కి OFF.)</div>
+                                                            <div class="mb-2"><b>⑭ Show bottom bar</b> — ad కింద WhatsApp/Viral/Share నావిగేషన్ బార్. కావాల్సిన ad కే ON.</div>
+
+                                                            <hr style="margin:12px 0">
+                                                            <div style="font-weight:700;color:#0b4a8a;margin-bottom:6px">⭐ Professional tips</div>
+                                                            <div style="color:#333">• ఒకే భాషలో <b>1–2 ముఖ్యమైన ads</b> + comfortable interval (6+) → users irritate అవ్వరు.<br>• paid ad కి <b>High priority + Bid + Budget</b> పెట్టండి → ఎక్కువ కనిపిస్తూ, డబ్బు విలువకి తగ్గట్టు ఆగుతుంది.<br>• ఎక్కువైతే Ads page లో <b>Auto-fix</b> నొక్కి intervals సరిచేయండి.</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
                                                 <form id="addAdForm">
                                                     <input type="hidden" id="adId"
                                                         value="<%= typeof ad !== 'undefined' ? ad._id : '' %>">
@@ -203,7 +242,22 @@
                                                         </select>
                                                         <div class="form-text">The ad will only be shown to users who selected this language.</div>
                                                     </div>
-                                                    
+
+                                                    <div class="mb-3">
+                                                        <label for="category" class="form-label">Ad Category <span class="text-muted">(optional)</span></label>
+                                                        <select class="form-select" id="category">
+                                                            <option value="">General / No category</option>
+                                                            <% if (typeof categories !== 'undefined' && categories.length > 0) { %>
+                                                                <% categories.forEach(function(cat) { %>
+                                                                    <option value="<%= cat.name %>" <%= (typeof ad !== 'undefined' && ad.category === cat.name) ? 'selected' : '' %>><%= cat.name %></option>
+                                                                <% }); %>
+                                                            <% } %>
+                                                        </select>
+                                                        <div class="form-text">
+                                                            A news category this ad best fits. Used later to show the ad more to users who read that kind of news. తెలుగు: ఈ ad ఏ రకం news కి సరిపోతుందో ఆ category ఎంచుకోండి — ఆ category చదివే users కి ఇది ఎక్కువ చూపిస్తాం. తెలీకపోతే "General" ఉంచండి.
+                                                        </div>
+                                                    </div>
+
                                                     <div class="mb-3">
                                                         <label for="adFormat" class="form-label">Ad Format</label>
                                                         <select class="form-select" id="adFormat">
@@ -260,11 +314,24 @@
                                                         </div>
                                                     </div>
                                                     <div class="mb-3">
-                                                        <label for="linkUrl" class="form-label">Link URL
-                                                            (Optional)</label>
-                                                        <input type="url" class="form-control" id="linkUrl"
-                                                            placeholder="https://example.com"
+                                                        <label for="linkUrl" class="form-label">Ad destination (Optional)</label>
+                                                        <select class="form-select mb-2" id="internalPage" onchange="if(this.value){document.getElementById('linkUrl').value=this.value;}">
+                                                            <option value="">— External website URL (type below) —</option>
+                                                            <option value="app://profile">In-app page: Profile</option>
+                                                            <option value="app://quiz">In-app page: Quiz</option>
+                                                            <option value="app://games">In-app page: Games</option>
+                                                            <option value="app://viral">In-app page: Viral Videos</option>
+                                                            <option value="app://long">In-app page: Long Videos</option>
+                                                            <option value="app://home">In-app page: Home</option>
+                                                            <option value="app://referral">In-app page: Referral</option>
+                                                        </select>
+                                                        <input type="text" class="form-control" id="linkUrl"
+                                                            placeholder="https://example.com   OR   app://quiz"
                                                             value="<%= typeof ad !== 'undefined' ? ad.linkUrl : '' %>">
+                                                        <div class="form-text">External website URL పెట్టండి, లేదా పైన in-app page ఎంచుకోండి (tap చేస్తే ఆ app page తెరుచుకుంటుంది).</div>
+                                                        <script>
+                                                          (function(){var lu=document.getElementById('linkUrl');var sel=document.getElementById('internalPage');if(lu&&sel&&lu.value.indexOf('app://')===0){for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===lu.value){sel.selectedIndex=i;break;}}}})();
+                                                        </script>
                                                     </div>
 
                                                     <div class="mb-3">
@@ -275,6 +342,9 @@
                                                             value="<%= typeof ad !== 'undefined' ? ad.positionInterval : 3 %>">
                                                         <div class="form-text">Position where the ad should appear in
                                                             the news feed (e.g., every 5th news item)</div>
+                                                        <!-- Live "feed comfort" suggestion -->
+                                                        <div id="intervalHint" style="margin-top:8px;font-size:13px;border-radius:8px;padding:9px 11px;display:none"></div>
+                                                        <button type="button" id="recBtn" class="btn btn-sm btn-outline-success mt-2" style="display:none"><i class="fas fa-magic me-1"></i>Recommended: <span id="recVal">6</span></button>
                                                     </div>
 
                                                     <div class="mb-3">
@@ -289,15 +359,42 @@
                                                             <option value="low" <%=(typeof ad !=='undefined' &&
                                                                 ad.priority==='low' ) ? 'selected' : '' %>>Low</option>
                                                         </select>
-                                                        <div class="form-text">If multiple ads are due at the same
-                                                            position, high priority ads are shown first.</div>
+                                                        <div class="form-text">
+                                                            <b>Priority ఎలా పనిచేస్తుంది:</b> ఒకే spot లో రెండు ads వచ్చే సమయంలో <b>High</b> ad ముందు చూపిస్తుంది (అంటే అది <b>ఎక్కువసార్లు</b> కనిపిస్తుంది), Low తక్కువసార్లు.<br>
+                                                            <b>సలహా:</b> paid/important ads కి <b>High</b>, సాధారణ promotions కి <b>Medium</b>, filler ads కి <b>Low</b> పెట్టండి. అన్నిటికీ High పెడితే priority కి అర్థం ఉండదు — ముఖ్యమైన 1–2 వాటికే High.
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="bidAmount" class="form-label">💰 Bid / Amount (advertiser ఎంత చెల్లిస్తున్నారు)</label>
+                                                        <input type="number" class="form-control" id="bidAmount" min="0" step="1" placeholder="0"
+                                                            value="<%= typeof ad !== 'undefined' && ad.bidAmount ? ad.bidAmount : 0 %>">
+                                                        <div class="form-text"><b>ఎక్కువ amount = ఎక్కువ display.</b> ఒకే భాషలో ads మధ్య ఇది "auction" లా పనిచేస్తుంది — ఎక్కువ pay చేసిన ad proportionally ఎక్కువసార్లు కనిపిస్తుంది. 0 = bid లేదు (priority ఆధారంగా). ఉదా: ₹500 ad, ₹100 ad కన్నా ~5× ఎక్కువ.</div>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="maxImpressions" class="form-label">🎯 Impression budget (మొత్తం ఎన్నిసార్లు చూపించాలి)</label>
+                                                        <input type="number" class="form-control" id="maxImpressions" min="0" step="100" placeholder="0 = unlimited"
+                                                            value="<%= typeof ad !== 'undefined' && ad.maxImpressions ? ad.maxImpressions : 0 %>">
+                                                        <div class="form-text">
+                                                            ఈ ad మొత్తం <b>ఎన్నిసార్లు (views)</b> చూపించాలో limit. ఆ సంఖ్య చేరగానే ad <b>automatic గా ఆగిపోతుంది</b> (paused). <b>0 = unlimited.</b> (paid ad కి advertiser కొన్న impressions పెట్టండి.)
+                                                            <% if (typeof ad !== 'undefined' && ad._id) { %><br>ఇప్పటి వరకు చూపించినవి: <b><%= ad.impressionCount || 0 %></b><% } %>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="form-check form-switch mb-3">
+                                                        <input class="form-check-input" type="checkbox" id="showBottomBar"
+                                                            <%= (typeof ad !== 'undefined' && ad.showBottomBar === true) ? 'checked' : '' %>>
+                                                        <label class="form-check-label" for="showBottomBar">Show bottom bar (Viral / WhatsApp / 3-dots / Share)</label>
+                                                        <div class="form-text">ఈ ఒక్క ad కింద మాత్రమే WhatsApp/Viral/Share నావిగేషన్ బార్ చూపిస్తుంది. Default: OFF.</div>
                                                     </div>
 
                                                     </div>
 
                                                     <!-- Ad Schedule -->
                                                     <div class="settings-section">
-                                                        <h5 class="mb-3"><i class="fas fa-clock me-2"></i>Ad Schedule</h5>
+                                                        <h5 class="mb-1"><i class="fas fa-clock me-2"></i>Ad Schedule</h5>
+                                                        <div class="text-muted small mb-3">ఈ ad ని ఒక తేదీ నుంచి ఒక తేదీ వరకే active చేయాలంటే వాడండి (optional).</div>
                                                         <div class="form-check form-switch mb-3">
                                                             <input class="form-check-input" type="checkbox" id="scheduleEnabled"
                                                                 <%= (typeof ad !== 'undefined' && ad.scheduleEnabled) ? 'checked' : '' %>>
@@ -323,8 +420,9 @@
 
                                                     <!-- Intelligent Ad Settings -->
                                                     <div class="settings-section">
-                                                        <h5 class="mb-3"><i class="fas fa-brain me-2"></i>Intelligent Ad
+                                                        <h5 class="mb-1"><i class="fas fa-brain me-2"></i>Intelligent Ad
                                                             Settings</h5>
+                                                        <div class="text-muted small mb-3">ఒక user కి ఈ ad ఎన్నిసార్లు / ఎంత gap తో చూపించాలి — irritation రాకుండా.</div>
 
                                                         <div class="row">
                                                             <div class="col-md-6 mb-3">
@@ -375,8 +473,9 @@
 
                                                     <!-- AdMob Integration Settings -->
                                                     <div class="settings-section">
-                                                        <h5 class="mb-3"><i class="fas fa-ad me-2"></i>AdMob Integration
+                                                        <h5 class="mb-1"><i class="fas fa-ad me-2"></i>AdMob Integration
                                                         </h5>
+                                                        <div class="text-muted small mb-3">మన image కాకుండా Google ads చూపించాలంటే మాత్రమే ON చేయండి.</div>
 
                                                         <div class="form-check form-switch mb-3">
                                                             <input class="form-check-input" type="checkbox"
@@ -517,7 +616,10 @@
                         const frequencyControlEnabled = document.getElementById('frequencyControlEnabled').checked;
                         const userBehaviorTrackingEnabled = document.getElementById('userBehaviorTrackingEnabled').checked;
                         const priority = document.getElementById('priority').value;
+                        const bidAmount = parseFloat(document.getElementById('bidAmount').value) || 0;
+                        const maxImpressions = parseInt(document.getElementById('maxImpressions').value, 10) || 0;
                         const language = document.getElementById('language').value;
+                        const category = document.getElementById('category').value;
 
                         // AdMob fields
                         const useAdMob = document.getElementById('useAdMob').checked;
@@ -526,6 +628,7 @@
                         const scheduleEnabled = document.getElementById('scheduleEnabled').checked;
                         const scheduleStart = document.getElementById('scheduleStart').value;
                         const scheduleEnd = document.getElementById('scheduleEnd').value;
+                        const showBottomBar = document.getElementById('showBottomBar').checked;
 
                         // Validate required fields
                         if (!language) {
@@ -560,7 +663,11 @@
                             frequencyControlEnabled,
                             userBehaviorTrackingEnabled,
                             priority,
+                            bidAmount,
+                            maxImpressions,
                             language,
+                            category,
+                            showBottomBar,
                             // AdMob fields
                             useAdMob,
                             adMobAppId,
@@ -959,6 +1066,51 @@
                         document.body.appendChild(toast);
                         setTimeout(() => toast.remove(), 3000);
                     }
+                </script>
+                <script>
+                (function(){
+                  var langSel=document.getElementById('language');
+                  var ivInput=document.getElementById('positionInterval');
+                  var hint=document.getElementById('intervalHint');
+                  var recBtn=document.getElementById('recBtn');
+                  var recVal=document.getElementById('recVal');
+                  var adId=(document.getElementById('adId')||{}).value||'';
+                  if(!langSel||!ivInput||!hint||!recBtn) return;
+                  var stats={count:0,sumInv:0};
+                  function render(){
+                    var t=Math.max(1,parseInt(ivInput.value,10)||3);
+                    var totalInv=stats.sumInv + 1/t;
+                    var gapExact=totalInv>0?1/totalInv:999;
+                    var gap=Math.round(gapExact);
+                    var level=gapExact>=6?'good':(gapExact>=3?'warn':'bad');
+                    var col=level==='good'?'#1b8a4b':(level==='warn'?'#9a6b00':'#c62828');
+                    var bg =level==='good'?'#e7f6ec':(level==='warn'?'#fdf4e3':'#fdecec');
+                    var dot=level==='good'?'🟢':(level==='warn'?'🟡':'🔴');
+                    var tag=level==='good'?'Comfortable':(level==='warn'?'Frequent':'Too frequent — users will be irritated');
+                    var freq;
+                    if(gapExact>=1.5) freq='~1 ad every <b>'+gap+'</b> news cards';
+                    else if(gapExact>=0.9) freq='<b>~1 ad on almost every card</b>';
+                    else freq='<b>more than 1 ad per card</b> — some ads won’t even show';
+                    var msg='<b>'+dot+' '+tag+'</b><br>ఈ భాషలో ఇప్పటికే <b>'+stats.count+'</b> active ad(s) ఉన్నాయి. వీటితో కలిపి: '+freq+'.';
+                    if(level!=='good') msg+='<br><span style="color:'+col+'">సలహా: news app కి ప్రతి 6+ cards కి ఒక ad మంచిది — ads తగ్గించండి లేదా interval పెంచండి.</span>';
+                    hint.style.display='block';hint.style.background=bg;hint.style.color='#333';hint.innerHTML=msg;
+                    var denom=(1/6)-stats.sumInv;
+                    var rec=denom>0?Math.max(3,Math.ceil(1/denom)):Math.max(8,t);
+                    recVal.textContent=rec;recBtn.style.display='inline-block';recBtn.setAttribute('data-rec',rec);
+                    recBtn.title=denom<=0?'ఈ భాష already crowded — కొన్ని ads off చేయండి':'';
+                  }
+                  function fetchStats(){
+                    var lang=langSel.value;
+                    if(!lang){stats={count:0,sumInv:0};render();return;}
+                    fetch('/ads/api/lang-stats?lang='+encodeURIComponent(lang)+(adId?('&exclude='+encodeURIComponent(adId)):''))
+                      .then(function(r){return r.json();}).then(function(d){stats={count:d.count||0,sumInv:d.sumInv||0};render();})
+                      .catch(function(){render();});
+                  }
+                  langSel.addEventListener('change',fetchStats);
+                  ivInput.addEventListener('input',render);
+                  recBtn.addEventListener('click',function(){ivInput.value=recBtn.getAttribute('data-rec')||6;render();});
+                  if(langSel.value) fetchStats(); else render();
+                })();
                 </script>
     </body>
 

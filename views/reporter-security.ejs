@@ -1,0 +1,360 @@
+<%- include('partials/header') %>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'Reporter Security', backButton: true, backUrl: '/' }) %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .rs-card { border-radius:12px; border:none; box-shadow:0 4px 6px rgba(0,0,0,.04); }
+  .rs-card .card-header { background:#fff; border-bottom:1px solid #f0f0f0; padding:14px 18px; border-radius:12px 12px 0 0; }
+  .rs-tile { background:#fff; border-radius:12px; padding:14px 16px; border:1px solid #f0f0f0; text-align:center; }
+  .rs-tile h3 { font-weight:800; margin:0; color:#16a34a; }
+  .rs-tile.danger h3 { color:#dc2626; }
+  .rs-tile p { font-size:11px; font-weight:700; color:#6b7280; margin:4px 0 0; text-transform:uppercase; letter-spacing:.03em; }
+  .rs-switch { display:flex; gap:14px; align-items:flex-start; padding:12px 18px; border-bottom:1px solid #f3f4f6; }
+  .rs-switch:last-child { border-bottom:none; }
+  .rs-switch .form-check-input { width:2.6em; height:1.35em; margin-top:2px; cursor:pointer; }
+  .rs-switch .t { font-weight:700; font-size:14px; }
+  .rs-switch .d { font-size:12.5px; color:#6b7280; }
+  .rs-group { border:2px solid #fca5a5; background:#fff5f5; border-radius:12px; margin-bottom:16px; }
+  .rs-group.mobile { border-color:#fdba74; background:#fffaf5; }
+  .rs-group-head { padding:10px 16px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .rs-group-head .title { font-weight:800; color:#b91c1c; }
+  .rs-group.mobile .rs-group-head .title { color:#c2410c; }
+  .rs-key { display:inline-block; background:#fee2e2; color:#991b1b; border-radius:999px; padding:3px 10px; font-size:12px; font-weight:700; }
+  .rs-group.mobile .rs-key { background:#ffedd5; color:#9a3412; }
+  .rs-group table { background:#fff; }
+  .rs-muted { color:#6b7280; font-size:12px; }
+  .rs-badge { font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:999px; }
+  .rs-info-btn { width:36px; height:36px; border-radius:50%; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h1 class="h2 page-title mb-1"><i class="fas fa-user-shield text-danger me-2"></i>Reporter Security</h1>
+      <p class="text-muted mb-0">One person running many reporter accounts · held withdrawals · app login history</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-outline-primary fw-bold" id="refreshBtn"><i class="fas fa-rotate me-2"></i>Refresh</button>
+      <button type="button" class="rs-info-btn" id="infoBtn" title="ఈ page ఎలా పని చేస్తుంది?"><i class="fas fa-info"></i></button>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-6"><div class="rs-tile" id="tileGroups"><h3 id="cntGroups">-</h3><p>Linked account groups</p></div></div>
+    <div class="col-md-3 col-6"><div class="rs-tile" id="tileHeld"><h3 id="cntHeld">-</h3><p>Withdrawals on hold</p></div></div>
+    <div class="col-md-3 col-6"><div class="rs-tile"><h3 id="cntLogins">-</h3><p>App logins today</p></div></div>
+    <div class="col-md-3 col-6"><div class="rs-tile" id="tileFailed"><h3 id="cntFailed">-</h3><p>Failed logins today</p></div></div>
+    <div class="col-md-3 col-6"><div class="rs-tile" id="tileDevices"><h3 id="cntDevices">-</h3><p>Shared phones</p></div></div>
+    <div class="col-md-3 col-6"><div class="rs-tile" id="tilePlaces"><h3 id="cntPlaces">-</h3><p>Two-place accounts</p></div></div>
+  </div>
+
+  <!-- Switches -->
+  <div class="card rs-card mb-4">
+    <div class="card-header"><strong><i class="fas fa-toggle-on text-primary me-2"></i>Security switches</strong>
+      <span class="rs-muted ms-2">అన్నీ మొదట OFF. ON చేసిన వెంటనే పని చేస్తాయి (30 సెకన్లలో).</span></div>
+    <div class="card-body p-0" id="switchBox">
+      <div class="rs-switch"><input class="form-check-input" type="checkbox" role="switch" data-flag="payoutLinkHold">
+        <div><div class="t">Same UPI / bank / mobile → withdrawal HOLD</div>
+          <div class="d">వేరే reporter account లో ఉన్న UPI / bank / mobile తోనే withdrawal అడిగితే, అది Super Admin check చేసేదాకా hold. Reporter కి మామూలు "pending" లాగే కనిపిస్తుంది.</div></div></div>
+      <div class="rs-switch"><input class="form-check-input" type="checkbox" role="switch" data-flag="sicSelfApprovalBlock">
+        <div><div class="t">State In-Charge can't approve reporters they proposed</div>
+          <div class="d">State In-Charge తను stringer / district in-charge గా propose చేసిన reporter news ని తానే approve చేయలేడు — Desk / Admin approve చేయాలి.
+            Proposal తర్వాత <input type="number" min="0" max="3650" class="form-control form-control-sm d-inline-block" style="width:80px" id="windowDays"> రోజుల వరకు (0 = ఎప్పుడూ).</div></div></div>
+      <div class="rs-switch"><input class="form-check-input" type="checkbox" role="switch" data-flag="closeReporterPortal">
+        <div><div class="t">Close the reporter web portal</div>
+          <div class="d">report.cbnyellowsingam.in లో (WebView app తో సహా) login, కొత్త registration ఆగిపోతాయి. Reporters Tehelka News app మాత్రమే వాడాలి.</div></div></div>
+      <div class="rs-switch"><input class="form-check-input" type="checkbox" role="switch" data-flag="blockUnapprovedAppLogin">
+        <div><div class="t">Block app login for unapproved self sign-ups</div>
+          <div class="d">Web portal లో తనంతట తానే register చేసుకుని, ఎవరూ approve చేయని accounts app లో login కాలేవు. Admin create చేసిన accounts కి ఏ మార్పూ లేదు.</div></div></div>
+      <div class="rs-switch"><input class="form-check-input" type="checkbox" role="switch" data-flag="reporterLoginRateLimit">
+        <div><div class="t">Limit wrong-password attempts on app login</div>
+          <div class="d">ఒకే network నుంచి 15 నిమిషాల్లో 30 కంటే ఎక్కువ login ప్రయత్నాలు ఆపుతుంది (password guessing ఆపడానికి).</div></div></div>
+    </div>
+  </div>
+
+  <!-- Phase 2 switches (need the updated app) -->
+  <div class="card rs-card mb-4">
+    <div class="card-header"><strong><i class="fas fa-mobile-screen text-primary me-2"></i>App rules</strong>
+      <span class="rs-muted ms-2">కొత్త app update వచ్చాకే ఇవి ON చేయండి</span></div>
+    <div class="card-body p-0" id="switchBox2">
+      <div class="rs-switch"><input class="form-check-input" type="checkbox" role="switch" data-flag="singleDeviceLogin">
+        <div><div class="t">One device only (Reporters + State In-Charges)</div>
+          <div class="d">కొత్త phone లో login అయితే పాత phone వెంటనే logout అవుతుంది. ఒక account ఒకే phone లో మాత్రమే.
+            పాత app versions (session లేని పాత logins) ఇప్పటికీ పని చేస్తాయి.</div></div></div>
+      <div class="rs-switch"><input class="form-check-input" type="checkbox" role="switch" data-flag="singleDeviceStrict">
+        <div><div class="t">…strict: పాత login లన్నీ కూడా logout</div>
+          <div class="d"><b>జాగ్రత్త:</b> app update చేయని reporters అందరూ ఒకేసారి logout అవుతారు, మళ్ళీ login అవ్వాలి.
+            అందరూ update చేశాక మాత్రమే ON చేయండి.</div></div></div>
+      <div class="rs-switch"><input class="form-check-input" type="checkbox" role="switch" data-flag="requireGpsOnNews">
+        <div><div class="t">News post చేయడానికి GPS తప్పనిసరి</div>
+          <div class="d">Location లేకుండా news post అవ్వదు. Reporter కి "Turn on location" అని మాత్రమే కనిపిస్తుంది.
+            పాత app versions GPS పంపవు — ఇది ON చేసే ముందు కింద "App update" పెట్టండి.</div></div></div>
+      <div class="rs-switch"><input class="form-check-input" type="checkbox" role="switch" data-flag="__none" disabled style="visibility:hidden">
+        <div><div class="t">Reporters must update the app</div>
+          <div class="d">ఈ version కంటే పాత app నుంచి <b>reporter login</b> ఆగిపోతుంది (news చదివేవాళ్ళకి ఏ ఇబ్బందీ లేదు).
+            ఖాళీగా ఉంచితే ఏ గేటూ లేదు. ఉదా: <code>2.0.30</code><br>
+            <input type="text" class="form-control form-control-sm d-inline-block mt-1" style="width:130px" id="minAppVersion" placeholder="2.0.30">
+            <button class="btn btn-sm btn-outline-primary ms-1" id="saveMinVersion">Save</button></div></div></div>
+    </div>
+  </div>
+
+  <!-- Same phone, many accounts -->
+  <div class="card rs-card mb-4">
+    <div class="card-header"><strong><i class="fas fa-mobile-screen-button text-danger me-2"></i>One phone, many accounts</strong>
+      <span class="rs-muted ms-2">ఒకే phone లో వేర్వేరు reporter accounts login అయితే (app update తర్వాతి data మాత్రమే)</span></div>
+    <div class="card-body" id="deviceBox"><div class="text-center text-muted py-3">Loading…</div></div>
+  </div>
+
+  <!-- One reporter, many places -->
+  <div class="card rs-card mb-4">
+    <div class="card-header"><strong><i class="fas fa-location-crosshairs text-danger me-2"></i>One reporter, two places</strong>
+      <span class="rs-muted ms-2">ఒకే account 24 గంటల్లో 60 కి.మీ. కంటే దూరంగా ఉన్న చోట్ల నుంచి (ఉదా: Khammam / Nalgonda)</span></div>
+    <div class="card-body" id="placeBox"><div class="text-center text-muted py-3">Loading…</div></div>
+  </div>
+
+  <!-- Linked groups -->
+  <div class="card rs-card mb-4">
+    <div class="card-header"><strong><i class="fas fa-people-arrows text-danger me-2"></i>One person, many accounts?</strong>
+      <span class="rs-muted ms-2">ఒకే UPI / bank account / mobile ఉన్న reporter & in-charge accounts ఒక group గా</span></div>
+    <div class="card-body" id="groupsBox"><div class="text-center text-muted py-3">Loading…</div></div>
+  </div>
+
+  <!-- Held withdrawals -->
+  <div class="card rs-card mb-4">
+    <div class="card-header"><strong><i class="fas fa-hand text-danger me-2"></i>Withdrawals on hold</strong>
+      <span class="rs-muted ms-2">Check చేసి "Clear hold" నొక్కితే Withdrawals Queue లో pay చేయవచ్చు. మోసం అయితే అక్కడే Reject చేయండి.</span></div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead class="bg-light"><tr><th class="ps-4">Reporter</th><th>Amount</th><th>Why held</th><th>Payment</th><th>Requested</th><th class="text-end pe-4">Action</th></tr></thead>
+      <tbody id="heldBody"><tr><td colspan="6" class="text-center py-3 text-muted">—</td></tr></tbody>
+    </table></div></div>
+  </div>
+
+  <!-- Logins -->
+  <div class="card rs-card mb-4">
+    <div class="card-header"><strong><i class="fas fa-right-to-bracket text-primary me-2"></i>Recent reporter app logins</strong>
+      <span class="rs-muted ms-2">ఎవరు, ఎప్పుడు, ఏ ఊరి నుంచి (internet IP నుంచి — సుమారుగా)</span></div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+      <thead class="bg-light"><tr><th class="ps-4">Time</th><th>Account</th><th>Result</th><th>Place (from IP)</th><th>IP</th><th>Device</th></tr></thead>
+      <tbody id="loginBody"><tr><td colspan="6" class="text-center py-3 text-muted">—</td></tr></tbody>
+    </table></div></div>
+  </div>
+</main>
+
+<script>
+(function () {
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const dt = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+  const day = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  const tierLabel = (t, role, displayRole) => t === 'district_incharge' ? 'District In-Charge' : t === 'stringer' ? 'Stringer' : (role === 'subeditor' ? (displayRole || 'Sub-editor') : 'Reporter');
+  const REASONS = { ok: 'Logged in', bad_password: 'Wrong password', no_account: 'No such account', inactive: 'Deactivated', not_approved: 'Not approved', role: 'Not allowed' };
+
+  let data = null;
+
+  async function load() {
+    document.getElementById('groupsBox').innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div>Checking all reporter accounts…</div>';
+    try {
+      const res = await fetch('/admin/api/reporter-security/overview', { credentials: 'same-origin' });
+      data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      render();
+    } catch (e) {
+      document.getElementById('groupsBox').innerHTML = `<div class="text-danger">${esc(e.message)}</div>`;
+    }
+  }
+
+  function tile(id, n, dangerWhenPositive) {
+    document.getElementById('cnt' + id).textContent = n;
+    const t = document.getElementById('tile' + id);
+    if (t) t.classList.toggle('danger', !!dangerWhenPositive && n > 0);
+  }
+
+  function render() {
+    const c = data.counts;
+    tile('Groups', c.groups, true); tile('Held', c.held, true); tile('Failed', c.failedToday, true);
+    document.getElementById('cntLogins').textContent = c.loginsToday;
+
+    const s = data.settings;
+    document.querySelectorAll('[data-flag]').forEach((el) => { if (el.dataset.flag !== '__none') el.checked = !!s[el.dataset.flag]; });
+    document.getElementById('windowDays').value = s.sicSelfApprovalWindowDays;
+
+    document.getElementById('minAppVersion').value = s.minReporterAppVersion || '';
+    tile('Devices', c.devices || 0, true);
+    tile('Places', c.places || 0, true);
+
+    const db = document.getElementById('deviceBox');
+    db.innerHTML = (data.devices || []).length ? data.devices.map(deviceCard).join('')
+      : '<div class="text-success fw-bold"><i class="fas fa-circle-check me-2"></i>No phone has been used by two reporter accounts.<div class="rs-muted fw-normal mt-1">కొత్త app update వచ్చాక ఇక్కడ data కనిపిస్తుంది.</div></div>';
+
+    const pb = document.getElementById('placeBox');
+    pb.innerHTML = (data.places || []).length ? placeTable(data.places)
+      : '<div class="text-success fw-bold"><i class="fas fa-circle-check me-2"></i>No account appeared in two far-apart places today.</div>';
+
+    const gb = document.getElementById('groupsBox');
+    gb.innerHTML = data.groups.length ? data.groups.map(groupCard).join('') : '<div class="text-success fw-bold"><i class="fas fa-circle-check me-2"></i>No accounts share a UPI, bank account or mobile number.</div>';
+
+    document.getElementById('heldBody').innerHTML = data.held.length ? data.held.map((w) => `<tr>
+        <td class="ps-4 fw-semibold">${esc(w.reporter ? w.reporter.name : 'Unknown')}<div class="rs-muted">${esc(w.reporter ? w.reporter.username : '')} · ${esc(w.reporter ? w.reporter.mobileNumber : '')}</div></td>
+        <td class="fw-bold">${inr(w.amount)}</td>
+        <td>${w.reasons.map((r) => `<span class="rs-key">${esc(r)}</span>`).join(' ')}<div class="rs-muted">also on ${w.linkedCount} other account(s)</div></td>
+        <td class="small" style="max-width:220px">${esc(w.paymentDetails)}</td>
+        <td class="small">${dt(w.createdAt)}</td>
+        <td class="text-end pe-4"><button class="btn btn-sm btn-outline-success fw-bold" data-clear="${esc(w.id)}">Clear hold</button>
+          <a class="btn btn-sm btn-link" href="/admin/withdrawals-queue">Queue</a></td>
+      </tr>`).join('') : '<tr><td colspan="6" class="text-center py-3 text-muted">No withdrawals on hold.</td></tr>';
+
+    document.getElementById('loginBody').innerHTML = data.logins.length ? data.logins.map((l) => `<tr>
+        <td class="ps-4 small">${dt(l.at)}</td>
+        <td class="small fw-semibold">${esc(l.name || l.username)}<div class="rs-muted">${esc(l.username)}</div></td>
+        <td>${l.success ? '<span class="rs-badge bg-success-subtle text-success">Logged in</span>' : `<span class="rs-badge bg-danger-subtle text-danger">${esc(REASONS[l.reason] || l.reason)}</span>`}</td>
+        <td class="small">${esc(l.place || '—')}</td>
+        <td class="small rs-muted">${esc(l.ip)}</td>
+        <td class="small rs-muted">${esc([l.deviceModel, l.appVersion].filter(Boolean).join(' · ') || '—')}</td>
+      </tr>`).join('') : '<tr><td colspan="6" class="text-center py-3 text-muted">No app logins recorded yet — they appear from the next login.</td></tr>';
+  }
+
+  function deviceCard(g) {
+    const rows = g.members.map((m) => `<tr>
+        <td class="ps-3 fw-semibold">${esc(m.name)}<div class="rs-muted">${esc(m.username)}</div>
+          ${m.isActive ? '' : '<span class="rs-badge bg-danger-subtle text-danger">SUSPENDED</span>'} ${m.walletFrozen ? '<span class="rs-badge bg-primary-subtle text-primary">FROZEN</span>' : ''}</td>
+        <td class="small">${esc(tierLabel(m.tier, m.role, m.displayRole))}<div class="rs-muted">${esc([m.state, m.district].filter(Boolean).join(' · '))}</div></td>
+        <td class="small">${day(m.createdAt)}<div class="rs-muted">${m.createdBy ? 'by ' + esc(m.createdBy) : (m.createdVia === 'portal_signup' ? 'self sign-up' : '')}</div></td>
+        <td class="small">${esc(m.proposedBy || '—')}</td>
+        <td class="small">${day(m.firstSeenAt)} → ${day(m.lastSeenAt)}</td>
+        <td class="small">${m.logins} logins · ${m.newsPosts} news</td>
+        <td class="text-end pe-3 text-nowrap">
+          <button class="btn btn-sm ${m.walletFrozen ? 'btn-outline-secondary' : 'btn-outline-primary'}" data-freeze="${esc(m.id)}" data-on="${m.walletFrozen ? 0 : 1}">${m.walletFrozen ? 'Unfreeze' : 'Freeze'}</button>
+          <button class="btn btn-sm ${m.isActive ? 'btn-outline-danger' : 'btn-outline-success'}" data-suspend="${esc(m.id)}" data-on="${m.isActive ? 1 : 0}">${m.isActive ? 'Suspend' : 'Activate'}</button>
+        </td></tr>`).join('');
+    return `<div class="rs-group">
+      <div class="rs-group-head"><span class="title"><i class="fas fa-triangle-exclamation me-1"></i>${g.size} accounts on one phone</span>
+        <span class="rs-key"><i class="fas fa-mobile-screen me-1"></i>${esc(g.deviceModel || 'Phone')} · ${esc(g.deviceId.slice(-8))}</span>
+        ${g.sequential ? '<span class="rs-key">one after another — classic "new account every term"</span>' : ''}</div>
+      <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th class="ps-3">Account</th><th>Role</th><th>Created</th><th>Proposed by (SIC)</th><th>Used on this phone</th><th>Activity</th><th class="text-end pe-3">Action</th></tr></thead>
+        <tbody>${rows}</tbody></table></div></div>`;
+  }
+
+  function placeTable(list) {
+    const rows = list.map((p) => `<tr>
+        <td class="ps-3 fw-semibold">${esc(p.name)}<div class="rs-muted">${esc(p.username)} · ${esc([p.state, p.district].filter(Boolean).join(' · '))}</div></td>
+        <td class="fw-bold text-danger">${p.km} km<div class="rs-muted fw-normal">${p.minutes} min apart</div></td>
+        <td class="small">${esc(p.from.place || '—')}<div class="rs-muted">${dt(p.from.at)} · ${esc(p.from.kind)}</div></td>
+        <td class="small">${esc(p.to.place || '—')}<div class="rs-muted">${dt(p.to.at)} · ${esc(p.to.kind)}</div></td>
+        <td class="small">${p.sameDevice === null ? '—' : (p.sameDevice ? 'Same phone' : '<span class="text-danger fw-bold">Different phones</span>')}</td>
+        <td class="text-end pe-3 text-nowrap">
+          <button class="btn btn-sm ${p.walletFrozen ? 'btn-outline-secondary' : 'btn-outline-primary'}" data-freeze="${esc(p.adminId)}" data-on="${p.walletFrozen ? 0 : 1}">${p.walletFrozen ? 'Unfreeze' : 'Freeze'}</button>
+          <button class="btn btn-sm ${p.isActive ? 'btn-outline-danger' : 'btn-outline-success'}" data-suspend="${esc(p.adminId)}" data-on="${p.isActive ? 1 : 0}">${p.isActive ? 'Suspend' : 'Activate'}</button>
+        </td></tr>`).join('');
+    return `<div class="rs-group"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+      <thead><tr><th class="ps-3">Account</th><th>Distance</th><th>From</th><th>To</th><th>Device</th><th class="text-end pe-3">Action</th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>`;
+  }
+
+  function groupCard(g) {
+    const keys = g.shared.map((k) => `<span class="rs-key"><i class="fas ${k.kind === 'upi' ? 'fa-indian-rupee-sign' : k.kind === 'bank' ? 'fa-building-columns' : 'fa-phone'} me-1"></i>${esc(k.label)}</span>`).join(' ');
+    const rows = g.members.map((m) => `<tr>
+        <td class="ps-3 fw-semibold">${esc(m.name)}<div class="rs-muted">${esc(m.username)}</div>
+          ${m.isActive ? '' : '<span class="rs-badge bg-danger-subtle text-danger">SUSPENDED</span>'} ${m.walletFrozen ? '<span class="rs-badge bg-primary-subtle text-primary">FROZEN</span>' : ''}</td>
+        <td class="small">${esc(tierLabel(m.tier, m.role, m.displayRole))}<div class="rs-muted">${esc([m.state, m.district].filter(Boolean).join(' · '))}</div></td>
+        <td class="small">${day(m.createdAt)}<div class="rs-muted">${m.createdBy ? 'by ' + esc(m.createdBy) : (m.createdVia === 'portal_signup' ? 'self sign-up' : '')}</div></td>
+        <td class="small">${esc(m.proposedBy || '—')}</td>
+        <td class="small">${m.lastLoginAt ? dt(m.lastLoginAt) : '—'}<div class="rs-muted">${esc(m.lastLoginPlace)}</div></td>
+        <td class="small">${m.withdrawals} req · <b>${inr(m.paid)}</b> paid<div class="rs-muted">Wallet ${inr(m.walletBalance)}</div></td>
+        <td class="text-end pe-3 text-nowrap">
+          <button class="btn btn-sm ${m.walletFrozen ? 'btn-outline-secondary' : 'btn-outline-primary'}" data-freeze="${esc(m.id)}" data-on="${m.walletFrozen ? 0 : 1}">${m.walletFrozen ? 'Unfreeze' : 'Freeze'}</button>
+          <button class="btn btn-sm ${m.isActive ? 'btn-outline-danger' : 'btn-outline-success'}" data-suspend="${esc(m.id)}" data-on="${m.isActive ? 1 : 0}">${m.isActive ? 'Suspend' : 'Activate'}</button>
+        </td></tr>`).join('');
+    return `<div class="rs-group ${g.strength === 'mobile' ? 'mobile' : ''}">
+      <div class="rs-group-head"><span class="title"><i class="fas fa-triangle-exclamation me-1"></i>${g.size} accounts · ${g.strength === 'payout' ? 'same payout account' : 'same mobile'}</span>${keys}</div>
+      <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th class="ps-3">Account</th><th>Role</th><th>Created</th><th>Proposed by (SIC)</th><th>Last app login</th><th>Withdrawals</th><th class="text-end pe-3">Action</th></tr></thead>
+        <tbody>${rows}</tbody></table></div></div>`;
+  }
+
+  async function post(url, body) {
+    const res = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || 'Failed');
+    return j;
+  }
+
+  document.getElementById('saveMinVersion').addEventListener('click', async () => {
+    try {
+      const j = await post('/admin/api/reporter-security/settings', { minReporterAppVersion: document.getElementById('minAppVersion').value.trim() });
+      data.settings = j.settings;
+      document.getElementById('minAppVersion').value = j.settings.minReporterAppVersion || '';
+      Swal.fire({ toast: true, position: 'top-end', timer: 2000, showConfirmButton: false, icon: 'success', title: j.settings.minReporterAppVersion ? 'Minimum version: ' + j.settings.minReporterAppVersion : 'Version gate removed' });
+    } catch (err) { Swal.fire('Not saved', err.message, 'error'); }
+  });
+
+  ['switchBox', 'switchBox2'].forEach((id) => document.getElementById(id).addEventListener('change', async (e) => {
+    const el = e.target;
+    const patch = {};
+    if (el.dataset.flag) patch[el.dataset.flag] = el.checked;
+    else if (el.id === 'windowDays') patch.sicSelfApprovalWindowDays = Number(el.value);
+    else return;
+    try {
+      const j = await post('/admin/api/reporter-security/settings', patch);
+      data.settings = j.settings;
+      Swal.fire({ toast: true, position: 'top-end', timer: 1800, showConfirmButton: false, icon: 'success', title: 'Saved' });
+    } catch (err) {
+      if (el.dataset.flag) el.checked = !el.checked;
+      Swal.fire('Not saved', err.message, 'error');
+    }
+  }));
+
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    try {
+      if (b.dataset.clear) {
+        const { value } = await Swal.fire({ title: 'Clear this hold?', text: 'Why is this withdrawal fine? (saved in the audit log)', input: 'text', showCancelButton: true, confirmButtonText: 'Clear hold', inputValidator: (v) => (!v || v.trim().length < 5) ? 'At least 5 characters' : null });
+        if (!value) return;
+        await post(`/admin/api/reporter-security/withdrawals/${b.dataset.clear}/clear-hold`, { note: value });
+        load();
+      } else if (b.dataset.freeze) {
+        const on = b.dataset.on === '1';
+        let reason = '';
+        if (on) {
+          const r = await Swal.fire({ title: 'Freeze wallet?', text: 'Reason (min 5 characters)', input: 'text', showCancelButton: true, inputValidator: (v) => (!v || v.trim().length < 5) ? 'At least 5 characters' : null });
+          if (!r.value) return; reason = r.value;
+        }
+        await post(`/admin/api/fraud/reporter/${b.dataset.freeze}/wallet-freeze`, { freeze: on, reason });
+        load();
+      } else if (b.dataset.suspend) {
+        const on = b.dataset.on === '1';
+        let reason = '';
+        if (on) {
+          const r = await Swal.fire({ title: 'Suspend account?', text: 'Reason (min 5 characters)', input: 'text', showCancelButton: true, inputValidator: (v) => (!v || v.trim().length < 5) ? 'At least 5 characters' : null });
+          if (!r.value) return; reason = r.value;
+        }
+        await post(`/admin/api/fraud/reporter/${b.dataset.suspend}/suspend`, { suspend: on, reason });
+        load();
+      }
+    } catch (err) {
+      Swal.fire('Failed', err.message, 'error');
+    }
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', load);
+  document.getElementById('infoBtn').addEventListener('click', () => Swal.fire({
+    title: 'Reporter Security — ఎలా పని చేస్తుంది?',
+    width: 640,
+    html: `<div style="text-align:left;font-size:14px;line-height:1.6">
+      <p><b>1. One person, many accounts (ఎరుపు groups):</b> రెండు లేదా ఎక్కువ reporter accounts కి ఒకే UPI / bank account / mobile number ఉంటే, అవి ఒకే మనిషివి కావచ్చు. అవి ఒక group గా ఎరుపు రంగులో వస్తాయి.<br>
+      <i>ఉదా:</i> Stringer A, B, C ముగ్గురూ <b>ravi@ybl</b> కి డబ్బు తీసుకున్నారు → ఒకే group, "Proposed by" లో ఏ State In-Charge propose చేశాడో కూడా కనిపిస్తుంది.</p>
+      <p><b>2. Withdrawal HOLD:</b> Switch ON చేస్తే, అలాంటి UPI / bank / mobile తో వచ్చే కొత్త withdrawal ఆగుతుంది. Withdrawals Queue లో "Approve" పని చేయదు. మీరు check చేసి "Clear hold" నొక్కితేనే pay చేయవచ్చు. Reporter కి "pending" అనే కనిపిస్తుంది.</p>
+      <p><b>3. State In-Charge rule:</b> ON చేస్తే, State In-Charge తను propose చేసిన stringer news ని తానే approve చేయలేడు. Desk / Admin approve చేయాలి. (రోజుల box = propose చేసిన తర్వాత ఎన్ని రోజుల వరకు ఈ rule.)</p>
+      <p><b>4. App logins:</b> ప్రతి reporter app login (సరైనది / తప్పు password) ఊరు, సమయంతో కింద కనిపిస్తుంది. ఊరు internet IP నుంచి — సుమారుగా మాత్రమే. (Phone ID, GPS తర్వాతి app update తో వస్తాయి.)</p>
+      <p class="mb-0"><b>ఇక్కడ (Admin) → అక్కడ (App):</b> switches మార్చిన 30 సెకన్లలో app / withdrawals / approvals మీద అమలు అవుతాయి. ప్రతి మార్పు audit log లో save అవుతుంది.</p>
+    </div>`,
+    confirmButtonText: 'అర్థమైంది',
+  }));
+
+  load();
+})();
+</script>
+
+<%- include('partials/footer') %>

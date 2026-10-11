@@ -7,6 +7,10 @@
  * eligible list / admin view) is correctCount desc, then earliest completion.
  * Two modes: random_lottery (crypto Fisher–Yates) and admin_select (exactly 10 of
  * the eligible). One-time is enforced by an atomic QuizWeek status flip.
+ *
+ * The lottery draws only from lotteryPool(): all 6 answered AND all 6 correct AND
+ * never won before (quizPastWinnerService). Fewer than 10 in the pool → all of them
+ * win and the admin fills the rest on the Winners (Manual) page.
  */
 
 const crypto = require('crypto');
@@ -16,6 +20,7 @@ const QuizWinner = require('../models/QuizWinner');
 const { QUIZ_DAYS, WINNER_COUNT, isWeekOver, weekMeta } = require('../utils/quizWeek');
 const { logAudit } = require('../utils/auditLogger');
 const { deviceFlagsForWinners } = require('./quizCollusionService');
+const { screenPastWinners } = require('./quizPastWinnerService');
 
 /** Per-user week stats + eligibility. Reads QuizEntry once (no N+1). */
 async function computeWeekStats(weekId) {
@@ -28,6 +33,25 @@ async function computeWeekStats(weekId) {
     .filter((p) => p.answered >= QUIZ_DAYS)
     .sort((a, b) => (b.correct - a.correct) || (new Date(a.lastSubmittedAt) - new Date(b.lastSubmittedAt)));
   return { participants, eligible };
+}
+
+/**
+ * Who goes into the random lottery: the eligible users who got all 6 right and
+ * have never won before (same account, phone or device). A same-name match does
+ * not keep anyone out — it comes back as a warning for the admin.
+ * `screen` (userId → screening) may be passed in when the caller already has it.
+ */
+async function lotteryPool(weekId, eligible, screen) {
+  const perfect = eligible.filter((e) => e.correct >= QUIZ_DAYS);
+  const s = screen || await screenPastWinners(weekId, perfect.map((e) => e.userId));
+  const pool = []; const excluded = []; const nameWarnings = [];
+  for (const e of perfect) {
+    const r = s.get(e.userId) || {};
+    if (r.pastWin) { excluded.push({ userId: e.userId, name: r.name || '', ...r.pastWin }); continue; }
+    pool.push(e);
+    if (r.nameMatch) nameWarnings.push({ userId: e.userId, name: r.name || '', ...r.nameMatch });
+  }
+  return { perfect: perfect.length, pool, excluded, nameWarnings };
 }
 
 /** crypto-random pick of n distinct items (partial Fisher–Yates). */
@@ -57,9 +81,15 @@ async function selectWinners({ weekId, mode, adminUserIds, actor, req, displayNa
   const byUser = new Map(eligible.map((e) => [e.userId, e]));
 
   let chosen;
+  let lottery = null;
   if (mode === 'random_lottery') {
-    if (eligible.length < WINNER_COUNT) return { ok: false, error: `Only ${eligible.length} eligible — need at least ${WINNER_COUNT} for a lottery.` };
-    chosen = cryptoPick(eligible, WINNER_COUNT);
+    lottery = await lotteryPool(weekId, eligible);
+    if (!lottery.pool.length) {
+      return { ok: false, error: lottery.perfect
+        ? `All ${lottery.perfect} who scored ${QUIZ_DAYS}/${QUIZ_DAYS} have won before — no one new to draw. Use the Winners (Manual) page.`
+        : `No one scored ${QUIZ_DAYS}/${QUIZ_DAYS} this week — nothing to draw. Use the Winners (Manual) page.` };
+    }
+    chosen = cryptoPick(lottery.pool, WINNER_COUNT); // fewer than 10 in the pool → all of them
   } else {
     const ids = Array.isArray(adminUserIds) ? adminUserIds.map(String) : [];
     if (ids.length !== WINNER_COUNT) return { ok: false, error: `Select exactly ${WINNER_COUNT} winners.` };
@@ -93,8 +123,25 @@ async function selectWinners({ weekId, mode, adminUserIds, actor, req, displayNa
   // before payout so legit family-on-one-phone cases aren't auto-penalised.
   const flagged = await deviceFlagsForWinners(weekId, chosen.map((e) => e.userId));
 
-  logAudit({ req, action: 'quiz_winners_selected', entityType: 'QuizWeek', entityId: weekId, description: `Selected ${WINNER_COUNT} winners for ${weekId} via ${mode}`, after: { mode, winners: docs.map((d) => ({ rank: d.rank, userId: d.userId, score: d.score })), flagged } });
-  return { ok: true, mode, weekId, winners: docs.map((d) => ({ rank: d.rank, userId: d.userId, displayName: d.displayName, score: d.score })), flagged };
+  // The draw's proof: who was in the pool, and who was kept out and why.
+  const chosenIds = new Set(docs.map((d) => d.userId));
+  const draw = lottery && {
+    scoredPerfect: lottery.perfect,
+    pool: lottery.pool.length,
+    excluded: lottery.excluded.map((x) => ({ userId: x.userId, reason: x.reason, weekId: x.weekId })),
+  };
+  logAudit({ req, action: 'quiz_winners_selected', entityType: 'QuizWeek', entityId: weekId, description: `Selected ${docs.length} winners for ${weekId} via ${mode}${draw ? ` (pool ${draw.pool} of ${draw.scoredPerfect} perfect scorers, ${draw.excluded.length} past winners kept out)` : ''}`, after: { mode, winners: docs.map((d) => ({ rank: d.rank, userId: d.userId, score: d.score })), flagged, draw } });
+  return {
+    ok: true, mode, weekId,
+    winners: docs.map((d) => ({ rank: d.rank, userId: d.userId, displayName: d.displayName, score: d.score })),
+    flagged,
+    ...(draw && {
+      pool: draw.pool,
+      excludedPastWinners: draw.excluded.length,
+      short: WINNER_COUNT - docs.length,
+      nameWarnings: lottery.nameWarnings.filter((w) => chosenIds.has(w.userId)),
+    }),
+  };
 }
 
-module.exports = { computeWeekStats, cryptoPick, selectWinners };
+module.exports = { computeWeekStats, lotteryPool, cryptoPick, selectWinners };

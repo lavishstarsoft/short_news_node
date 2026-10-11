@@ -1,0 +1,318 @@
+<%/*
+  org-handbook.ejs — Super Admin "Organization & Access Handbook" modal.
+  Expects locals: guide { FEATURES, ACTIONS, GOLDEN_RULES, FAQ }, shadowOn (bool), catalog (permission groups).
+  Content lives in constants/orgGuide.js — update THERE when features ship.
+  Documentation only: no action buttons, no data changes, no fake functionality.
+*/%>
+<style>
+  /* Handbook styles (scoped by .obk- prefix) */
+  .obk-body { font-size: .95rem; color:#333; }
+  .obk-toc { display:flex; flex-wrap:wrap; gap:6px; }
+  .obk-toc a { font-size:12px; font-weight:600; padding:5px 11px; border-radius:999px; background:#f1f3f6; color:#444; text-decoration:none; }
+  .obk-toc a:hover { background:#e2e8f0; }
+  .obk-h { font-weight:800; font-size:1.05rem; margin:26px 0 10px; padding-top:6px; border-top:2px solid #f1f3f6; }
+  .obk-h i { width:26px; }
+  .obk-box { border:1px solid #eee; border-radius:12px; padding:14px 16px; background:#fff; }
+  .obk-example { background:#f8fbff; border:1px solid #d7e8ff; border-radius:12px; padding:14px 16px; }
+  .obk-warn { background:#fff8e6; border:1px solid #ffe1a1; border-radius:12px; padding:12px 14px; }
+  .obk-badge-now { background:#d1e7dd; color:#0f5132; font-size:10px; font-weight:800; padding:2px 8px; border-radius:999px; }
+  .obk-badge-fut { background:#eef0f2; color:#666; font-size:10px; font-weight:800; padding:2px 8px; border-radius:999px; }
+  /* Flow diagrams: boxes + arrows, reflow on mobile */
+  .obk-flow { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .obk-node { min-width:190px; max-width:100%; text-align:center; padding:8px 14px; border-radius:10px; font-weight:700; font-size:13px; border:1.5px solid; }
+  .obk-node small { display:block; font-weight:500; font-size:11px; opacity:.8; }
+  .obk-arrow { color:#94a3b8; font-size:15px; line-height:1; }
+  .obk-flow-h { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:6px; }
+  .obk-flow-h .obk-arrow { transform:none; }
+  .n-org  { background:#eef2ff; border-color:#c7d2fe; color:#3730a3; }
+  .n-dept { background:#ecfeff; border-color:#a5f3fc; color:#155e75; }
+  .n-team { background:#f0fdf4; border-color:#bbf7d0; color:#166534; }
+  .n-role { background:#fef9c3; border-color:#fde68a; color:#854d0e; }
+  .n-staff{ background:#fff1f2; border-color:#fecdd3; color:#9f1239; }
+  .n-perm { background:#f5f3ff; border-color:#ddd6fe; color:#5b21b6; }
+  .n-scope{ background:#fdf2f8; border-color:#fbcfe8; color:#9d174d; }
+  .n-work { background:#f1f5f9; border-color:#cbd5e1; color:#334155; }
+  .obk-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width: 767px){ .obk-grid-2 { grid-template-columns:1fr; } .obk-node { min-width:150px; } }
+  .obk-map { border-left:2px solid #e2e8f0; margin-left:10px; padding-left:16px; }
+  .obk-map li { margin:4px 0; font-size:13px; }
+</style>
+
+<div class="modal fade" id="orgHandbookModal" tabindex="-1" aria-labelledby="orgHandbookTitle" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header" style="background:#0f172a;color:#fff;border-top-left-radius:14px;border-top-right-radius:14px;">
+        <h5 class="modal-title fw-bold" id="orgHandbookTitle"><i class="fas fa-book-open me-2"></i>Organization &amp; Access Handbook</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body obk-body p-3 p-md-4">
+
+        <p class="text-muted">Everything a Super Admin needs to understand the organization system — in simple language.
+          <span class="obk-badge-now">CURRENT</span> = works today &nbsp; <span class="obk-badge-fut">FUTURE</span> = planned, not live yet.</p>
+
+        <!-- TOC -->
+        <div class="obk-toc mb-2">
+          <a href="#obk-map">Organization Map</a><a href="#obk-example">Example</a><a href="#obk-dept">Departments</a>
+          <a href="#obk-team">Teams</a><a href="#obk-role">Roles</a><a href="#obk-perm">Permissions</a>
+          <a href="#obk-scope">Scope</a><a href="#obk-staff">Staff steps</a><a href="#obk-disable">Disable/Enable</a>
+          <a href="#obk-approval">Approvals</a><a href="#obk-shadow">Shadow Mode</a><a href="#obk-authz">Authorization</a>
+          <a href="#obk-audit">Audit</a><a href="#obk-rules">Golden Rules</a><a href="#obk-actions">If I do this…</a>
+          <a href="#obk-status">Now vs Next</a><a href="#obk-faq">FAQ</a>
+        </div>
+
+        <!-- 1. ORGANIZATION MAP -->
+        <h6 class="obk-h" id="obk-map"><i class="fas fa-sitemap text-primary"></i> The Organization Map</h6>
+        <div class="obk-box">
+          <div class="obk-flow">
+            <div class="obk-node n-org">TAHELKA NEWS<small>The whole organization</small></div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-dept">DEPARTMENT <span class="obk-badge-fut">FUTURE</span><small>A big group — Editorial, Accounts…</small></div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-team">TEAM <span class="obk-badge-fut">FUTURE</span><small>A small working group inside a department</small></div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-role">ROLE<small>The kind of job — Editor, Reporter…</small></div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-staff">STAFF<small>The actual person</small></div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-perm">PERMISSIONS<small>What they can do</small></div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-scope">SCOPE<small>Where / for whom they can do it</small></div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-work">WORK &amp; APPROVALS<small>The daily job, safely recorded</small></div>
+          </div>
+        </div>
+
+        <!-- 2. REAL-WORLD EXAMPLE -->
+        <h6 class="obk-h" id="obk-example"><i class="fas fa-user text-success"></i> A Real-World Example</h6>
+        <div class="obk-example">
+          <div class="obk-flow-h mb-2">
+            <span class="obk-node n-org">Tahelka News</span><span class="obk-arrow">→</span>
+            <span class="obk-node n-dept">Accounts Dept.</span><span class="obk-arrow">→</span>
+            <span class="obk-node n-team">Payments Team</span><span class="obk-arrow">→</span>
+            <span class="obk-node n-role">Accounts Manager</span><span class="obk-arrow">→</span>
+            <span class="obk-node n-staff">Ravi</span>
+          </div>
+          <p class="mb-1 small"><strong>Ravi's permissions:</strong> View Payments · Review Payments · Approve Payments.<br>
+          <strong>Ravi's scope:</strong> Accounts department only.</p>
+          <p class="mb-1 small">So: Ravi can do the tasks of his role — but he <strong>cannot</strong> automatically open Editorial pages or other departments' work.</p>
+          <p class="mb-0 small text-muted"><i class="fas fa-info-circle me-1"></i><em>Example only — the actual organization will be configured in the system (Departments/Teams/Roles are a future phase).</em></p>
+        </div>
+
+        <!-- 3. DEPARTMENTS -->
+        <h6 class="obk-h" id="obk-dept"><i class="fas fa-building text-info"></i> What is a Department? <span class="obk-badge-fut">FUTURE</span></h6>
+        <div class="obk-box small">
+          <p class="mb-1">A department is a <strong>big group of staff doing the same kind of work</strong> — like classes in a school. Examples: <strong>Editorial · Accounts &amp; Finance · Field Operations · IT/Security</strong>.</p>
+          <p class="mb-1">When you create one (future), it becomes a group you can place teams and staff under, and it lets you see and manage each part of the company separately. Each department should have a responsible head.</p>
+          <div class="obk-warn small mt-2 mb-0"><strong>Before creating a department, remember:</strong> avoid duplicates · use clear names · don't create a department for every tiny task · a department is a <em>grouping</em>, not a permission by itself.</div>
+        </div>
+
+        <!-- 4. TEAMS -->
+        <h6 class="obk-h" id="obk-team"><i class="fas fa-people-group text-success"></i> What is a Team? <span class="obk-badge-fut">FUTURE</span></h6>
+        <div class="obk-box small">
+          <p class="mb-2">A team is a <strong>smaller working group inside a department</strong>.</p>
+          <div class="obk-grid-2">
+            <div class="obk-flow"><div class="obk-node n-dept">Accounts Department</div><div class="obk-arrow">↓</div><div class="obk-node n-team">Payments Team</div></div>
+            <div class="obk-flow"><div class="obk-node n-dept">Editorial Department</div><div class="obk-arrow">↓</div><div class="obk-node n-team">News Editing Team</div></div>
+          </div>
+          <p class="mb-0 mt-2"><strong>Department = the big group. Team = the small group inside it.</strong></p>
+        </div>
+
+        <!-- 5. ROLES -->
+        <h6 class="obk-h" id="obk-role"><i class="fas fa-id-badge text-warning"></i> What is a Role?</h6>
+        <div class="obk-box small">
+          <p class="mb-2">A role describes <strong>what kind of work a person is responsible for</strong>. Examples: Editor · Sub-Editor · Accounts Manager · District In-Charge · Reporter.</p>
+          <div class="obk-flow mb-2">
+            <div class="obk-node n-staff">Person (Ravi)</div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-role">Role (Accounts Manager)</div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-perm">Permissions (view / review / approve payments)</div>
+          </div>
+          <p class="mb-0"><strong>Remember:</strong> Role ≠ Department (a role is a job, not a group) · Role ≠ Person (many people can share one role) · Role ≠ Permission (a role is a <em>bundle</em> of permissions). <span class="text-muted">Full role management is a future phase — today roles are the existing system roles.</span></p>
+        </div>
+
+        <!-- 6. PERMISSIONS -->
+        <h6 class="obk-h" id="obk-perm"><i class="fas fa-key text-primary"></i> What is a Permission?</h6>
+        <div class="obk-box small">
+          <p class="mb-2">A permission is <strong>one single ability</strong>. Some examples from the real catalog:</p>
+          <ul class="mb-2">
+            <li><code>news.view</code> = can see news &nbsp;·&nbsp; <code>news.create</code> = can create news &nbsp;·&nbsp; <code>news.approve</code> = can approve news</li>
+            <li><code>payments.approve</code> = can approve payments &nbsp;·&nbsp; <code>users.view</code> = can view users</li>
+          </ul>
+          <p class="mb-1">Permissions should normally be attached to <strong>roles</strong> (so everyone with the same job has the same abilities) — rather than handing random permissions to each person. <span class="obk-badge-fut">FUTURE</span> <span class="text-muted">Today this catalog is reference-only; see the <a href="/admin/authorization">Authorization page</a> for the full list in plain language.</span></p>
+        </div>
+
+        <!-- 7. SCOPE -->
+        <h6 class="obk-h" id="obk-scope"><i class="fas fa-layer-group text-danger"></i> What is Scope? <span class="obk-badge-fut">FUTURE (enforcement)</span></h6>
+        <div class="obk-box small">
+          <div class="obk-flow-h mb-2">
+            <span class="obk-node n-perm">WHAT?<small>Permission</small></span>
+            <span class="obk-node n-scope">WHERE?<small>Scope</small></span>
+            <span class="obk-node n-staff">WHO?<small>User</small></span>
+          </div>
+          <p class="mb-1">A <strong>permission</strong> answers "what can this person do?" — a <strong>scope</strong> answers "<strong>where / for whom</strong> can they do it?"</p>
+          <ul class="mb-0">
+            <li><code>news.view</code> + scope <strong>own</strong> → sees only their own news.</li>
+            <li><code>news.view</code> + scope <strong>district</strong> → sees news of their authorized district.</li>
+            <li><code>news.view</code> + scope <strong>global</strong> → sees everything (only if truly authorized).</li>
+          </ul>
+        </div>
+
+        <!-- 8. STAFF STEP-BY-STEP -->
+        <h6 class="obk-h" id="obk-staff"><i class="fas fa-list-ol text-secondary"></i> Setting Up a Staff Member — Step by Step <span class="obk-badge-fut">FUTURE flow</span></h6>
+        <div class="obk-box small">
+          <ol class="mb-1">
+            <li>Create the <strong>Department</strong> (e.g. Accounts). <span class="obk-badge-fut">FUTURE</span></li>
+            <li>Create the <strong>Team</strong> (e.g. Payments). <span class="obk-badge-fut">FUTURE</span></li>
+            <li>Create/choose the <strong>Role</strong> (e.g. Accounts Manager) with its permissions. <span class="obk-badge-fut">FUTURE</span></li>
+            <li>Add the <strong>staff member</strong> (exists today via the Users/Editors pages). <span class="obk-badge-now">CURRENT</span></li>
+            <li>Assign department → team → role. <span class="obk-badge-fut">FUTURE</span></li>
+            <li>The system calculates their <strong>effective permissions + scope</strong>. <span class="obk-badge-fut">FUTURE</span></li>
+            <li>The staff member sees <strong>only their relevant work</strong>. <span class="obk-badge-fut">FUTURE</span></li>
+          </ol>
+          <p class="mb-0 text-muted">Today, staff are managed through the existing Users/Editors pages with the existing role system.</p>
+        </div>
+
+        <!-- 9. DISABLE / ENABLE -->
+        <h6 class="obk-h" id="obk-disable"><i class="fas fa-user-slash text-danger"></i> Disabling a Staff Member</h6>
+        <div class="obk-box small">
+          <p class="mb-1"><span class="obk-badge-now">CURRENT</span> When you disable a staff member (existing Users page): they <strong>cannot log in or work</strong> anymore, but their <strong>history stays</strong> — news, audit records and financial records are <strong>not deleted</strong>.</p>
+          <p class="mb-0"><span class="obk-badge-fut">RECOMMENDED</span> Prefer <strong>disable</strong> over delete — it preserves accountability. Delete only when company policy requires it.</p>
+        </div>
+
+        <!-- 10. ROLE / PERMISSION CHANGE -->
+        <h6 class="obk-h" id="obk-change"><i class="fas fa-exchange-alt text-warning"></i> What Happens on a Role or Permission Change?</h6>
+        <div class="obk-box small">
+          <div class="obk-flow-h mb-2">
+            <span class="obk-node n-role">OLD ROLE<small>Reporter</small></span><span class="obk-arrow">→</span>
+            <span class="obk-node n-role">NEW ROLE<small>Editor</small></span><span class="obk-arrow">→</span>
+            <span class="obk-node n-perm">NEW PERMISSIONS</span><span class="obk-arrow">→</span>
+            <span class="obk-node n-work">NEW ACCESS</span>
+          </div>
+          <p class="mb-1">When Ravi moves from Reporter → Editor, his abilities should change with the role: old reporter-only access goes, editor abilities come. The same idea applies to a single permission: give <code>payments.approve</code> → he can approve payments; remove it → he cannot.</p>
+          <p class="mb-0"><strong>Every sensitive role/permission change is (and must stay) recorded in the Audit Log.</strong> <span class="text-muted">This guide never performs changes — it only explains them.</span></p>
+        </div>
+
+        <!-- 11. APPROVALS -->
+        <h6 class="obk-h" id="obk-approval"><i class="fas fa-check-double text-success"></i> How Approvals Work</h6>
+        <div class="obk-box small">
+          <div class="obk-flow mb-2">
+            <div class="obk-node n-staff">Staff makes a REQUEST</div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-role">Approver REVIEWS</div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-work">APPROVE ✅ / REJECT ❌</div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-perm">AUDIT RECORD written</div>
+          </div>
+          <p class="mb-0"><span class="obk-badge-now">CURRENT</span> Live approval flows today: <strong>news approval</strong> and <strong>district-assignment approval</strong>. A unified Approval Center that gathers everything in one place is <span class="obk-badge-fut">FUTURE</span>.</p>
+        </div>
+
+        <!-- 12. SHADOW MODE -->
+        <h6 class="obk-h" id="obk-shadow"><i class="fas fa-user-shield text-primary"></i> What is Shadow Mode?</h6>
+        <div class="obk-box small">
+          <div class="obk-example mb-2">
+            <i class="fas fa-quote-left text-muted me-1"></i>
+            Imagine we hire a <strong>new security guard</strong>, but for the first few days we ask him to only <strong>watch and write down</strong> what he <em>would</em> have done — without actually stopping anyone. That is Shadow Mode.
+          </div>
+          <div class="obk-flow mb-2">
+            <div class="obk-node n-work">Login → Authentication<small>"Who are you?"</small></div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-role">EXISTING authorization decides<small>This is what really controls access today</small></div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-perm">NEW system calculates silently<small>What WOULD it decide?</small></div><div class="obk-arrow">↓</div>
+            <div class="obk-node n-scope">Compare<small>🟢 Match &nbsp; 🟠 Mismatch &nbsp; ⚪ Unknown</small></div>
+          </div>
+          <p class="mb-1">A <strong>mismatch</strong> just means "something for the Super Admin to investigate" — it does not affect the user.</p>
+          <p class="mb-1"><strong>Shadow Mode never:</strong> blocks users · removes permissions · changes roles · changes any business workflow.</p>
+          <p class="mb-0">Current status: <% if (shadowOn) { %><span class="obk-badge-now">ON — observing</span><% } else { %><span class="obk-badge-fut">OFF</span><% } %> &nbsp; <a href="/admin/shadow-mode">Open the Shadow Mode page →</a></p>
+        </div>
+
+        <!-- 13. AUTHORIZATION -->
+        <h6 class="obk-h" id="obk-authz"><i class="fas fa-lock text-secondary"></i> Authentication vs Authorization</h6>
+        <div class="obk-box small">
+          <div class="obk-grid-2">
+            <div class="obk-box"><strong>Authentication</strong><br><span class="text-muted">"Who are you?"</span><br>Proving identity by logging in.</div>
+            <div class="obk-box"><strong>Authorization</strong><br><span class="text-muted">"What are you allowed to do?"</span><br>Deciding which actions you may perform.</div>
+          </div>
+          <p class="mb-0 mt-2">Logging in successfully <strong>≠</strong> permission to approve payments. Every sensitive action must be checked separately — and always on the server, never just by hiding buttons.</p>
+        </div>
+
+        <!-- 14. AUDIT -->
+        <h6 class="obk-h" id="obk-audit"><i class="fas fa-clipboard-list text-warning"></i> What is Audit?</h6>
+        <div class="obk-box small">
+          <p class="mb-1">Audit means <strong>keeping a trustworthy record of important actions</strong>: <em>who</em> changed it · <em>what</em> changed · <em>when</em> · value <em>before</em> · value <em>after</em> · <em>why</em>.</p>
+          <p class="mb-0">It matters most for: <strong>Finance</strong> (money must be traceable) · <strong>Permissions &amp; Users</strong> (who got access) · <strong>Security</strong> · <strong>Impersonation</strong> (viewing as another user). <span class="obk-badge-now">CURRENT</span> — see <a href="/admin/audit-logs">Audit Logs</a>.</p>
+        </div>
+
+        <!-- 15. GOLDEN RULES -->
+        <h6 class="obk-h" id="obk-rules"><i class="fas fa-crown text-warning"></i> Super Admin Golden Rules <span class="text-muted small fw-normal">(recommendations)</span></h6>
+        <div class="obk-box small">
+          <ol class="mb-0">
+            <% guide.GOLDEN_RULES.forEach(function(r){ %><li class="mb-1"><%= r %></li><% }); %>
+          </ol>
+        </div>
+
+        <!-- 16. IF I DO THIS → WHAT HAPPENS -->
+        <h6 class="obk-h" id="obk-actions"><i class="fas fa-hand-pointer text-info"></i> If I Do This → What Happens?</h6>
+        <div class="table-responsive obk-box p-0">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light"><tr><th class="small">Action</th><th class="small">What happens</th><th class="small">Status</th></tr></thead>
+            <tbody>
+              <% guide.ACTIONS.forEach(function(a){ %>
+                <tr>
+                  <td class="small fw-semibold"><%= a.action %></td>
+                  <td class="small text-muted"><%= a.result %></td>
+                  <td><% if (a.status === 'now') { %><span class="obk-badge-now">CURRENT</span><% } else { %><span class="obk-badge-fut">FUTURE</span><% } %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 17. CURRENT VS FUTURE -->
+        <h6 class="obk-h" id="obk-status"><i class="fas fa-road text-success"></i> Available Now vs Coming Next</h6>
+        <div class="obk-grid-2">
+          <div class="obk-box">
+            <h6 class="fw-bold small text-success mb-2"><i class="fas fa-check-circle me-1"></i>AVAILABLE NOW</h6>
+            <ul class="small mb-0 ps-3">
+              <% guide.FEATURES.filter(f => f.status === 'now').forEach(function(f){ %>
+                <li class="mb-1"><strong><%= f.name %></strong> — <span class="text-muted"><%= f.note %></span></li>
+              <% }); %>
+            </ul>
+          </div>
+          <div class="obk-box">
+            <h6 class="fw-bold small text-secondary mb-2"><i class="fas fa-hourglass-half me-1"></i>COMING NEXT</h6>
+            <ul class="small mb-0 ps-3">
+              <% guide.FEATURES.filter(f => f.status === 'future').forEach(function(f){ %>
+                <li class="mb-1"><strong><%= f.name %></strong> — <span class="text-muted"><%= f.note %></span></li>
+              <% }); %>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 18. SUPER ADMIN CONTROL MAP -->
+        <h6 class="obk-h"><i class="fas fa-compass text-primary"></i> Super Admin Control Map</h6>
+        <div class="obk-box small">
+          <strong>Super Admin</strong>
+          <ul class="obk-map list-unstyled mt-1 mb-0">
+            <li>├── <a href="/admin/organization">Organization</a> — overview &amp; staff stats <span class="obk-badge-now">CURRENT</span></li>
+            <li>├── <a href="/admin/authorization">Authorization</a> — permission catalog <span class="obk-badge-now">CURRENT</span></li>
+            <li>├── <a href="/admin/shadow-mode">Shadow Mode</a> — observation status <span class="obk-badge-now">CURRENT</span></li>
+            <li>├── <a href="/admin/audit-logs">Audit Logs</a> — sensitive-action history <span class="obk-badge-now">CURRENT</span></li>
+            <li>├── <a href="/admin/users">Staff / Users</a> — existing management <span class="obk-badge-now">CURRENT</span></li>
+            <li>└── <a href="/admin/security">Security</a> — security centre <span class="obk-badge-now">CURRENT</span></li>
+          </ul>
+        </div>
+
+        <!-- 19. FAQ -->
+        <h6 class="obk-h" id="obk-faq"><i class="fas fa-question-circle text-info"></i> Frequently Asked Questions</h6>
+        <div class="accordion" id="obkFaq">
+          <% guide.FAQ.forEach(function(f, i){ %>
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="obkFaqH<%= i %>">
+                <button class="accordion-button collapsed small fw-semibold py-2" type="button" data-bs-toggle="collapse" data-bs-target="#obkFaqC<%= i %>" aria-expanded="false" aria-controls="obkFaqC<%= i %>">
+                  <%= f.q %>
+                </button>
+              </h2>
+              <div id="obkFaqC<%= i %>" class="accordion-collapse collapse" aria-labelledby="obkFaqH<%= i %>" data-bs-parent="#obkFaq">
+                <div class="accordion-body small text-muted py-2"><%= f.a %></div>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+
+        <p class="text-muted small mt-4 mb-0"><i class="fas fa-sync-alt me-1"></i>This handbook is updated whenever a new organization feature goes live. Content source: <code>constants/orgGuide.js</code>.</p>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

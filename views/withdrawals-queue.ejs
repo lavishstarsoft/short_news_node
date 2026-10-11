@@ -62,6 +62,57 @@
     <li class="nav-item"><button class="nav-link" data-status="all">All</button></li>
   </ul>
 
+  <!-- Advanced filters -->
+  <div class="card settings-card mb-3">
+    <div class="card-body py-3">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label small fw-bold text-muted mb-1">Search (name / mobile)</label>
+          <input type="text" class="form-control form-control-sm" id="fSearch" placeholder="Name / mobile…">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-bold text-muted mb-1">State</label>
+          <select class="form-select form-select-sm" id="fState"><option value="">All states</option></select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-bold text-muted mb-1">State In-Charge</label>
+          <select class="form-select form-select-sm" id="fIncharge"><option value="">All in-charges</option></select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-bold text-muted mb-1">Type</label>
+          <select class="form-select form-select-sm" id="fType">
+            <option value="">All types</option>
+            <option value="district_incharge">District In-charge</option>
+            <option value="stringer">Stringer</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-bold text-muted mb-1">Payout</label>
+          <select class="form-select form-select-sm" id="fPay">
+            <option value="">All</option>
+            <option value="upi">UPI</option>
+            <option value="phonepe">PhonePe</option>
+            <option value="bank">Bank</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-bold text-muted mb-1">Sort</label>
+          <select class="form-select form-select-sm" id="fSort">
+            <option value="new">Newest first</option>
+            <option value="old">Oldest first</option>
+            <option value="amt_hi">Amount high→low</option>
+            <option value="amt_lo">Amount low→high</option>
+          </select>
+        </div>
+        <div class="col-md-1 d-grid">
+          <button class="btn btn-sm btn-outline-secondary" id="fClear" title="Clear filters"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <div class="mt-2 small text-muted" id="filterSummary"></div>
+    </div>
+  </div>
+
   <div class="card settings-card">
     <div class="card-body p-0">
       <div class="table-responsive">
@@ -69,6 +120,8 @@
           <thead class="bg-light">
             <tr>
               <th class="ps-4">Reporter</th>
+              <th>State</th>
+              <th>Type</th>
               <th>Amount</th>
               <th>Payment Details</th>
               <th>Requested</th>
@@ -79,13 +132,26 @@
             </tr>
           </thead>
           <tbody id="tableBody">
-            <tr><td colspan="8" class="text-center py-4 text-muted">Loading...</td></tr>
+            <tr><td colspan="10" class="text-center py-4 text-muted">Loading...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
   </div>
 </main>
+
+<!-- Reporter full-info modal -->
+<div class="modal fade" id="userModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold"><i class="fas fa-user-circle me-2 text-primary"></i>Reporter Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="userModalBody"></div>
+    </div>
+  </div>
+</div>
 
 <!-- Process modal -->
 <div class="modal fade" id="processModal" tabindex="-1">
@@ -120,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentStatus = 'pending';
   let currentAction = null;
   let currentId = null;
+  let allRows = [];
   const tableBody = document.getElementById('tableBody');
   const modalEl = document.getElementById('processModal');
   const modal = new bootstrap.Modal(modalEl);
@@ -148,36 +215,130 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('statRejectedCount').textContent = c.rejected || 0;
       document.getElementById('statRejectedAmt').textContent = inr(a.rejected);
 
-      const list = data.withdrawals || [];
-      if (!list.length) {
-        tableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No requests found.</td></tr>';
-        return;
-      }
-
-      tableBody.innerHTML = list.map((w) => {
-        const r = w.reporter || {};
-        const actions = w.status === 'pending'
-          ? `<button class="btn btn-sm btn-success me-1" onclick="openProcess('${w.id}','approve','${esc(r.name)}',${w.amount})">Approve</button>
-             <button class="btn btn-sm btn-outline-danger" onclick="openProcess('${w.id}','reject','${esc(r.name)}',${w.amount})">Reject</button>`
-          : '<span class="text-muted small">—</span>';
-        const utrRemarks = [w.utr ? `<span class="fw-bold">${esc(w.utr)}</span>` : '', esc(w.remarks)].filter(Boolean).join('<br>') || '-';
-        return `<tr>
-          <td class="ps-4">
-            <div class="fw-semibold">${esc(r.name || 'Unknown')}</div>
-            <div class="small text-muted">${esc(r.mobileNumber || '')} · Bal: ${inr(r.walletBalance)}</div>
-          </td>
-          <td class="fw-bold text-success">${inr(w.amount)}</td>
-          <td style="max-width:220px;white-space:pre-wrap;font-size:12.5px;">${esc(w.paymentDetails)}</td>
-          <td class="small text-muted">${dt(w.createdAt)}</td>
-          <td>${statusBadge(w.status)}</td>
-          <td class="small">${esc(w.processedBy || '-')}<div class="text-muted">${w.processedAt ? dt(w.processedAt) : ''}</div></td>
-          <td class="small" style="max-width:180px;">${utrRemarks}</td>
-          <td class="text-end pe-4">${actions}</td>
-        </tr>`;
-      }).join('');
+      allRows = data.withdrawals || [];
+      populateStateFilter(allRows);
+      populateInchargeFilter(allRows);
+      render();
     } catch (err) {
-      tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${esc(err.message)}</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-danger">${esc(err.message)}</td></tr>`;
     }
+  }
+
+  const tierLabel = (t) => t === 'district_incharge' ? 'DI' : (t === 'stringer' ? 'Stringer' : 'Other');
+  const tierBadge = (t) => {
+    const cls = t === 'district_incharge' ? 'bg-primary bg-opacity-10 text-primary'
+      : (t === 'stringer' ? 'bg-warning bg-opacity-25 text-warning' : 'bg-secondary bg-opacity-10 text-secondary');
+    return `<span class="badge-status ${cls}">${tierLabel(t)}</span>`;
+  };
+  const payKind = (w) => {
+    const s = String(w.paymentDetails || '').toLowerCase();
+    if (w.payoutType) return w.payoutType;
+    if (/phonepe/.test(s)) return 'phonepe';
+    return /upi|@/.test(s) ? 'upi' : (/bank|a\/c|ifsc|account/.test(s) ? 'bank' : '');
+  };
+
+  function populateStateFilter(list) {
+    const sel = document.getElementById('fState');
+    const cur = sel.value;
+    const states = [...new Set(list.map(w => (w.reporter || {}).state).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">All states</option>' + states.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+    sel.value = cur; // keep selection across reloads
+  }
+
+  // In-charge list depends on the selected State: pick the state's reporters,
+  // then the distinct State In-Charges among them. No state selected → all
+  // in-charges across the loaded list. Selection is kept if still valid.
+  function populateInchargeFilter(list) {
+    const sel = document.getElementById('fIncharge');
+    const cur = sel.value;
+    const st = document.getElementById('fState').value;
+    const scoped = st ? (list || []).filter(w => (w.reporter || {}).state === st) : (list || []);
+    const incs = [...new Set(scoped.map(w => (w.reporter || {}).stateIncharge).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">All in-charges</option>'
+      + incs.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    sel.value = incs.includes(cur) ? cur : ''; // reset if no longer valid for this state
+  }
+
+  // Single source of truth for "what the admin sees": the same filters + the
+  // same Sort selection are applied to the on-screen table AND to the PDF, so
+  // the export always matches the selected order exactly.
+  function applyFiltersAndSort(rows) {
+    const q = (document.getElementById('fSearch').value || '').trim().toLowerCase();
+    const st = document.getElementById('fState').value;
+    const inc = document.getElementById('fIncharge').value;
+    const ty = document.getElementById('fType').value;
+    const pk = document.getElementById('fPay').value;
+    const sort = document.getElementById('fSort').value;
+
+    const list = (rows || []).filter((w) => {
+      const r = w.reporter || {};
+      if (q && !((r.name || '').toLowerCase().includes(q) || (r.mobileNumber || '').toLowerCase().includes(q))) return false;
+      if (st && r.state !== st) return false;
+      if (inc && (r.stateIncharge || '') !== inc) return false;
+      if (ty) {
+        const t = r.reporterTier || 'other';
+        if (ty === 'other' ? (t === 'district_incharge' || t === 'stringer') : t !== ty) return false;
+      }
+      if (pk && payKind(w) !== pk) return false;
+      return true;
+    });
+
+    list.sort((a, b) => {
+      if (sort === 'old') return new Date(a.createdAt) - new Date(b.createdAt);
+      if (sort === 'amt_hi') return (b.amount || 0) - (a.amount || 0);
+      if (sort === 'amt_lo') return (a.amount || 0) - (b.amount || 0);
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+    return list;
+  }
+
+  function render() {
+    const list = applyFiltersAndSort(allRows);
+
+    const total = list.reduce((s, w) => s + (Number(w.amount) || 0), 0);
+    document.getElementById('filterSummary').innerHTML =
+      `Showing <b>${list.length}</b> of ${allRows.length} · Total <b class="text-success">${inr(total)}</b>`;
+
+    if (!list.length) {
+      tableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">No requests match the filters.</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = list.map((w) => {
+      const r = w.reporter || {};
+      // Reporter Security hold: same UPI / bank / mobile as other reporter accounts →
+      // cannot be paid until the Super Admin clears it (the server enforces this too).
+      const hold = w.fraudHold || null;
+      const onHold = w.status === 'pending' && hold && hold.active;
+      const holdInfo = hold
+        ? (hold.active
+            ? `<div class="mt-1"><span class="badge bg-danger" title="${esc((hold.reasons || []).join(' · '))}"><i class="fas fa-hand me-1"></i>ON HOLD</span>
+               <div class="small text-danger">${esc((hold.reasons || []).join(' · '))} · ${hold.linkedCount} other account(s)</div></div>`
+            : `<div class="small text-success mt-1"><i class="fas fa-check me-1"></i>Hold cleared by ${esc(hold.clearedByName || 'Super Admin')}</div>`)
+        : '';
+      const actions = w.status === 'pending'
+        ? (onHold
+            ? `<a class="btn btn-sm btn-outline-danger me-1" href="/admin/reporter-security">Review hold</a>`
+            : `<button class="btn btn-sm btn-success me-1" onclick="openProcess('${w.id}','approve','${esc(r.name)}',${w.amount})">Approve</button>`)
+          + `<button class="btn btn-sm btn-outline-danger" onclick="openProcess('${w.id}','reject','${esc(r.name)}',${w.amount})">Reject</button>`
+        : '<span class="text-muted small">—</span>';
+      const utrRemarks = [w.utr ? `<span class="fw-bold">${esc(w.utr)}</span>` : '', esc(w.remarks)].filter(Boolean).join('<br>') || '-';
+      return `<tr>
+        <td class="ps-4">
+          <a href="#" class="fw-semibold text-decoration-none" onclick="openUser('${r.id || ''}');return false;">${esc(r.name || 'Unknown')} <i class="fas fa-circle-info text-primary small"></i></a>
+          <div class="small text-muted">${esc(r.mobileNumber || '')} · Bal: ${inr(r.walletBalance)}</div>
+        </td>
+        <td class="small">${esc(r.state || '-')}</td>
+        <td>${tierBadge(r.reporterTier)}</td>
+        <td class="fw-bold text-success">${inr(w.amount)}</td>
+        <td style="max-width:220px;white-space:pre-wrap;font-size:12.5px;">${esc(w.paymentDetails)}</td>
+        <td class="small text-muted">${dt(w.createdAt)}</td>
+        <td>${statusBadge(w.status)}${holdInfo}</td>
+        <td class="small">${esc(w.processedBy || '-')}<div class="text-muted">${w.processedAt ? dt(w.processedAt) : ''}</div></td>
+        <td class="small" style="max-width:180px;">${utrRemarks}</td>
+        <td class="text-end pe-4">${actions}</td>
+      </tr>`;
+    }).join('');
   }
 
   window.openProcess = function (id, action, name, amount) {
@@ -239,6 +400,97 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('refreshBtn').addEventListener('click', load);
 
+  // Advanced filters (client-side over the loaded list).
+  ['fSearch','fType','fPay','fSort','fIncharge'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener(id === 'fSearch' ? 'input' : 'change', render);
+  });
+  // Changing the State rebuilds the In-Charge list for that state, then renders.
+  document.getElementById('fState').addEventListener('change', () => {
+    populateInchargeFilter(allRows);
+    render();
+  });
+  document.getElementById('fClear').addEventListener('click', () => {
+    document.getElementById('fSearch').value = '';
+    document.getElementById('fState').value = '';
+    document.getElementById('fType').value = '';
+    document.getElementById('fPay').value = '';
+    document.getElementById('fSort').value = 'new';
+    populateInchargeFilter(allRows);
+    document.getElementById('fIncharge').value = '';
+    render();
+  });
+
+  // ---- Click a reporter → full info modal ----
+  window.openUser = async function (id) {
+    if (!id) return;
+    const m = new bootstrap.Modal(document.getElementById('userModal'));
+    document.getElementById('userModalBody').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+    m.show();
+    try {
+      const res = await fetch(`/admin/api/wallet/withdrawals/user/${id}`);
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to load');
+      document.getElementById('userModalBody').innerHTML = renderUser(d);
+    } catch (e) {
+      document.getElementById('userModalBody').innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
+    }
+  };
+
+  function renderUser(d) {
+    const r = d.reporter || {}, s = d.summary || {};
+    const tb = tierBadge(r.tier);
+    const pendingReqs = (d.withdrawals || []).filter(w => w.status === 'pending');
+    const clearedMonths = (d.months || []).filter(m => m.cleared > 0).map(m => m.label);
+    const warn = (pendingReqs.length && clearedMonths.length)
+      ? `<div class="alert alert-warning py-2 small mb-3"><b>⚠️ Double-pay check:</b> ${pendingReqs.length} pending request(s) AND already-cleared month(s): <b>${esc(clearedMonths.join(', '))}</b>. Verify these are new earnings before approving.</div>`
+      : '';
+
+    const stat = (label, val, cls) => `<div class="col-6 col-md-3"><div class="border rounded p-2 text-center h-100"><div class="text-muted" style="font-size:11px;">${label}</div><div class="fw-bold ${cls||''}" style="font-size:16px;">${val}</div></div></div>`;
+
+    const monthRows = (d.months || []).length
+      ? d.months.map(m => {
+          const status = m.done ? '<span class="badge bg-secondary">Cleared</span>'
+            : (m.cleared > 0 ? '<span class="badge bg-warning text-dark">Partly</span>' : '<span class="badge bg-success">Active</span>');
+          return `<tr><td>${esc(m.label)}</td><td class="text-end">${inr(m.earned)}</td><td class="text-end text-muted">${inr(m.cleared)}</td><td class="text-end fw-bold">${inr(m.remaining)}</td><td class="text-end">${status}</td></tr>`;
+        }).join('')
+      : '<tr><td colspan="5" class="text-center text-muted py-2">No month-wise earnings.</td></tr>';
+
+    const wRows = (d.withdrawals || []).length
+      ? d.withdrawals.map(w => `<tr>
+          <td>${dt(w.createdAt)}</td>
+          <td class="fw-bold">${inr(w.amount)}</td>
+          <td>${statusBadge(w.status)}</td>
+          <td style="font-size:11.5px;max-width:180px;white-space:pre-wrap;">${esc(w.paymentDetails)}</td>
+          <td style="font-size:11.5px;">${[w.utr?('UTR: '+esc(w.utr)):'', esc(w.remarks)].filter(Boolean).join('<br>')||'-'}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" class="text-center text-muted py-2">No withdrawal requests.</td></tr>';
+
+    return `
+      ${warn}
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+        <div>
+          <div class="fw-bold" style="font-size:18px;">${esc(r.name || '-')} ${tb}</div>
+          <div class="text-muted small">${esc(r.mobileNumber || '-')} ${r.email ? '· ' + esc(r.email) : ''}</div>
+          <div class="text-muted small">${esc([r.district, r.state].filter(Boolean).join(', ') || '-')} · Joined ${dateOnly(r.joinedAt)}${r.salaryBased ? ' · <span class="text-info fw-bold">Salary-based</span>' : ''}</div>
+        </div>
+      </div>
+      <div class="row g-2 mb-3">
+        ${stat('Wallet Now', inr(r.walletBalance), 'text-success')}
+        ${stat('Total Earned', inr(s.totalEarned), '')}
+        ${stat('Total Cleared', inr(s.totalCleared), 'text-warning')}
+        ${stat('Paid (approved)', inr(s.withdrawnPaid), 'text-primary')}
+      </div>
+      <h6 class="fw-bold small text-muted mb-2">MONTH-WISE EARNINGS</h6>
+      <div class="table-responsive mb-3"><table class="table table-sm table-bordered align-middle mb-0">
+        <thead class="table-light"><tr><th>Month</th><th class="text-end">Earned</th><th class="text-end">Cleared</th><th class="text-end">Remaining</th><th class="text-end">Status</th></tr></thead>
+        <tbody>${monthRows}</tbody></table></div>
+      <h6 class="fw-bold small text-muted mb-2">WITHDRAWAL HISTORY</h6>
+      <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light"><tr><th>Date</th><th>Amount</th><th>Status</th><th>Payment</th><th>UTR / Remarks</th></tr></thead>
+        <tbody>${wRows}</tbody></table></div>`;
+  }
+
   // ---- Accounts Department PDF (up to 500 records, A4 landscape, multi-page) ----
   const dateOnly = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '-';
   const statusLabel = { pending:'PENDING', approved:'PAID', rejected:'REJECTED' };
@@ -253,8 +505,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(`/admin/api/wallet/withdrawals?status=${currentStatus}&limit=500`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load withdrawals');
-      const list = data.withdrawals || [];
+      // Apply EXACTLY the on-screen filters + selected Sort order (never raw DB order),
+      // over the up-to-500 fetch so no record beyond the screen's default page is lost.
+      const list = applyFiltersAndSort(data.withdrawals || []);
       if (!list.length) { alert('No withdrawal records to export for this filter.'); return; }
+      const sortLabels = { new: 'Newest first', old: 'Oldest first', amt_hi: 'Amount high→low', amt_lo: 'Amount low→high' };
+      const orderText = sortLabels[document.getElementById('fSort').value] || 'Newest first';
+      const activeFilters = [
+        document.getElementById('fSearch').value.trim() ? 'Search: ' + document.getElementById('fSearch').value.trim() : '',
+        document.getElementById('fState').value ? 'State: ' + document.getElementById('fState').value : '',
+        document.getElementById('fIncharge').value ? 'In-Charge: ' + document.getElementById('fIncharge').value : '',
+        document.getElementById('fType').value ? 'Type: ' + document.getElementById('fType').options[document.getElementById('fType').selectedIndex].text : '',
+        document.getElementById('fPay').value ? 'Payout: ' + document.getElementById('fPay').value.toUpperCase() : ''
+      ].filter(Boolean).join(' · ');
 
       // Today's totals (requests created today) — "eroju entha amount vachindi".
       const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
@@ -276,6 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div style="text-align:right;font-size:11px;color:#444;">
             <div><strong>Status:</strong> ${esc(statusText)}</div>
+            <div><strong>Order:</strong> ${esc(orderText)}${activeFilters ? ' · <strong>Filters:</strong> ' + esc(activeFilters) : ''}</div>
             <div><strong>Generated:</strong> ${esc(genOn)}</div>
           </div>
         </div>`;
@@ -320,50 +584,107 @@ document.addEventListener('DOMContentLoaded', () => {
         </tr>`;
       };
 
-      // Paginate: first page carries brand+summary (fewer rows), rest more.
-      const ROWS_FIRST = 14, ROWS_REST = 20;
-      const pages = [];
-      let idx = 0;
-      while (idx < list.length) {
-        const size = pages.length === 0 ? ROWS_FIRST : ROWS_REST;
-        pages.push(list.slice(idx, idx + size));
-        idx += size;
-      }
+      // ONE continuous document (no hand-made page chunks, no forced page breaks).
+      // Rows are marked break-inside:avoid so a row that doesn't fit moves whole to
+      // the next page; html2pdf 'css' mode honours that and 'legacy' fills the rest.
+      // Page numbers / footer are stamped per real page by jsPDF after rendering.
+      // ── State-wise grouping: State In-Charge is the primary heading; each reporter
+      // sits under THEIR in-charge. A state with two in-charges yields two blocks.
+      // Reporters with no resolved in-charge / no state fall into a clear last block.
+      const groupsMap = new Map();
+      list.forEach((w) => {
+        const r = w.reporter || {};
+        const state = (r.state || '').trim();
+        const inc = (r.stateIncharge || '').trim();
+        const key = (state || '~') + '||' + (inc || '~');
+        if (!groupsMap.has(key)) groupsMap.set(key, { state, incharge: inc, incRole: (r.stateInchargeRole || '').trim(), items: [], amount: 0 });
+        const g = groupsMap.get(key);
+        g.items.push(w);
+        g.amount += Number(w.amount) || 0;
+      });
+      const groups = Array.from(groupsMap.values()).sort((a, b) => {
+        // Real states first (alpha), then "No State"; within a state, in-charge alpha,
+        // an unassigned in-charge last.
+        const as = a.state || '\uffff', bs = b.state || '\uffff';
+        if (as !== bs) return as.localeCompare(bs);
+        const ai = a.incharge || '\uffff', bi = b.incharge || '\uffff';
+        return ai.localeCompare(bi);
+      });
 
-      const pagesHtml = pages.map((chunk, pIdx) => {
-        const startIdx = pIdx === 0 ? 0 : ROWS_FIRST + (pIdx - 1) * ROWS_REST;
-        const rows = chunk.map((w, k) => rowHtml(w, startIdx + k)).join('');
-        return `<div style="padding:22px 24px;">
+      const groupHead = (g) => {
+        const stateTxt = g.state ? esc(g.state.toUpperCase()) : 'NO STATE ASSIGNED';
+        const incTxt = g.incharge
+          ? ('State In-Charge: ' + esc(g.incharge) + (g.incRole && g.incRole !== 'State In-Charge' ? ' (' + esc(g.incRole) + ')' : ''))
+          : 'No In-Charge assigned';
+        return `<tr style="background:#E31E24;color:#fff;break-inside:avoid;break-after:avoid;page-break-after:avoid;">
+          <td colspan="8" style="padding:7px 9px;border:1px solid #E31E24;">
+            <span style="font-size:12.5px;font-weight:bold;letter-spacing:.4px;">${stateTxt}</span>
+            <span style="opacity:.9;">&nbsp;·&nbsp;${incTxt}</span>
+            <span style="float:right;font-weight:bold;">${g.items.length} request(s) · ${inr(g.amount)}</span>
+          </td>
+        </tr>`;
+      };
+
+      const rows = groups.map((g) =>
+        groupHead(g) + g.items.map((w, i) => rowHtml(w, i)).join('')
+      ).join('');
+
+      const reportHtml = `
+        <style>
+          #withdrawalReportPages tr { page-break-inside: avoid; break-inside: avoid; }
+          #withdrawalReportPages table { page-break-inside: auto; break-inside: auto; }
+        </style>
+        <div style="padding:0 2px;">
           ${brand}
-          ${pIdx === 0 ? summary : ''}
+          ${summary}
           <table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;">
             ${colgroup}${thead}<tbody>${rows}</tbody>
           </table>
-          <div style="margin-top:10px;display:flex;justify-content:space-between;color:#999;font-size:10px;">
-            <span>Confidential · For Accounts Department use only</span>
-            <span>Page ${pIdx + 1} of ${pages.length}</span>
-          </div>
+          <div style="margin-top:8px;font-size:10px;color:#777;">End of report · ${list.length} record(s) · ${groups.length} state/in-charge group(s)</div>
         </div>`;
-      }).join('<div class="html2pdf__page-break"></div>');
 
-      document.getElementById('withdrawalReportPages').innerHTML = pagesHtml;
+      document.getElementById('withdrawalReportPages').innerHTML = reportHtml;
 
       const element = document.getElementById('withdrawalReportContainer').cloneNode(true);
       element.style.display = 'block';
       const holder = document.createElement('div');
       holder.style.position = 'absolute';
       holder.style.left = '-9999px';
+      holder.style.top = '0';
+      // Fixed printable width (A4 landscape 11.69in minus 0.6in side margins) so the
+      // layout is identical regardless of the admin's window size.
+      holder.style.width = '1064px';
       holder.appendChild(element);
       document.body.appendChild(holder);
+
+      // Very large exports produce one very tall canvas; keep it under browser
+      // canvas limits (which otherwise yield blank pages) by lowering scale a little.
+      const scale = list.length > 250 ? 1.5 : 2;
+      const MARGIN_TOP = 0.45, MARGIN_BOTTOM = 0.5, MARGIN_SIDE = 0.3;
+      const filename = `Withdrawals_${statusText}_${new Date().toISOString().slice(0,10)}.pdf`;
       try {
         await html2pdf().set({
-          margin: [0.3, 0.3, 0.3, 0.3],
-          filename: `Withdrawals_${statusText}_${new Date().toISOString().slice(0,10)}.pdf`,
+          margin: [MARGIN_TOP, MARGIN_SIDE, MARGIN_BOTTOM, MARGIN_SIDE],
+          filename,
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
+          html2canvas: { scale, useCORS: true, scrollX: 0, scrollY: 0 },
           jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
-          pagebreak: { mode: ['avoid-all', 'legacy'], before: '.html2pdf__page-break' }
-        }).from(element).save();
+          pagebreak: { mode: ['css', 'legacy'] }
+        }).from(element).toPdf().get('pdf').then((pdf) => {
+          const total = pdf.internal.getNumberOfPages();
+          const pw = pdf.internal.pageSize.getWidth();
+          const ph = pdf.internal.pageSize.getHeight();
+          for (let p = 1; p <= total; p++) {
+            pdf.setPage(p);
+            pdf.setFontSize(8);
+            pdf.setTextColor(140);
+            if (p > 1) {
+              pdf.text(`Withdrawal Payout Report · ${statusText} · continued`, MARGIN_SIDE, 0.3);
+            }
+            pdf.text('Confidential · For Accounts Department use only', MARGIN_SIDE, ph - 0.25);
+            pdf.text(`Page ${p} of ${total}`, pw - MARGIN_SIDE, ph - 0.25, { align: 'right' });
+          }
+        }).save();
       } finally {
         document.body.removeChild(holder);
       }

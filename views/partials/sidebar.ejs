@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/css/sidebar-standard.css?v=2">
+<link rel="stylesheet" href="/css/sidebar-standard.css?v=7">
 <div class="col-md-3 col-lg-2 d-md-block sidebar" id="sidebar">
     <div class="position-sticky pt-0 pb-0 d-flex flex-column h-100">
         <div class="sidebar-header">
@@ -54,7 +54,9 @@
                 Admin/superadmin already reach it via the System group below — this only
                 surfaces it for subeditors, who the controller already authorizes. %>
             <% if (typeof admin !== 'undefined' && admin && admin.role === 'subeditor') { %>
-            <% if (isStateIncharge) { %>
+            <%# Each link can be hidden per sub-editor (Editors → Dashboard Menu Access);
+                unset flags mean visible, so existing sub-editors are unchanged. %>
+            <% if (isStateIncharge && canView('assignReporters')) { %>
             <li class="nav-item nav-item-standalone">
                 <a class="nav-link ripple <%= activePage === 'my-district-assignments' ? 'active' : '' %>" href="/admin/my-district-assignments">
                     <i class="fas fa-user-plus me-3"></i>
@@ -62,18 +64,22 @@
                 </a>
             </li>
             <% } %>
+            <% if (canView('reporterAccess')) { %>
             <li class="nav-item nav-item-standalone">
                 <a class="nav-link ripple <%= activePage === 'reporter-access' ? 'active' : '' %>" href="/admin/reporter-access">
                     <i class="fas fa-key me-3"></i>
                     <span class="nav-text">Reporter Access</span>
                 </a>
             </li>
+            <% } %>
+            <% if (canView('coverageMap')) { %>
             <li class="nav-item nav-item-standalone">
                 <a class="nav-link ripple <%= activePage === 'coverage-map' ? 'active' : '' %>" href="/admin/coverage-map">
                     <i class="fas fa-map-location-dot me-3"></i>
                     <span class="nav-text">Coverage Map</span>
                 </a>
             </li>
+            <% } %>
             <% } %>
 
             <!-- News & Content Group -->
@@ -147,6 +153,45 @@
                                 Duplicate News Insights
                             </a>
                         </li>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
+            <!-- Category Insights (Admin / Super Admin) -->
+            <% if (isAdmin) { %>
+            <li class="nav-item">
+                <a class="nav-link ripple <%= activePage === 'category-insights' ? 'active' : '' %>" href="/admin/category-insights">
+                    <i class="fas fa-chart-pie me-3 w-20px text-center"></i>
+                    <span class="nav-text">Category Insights</span>
+                </a>
+            </li>
+            <% } %>
+
+            <!-- Database Backups (Super Admin only) -->
+            <% if (isSuperAdminOnly) { %>
+            <li class="nav-item">
+                <a class="nav-link ripple <%= activePage === 'db-backups' ? 'active' : '' %>" href="/admin/db-backups">
+                    <i class="fas fa-database me-3 w-20px text-center"></i>
+                    <span class="nav-text">Database Backups</span>
+                </a>
+            </li>
+            <% } %>
+
+            <!-- Organization & Access (Super Admin only) — read-only visibility -->
+            <% const orgAccessActive = ['organization', 'authorization', 'shadow-mode'].includes(activePage); %>
+            <% if (isSuperAdminOnly) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu <%= orgAccessActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseOrgAccess" role="button" aria-expanded="<%= orgAccessActive ? 'true' : 'false' %>" aria-controls="collapseOrgAccess">
+                    <i class="fas fa-sitemap me-3 w-20px text-center"></i>
+                    <span class="nav-text">Organization &amp; Access</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= orgAccessActive ? 'show' : '' %>" id="collapseOrgAccess" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <li class="nav-item"><a class="nav-link <%= activePage === 'organization' ? 'active' : '' %>" href="/admin/organization">Overview</a></li>
+                        <li class="nav-item"><a class="nav-link <%= activePage === 'authorization' ? 'active' : '' %>" href="/admin/authorization">Authorization</a></li>
+                        <li class="nav-item"><a class="nav-link <%= activePage === 'shadow-mode' ? 'active' : '' %>" href="/admin/shadow-mode">Shadow Mode</a></li>
                     </ul>
                 </div>
             </li>
@@ -361,6 +406,37 @@
             </li>
             <% } %>
 
+            <!-- Reporter Hub (Main App "+") — the guest screen. All submenus in one group. -->
+            <% 
+                const showHubGroup = isAdmin;
+                const hubGroupActive = activePage === 'reporter-hub';
+            %>
+            <% if (showHubGroup) { %>
+            <li class="nav-item">
+                <a class="nav-link has-submenu <%= hubGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseReporterHub" role="button" aria-expanded="<%= hubGroupActive ? 'true' : 'false' %>" aria-controls="collapseReporterHub">
+                    <i class="fas fa-mobile-screen-button me-3 w-20px text-center"></i>
+                    <span class="nav-text">Reporter Hub (App +)</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </a>
+                <div class="collapse submenu-collapse <%= hubGroupActive ? 'show' : '' %>" id="collapseReporterHub" data-bs-parent="#sidebarAccordion">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link <%= hubGroupActive ? 'active' : '' %>" href="/admin/reporter-hub">Content Editor</a>
+                        </li>
+                        <li class="nav-item"><a class="nav-link" href="/admin/reporter-hub#sec-settings">Languages &amp; Enable</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/admin/reporter-hub#sec-header">Header</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/admin/reporter-hub#sec-banners">Banners</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/admin/reporter-hub#sec-post">Post Section</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/admin/reporter-hub#sec-cards">Post Cards</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/admin/reporter-hub#sec-faq">FAQ</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/admin/reporter-hub#sec-nav">Bottom Nav</a></li>
+                        <li class="nav-item"><a class="nav-link <%= activePage === 'reporter-join-popup' ? 'active' : '' %>" href="/admin/reporter-join-popup">Join Popup (Image Hotspots)</a></li>
+                        <li class="nav-item"><a class="nav-link <%= activePage === 'reporter-advertise' ? 'active' : '' %>" href="/admin/reporter-advertise">Advertise Page (Earn income)</a></li>
+                    </ul>
+                </div>
+            </li>
+            <% } %>
+
             <!-- Users Group -->
             <% 
                 const showUsersGroup = isAdmin;
@@ -392,7 +468,7 @@
             <!-- Advertisements Group -->
             <% 
                 const showAdsGroup = isAdmin;
-                const adsGroupActive = ['ads', 'intelligent-ads'].includes(activePage);
+                const adsGroupActive = ['ads', 'intelligent-ads', 'special-deck', 'train-promo-banner', '3d-ads', 'ar-ads', 'news-ar', 'dice-ads', 'coverage'].includes(activePage);
             %>
             <% if (showAdsGroup) { %>
             <li class="nav-item">
@@ -409,13 +485,35 @@
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'intelligent-ads' ? 'active' : '' %>" href="/intelligent-ads">Intelligent Ads</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'special-deck' ? 'active' : '' %>" href="/admin/special-deck">Special Deck (Left swipe)</a>
+                            <a class="nav-link <%= activePage === 'train-promo-banner' ? 'active' : '' %>" href="/admin/train-promo-banner">Train Promo Banner</a>
+                        </li>
+                        <% if (isAdmin) { %>
+                        <li class="nav-item"><hr class="my-1" style="opacity:.15"></li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === '3d-ads' ? 'active' : '' %>" href="/3d-ads/admin"><i class="fas fa-cube me-1 text-primary"></i> 3D Cube Ads</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'ar-ads' ? 'active' : '' %>" href="/ar-ads/admin"><i class="fas fa-vr-cardboard me-1 text-success"></i> AR Ads — Sponsored</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'news-ar' ? 'active' : '' %>" href="/ar-ads/news-ar"><i class="fas fa-newspaper me-1 text-info"></i> News-in-AR (enable)</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'dice-ads' ? 'active' : '' %>" href="/dice-ads/admin"><i class="fas fa-dice me-1 text-warning"></i> Dice Page</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'coverage' ? 'active' : '' %>" href="/coverage/admin"><i class="fas fa-map-marked-alt me-1 text-success"></i> App Coverage Map</a>
+                        </li>
+                        <% } %>
                     </ul>
                 </div>
             </li>
             <% } %>
 
             <!-- Quiz & Rewards Group (Super Admin only) -->
-            <% var quizGroupActive = ['quiz-dashboard', 'quiz-questions', 'quiz-rules', 'quiz-placement'].includes(activePage); %>
+            <% var quizGroupActive = ['quiz-dashboard', 'quiz-manual-winners', 'quiz-questions', 'quiz-rules', 'quiz-placement', 'quiz-banner'].includes(activePage); %>
             <% if (isSuperAdminOnly) { %>
             <li class="nav-item">
                 <a class="nav-link has-submenu <%= quizGroupActive ? '' : 'collapsed' %>" data-bs-toggle="collapse" href="#collapseQuiz" role="button" aria-expanded="<%= quizGroupActive ? 'true' : 'false' %>" aria-controls="collapseQuiz">
@@ -429,6 +527,9 @@
                             <a class="nav-link <%= activePage === 'quiz-dashboard' ? 'active' : '' %>" href="/admin/quiz/dashboard">Quiz Dashboard</a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'quiz-manual-winners' ? 'active' : '' %>" href="/admin/quiz/manual-winners">Winners (Manual)</a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <%= activePage === 'quiz-questions' ? 'active' : '' %>" href="/admin/quiz/questions">Question Bank</a>
                         </li>
                         <li class="nav-item">
@@ -436,6 +537,12 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'quiz-placement' ? 'active' : '' %>" href="/admin/quiz/placement">Feed Position</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'quiz-banner' ? 'active' : '' %>" href="/admin/quiz/banner">Ad Banner</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'games-layout' ? 'active' : '' %>" href="/admin/games-layout">Games Page</a>
                         </li>
                     </ul>
                 </div>
@@ -448,14 +555,14 @@
             =============================== -->
             <% 
                 const showAnalyticsGroup = canView('reports') || isAdmin;
-                const analyticsGroupActive = ['reports', 'performance-analytics', 'onesignal-analytics'].includes(activePage);
+                const analyticsGroupActive = ['reports', 'performance-analytics', 'onesignal-analytics', 'sub-editor-work-report', 'live-analytics'].includes(activePage);
 
                 const canSendNotif = isAdmin || (typeof admin !=='undefined' && admin.role==='subeditor' && admin.permissions && admin.permissions.canSendNotifications);
                 const showSystemGroup = isAdmin || canSendNotif;
-                const systemGroupActive = ['command-center', 'security', 'security-center', 'notifications', 'app-settings', 'in-app-popup', 'r2-usage', 'agreement-terms', 'agreement-status', 'reporter-district-assignment', 'district-assignment-approvals', 'district-division', 'my-district-assignments', 'late-earnings', 'reporter-access', 'coverage-map'].includes(activePage);
+                const systemGroupActive = ['command-center', 'security', 'security-center', 'reporter-security', 'notifications', 'notification-studio', 'incharge-monitor', 'app-settings', 'in-app-popup', 'r2-usage', 'agreement-terms', 'agreement-status', 'reporter-district-assignment', 'district-assignment-approvals', 'district-division', 'my-district-assignments', 'late-earnings', 'reporter-access', 'coverage-map'].includes(activePage);
 
                 const showFinanceGroup = isAdmin || isReporter;
-                const financeActive = ['wallet-settings', 'my-wallet', 'withdrawals-queue', 'wallet-transactions', 'audit-logs', 'monthly-report'].includes(activePage); 
+                const financeActive = ['wallet-settings', 'wallet-clear', 'my-wallet', 'withdrawals-queue', 'wallet-transactions', 'audit-logs', 'monthly-report'].includes(activePage);
             %>
             <% if (showAnalyticsGroup || showSystemGroup || showFinanceGroup) { %>
             <div class="nav-section-title">System & Financial</div>
@@ -471,6 +578,11 @@
                 </a>
                 <div class="collapse submenu-collapse <%= analyticsGroupActive ? 'show' : '' %>" id="collapseAnalytics" data-bs-parent="#sidebarAccordion">
                     <ul class="nav flex-column">
+                        <% if (isAdmin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'live-analytics' ? 'active' : '' %>" href="/admin/live-analytics"><i class="fas fa-circle me-1 text-success"></i> Live Analytics</a>
+                        </li>
+                        <% } %>
                         <% if (canView('reports')) { %>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'reports' ? 'active' : '' %>" href="/admin/reports">General Reports</a>
@@ -482,6 +594,11 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'onesignal-analytics' ? 'active' : '' %>" href="/admin/onesignal-analytics">OneSignal</a>
+                        </li>
+                        <% } %>
+                        <% if (typeof admin !== 'undefined' && admin && admin.role === 'superadmin') { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'sub-editor-work-report' ? 'active' : '' %>" href="/admin/sub-editor-work-report"><i class="fas fa-file-pdf me-1 text-danger"></i> Sub-Editor Work Report</a>
                         </li>
                         <% } %>
                     </ul>
@@ -506,6 +623,12 @@
                         <% } %>
                         <% if (isAdmin) { %>
                         <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'notification-studio' ? 'active' : '' %>" href="/admin/notification-studio"><i class="fas fa-bell me-1 text-primary"></i> Notification Studio</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'incharge-monitor' ? 'active' : '' %>" href="/admin/monitor"><i class="fas fa-satellite-dish me-1 text-success"></i> In-Charge Monitor</a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link d-flex justify-content-between align-items-center <%= activePage === 'command-center' ? 'active' : '' %>" href="/admin/command-center">
                                 Command Center 
                             </a>
@@ -516,6 +639,11 @@
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'security-center' ? 'active' : '' %>" href="/admin/security-center">Security Center</a>
                         </li>
+                        <% if (admin && admin.role === 'superadmin') { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'reporter-security' ? 'active' : '' %>" href="/admin/reporter-security"><i class="fas fa-user-shield me-1 text-danger"></i> Reporter Security</a>
+                        </li>
+                        <% } %>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'app-settings' ? 'active' : '' %>" href="/admin/app-settings">App Settings</a>
                         </li>
@@ -582,6 +710,9 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link <%= activePage === 'wallet-settings' ? 'active' : '' %>" href="/admin/wallet-settings">Wallet Settings</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'wallet-clear' ? 'active' : '' %>" href="/admin/wallet-clear">Wallet Clear (DI)</a>
                         </li>
                         <% } %>
                         <% if (isReporter) { %>

@@ -146,6 +146,431 @@
             <button class="cc-fbtn" id="ccCustomBtn" style="background:var(--cc-purple);color:#fff;border-color:var(--cc-purple)">Apply</button>
         </div>
     </div>
+    <% if (typeof nexa !== 'undefined' && nexa) {
+      var nx = nexa.status || {};
+      var tr = nexa.triage || {total:0,avgConfidence:null,byRecommendation:{},possibleDuplicate:0,priorityReview:0,humanVerification:0,lowPriority:0,review:0,recent:[]};
+      var ev = nexa.evaluation || {decided:0,pending:0,agreement:null,flagPrecision:null,flagRecall:null,tp:0,fp:0,tn:0,fn:0,matrix:{},recent:[]};
+      var bk = nexa.backlog || {total:0,olderThan24h:0,oldestPendingAt:null};
+      var autoActions = (nexa.split && nexa.split.live) || 0;
+      var pendingNews = bk.total || 0;
+      var analyzed = tr.total || 0;
+      var suggestions = tr.total || 0;
+      var humanNeeded = ev.pending || 0;
+      var attention = (tr.possibleDuplicate||0) + (tr.humanVerification||0) + (bk.olderThan24h||0);
+      var correct = (ev.tp||0) + (ev.tn||0);
+      var wrong = (ev.fp||0) + (ev.fn||0);
+      var REC_META = {
+        LOW_PRIORITY:{e:'🟢',te:'ఇప్పటికి అత్యవసరం కాదు',en:'Low priority',c:'#15803D',bg:'#EEF9F1'},
+        REVIEW:{e:'🔵',te:'మామూలు పరిశీలన',en:'Review',c:'#1D4ED8',bg:'#EFF6FF'},
+        PRIORITY_REVIEW:{e:'🟠',te:'త్వరగా చూడండి',en:'Priority review',c:'#B45309',bg:'#FFF8E6'},
+        POSSIBLE_DUPLICATE:{e:'🔴',te:'ఇది Duplicate కావచ్చు',en:'Possible duplicate',c:'#B91C1C',bg:'#FEF2F2'},
+        NEEDS_HUMAN_VERIFICATION:{e:'🟡',te:'మనిషి ధృవీకరణ కావాలి',en:'Needs human check',c:'#92400E',bg:'#FEF9C3'}
+      };
+      var OUT_META = { pending:{e:'⏳',te:'ఇంకా నిర్ణయం లేదు'}, approved:{e:'✅',te:'Approve అయింది'}, rejected:{e:'❌',te:'Reject అయింది'}, removed:{e:'🗑️',te:'తీసేశారు'}, unknown:{e:'❔',te:'తెలియదు'} };
+      var outById = {}; (ev.recent||[]).forEach(function(r){ outById[String(r.entityId)] = r.outcome; });
+    %>
+    <div class="nx" id="nexaSection">
+      <style>
+        .nx{font-family:inherit;color:#0f172a}
+        .nx .nx-h{font-size:18px;font-weight:800;margin:2px 0 2px}
+        .nx .nx-sub{color:#64748b;font-size:13px;margin-bottom:14px}
+        .nx-band{border:1px solid #E2E8F0;border-radius:16px;padding:16px 18px;margin-bottom:16px;background:#fff}
+        .nx-hero{background:linear-gradient(180deg,#F5F8FF,#FFFFFF)}
+        .nx-status-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px}
+        .nx-big{flex:1;min-width:220px;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px}
+        .nx-big .ic{font-size:30px;line-height:1}
+        .nx-big .t1{font-size:16px;font-weight:800}
+        .nx-big .t2{font-size:12.5px;opacity:.85}
+        .nx-green{background:#EEF9F1;color:#14532d} .nx-blue{background:#EFF6FF;color:#1e3a8a}
+        .nx-amber{background:#FFF8E6;color:#7c2d12} .nx-red{background:#FEF2F2;color:#7f1d1d}
+        .nx-slate{background:#F1F5F9;color:#0f172a}
+        .nx-oneglance{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+        .nx-og{background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:10px 12px;text-align:center}
+        .nx-og .e{font-size:22px} .nx-og .n{font-size:20px;font-weight:800} .nx-og .l{font-size:12px;color:#475569;line-height:1.3;margin-top:2px}
+        .nx-attn{border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;font-weight:700}
+        .nx-attn .ic{font-size:26px}
+        .nx-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+        .nx-card{background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:14px}
+        .nx-card .e{font-size:24px} .nx-card .n{font-size:26px;font-weight:800;line-height:1;margin:6px 0 2px}
+        .nx-card .l{font-size:13px;color:#475569}
+        .nx-flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+        .nx-step{flex:1;min-width:130px;background:#F8FAFF;border:1px solid #DDE7FF;border-radius:12px;padding:10px;text-align:center;cursor:pointer;transition:.15s}
+        .nx-step:hover{background:#EEF3FF;transform:translateY(-2px)}
+        .nx-step .e{font-size:24px} .nx-step .s{font-size:11px;color:#2563eb;font-weight:800;letter-spacing:.4px}
+        .nx-step .t{font-size:12.5px;font-weight:700;margin-top:4px}
+        .nx-arrow{display:flex;align-items:center;color:#94a3b8;font-size:18px}
+        .nx-explain{display:flex;flex-wrap:wrap;gap:10px}
+        .nx-ex{flex:1;min-width:180px;border-radius:12px;padding:12px 14px}
+        .nx-news{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+        .nx-ni{background:#fff;border:1px solid #E2E8F0;border-left-width:5px;border-radius:12px;padding:14px}
+        .nx-ni .ttl{font-weight:700;font-size:14px;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .nx-pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;border-radius:999px;padding:4px 10px}
+        .nx-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:#475569;margin-top:8px}
+        .nx-btn{border:1px solid #2563eb;color:#2563eb;background:#fff;border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer}
+        .nx-btn:hover{background:#eff6ff}
+        .nx-conf{height:8px;border-radius:6px;background:#e2e8f0;overflow:hidden;margin-top:4px}
+        .nx-conf>i{display:block;height:100%;background:#2563eb}
+        .nx-i{cursor:pointer;color:#94a3b8;border:1px solid #cbd5e1;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-style:normal}
+        .nx-tech{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:10px 12px;margin-top:10px}
+        .nx-tech summary{cursor:pointer;font-weight:700;color:#334155;font-size:12.5px}
+        .nx-modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px}
+        .nx-modal.open{display:flex}
+        .nx-dialog{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:86vh;overflow:auto;padding:20px}
+        .nx-dialog h3{margin:0 0 12px;font-size:17px}
+        .nx-story{list-style:none;padding:0;margin:0}
+        .nx-story li{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed #eef2f7}
+        .nx-story .e{font-size:20px}
+        .nx-close{float:right;border:none;background:#f1f5f9;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer}
+        .nx-neg span{display:block;color:#7f1d1d;font-size:13px;margin:3px 0}
+        .nx-timeline{border-left:2px solid #dbeafe;margin-left:8px;padding-left:14px}
+        .nx-tl{position:relative;padding:6px 0}
+        .nx-tl::before{content:'';position:absolute;left:-21px;top:10px;width:10px;height:10px;border-radius:50%;background:#2563eb}
+        .nx-tl .tm{font-size:11px;color:#94a3b8} .nx-tl .tx{font-size:13px}
+      </style>
+
+      <!-- ===== HERO: ఇప్పుడు ఏం జరుగుతోంది? ===== -->
+      <div class="nx-band nx-hero">
+        <div class="nx-h">🛰️ TEHELKA NEWS — Command Center</div>
+        <div class="nx-sub">ఇప్పుడు మీ న్యూస్ సిస్టమ్‌లో ఏం జరుగుతోంది? <span style="color:#94a3b8">(What is happening now?)</span></div>
+        <div class="nx-status-row">
+          <div class="nx-big <%= nx.active ? 'nx-green':'nx-slate' %>">
+            <div class="ic"><%= nx.active ? '🟢':'⚪' %></div>
+            <div><div class="t1"><%= nx.active ? 'NEXA ACTIVE':'NEXA OFF' %></div>
+              <div class="t2"><%= nx.active ? 'వార్తలను పరిశీలిస్తోంది' : 'ప్రస్తుతం ఆఫ్‌లో ఉంది' %></div></div>
+          </div>
+          <div class="nx-big nx-amber">
+            <div class="ic">🛡️</div>
+            <div><div class="t1">SHADOW MODE <span class="nx-i" data-tip="shadow">i</span></div>
+              <div class="t2">స్వయంగా ఎలాంటి నిర్ణయం తీసుకోదు — కేవలం సూచనలు ఇస్తుంది</div></div>
+          </div>
+          <div class="nx-big nx-slate">
+            <div class="ic">👀</div>
+            <div><div class="t1">NEXA ఇప్పుడు ఏం చేస్తోంది?</div>
+              <div class="t2">వార్తలను చూస్తోంది · ✋ స్వయంగా Publish చేయదు <span style="opacity:.6">(Autonomy L<%= (nx.maxAutonomy!=null?nx.maxAutonomy:1) %>)</span></div></div>
+          </div>
+        </div>
+        <!-- ONE-GLANCE (no scroll) -->
+        <div class="nx-oneglance">
+          <div class="nx-og"><div class="e"><%= nx.active?'🟢':'⚪' %></div><div class="n"><%= nx.active?'ON':'OFF' %></div><div class="l">సిస్టమ్ పనిచేస్తోందా?</div></div>
+          <div class="nx-og"><div class="e">🤖</div><div class="n"><%= analyzed %></div><div class="l">NEXA పరిశీలించిన వార్తలు</div></div>
+          <div class="nx-og"><div class="e">📰</div><div class="n"><%= pendingNews %></div><div class="l">పరిశీలించాల్సిన వార్తలు</div></div>
+          <div class="nx-og"><div class="e"><%= attention>0?'⚠️':'🟢' %></div><div class="n"><%= attention %></div><div class="l">తక్షణ శ్రద్ధ అవసరం</div></div>
+          <div class="nx-og"><div class="e">👤</div><div class="n"><%= humanNeeded %></div><div class="l">Human నిర్ణయం కావాలి</div></div>
+        </div>
+      </div>
+
+      <!-- ===== ATTENTION CENTER ===== -->
+      <div class="nx-band">
+        <div class="nx-h">⚠️ ఇప్పుడు మీ శ్రద్ధ ఎక్కడ కావాలి?</div>
+        <% if ((bk.olderThan24h||0) > 0) { %>
+          <div class="nx-attn nx-red"><div class="ic">🔴</div><div><%= bk.olderThan24h %> వార్తలకు వెంటనే Review అవసరం<br><span style="font-weight:500;font-size:12.5px">ఇవి 24 గంటలకు మించి Pending‌లో ఉన్నాయి.</span></div></div>
+        <% } else if (humanNeeded > 0) { %>
+          <div class="nx-attn nx-amber"><div class="ic">🟡</div><div><%= humanNeeded %> వార్తలకు Human Review కావాలి<br><span style="font-weight:500;font-size:12.5px">NEXA సూచనలు ఇచ్చింది — తుది నిర్ణయం మీ టీమ్‌దే.</span></div></div>
+        <% } else { %>
+          <div class="nx-attn nx-green"><div class="ic">🟢</div><div>అత్యవసర సమస్య లేదు<br><span style="font-weight:500;font-size:12.5px">ఇప్పుడు ప్రత్యేక శ్రద్ధ అవసరం లేదు.</span></div></div>
+        <% } %>
+      </div>
+
+      <!-- ===== NEXA అంటే ఏమిటి? ===== -->
+      <div class="nx-band">
+        <div class="nx-h">🤖 NEXA అంటే ఏమిటి?</div>
+        <div class="nx-sub">NEXA మీ టీమ్‌కు సహాయం చేసే AI Assistant. ఇది వార్తలను పరిశీలించి సూచనలు ఇస్తుంది. ప్రస్తుతం ఇది స్వయంగా Publish, Reject లేదా Reporterపై చర్య తీసుకోదు.</div>
+        <div class="nx-explain">
+          <div class="nx-ex nx-green"><b>🟢 NEXA చూస్తుంది</b><div style="font-size:12.5px">వార్తలను చదివి పరిశీలిస్తుంది.</div></div>
+          <div class="nx-ex nx-amber"><b>🟡 NEXA సూచిస్తుంది</b><div style="font-size:12.5px">"ఇది చూడండి / ఇది Duplicate కావచ్చు" అని చెబుతుంది.</div></div>
+          <div class="nx-ex nx-red"><b>🔴 Human Team తుది నిర్ణయం</b><div style="font-size:12.5px">Approve / Reject మీ టీమ్ మాత్రమే చేస్తుంది.</div></div>
+        </div>
+      </div>
+
+      <!-- ===== PROCESS FLOW (clickable) ===== -->
+      <div class="nx-band">
+        <div class="nx-h">🔄 ఇది ఎలా పనిచేస్తుంది? <span style="font-weight:500;color:#94a3b8;font-size:12px">(ప్రతి దశపై click చేయండి)</span></div>
+        <div class="nx-flow">
+          <div class="nx-step" data-step="1"><div class="e">📰</div><div class="s">STEP 1</div><div class="t">Reporter News పంపాడు</div></div>
+          <div class="nx-arrow">→</div>
+          <div class="nx-step" data-step="2"><div class="e">🤖</div><div class="s">STEP 2</div><div class="t">NEXA పరిశీలించింది</div></div>
+          <div class="nx-arrow">→</div>
+          <div class="nx-step" data-step="3"><div class="e">🔍</div><div class="s">STEP 3</div><div class="t">Duplicate / Risk చూసింది</div></div>
+          <div class="nx-arrow">→</div>
+          <div class="nx-step" data-step="4"><div class="e">💡</div><div class="s">STEP 4</div><div class="t">Suggestion ఇచ్చింది</div></div>
+          <div class="nx-arrow">→</div>
+          <div class="nx-step" data-step="5"><div class="e">👤</div><div class="s">STEP 5</div><div class="t">Human నిర్ణయం</div></div>
+          <div class="nx-arrow">→</div>
+          <div class="nx-step" data-step="6"><div class="e">✅</div><div class="s">STEP 6</div><div class="t">Approved / Rejected</div></div>
+        </div>
+      </div>
+
+      <!-- ===== SUMMARY CARDS ===== -->
+      <div class="nx-band">
+        <div class="nx-h">📊 ఒక్క చూపులో లెక్కలు</div>
+        <div class="nx-cards">
+          <div class="nx-card"><div class="e">📰</div><div class="n"><%= pendingNews %></div><div class="l">పరిశీలించాల్సిన వార్తలు<br><span style="color:#94a3b8">Pending News</span></div></div>
+          <div class="nx-card"><div class="e">🤖</div><div class="n"><%= analyzed %></div><div class="l">NEXA పరిశీలించినవి<br><span style="color:#94a3b8">Analyzed</span></div></div>
+          <div class="nx-card"><div class="e">💡</div><div class="n"><%= suggestions %></div><div class="l">NEXA ఇచ్చిన సూచనలు<br><span style="color:#94a3b8">Suggestions</span></div></div>
+          <div class="nx-card"><div class="e">⏳</div><div class="n"><%= humanNeeded %></div><div class="l">Human Decision కావాలి<br><span style="color:#94a3b8">Awaiting human</span></div></div>
+          <div class="nx-card" style="border-color:#fecaca;background:#fff5f5"><div class="e"><%= attention>0?'⚠️':'🟢' %></div><div class="n"><%= attention %></div><div class="l">తక్షణ శ్రద్ధ అవసరం<br><span style="color:#94a3b8">Needs attention</span></div></div>
+          <div class="nx-card" style="border-color:#bbf7d0;background:#f0fdf4"><div class="e">🚫</div><div class="n" style="color:#15803d"><%= autoActions %></div><div class="l">NEXA స్వయంగా చేసిన Actions<br><span style="color:#94a3b8">Auto actions (0 = safe)</span></div></div>
+        </div>
+      </div>
+
+      <!-- ===== PENDING NEWS (complete current queue, old→new, paginated) ===== -->
+      <% var pl0 = nexa.pendingList || {total:0,skip:0,limit:50,items:[]}; %>
+      <div class="nx-band">
+        <div class="nx-h">📰 ఏ వార్తలను NEXA పరిశీలించింది?</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px">
+          <span class="nx-pill" style="background:#EFF6FF;color:#1D4ED8">📰 ఇంకా నిర్ణయం లేని వార్తలు: <b id="nxPendTotal"><%= pl0.total %></b></span>
+          <span style="font-size:12.5px;color:#64748b">చూపిస్తున్నవి <b id="nxPendShown">0</b> / <span id="nxPendTotal2"><%= pl0.total %></span></span>
+          <button class="nx-btn" id="nxPendRefresh" style="margin-left:auto;padding:4px 12px">🔄 తాజాగా చూడండి</button>
+        </div>
+        <div class="nx-news" id="nxPendList"></div>
+        <div class="nx-sub" id="nxPendEmpty" style="display:none">ఇప్పుడు నిర్ణయం కావాల్సిన వార్తలు లేవు. 🎉</div>
+        <div class="nx-sub" id="nxPendLoading" style="display:none">లోడ్ అవుతోంది…</div>
+        <div style="text-align:center;margin-top:12px"><button class="nx-btn" id="nxPendMore" style="display:none;padding:8px 18px">మరిన్ని చూడండి →</button></div>
+      </div>
+
+      <!-- ===== NEXA vs HUMAN (simplified) ===== -->
+      <div class="nx-band">
+        <div class="nx-h">🎯 NEXA చెప్పింది నిజంగా సరైందా?</div>
+        <% if ((ev.decided||0) === 0) { %>
+          <div class="nx-attn nx-amber" style="margin-bottom:10px"><div class="ic">⏳</div><div>ఇప్పటివరకు Human Team ఈ <%= (ev.pending||analyzed||0) %> వార్తలపై తుది నిర్ణయం తీసుకోలేదు.<br><span style="font-weight:500;font-size:12.5px">అందుకే NEXA accuracy ఇంకా లెక్కించలేము. నిర్ణయాలు జరిగాక ఇది ఆటోమేటిక్‌గా నిండుతుంది.</span></div></div>
+        <% } %>
+        <div class="nx-cards">
+          <div class="nx-card" style="border-color:#bbf7d0"><div class="e">✅</div><div class="n" style="color:#15803d"><%= correct %></div><div class="l">సరైన సూచనలు<br><span style="color:#94a3b8">Correct</span></div></div>
+          <div class="nx-card" style="border-color:#fecaca"><div class="e">❌</div><div class="n" style="color:#b91c1c"><%= wrong %></div><div class="l">తప్పు సూచనలు<br><span style="color:#94a3b8">Wrong</span></div></div>
+          <div class="nx-card"><div class="e">⏳</div><div class="n"><%= ev.pending||0 %></div><div class="l">ఇంకా Human Decision లేదు<br><span style="color:#94a3b8">Pending</span></div></div>
+        </div>
+        <details class="nx-tech">
+          <summary>🔧 Technical Details — Admin అవసరమైతే మాత్రమే</summary>
+          <div style="font-size:12.5px;color:#334155;margin-top:8px;display:flex;flex-wrap:wrap;gap:8px">
+            <span>Agreement: <b><%= ev.agreement!=null?ev.agreement+'%':'—' %></b></span>
+            <span>Precision: <b><%= ev.flagPrecision!=null?ev.flagPrecision+'%':'—' %></b></span>
+            <span>Recall: <b><%= ev.flagRecall!=null?ev.flagRecall+'%':'—' %></b></span>
+            <span>TP <b><%= ev.tp %></b></span><span>FP <b><%= ev.fp %></b></span>
+            <span>TN <b><%= ev.tn %></b></span><span>FN <b><%= ev.fn %></b></span>
+          </div>
+        </details>
+      </div>
+
+      <!-- ===== TIMELINE ===== -->
+      <div class="nx-band">
+        <div class="nx-h">🕒 ఇటీవల ఏం జరిగింది?</div>
+        <% var tl = tr.recent || []; if (!tl.length) { %>
+          <div class="nx-sub">ఇంకా కార్యకలాపం లేదు.</div>
+        <% } else { %>
+        <div class="nx-timeline">
+          <% tl.slice(0,8).forEach(function(t){ var rm=REC_META[t.action]||{e:'⚪',te:t.action}; var tm=t.createdAt?new Date(t.createdAt).toLocaleString('en-IN'):'—'; %>
+          <div class="nx-tl"><div class="tm"><%= tm %></div><div class="tx">🤖 NEXA సూచించింది: <b><%= rm.e %> <%= rm.te %></b></div></div>
+          <% }) %>
+        </div>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- ===== MODAL ===== -->
+    <div class="nx-modal" id="nxModal"><div class="nx-dialog"><button class="nx-close" onclick="nxCloseModal()">×</button><div id="nxModalBody"></div></div></div>
+
+    <script>
+    (function(){
+      var TRIAGE = <%- JSON.stringify(nexa.triage && nexa.triage.recent || []).replace(/</g,'\\u003c') %>;
+      var OUT = <%- JSON.stringify(outById).replace(/</g,'\\u003c') %>;
+      var REC = {LOW_PRIORITY:['🟢','ఇప్పటికి అత్యవసరం కాదు'],REVIEW:['🔵','మామూలు పరిశీలన'],PRIORITY_REVIEW:['🟠','త్వరగా చూడండి'],POSSIBLE_DUPLICATE:['🔴','ఇది Duplicate కావచ్చు'],NEEDS_HUMAN_VERIFICATION:['🟡','మనిషి ధృవీకరణ కావాలి']};
+      var RECC = {LOW_PRIORITY:{c:'#15803D',bg:'#EEF9F1'},REVIEW:{c:'#1D4ED8',bg:'#EFF6FF'},PRIORITY_REVIEW:{c:'#B45309',bg:'#FFF8E6'},POSSIBLE_DUPLICATE:{c:'#B91C1C',bg:'#FEF2F2'},NEEDS_HUMAN_VERIFICATION:{c:'#92400E',bg:'#FEF9C3'}};
+      var OUTM = {pending:['⏳','ఇంకా నిర్ణయం లేదు'],approved:['✅','Approve అయింది'],rejected:['❌','Reject అయింది'],removed:['🗑️','తీసేశారు'],unknown:['❔','తెలియదు']};
+      var STEPS = {
+        '1':['📰 Reporter News పంపాడు','ఒక reporter కొత్త వార్తను app నుండి పంపాడు.','ఇప్పుడు ఆ వార్త Pending‌లో ఉంది.','తర్వాత NEXA దాన్ని పరిశీలిస్తుంది.'],
+        '2':['🤖 NEXA పరిశీలించింది','NEXA వార్త title, content, reporter వివరాలు చదివింది.','ఏ నిర్ణయమూ ఇంకా తీసుకోలేదు — కేవలం చదివింది.','తర్వాత ప్రమాద సంకేతాలు తనిఖీ చేస్తుంది.'],
+        '3':['🔍 Duplicate / Risk / Priority చూసింది','ఇలాంటి వార్త ఇప్పటికే ఉందా? reporter reliability ఎలా ఉంది? అత్యవసరమా?','ఇవన్నీ signals మాత్రమే — నిర్ణయం కాదు.','తర్వాత ఒక సూచన ఇస్తుంది.'],
+        '4':['💡 NEXA ఒక Suggestion ఇచ్చింది','ఉదా: "ఇప్పటికి అత్యవసరం కాదు" లేదా "Duplicate కావచ్చు".','ఇది కేవలం సలహా. NEXA స్వయంగా ఏమీ చేయదు.','తర్వాత మీ టీమ్ చూస్తుంది.'],
+        '5':['👤 Human Team నిర్ణయం తీసుకుంటుంది','మీ sub-editor / incharge వార్తను చూసి నిర్ణయిస్తారు.','NEXA సూచన సహాయం మాత్రమే.','తుది అధికారం మనిషిదే.'],
+        '6':['✅ Approved / ❌ Rejected / ⏳ Pending','మనిషి తీసుకున్న తుది నిర్ణయం ఇక్కడ కనిపిస్తుంది.','ఆ తర్వాత NEXA సూచన సరైందా అని పోల్చవచ్చు.','ఇదంతా record అవుతుంది.']
+      };
+      var TIPS = {
+        shadow:['🛡️ Shadow Mode','Shadow Mode అంటే NEXA ప్రస్తుతం కేవలం సూచనలు ఇస్తోంది. స్వయంగా News publish/reject చేయదు.'],
+        confidence:['📊 Confidence','Confidence అంటే NEXA తన సూచనపై ఎంత నమ్మకంగా ఉందో చూపించే అంచనా. ఇది Human Decision కాదు.']
+      };
+      var m=document.getElementById('nxModal'), body=document.getElementById('nxModalBody');
+      window.nxCloseModal=function(){m.classList.remove('open')};
+      m.addEventListener('click',function(e){if(e.target===m)nxCloseModal()});
+      function open(html){body.innerHTML=html;m.classList.add('open')}
+      function esc(s){return String(s==null?'':s).replace(/[&<>\"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+      document.querySelectorAll('#nexaSection [data-step]').forEach(function(el){
+        el.addEventListener('click',function(){var s=STEPS[el.getAttribute('data-step')];if(!s)return;
+          open('<h3>'+esc(s[0])+'</h3><div style="font-size:14px;line-height:1.7"><b>ఇక్కడ ఏం జరిగింది?</b><br>'+esc(s[1])+'<br><br><b>ఎందుకు?</b><br>'+esc(s[2])+'<br><br><b>తర్వాత ఏం జరుగుతుంది?</b><br>'+esc(s[3])+'</div>')});
+      });
+      document.querySelectorAll('#nexaSection [data-tip]').forEach(function(el){
+        el.addEventListener('click',function(e){e.stopPropagation();var t=TIPS[el.getAttribute('data-tip')];if(!t)return;open('<h3>'+esc(t[0])+'</h3><div style="font-size:14px;line-height:1.7">'+esc(t[1])+'</div>')});
+      });
+      // ===== Pending-news list (complete current queue, old→new, paginated) =====
+      // Source of truth = live pending News queue (via /admin/api/nexa/pending-news).
+      // DISPLAY ONLY: never publishes/rejects/creates tasks/triggers triage.
+      var PEND_INIT = <%- JSON.stringify(pl0).replace(/</g,'\\u003c') %>;
+      var PEND = { total:0, loaded:0, items:{}, order:[], busy:false };
+      var listEl=document.getElementById('nxPendList'),
+          moreBtn=document.getElementById('nxPendMore'),
+          emptyEl=document.getElementById('nxPendEmpty'),
+          loadEl=document.getElementById('nxPendLoading'),
+          shownEl=document.getElementById('nxPendShown'),
+          totEl=document.getElementById('nxPendTotal'),
+          totEl2=document.getElementById('nxPendTotal2'),
+          refreshBtn=document.getElementById('nxPendRefresh');
+      function pendCard(it){
+        var rm = it.analyzed ? (REC[it.recommendation]||['⚪',it.recommendation||'—']) : ['⏳','విశ్లేషణ కోసం వేచి ఉంది'];
+        var meta = it.analyzed ? (RECC[it.recommendation]||{c:'#334155',bg:'#f1f5f9'}) : {c:'#94a3b8',bg:'#f1f5f9'};
+        var cf = it.confidence!=null?Math.round(it.confidence*100):null;
+        var h='<div class="nx-ni" style="border-left-color:'+meta.c+'">';
+        h+='<div class="ttl">📰 '+esc(it.title||'వార్త')+'</div>';
+        h+='<span class="nx-pill" style="background:'+meta.bg+';color:'+meta.c+'">'+esc(rm[0]+' '+rm[1])+'</span>';
+        if(it.state){ h+='<div style="font-size:12px;color:#94a3b8;margin-top:6px">📍 '+esc(it.state)+'</div>'; }
+        if(it.analyzed){
+          h+='<div style="font-size:12.5px;color:#475569;margin-top:8px">కారణం: '+esc(it.reason||'—')+'</div>';
+          if(cf!=null){ h+='<div class="nx-row"><span>Confidence <span class="nx-i" data-tip="confidence">i</span></span><b>'+cf+'%</b></div><div class="nx-conf"><i style="width:'+cf+'%"></i></div>'; }
+        } else {
+          h+='<div style="font-size:12.5px;color:#94a3b8;margin-top:8px">⏳ NEXA విశ్లేషణ కోసం వేచి ఉంది — background‌లో వరుసగా విశ్లేషిస్తుంది.</div>';
+        }
+        h+='<div class="nx-row"><span>Human Decision</span><button class="nx-btn" style="border-color:#f59e0b;color:#b45309;padding:4px 10px" data-verify="'+it.id+'">⏳ ఇంకా నిర్ణయం లేదు</button></div>';
+        h+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="nx-btn" data-news="'+it.id+'">వివరాలు చూడండి →</button><button class="nx-btn" style="border-color:#16a34a;color:#15803d" data-verify="'+it.id+'">📲 Verify చేయండి</button></div>';
+        h+='</div>';
+        return h;
+      }
+      function pendSync(){
+        shownEl.textContent=PEND.loaded; totEl.textContent=PEND.total; totEl2.textContent=PEND.total;
+        emptyEl.style.display = (PEND.total===0) ? '' : 'none';
+        moreBtn.style.display = (PEND.loaded<PEND.total && !PEND.busy) ? '' : 'none';
+      }
+      function pendApply(page, replace){
+        if(replace){ PEND.items={}; PEND.order=[]; listEl.innerHTML=''; PEND.loaded=0; }
+        PEND.total = page.total||0;
+        var html='';
+        (page.items||[]).forEach(function(it){
+          if(PEND.items[it.id]) return; // never render the same news twice
+          PEND.items[it.id]=it; PEND.order.push(it.id); html+=pendCard(it);
+        });
+        if(html) listEl.insertAdjacentHTML('beforeend', html);
+        PEND.loaded=PEND.order.length;
+        pendSync();
+      }
+      function pendFetch(skip, limit){
+        return fetch('/admin/api/nexa/pending-news?skip='+skip+'&limit='+limit,{headers:{'Accept':'application/json'},credentials:'same-origin'}).then(function(r){return r.json()});
+      }
+      function pendLoadMore(){
+        if(PEND.busy) return; PEND.busy=true; loadEl.style.display=''; moreBtn.style.display='none';
+        pendFetch(PEND.loaded, 50).then(function(d){ if(d&&d.success) pendApply(d, false); }).catch(function(){}).then(function(){ PEND.busy=false; loadEl.style.display='none'; pendSync(); });
+      }
+      function pendRefresh(){
+        if(PEND.busy) return; PEND.busy=true; loadEl.style.display='';
+        var want=Math.min(Math.max(50, PEND.loaded), 200); // re-pull what's currently shown, fresh
+        pendFetch(0, want).then(function(d){ if(d&&d.success) pendApply(d, true); }).catch(function(){}).then(function(){ PEND.busy=false; loadEl.style.display='none'; pendSync(); });
+      }
+      if(moreBtn) moreBtn.addEventListener('click', pendLoadMore);
+      if(refreshBtn) refreshBtn.addEventListener('click', pendRefresh);
+      pendApply(PEND_INIT, true); // first page (embedded, no extra request)
+      // keep the queue live: drop approved/rejected, pick up newly-submitted pending
+      setInterval(function(){ if(document.visibilityState!=='hidden') pendRefresh(); }, 60000);
+
+      function pendDetails(id){
+        var it=PEND.items[id]; if(!it) return;
+        var rec = it.analyzed ? (REC[it.recommendation]||['⚪',it.recommendation||'—']) : null;
+        var cf = it.confidence!=null?Math.round(it.confidence*100):null;
+        var html='<h3>ఈ వార్త గురించి NEXA ఏం చెప్పింది?</h3>';
+        html+='<div style="font-weight:700;margin-bottom:10px">📰 '+esc(it.title||'వార్త')+'</div>';
+        if(it.state){ html+='<div style="font-size:13px;color:#64748b;margin-bottom:8px">📍 '+esc(it.state)+'</div>'; }
+        if(it.analyzed){
+          var why='';
+          if(it.recommendation==='LOW_PRIORITY'){why='<div class="nx-ex nx-slate">🛡️ ప్రమాద సంకేతాలు కనిపించలేదు</div><div class="nx-ex nx-slate">🔎 Duplicate signal కనిపించలేదు</div>'}
+          else if(it.recommendation==='POSSIBLE_DUPLICATE'){why='<div class="nx-ex nx-red">🔁 ఇలాంటి వార్త ఇప్పటికే ఉంది</div>'+(it.duplicate?('<div class="nx-ex nx-red">Score: '+esc(it.duplicate.score)+' · Matches: '+esc(it.duplicate.matchCount)+'</div>'):'')}
+          else if(it.recommendation==='NEEDS_HUMAN_VERIFICATION'){why='<div class="nx-ex nx-amber">🕵️ అనుమానాస్పద సంకేతాలు</div>'+(it.reliability?('<div class="nx-ex nx-amber">Reporter tier: '+esc(it.reliability.tier)+'</div>'):'')}
+          else if(it.recommendation==='PRIORITY_REVIEW'){why='<div class="nx-ex nx-amber">⏰ వార్త అత్యవసరంగా కనిపిస్తోంది</div>'}
+          else {why='<div class="nx-ex nx-blue">🔎 మామూలు పరిశీలన సరిపోతుంది</div>'}
+          html+='<ul class="nx-story">'
+            +'<li><span class="e">📰</span><div>వార్త వచ్చింది</div></li>'
+            +'<li><span class="e">🤖</span><div>NEXA పరిశీలించింది</div></li>'
+            +'<li><span class="e">🔍</span><div>Duplicate / risk signals చూసింది</div></li>'
+            +'<li><span class="e">💡</span><div><b>'+esc(rec[0]+' '+rec[1])+'</b> అని సూచించింది'+(cf!=null?(' ('+cf+'% confidence)'):'')+'</div></li>'
+            +'<li><span class="e">👤</span><div>Human Team నిర్ణయం: <b>⏳ ఇంకా నిర్ణయం లేదు</b></div></li>'
+          +'</ul>';
+          html+='<div style="font-weight:700;margin:12px 0 6px">ఎందుకు '+esc(rec[1])+'?</div><div class="nx-explain">'+why+'</div>';
+        } else {
+          html+='<div class="nx-ex nx-slate">🤖 ఈ వార్త NEXA విశ్లేషణ కోసం వేచి ఉంది. NEXA అన్ని pending వార్తలను background‌లో వరుసగా విశ్లేషిస్తుంది — త్వరలో ఫలితం ఇక్కడ కనిపిస్తుంది.</div>';
+        }
+        html+='<div style="font-weight:700;margin:14px 0 6px">NEXA ఏం చేయలేదు?</div><div class="nx-neg"><span>❌ Publish చేయలేదు</span><span>❌ Reject చేయలేదు</span><span>❌ Reporterపై చర్య తీసుకోలేదు</span><span>❌ News మార్చలేదు</span></div>';
+        html+='<div style="font-weight:700;margin:14px 0 6px">ఇప్పుడు ఏం చేయాలి?</div><div class="nx-ex nx-blue">👤 Human Team వార్తను చూసి తుది నిర్ణయం తీసుకోవాలి.</div>';
+        open(html);
+      }
+      // event delegation — cards are rendered dynamically, so bind on the container
+      listEl.addEventListener('click', function(e){
+        var tp=e.target.closest('[data-tip]'); if(tp && listEl.contains(tp)){ e.stopPropagation(); var t=TIPS[tp.getAttribute('data-tip')]; if(t) open('<h3>'+esc(t[0])+'</h3><div style="font-size:14px;line-height:1.7">'+esc(t[1])+'</div>'); return; }
+        var d=e.target.closest('[data-news]'); if(d){ pendDetails(d.getAttribute('data-news')); return; }
+        var v=e.target.closest('[data-verify]'); if(v){ nxVerify(v.getAttribute('data-verify')); return; }
+      });
+
+      // ===== WhatsApp verification assistant (admin-initiated, wa.me only) =====
+      // wa.me can open the correct chat + pre-fill text, but CANNOT auto-attach a
+      // binary image. So we open a branded Verification Summary tab (one-click
+      // Download → the admin attaches it) alongside the pre-filled WhatsApp chat.
+      function nxRow(l,v){ return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed #eef2f7"><span style="color:#64748b;font-size:13px">'+l+'</span><b style="font-size:13px;text-align:right">'+v+'</b></div>'; }
+      function nxNormPhone(p){ var d=String(p||'').replace(/\D/g,''); if(!d) return ''; if(d.length===10) return '91'+d; if(d.length===11 && d.charAt(0)==='0') return '91'+d.slice(1); return d; }
+      function nxBuildMsg(title, url){
+        var m="Hello Sir,\n\nWe have received the following news report from your state and kindly request you to verify the details.\n\nPlease review the News Verification Summary and the full News available through the dashboard link.\n\nKindly confirm:\n1. Whether the information is correct.\n2. Whether the news is suitable for publication.\n3. Whether any correction is required.\n\nYour verification will help us maintain accurate and reliable news.\n\nNews:\n"+(title||'')+"\n";
+        if(url){ m+="\nFull News:\n"+url+"\n"; }
+        m+="\nThank you for your support.\nTeam Tehelka News";
+        return m;
+      }
+      function nxMarkSent(id){
+        document.querySelectorAll('#nexaSection [data-verify="'+id+'"]').forEach(function(b){
+          var s=document.createElement('span'); s.style.cssText='color:#0369a1;font-weight:700;font-size:12.5px'; s.textContent='📤 WhatsApp తెరిచింది — image attach చేసి Send చేయండి';
+          if(b.parentNode) b.parentNode.replaceChild(s,b);
+        });
+      }
+      function nxVerify(id){
+        open('<div style="text-align:center;color:#64748b;padding:16px">Loading…</div>');
+        fetch('/admin/api/nexa/verify/'+encodeURIComponent(id),{headers:{'Accept':'application/json'},credentials:'same-origin'})
+          .then(function(r){return r.json()})
+          .then(function(d){
+            if(!d||!d.success){ open('<h3>📲 News Verification</h3><div style="color:#b91c1c">'+esc((d&&d.te)||'లోపం జరిగింది.')+'</div>'); return; }
+            var ic=d.incharge||{}; var nx=d.nexa||{};
+            var html='<h3>📲 News Verification</h3>';
+            html+='<div style="color:#475569;font-size:13px;margin-bottom:12px">ఈ వార్తను State In-charge Verify చేయాలి. కింద పూర్తి Summary తయారవుతుంది.</div>';
+            html+=nxRow('📰 News', esc(d.title||'—'));
+            html+=nxRow('📍 State', esc(d.state||'—'));
+            html+=nxRow('👤 Reporter', esc(d.reporter||'—'));
+            html+=nxRow('📅 Submitted', esc((d.submittedDate||'—')+(d.submittedTime?(', '+d.submittedTime):'')));
+            html+=nxRow('⏳ Pending for', esc(d.pendingText||'—'));
+            html+=nxRow('🤖 NEXA', nx.analyzed ? esc((nx.recommendationLabel||'—')+(nx.confidence!=null?(' · '+nx.confidence+'%'):'')) : '<span style="color:#64748b">Not analyzed yet</span>');
+            html+=nxRow('👤 Verify With', esc(ic.name||'—'));
+            html+=nxRow('📱 WhatsApp', ic.phoneAvailable ? esc(ic.phoneMasked||'') : '<span style="color:#b45309">Not configured</span>');
+            html+=nxRow('📎 Summary Image', d.imageAvailable ? '<span style="color:#15803d">✓ Photo ready</span>' : '<span style="color:#b45309">⚠️ No photo</span>');
+            html+='<button id="nxSum" class="nx-btn" style="margin-top:14px;width:100%;padding:11px;font-size:13.5px;font-weight:700">🖼️ Verification Summary చూడండి / Download</button>';
+            if(!ic.phoneAvailable){
+              html+='<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px;margin-top:12px;font-size:12.5px;color:#9a3412">⚠️ State In-charge WhatsApp number is not configured.<br>దయచేసి <a href="/admin/editors" target="_blank">Editors</a> లో In-charge mobile number set చేయండి.</div>';
+            } else {
+              html+='<button id="nxWa" class="nx-btn" style="margin-top:10px;width:100%;background:#22c55e;border-color:#16a34a;color:#fff;padding:12px;font-size:14px;font-weight:800">📲 WhatsApp ద్వారా Verify చేయండి</button>';
+              html+='<div style="margin-top:8px;font-size:11.5px;color:#64748b;line-height:1.5">➊ Summary image download అవుతుంది ➋ WhatsApp chat open అవుతుంది (message ready) ➌ మీరు image attach చేసి Send నొక్కండి.<br><i>WhatsApp binary image ని apps ద్వారా auto-attach చేయలేము — attach ఒక్కటే manual step.</i></div>';
+            }
+            html+='<div style="margin-top:10px;text-align:center"><a href="#" onclick="nxCloseModal();return false" style="color:#64748b;font-size:13px">Cancel</a></div>';
+            open(html);
+            var sum=document.getElementById('nxSum');
+            if(sum){ sum.addEventListener('click',function(){ try{ window.open(d.summaryUrl,'_blank'); }catch(e){} }); }
+            var wa=document.getElementById('nxWa');
+            if(wa){ wa.addEventListener('click',function(){
+              var phone=nxNormPhone(ic.phone);
+              if(phone.length<10){ open('<h3>📲 News Verification</h3><div style="color:#b91c1c">⚠️ WhatsApp number సరైనది కాదు.</div>'); return; }
+              // 1) open the Verification Summary tab (admin downloads the image there)
+              try{ window.open(d.summaryUrl,'_blank'); }catch(e){}
+              // 2) open the pre-filled WhatsApp chat (short professional message + direct link)
+              var msg=nxBuildMsg(d.title, d.dashboardUrl);
+              try{ window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank'); }catch(e){}
+              // 3) audit only — no News write
+              fetch('/admin/api/nexa/verify/'+encodeURIComponent(id)+'/initiate',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin'}).catch(function(){});
+              nxMarkSent(id); nxCloseModal();
+            }); }
+          })
+          .catch(function(){ open('<h3>📲 News Verification</h3><div style="color:#b91c1c">Network లోపం. మళ్ళీ ప్రయత్నించండి.</div>'); });
+      }
+    })();
+    </script>
+    <% } %>
+
     <div id="ccContent">
         <div class="cc-loading"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Loading analytics...</div>
     </div>

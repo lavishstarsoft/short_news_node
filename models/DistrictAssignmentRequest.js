@@ -14,11 +14,20 @@ const districtAssignmentRequestSchema = new mongoose.Schema({
   district: { type: String, required: true, trim: true },
   tier: { type: String, enum: ['district_incharge', 'stringer'], default: 'district_incharge' },
 
-  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending', index: true },
+  // 'revoked' = an admin removed a previously APPROVED assignment (reporter is no
+  // longer in-charge of that district). Only approved requests can be revoked.
+  status: { type: String, enum: ['pending', 'approved', 'rejected', 'revoked'], default: 'pending', index: true },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
   reviewedByName: { type: String, default: '' },
   reviewedAt: { type: Date, default: null },
   rejectReason: { type: String, default: '' },
+
+  // Captured at approval so a later revoke can restore the reporter's earlier tier.
+  previousTier: { type: String, default: null },
+  revokedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
+  revokedByName: { type: String, default: '' },
+  revokedAt: { type: Date, default: null },
+  revokeReason: { type: String, default: '' },
 }, { timestamps: true });
 
 module.exports = mongoose.model('DistrictAssignmentRequest', districtAssignmentRequestSchema);

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>AR Video — Tehelka</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: system-ui, 'Noto Sans Telugu', sans-serif; overflow: hidden; }
+    #ui { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; gap: 14px; z-index: 5; }
+    #ui h2 { margin: 0; font-size: 18px; font-weight: 700; }
+    #ui p { margin: 0; color: #c9c9d3; font-size: 14px; max-width: 320px; line-height: 1.5; }
+    .btn { background: #3f2a7a; color: #fff; border: 0; border-radius: 30px; padding: 14px 26px; font-size: 16px; font-weight: 700; cursor: pointer; }
+    #hint { position: fixed; top: 16px; left: 0; right: 0; text-align: center; font-size: 15px; z-index: 6; display: none; text-shadow: 0 1px 4px #000; }
+    video.fallback { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 4; }
+    #why { position: fixed; top: 0; left: 0; right: 0; z-index: 9; background: rgba(180,30,30,.92); color: #fff; font-size: 14px; padding: 12px 14px; text-align: center; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <h2 id="ttl">View in AR 👓</h2>
+    <p id="msg">Start AR, point at a floor or wall, and tap to place the video on a screen there.</p>
+    <div id="btnHost"></div>
+  </div>
+  <div id="hint">👆 Tap on a floor or wall to place the video</div>
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+    import { ARButton } from 'https://unpkg.com/three@0.160.0/examples/jsm/webxr/ARButton.js';
+
+    const params = new URLSearchParams(location.search);
+    const src = params.get('src') || '';
+    const title = params.get('title') || '';
+    if (title) document.getElementById('ttl').textContent = title;
+
+    const $ = (id) => document.getElementById(id);
+
+    function fallbackPlay(reason) {
+      // Keep the REASON visible on screen so the owner can tell why AR didn't open.
+      $('btnHost').innerHTML = ''; $('ui').style.display = 'none';
+      const why = document.createElement('div'); why.id = 'why';
+      why.textContent = '⚠️ ' + reason + ' — open in Chrome (showing the video normally)';
+      document.body.appendChild(why);
+      if (!src) { why.textContent = '⚠️ Video not found.'; return; }
+      const v = document.createElement('video');
+      v.className = 'fallback'; v.src = src; v.controls = true; v.autoplay = true; v.playsInline = true;
+      v.setAttribute('webkit-playsinline', '');
+      document.body.appendChild(v);
+    }
+
+    if (!src) { fallbackPlay('Video not found'); throw new Error('no src'); }
+
+    (async () => {
+      if (!('xr' in navigator)) return fallbackPlay('AR is not available in this browser');
+      let supported = false;
+      try { supported = await navigator.xr.isSessionSupported('immersive-ar'); } catch (e) { supported = false; }
+      if (!supported) return fallbackPlay('This phone does not support AR');
+      startAR();
+    })();
+
+    function startAR() {
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.01, 20);
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(devicePixelRatio);
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.xr.enabled = true;
+      document.body.appendChild(renderer.domElement);
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.2));
+
+      // Video + texture
+      const video = document.createElement('video');
+      video.src = src; video.crossOrigin = 'anonymous'; video.loop = true;
+      video.playsInline = true; video.setAttribute('webkit-playsinline', '');
+      const vtex = new THREE.VideoTexture(video);
+      vtex.colorSpace = THREE.SRGBColorSpace;
+
+      // Reticle (placement ring)
+      const reticle = new THREE.Mesh(
+        new THREE.RingGeometry(0.06, 0.08, 32).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: 0x7c5cff })
+      );
+      reticle.matrixAutoUpdate = false; reticle.visible = false; scene.add(reticle);
+
+      // Video screen (placed on tap)
+      const W = 1.0, H = W * 9 / 16;
+      const screen = new THREE.Mesh(
+        new THREE.PlaneGeometry(W, H),
+        new THREE.MeshBasicMaterial({ map: vtex, side: THREE.DoubleSide, toneMapped: false })
+      );
+      screen.visible = false; scene.add(screen);
+      // simple dark frame behind the screen
+      const frame = new THREE.Mesh(
+        new THREE.PlaneGeometry(W + 0.04, H + 0.04),
+        new THREE.MeshBasicMaterial({ color: 0x0b0b12, side: THREE.DoubleSide })
+      );
+      frame.visible = false; screen.add(frame); frame.position.z = -0.001;
+
+      const controller = renderer.xr.getController(0);
+      controller.addEventListener('select', () => {
+        if (!reticle.visible) return;
+        screen.position.setFromMatrixPosition(reticle.matrix);
+        // Face the viewer (billboard around Y).
+        screen.lookAt(camera.position.x, screen.position.y, camera.position.z);
+        screen.visible = true; frame.visible = true;
+        video.muted = false;
+        video.play().catch(() => { video.muted = true; video.play().catch(() => {}); });
+        $('hint').textContent = '✅ Video placed — tap elsewhere to move it';
+      });
+      scene.add(controller);
+
+      const arButton = ARButton.createButton(renderer, {
+        requiredFeatures: ['hit-test'],
+        optionalFeatures: ['dom-overlay'],
+        domOverlay: { root: document.body },
+      });
+      arButton.textContent = '👓 Start AR';
+      arButton.className = 'btn';
+      arButton.style.position = 'static';
+      $('btnHost').appendChild(arButton);
+
+      let hitTestSource = null, localSpace = null;
+      renderer.xr.addEventListener('sessionstart', async () => {
+        $('ui').style.display = 'none';
+        $('hint').style.display = 'block';
+        const session = renderer.xr.getSession();
+        const viewerSpace = await session.requestReferenceSpace('viewer');
+        hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+        localSpace = await session.requestReferenceSpace('local');
+        video.play().catch(() => {});
+      });
+      renderer.xr.addEventListener('sessionend', () => {
+        hitTestSource = null; $('hint').style.display = 'none'; $('ui').style.display = 'flex';
+      });
+
+      renderer.setAnimationLoop((_, frame) => {
+        if (frame && hitTestSource) {
+          const results = frame.getHitTestResults(hitTestSource);
+          if (results.length) {
+            const pose = results[0].getPose(localSpace);
+            reticle.visible = true;
+            reticle.matrix.fromArray(pose.transform.matrix);
+          } else {
+            reticle.visible = false;
+          }
+        }
+        renderer.render(scene, camera);
+      });
+
+      addEventListener('resize', () => {
+        camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+
+      // If the video can't be decoded (CORS / format), fall back to plain play.
+      video.addEventListener('error', () => fallbackPlay('Could not load video'));
+    }
+  </script>
+</body>
+</html>

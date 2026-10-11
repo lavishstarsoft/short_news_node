@@ -6,7 +6,9 @@ const { generateContentHash } = require('../utils/similarityDetector');
 
 describe('duplicateCheckService', () => {
   test('normalizeDuplicateCheck returns safe defaults', () => {
-    expect(normalizeDuplicateCheck(null)).toEqual({
+    // toMatchObject: the normaliser also returns null metadata keys
+    // (mediaPassAt/matchSource/reasonLabel/reasonMessage); assert the core shape.
+    expect(normalizeDuplicateCheck(null)).toMatchObject({
       isDuplicate: false,
       isSuspicious: false,
       score: 0,

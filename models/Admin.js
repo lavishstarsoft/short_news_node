@@ -48,6 +48,13 @@ const adminSchema = new mongoose.Schema({
     enum: ['stringer', 'district_incharge', null],
     default: null
   },
+  // Salary-based reporters (e.g. Delhi team) are paid a monthly salary, NOT per-news,
+  // so the tiered 10-news/day submission cap must not apply to them. Additive &
+  // nullable: absent/false = normal tier limit; true = unlimited daily submissions.
+  unlimitedDailyNews: {
+    type: Boolean,
+    default: false
+  },
   workingLanguage: {
     type: String,
     trim: true,
@@ -111,6 +118,42 @@ const adminSchema = new mongoose.Schema({
   lastLogin: {
     type: Date
   },
+  /**
+   * ONE-DEVICE LOGIN (Reporter Security Phase 2). The session the account is
+   * currently allowed to use; a new login replaces it and the old device's token
+   * stops working (its `sid` no longer matches). Null = no session recorded yet
+   * (older tokens keep working until the rule is switched on).
+   */
+  activeSession: {
+    sid: { type: String, default: null },
+    deviceId: { type: String, default: '' },
+    deviceModel: { type: String, default: '' },
+    platform: { type: String, default: '' },
+    appVersion: { type: String, default: '' },
+    ip: { type: String, default: '' },
+    place: { type: String, default: '' },
+    at: { type: Date, default: null }
+  },
+  /** Web dashboard session (kept separate so a phone login never kicks the desk browser). */
+  activeWebSession: {
+    sid: { type: String, default: null },
+    ip: { type: String, default: '' },
+    place: { type: String, default: '' },
+    userAgent: { type: String, default: '' },
+    at: { type: Date, default: null }
+  },
+  /** Who created this account (dashboard Register Editor). null = older accounts / self sign-up. */
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    default: null
+  },
+  /** 'dashboard' = created by an admin; 'portal_signup' = self-registered on the reporter web portal. */
+  createdVia: {
+    type: String,
+    enum: ['dashboard', 'portal_signup', null],
+    default: null
+  },
   displaySettings: {
     showProfileImage: { type: Boolean, default: true },
     showName: { type: Boolean, default: true },
@@ -143,7 +186,7 @@ const adminSchema = new mongoose.Schema({
   payoutMethods: [{
     type: {
       type: String,
-      enum: ['upi', 'bank'],
+      enum: ['upi', 'bank', 'phonepe'],
       required: true
     },
     label: {
@@ -152,6 +195,12 @@ const adminSchema = new mongoose.Schema({
       trim: true
     },
     upiId: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    // PhonePe payout: the 10-digit mobile the reporter receives money on.
+    phoneNumber: {
       type: String,
       default: '',
       trim: true
@@ -234,7 +283,12 @@ const adminSchema = new mongoose.Schema({
       programCategories: { type: Boolean, default: true },
       locations: { type: Boolean, default: true },
       reports: { type: Boolean, default: true },
-      zodiac: { type: Boolean, default: false }
+      zodiac: { type: Boolean, default: false },
+      // Sub-editor standalone links (Assign Reporters / Reporter Access / Coverage Map).
+      // Visible by default; a super admin can hide them per sub-editor.
+      assignReporters: { type: Boolean, default: true },
+      reporterAccess: { type: Boolean, default: true },
+      coverageMap: { type: Boolean, default: true }
     }
   },
   loginHistory: [{
@@ -267,10 +321,43 @@ const adminSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     }
-  }]
+  }],
+
+  // ── Phase-A ORGANIZATION METADATA (additive, nullable — read by NOTHING yet) ──
+  // These fields carry future org structure only. They grant ZERO permissions,
+  // are ignored by authentication/authorization/workflows, and a document with
+  // all of them null/empty behaves exactly as before. Legacy fields (role,
+  // permissions, displayRole, reporterTier, assigned*, managed*) remain
+  // authoritative. Do NOT read these from any controller until the approved
+  // dual-run phase.
+  departmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Department',
+    default: null,
+    index: true
+  },
+  teamId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team',
+    default: null,
+    index: true
+  },
+  roleIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Role'
+  }],
+  reportingManagerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    default: null,
+    index: true
+  }
 }, {
   timestamps: true
 });
+
+// Multikey index for future role-holder lookups ("who has role X?").
+adminSchema.index({ roleIds: 1 });
 
 // Hash password before saving
 adminSchema.pre('save', async function (next) {

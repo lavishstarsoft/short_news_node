@@ -1,0 +1,218 @@
+[
+ {
+  "type": "state",
+  "code": "35",
+  "name": "ANDAMAN AND NICOBAR ISLANDS",
+  "isUT": true
+ },
+ {
+  "type": "state",
+  "code": "28",
+  "name": "ANDHRA PRADESH",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "12",
+  "name": "ARUNACHAL PRADESH",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "18",
+  "name": "ASSAM",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "10",
+  "name": "BIHAR",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "4",
+  "name": "CHANDIGARH",
+  "isUT": true
+ },
+ {
+  "type": "state",
+  "code": "22",
+  "name": "CHHATTISGARH",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "7",
+  "name": "DELHI",
+  "isUT": true
+ },
+ {
+  "type": "state",
+  "code": "30",
+  "name": "GOA",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "24",
+  "name": "GUJARAT",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "6",
+  "name": "HARYANA",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "2",
+  "name": "HIMACHAL PRADESH",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "1",
+  "name": "JAMMU AND KASHMIR",
+  "isUT": true
+ },
+ {
+  "type": "state",
+  "code": "20",
+  "name": "JHARKHAND",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "29",
+  "name": "KARNATAKA",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "32",
+  "name": "KERALA",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "37",
+  "name": "LADAKH",
+  "isUT": true
+ },
+ {
+  "type": "state",
+  "code": "31",
+  "name": "LAKSHADWEEP",
+  "isUT": true
+ },
+ {
+  "type": "state",
+  "code": "23",
+  "name": "MADHYA PRADESH",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "27",
+  "name": "MAHARASHTRA",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "14",
+  "name": "MANIPUR",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "17",
+  "name": "MEGHALAYA",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "15",
+  "name": "MIZORAM",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "13",
+  "name": "NAGALAND",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "21",
+  "name": "ODISHA",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "34",
+  "name": "PUDUCHERRY",
+  "isUT": true
+ },
+ {
+  "type": "state",
+  "code": "3",
+  "name": "PUNJAB",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "8",
+  "name": "RAJASTHAN",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "11",
+  "name": "SIKKIM",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "33",
+  "name": "TAMIL NADU",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "36",
+  "name": "TELANGANA",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "38",
+  "name": "THE DADRA AND NAGAR HAVELI AND DAMAN AND DIU",
+  "isUT": true
+ },
+ {
+  "type": "state",
+  "code": "16",
+  "name": "TRIPURA",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "9",
+  "name": "UTTAR PRADESH",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "5",
+  "name": "UTTARAKHAND",
+  "isUT": false
+ },
+ {
+  "type": "state",
+  "code": "19",
+  "name": "WEST BENGAL",
+  "isUT": false
+ }
+]

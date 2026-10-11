@@ -38,7 +38,9 @@ const {
   reporterMatchesCoverage,
   getAdminId,
   normalizeApprovalScope,
-  uniqueStrings
+  uniqueStrings,
+  findStateInchargesForReporters,
+  resolveResponsibilityFor
 } = require('../utils/editorCoverageHelper');
 
 // Import the Notification model
@@ -59,7 +61,7 @@ const { runDuplicateCheckGateway } = require('../services/aiDuplicate/runDuplica
 /** Pending-news duplicate check via AI gateway (Python /v1/detect; Node fallback if AI off/fails). */
 async function applyPendingDuplicateCheckViaAi(newsId) {
   const article = await News.findById(newsId)
-    .select('title content language mediaUrl mediaType imageUrls thumbnailUrl videoUrl')
+    .select('title content language location mediaUrl mediaType imageUrls thumbnailUrl videoUrl')
     .lean();
   if (!article) return null;
 
@@ -297,6 +299,27 @@ const checkVpnIndicators = async (ip) => {
 // Handle login
 const axios = require('axios'); // For reCAPTCHA verification
 
+// Sidebar order → first page a sub-editor is allowed to see. Used only when the
+// Dashboard menu itself is hidden for them; everyone else keeps landing on '/'.
+const SIDEBAR_LANDING = [
+  ['dashboard', '/news'], ['addNews', '/add-news'], ['newsList', '/news-list'],
+  ['pendingNews', '/admin/pending-news'], ['rejectedNews', '/admin/rejected-news'],
+  ['plagiarismReport', '/admin/plagiarism-report'], ['viralVideos', '/viral-videos'],
+  ['longVideos', '/long-videos'], ['polls', '/admin/polls'], ['zodiac', '/admin/zodiac'],
+  ['categories', '/categories'], ['programCategories', '/categories?type=program'],
+  ['locations', '/locations'], ['reports', '/admin/reports']
+];
+const landingPathFor = (admin) => {
+  if (!admin || admin.role !== 'subeditor') return '/';
+  const sb = admin.permissions && admin.permissions.sidebar;
+  if (!sb || sb.dashboard !== false) return '/';
+  for (const [key, path] of SIDEBAR_LANDING) {
+    const visible = key === 'zodiac' ? sb.zodiac === true : sb[key] !== false;
+    if (visible) return path;
+  }
+  return '/';
+};
+
 const login = async (req, res) => {
   try {
     const { username, password, latitude, longitude, locationPermission } = req.body;
@@ -442,13 +465,28 @@ const login = async (req, res) => {
       await admin.save();
     }
 
+    // ONE-DEVICE LOGIN (dashboard slot): State In-Charges / desk get a web session id so
+    // a second browser or phone login replaces the first. Admin & Super Admin are exempt.
+    let _webSid = null;
+    try {
+      const _sess = require('../services/security/reporterSession');
+      const _secNow = await require('../services/security/reporterSecuritySettings').get();
+      if (isConnectedToMongoDB && _secNow.singleDeviceLogin && _sess.SINGLE_DEVICE_ROLES.includes(admin.role)) {
+        const started = await _sess.startWebSession(admin, { ip, userAgent });
+        _webSid = started.sid;
+      }
+    } catch (e) {
+      console.error('web session start failed:', e.message); // never block the dashboard login
+    }
+
     // Generate JWT token
     const token = jwt.sign(
       { 
         id: isConnectedToMongoDB ? admin._id : admin.id, 
         username: admin.username, 
         name: admin.name,
-        role: admin.role
+        role: admin.role,
+        ...(_webSid ? { sid: _webSid } : {})
         // NOTE: `permissions` are intentionally NOT embedded in the JWT anymore. Whole-state
         // Bureau/Sub-Editor accounts have huge managedLocations/managedConstituencies/
         // managedDistricts arrays which made the token (and the Set-Cookie header) ~30KB, and
@@ -467,8 +505,8 @@ const login = async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
 
-    // Redirect to dashboard
-    res.redirect('/');
+    // Redirect to dashboard (or the first visible page when Dashboard is hidden)
+    res.redirect(landingPathFor(admin));
   } catch (error) {
     console.error('Login error:', error);
     res.render('login', { error: 'An error occurred during login' });
@@ -1022,7 +1060,29 @@ async function buildAssignedLocationTree(adminDoc) {
     }
   });
 
-  return Object.values(tree).map(st => ({
+  // Keep only the states this admin is genuinely in charge of. A state node is
+  // kept when it actually has assigned districts/constituencies under it, OR the
+  // state itself is a real assignment (assignedState / assignedStates /
+  // permissions.managedStates). Handles single-state AND multi-state in-charges
+  // (e.g. MP + UP): every validly assigned state stays, even one with 0
+  // districts. Removed are ONLY "orphan" states — 0 districts and in none of the
+  // real assignment fields — which appear solely because of a stale,
+  // over-populated assignedLocations/managedLocations list. Districts and
+  // constituencies inside a kept state are never touched. Derived entirely from
+  // the logged-in user's own assignment data (nothing hardcoded).
+  const assignedStateSet = new Set(uniqueStrings([
+    adminDoc.assignedState,
+    ...(adminDoc.assignedStates || []),
+    ...(perms.managedStates || [])
+  ]));
+  const allStates = Object.values(tree);
+  const scopedStates = allStates.filter(
+    st => Object.keys(st.districts).length > 0 || assignedStateSet.has(st.name)
+  );
+  // Safety: never blank out the panel if filtering would remove everything.
+  const finalStates = scopedStates.length ? scopedStates : allStates;
+
+  return finalStates.map(st => ({
     name: st.name,
     districts: Object.values(st.districts).map(d => ({
       name: d.name,
@@ -1156,7 +1216,10 @@ async function getScopedAnalytics(req, res) {
               }
             },
             { $sort: { total: -1 } },
-            { $limit: 20 }
+            // Show ALL reporters (the section is labelled "All Reporters"), not just
+            // the top 20 — otherwise mid-volume reporters (e.g. district in-charges
+            // with 80–140 news) rank outside the top 20 and appear as missing/zero.
+            { $limit: 1000 }
           ],
           byLocation: [
             {
@@ -1264,13 +1327,33 @@ async function getScopedAnalytics(req, res) {
 
     let enrichedReporters = [];
     if (allIdsToFetch.size > 0) {
-      const repDocs = await Admin.find({ _id: { $in: Array.from(allIdsToFetch) } })
-        .select('name username email mobileNumber assignedState assignedStates assignedDistricts location')
+      const idArray = Array.from(allIdsToFetch);
+      const repDocs = await Admin.find({ _id: { $in: idArray } })
+        .select('name username email mobileNumber assignedState assignedStates assignedDistricts location reporterTier unlimitedDailyNews')
         .lean();
-      
+
+      // Real daily-limit count: how many news each reporter SUBMITTED today (IST),
+      // excluding rejected — exactly what the app enforces. This is separate from
+      // the range "Total" (which is by approval/publish date and includes rejected),
+      // so the in-charge can see the true X/10 and stop thinking the cap changed.
+      let todayCountMap = {};
+      try {
+        const { objectIdRangeForIstDay } = require('../utils/indianDateTime');
+        const todayAgg = await News.aggregate([
+          { $match: { authorId: { $in: idArray.map(String) }, _id: objectIdRangeForIstDay(new Date()), 'rejectionStatus.isRejected': { $ne: true } } },
+          { $group: { _id: '$authorId', c: { $sum: 1 } } }
+        ]).allowDiskUse(true);
+        todayAgg.forEach((t) => { todayCountMap[String(t._id)] = t.c; });
+      } catch (e) {
+        console.error('today-limit count failed (non-critical):', e && e.message);
+      }
+      const { TIER_DAILY_LIMIT, isTierLimited } = require('../utils/dailyLimitService');
+
       enrichedReporters = repDocs.map(d => {
         const idStr = String(d._id);
         const r = activeReporterMap[idStr] || { total: 0, approved: 0, rejected: 0, pending: 0, views: 0 };
+        const unlimited = d.unlimitedDailyNews === true;
+        const limited = isTierLimited(d.reporterTier) && !unlimited;
         return {
           authorId: d._id,
           author: d.name || d.username || r.author || 'Unknown',
@@ -1282,7 +1365,11 @@ async function getScopedAnalytics(req, res) {
           approved: r.approved || 0,
           rejected: r.rejected || 0,
           pending: r.pending || 0,
-          views: r.views || 0
+          views: r.views || 0,
+          // Daily-limit clarity fields (today, IST):
+          todaySubmitted: todayCountMap[idStr] || 0,
+          dailyLimit: limited ? TIER_DAILY_LIMIT : null,
+          limitStatus: unlimited ? 'unlimited' : (limited ? 'limited' : 'no_cap')
         };
       });
       // Sort by total descending
@@ -1320,7 +1407,22 @@ async function renderImpersonatedDashboard(req, res) {
     if (!targetAdmin) {
       return res.status(404).send('Editor not found');
     }
-    
+
+    // Audit (observational only): a privileged user is opening the dashboard AS
+    // another user. Fire-and-forget — never blocks or alters the impersonation.
+    try {
+      const { logAudit } = require('../utils/auditLogger');
+      logAudit({
+        req,
+        action: 'user_impersonation_start',
+        entityType: 'Admin',
+        entityId: targetAdmin._id,
+        targetId: targetAdmin._id,
+        targetName: targetAdmin.name || targetAdmin.username || '',
+        description: `Impersonation dashboard opened for ${targetAdmin.username || targetAdmin._id}`
+      });
+    } catch (_) {}
+
     targetAdmin.id = targetAdmin._id.toString();
     targetAdmin.isImpersonated = true;
     targetAdmin.impersonatorName = req.admin.name || 'Super Admin';
@@ -1804,6 +1906,11 @@ async function renderEditorsPage(req, res) {
       return explicit.find(isSIC) || explicit[0] || geo.find(isSIC) || geo[0] || null;
     };
 
+    // "Assigned Responsibility" line for the directory rows — shared resolver
+    // (utils/editorCoverageHelper.resolveResponsibilityFor), also used by the
+    // Profile Overview API so both always agree.
+    const resolveResponsibility = (person) => resolveResponsibilityFor(person, editors);
+
     const editorsWithStats = editors.map(editor => {
       // P6: `editor` is already a plain lean object (no .toObject() needed).
       const editorObj = editor;
@@ -1833,7 +1940,9 @@ async function renderEditorsPage(req, res) {
         hierDistrict: (cov.districts && cov.districts[0]) || editor.location || '',
         stateInChargeId: ic ? String(getAdminId(ic)) : '',
         stateInChargeName: ic ? (ic.name || ic.username || 'State In-Charge') : '',
-        stateInChargePhone: ic ? (ic.mobileNumber || '') : ''
+        stateInChargePhone: ic ? (ic.mobileNumber || '') : '',
+        // Directory row "Assigned Responsibility" (see resolveResponsibility above).
+        responsibility: resolveResponsibility(editor)
       };
     });
 
@@ -2360,6 +2469,19 @@ async function updateEditor(req, res) {
     if (!editor || (editor.role !== 'editor' && editor.role !== 'subeditor')) {
       return res.status(404).json({ error: 'Editor not found' });
     }
+    // Assignment audit: snapshot the routing/assignment fields so a change can be
+    // logged (who changed what, when) after the save below.
+    const assignmentSnapshot = (e) => ({
+      displayRole: e.displayRole || '', reporterTier: e.reporterTier || null,
+      assignedStates: (e.assignedStates || []).slice(), assignedDistricts: (e.assignedDistricts || []).slice(),
+      assignedConstituencies: (e.assignedConstituencies || []).slice(), constituency: e.constituency || null,
+      approvalScope: (e.permissions && e.permissions.approvalScope) || null,
+      managedStates: ((e.permissions && e.permissions.managedStates) || []).slice(),
+      managedDistricts: ((e.permissions && e.permissions.managedDistricts) || []).slice(),
+      managedConstituencies: ((e.permissions && e.permissions.managedConstituencies) || []).slice(),
+      managedReporterIds: ((e.permissions && e.permissions.managedReporterIds) || []).map(String),
+    });
+    const assignmentBefore = assignmentSnapshot(editor);
 
     // Super admin only: change login username
     if (username !== undefined) {
@@ -2520,7 +2642,7 @@ async function updateEditor(req, res) {
       if (!editor.permissions) editor.permissions = {};
       if (!editor.permissions.sidebar) editor.permissions.sidebar = {};
       
-      const sidebarFields = ['dashboard', 'newsList', 'addNews', 'pendingNews', 'rejectedNews', 'plagiarismReport', 'viralVideos', 'polls', 'longVideos', 'categories', 'programCategories', 'locations', 'reports', 'zodiac'];
+      const sidebarFields = ['dashboard', 'newsList', 'addNews', 'pendingNews', 'rejectedNews', 'plagiarismReport', 'viralVideos', 'polls', 'longVideos', 'categories', 'programCategories', 'locations', 'reports', 'zodiac', 'assignReporters', 'reporterAccess', 'coverageMap'];
       
       sidebarFields.forEach(field => {
         if (sidebar[field] !== undefined) {
@@ -2577,6 +2699,9 @@ async function updateEditor(req, res) {
     // STRICT: one district = one district in-charge. If this editor is (being set
     // as) a district in-charge, block when any of their districts is already held
     // by ANOTHER district in-charge. Stringers are not restricted.
+    const incomingDistricts = Array.isArray(editor.assignedDistricts)
+      ? editor.assignedDistricts.map((d) => String(d).trim()).filter(Boolean)
+      : [];
     if (editor.reporterTier === 'district_incharge' && incomingDistricts.length > 0) {
       const conflict = await Admin.findOne({
         _id: { $ne: editorId },
@@ -2596,6 +2721,22 @@ async function updateEditor(req, res) {
     await syncApprovalScopeToAssigned(Location, editor);
 
     await editor.save();
+
+    // Assignment audit (append-only, best effort): only when something routing-related changed.
+    try {
+      const assignmentAfter = assignmentSnapshot(editor);
+      const changed = Object.keys(assignmentAfter).filter(k => JSON.stringify(assignmentBefore[k]) !== JSON.stringify(assignmentAfter[k]));
+      if (changed.length) {
+        const { logAudit } = require('../utils/auditLogger');
+        logAudit({
+          req, action: 'staff_assignment_update', entityType: 'Admin', entityId: editor._id.toString(),
+          targetId: editor._id, targetName: editor.name || editor.username,
+          description: `Assignment updated for ${editor.name || editor.username}: ${changed.join(', ')}`,
+          before: Object.fromEntries(changed.map(k => [k, assignmentBefore[k]])),
+          after: Object.fromEntries(changed.map(k => [k, assignmentAfter[k]])),
+        });
+      }
+    } catch (e) { /* audit optional */ }
 
     res.json({
       message: 'Editor updated successfully',
@@ -3004,7 +3145,11 @@ async function registerEditor(req, res) {
             programCategories: sidebar.programCategories === 'true' || sidebar.programCategories === true,
             locations: sidebar.locations === 'true' || sidebar.locations === true,
             reports: sidebar.reports === 'true' || sidebar.reports === true,
-            zodiac: sidebar.zodiac === 'true' || sidebar.zodiac === true
+            zodiac: sidebar.zodiac === 'true' || sidebar.zodiac === true,
+            // Standalone sub-editor links: unchecked only when explicitly sent as false.
+            assignReporters: !(sidebar.assignReporters === 'false' || sidebar.assignReporters === false),
+            reporterAccess: !(sidebar.reporterAccess === 'false' || sidebar.reporterAccess === false),
+            coverageMap: !(sidebar.coverageMap === 'false' || sidebar.coverageMap === false)
         } : undefined
       },
       walletConfig: walletConfig ? {
@@ -3012,7 +3157,8 @@ async function registerEditor(req, res) {
         dailyTargetNews: (Number.isFinite(Number(walletConfig.dailyTargetNews)) && Number(walletConfig.dailyTargetNews) > 0) ? Math.round(Number(walletConfig.dailyTargetNews)) : null,
         dailyRewardAmount: (Number.isFinite(Number(walletConfig.dailyRewardAmount)) && Number(walletConfig.dailyRewardAmount) > 0) ? Math.round(Number(walletConfig.dailyRewardAmount)) : null
       } : {},
-      createdBy: admin._id
+      createdBy: admin._id,
+      createdVia: 'dashboard'
     });
 
     applyReporterCoverageFields(newEditor, {
@@ -3249,6 +3395,32 @@ async function sendNotification(req, res) {
       console.log(`OneSignal admin notification sent to news_language=${targetLanguage}`);
     } catch (error) {
       console.error('Error sending OneSignal admin notification:', error);
+    }
+
+    // Our own FCM transport (free, unlimited) — additive, flag-gated, never throws.
+    // Same payload the app already renders colourfully; only the pipe changes.
+    try {
+      const fcm = require('../services/fcmService');
+      if (fcm.isReady()) {
+        const r = await fcm.sendNewsToLanguage(targetLanguage, {
+          title: plainTitle,
+          message: plainMessage,
+          data: {
+            type: 'admin',
+            newsId: newsId || '',
+            imageUrl: imageUrl || '',
+            launchUrl: finalLaunchUrl || '',
+            titleColor: titleColor || '#FF6F00',
+            messageColor: messageColor || '#333333',
+            titleFontSize: titleFontSize || 'normal',
+            priority: priority || 'normal',
+            language: targetLanguage,
+          },
+        });
+        console.log(`[fcm] admin news push → news_${targetLanguage}:`, r.ok ? r.messageId : (r.skipped || r.error));
+      }
+    } catch (fcmErr) {
+      console.error('[fcm] admin push error:', fcmErr && fcmErr.message);
     }
 
     // Create recipients list from connected clients
@@ -3710,10 +3882,27 @@ const requireAuth = (req, res, next) => {
     // Fetch latest admin data to ensure permissions are up to date
     const isConnectedToMongoDB = req.app.locals.isConnectedToMongoDB;
     if (isConnectedToMongoDB) {
-        Admin.findById(decoded.id).select('permissions isActive role name displayRole assignedState assignedStates').then(latestAdmin => {
+        Admin.findById(decoded.id).select('permissions isActive role name displayRole assignedState assignedStates activeSession activeWebSession').then(latestAdmin => {
             if (!latestAdmin || !latestAdmin.isActive) {
                 res.clearCookie('token');
                 if (isApiRequest) return res.status(401).json({ error: 'Session expired or account deactivated' });
+                return res.redirect('/login');
+            }
+
+            // ONE-DEVICE LOGIN: this token must belong to the account's current session.
+            // Cookie = dashboard slot, Bearer = app slot. Off by default; tokens issued
+            // before sessions existed keep working until "strict" is switched on too.
+            const _sess = require('../services/security/reporterSession');
+            const _secNow = require('../services/security/reporterSecuritySettings').current();
+            const _usedCookie = !!(req.cookies && req.cookies.token) && !(req.headers.authorization || '').startsWith('Bearer ');
+            const _chk = _sess.checkSession(decoded, latestAdmin, {
+                enforce: _secNow.singleDeviceLogin,
+                allowLegacyTokens: !_secNow.singleDeviceStrict,
+                web: _usedCookie,
+            });
+            if (!_chk.ok) {
+                res.clearCookie('token');
+                if (isApiRequest) return res.status(401).json(_sess.SESSION_REPLACED);
                 return res.redirect('/login');
             }
             
@@ -4199,33 +4388,78 @@ async function reporterLogin(req, res) {
 
     // Find admin/editor by username or email
     const admin = await Admin.findByUsernameOrEmail(trimmedUsername);
+    // Reporter Security: every app login attempt is recorded (IP → city, time; device from
+    // newer apps). Fire-and-forget — never slows or breaks the login.
+    const { recordAppLogin } = require('../services/security/reporterLoginRecorder');
 
     if (!admin) {
+      recordAppLogin(req, { username: trimmedUsername, success: false, reason: 'no_account' });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Check if account is active
     if (!admin.isActive) {
+      recordAppLogin(req, { admin, success: false, reason: 'inactive' });
       return res.status(401).json({ error: 'Account is deactivated' });
     }
 
     // Only allow editors and subeditors to login via reporter app
     if (!['editor', 'subeditor', 'admin', 'superadmin'].includes(admin.role)) {
+      recordAppLogin(req, { admin, success: false, reason: 'role' });
       return res.status(403).json({ error: 'Access denied' });
     }
 
     // Compare password
     const isMatch = await admin.comparePassword(trimmedPassword);
     if (!isMatch) {
+      recordAppLogin(req, { admin, success: false, reason: 'bad_password' });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    // Reporter Security (Super Admin switch): self-registered accounts that were never
+    // approved may not use the app. Accounts created by admins are approved by default.
+    const _sec = await require('../services/security/reporterSecuritySettings').get();
+    if (_sec.blockUnapprovedAppLogin && admin.isApproved === false) {
+      recordAppLogin(req, { admin, success: false, reason: 'not_approved' });
+      return res.status(403).json({ error: 'Your account is not approved yet. Please contact your State In-Charge.' });
+    }
+
+    // Reporter Security Phase 2: phone + place of this login, one-device session,
+    // and the reporter-only "please update the app" gate (news readers unaffected).
+    const { deviceContext } = require('../services/security/deviceContext');
+    const session = require('../services/security/reporterSession');
+    const _ctx = deviceContext(req);
+    if (session.appVersionTooOld(_ctx.appVersion, _sec.minReporterAppVersion)) {
+      recordAppLogin(req, { admin, success: false, reason: 'app_outdated' });
+      return res.status(426).json({
+        code: 'APP_UPDATE_REQUIRED',
+        minVersion: _sec.minReporterAppVersion,
+        error: 'Please update the Tehelka News app from the Play Store to continue reporting.',
+      });
+    }
+
+    let _sid = null;
+    if (_sec.singleDeviceLogin && session.SINGLE_DEVICE_ROLES.includes(admin.role)) {
+      try {
+        const started = await session.startAppSession(admin, _ctx);
+        _sid = started.sid;
+        // The phone that held the session until now gets logged out immediately if
+        // it is connected; otherwise its next request returns 401 SESSION_REPLACED.
+        session.kickPreviousDevice(req.app && req.app.locals && req.app.locals.io, admin._id, started.previousSid, _ctx);
+      } catch (e) {
+        console.error('start session failed:', e.message); // never block a genuine login
+      }
+    }
+    session.touchDeviceLink(admin, _ctx, { login: true }).catch(() => {});
+    recordAppLogin(req, { admin, success: true, reason: 'ok' });
 
     // Generate JWT token
     const token = jwt.sign(
       {
         id: admin._id,
         username: admin.username,
-        role: admin.role
+        role: admin.role,
+        ...(_sid ? { sid: _sid } : {})
       },
       getJwtSecret(),
       { expiresIn: '7d' }
@@ -4243,6 +4477,16 @@ async function reporterLogin(req, res) {
         name: admin.name,
         displayRole: admin.displayRole,
         location: admin.location,
+        // Canonical assigned state for the reporter (same source used by the
+        // dashboard/withdrawals). Falls back to assignedStates, then location.
+        state: admin.assignedState
+          || (Array.isArray(admin.assignedStates) && admin.assignedStates.length ? admin.assignedStates.join(', ') : '')
+          || admin.location
+          || '',
+        // Assigned district (shown as "Reporter@<district>" in the app header).
+        district: (Array.isArray(admin.assignedDistricts) && admin.assignedDistricts.length
+          ? admin.assignedDistricts.join(', ')
+          : (admin.constituency || '')),
         profileImage: admin.profileImage
       }
     });
@@ -4270,6 +4514,15 @@ async function getReporterProfile(req, res) {
         displayRole: admin.displayRole,
         location: admin.location,
         constituency: admin.constituency,
+        // Canonical assigned state (same source as reporterLogin) so the
+        // dashboard header shows "District, State" after every profile refresh.
+        state: admin.assignedState
+          || (Array.isArray(admin.assignedStates) && admin.assignedStates.length ? admin.assignedStates.join(', ') : '')
+          || admin.location
+          || '',
+        district: (Array.isArray(admin.assignedDistricts) && admin.assignedDistricts.length
+          ? admin.assignedDistricts.join(', ')
+          : (admin.constituency || '')),
         mobileNumber: admin.mobileNumber,
         profileImage: admin.profileImage,
         walletEnabled: admin.walletConfig?.enabled === true
@@ -4286,7 +4539,11 @@ async function getReporterProfile(req, res) {
 // Duplicate check happens lazily via /admin/api/pending-news/duplicate-check
 async function renderPendingNewsPage(req, res) {
   try {
-    const adminDoc = await Admin.findById(req.admin.id).select('role workingLanguage permissions').lean();
+    const adminDoc = await Admin.findById(req.admin.id).select('role workingLanguage permissions displayRole').lean();
+
+    // Pending news is reviewed OLDEST-first for everyone (fair FIFO queue — the
+    // news that has been waiting the longest is reviewed first). The reviewer can
+    // still switch to "Most recent" from the Sort by toolbar.
 
     let selectedLanguage = '';
     const languageParamProvided = Object.prototype.hasOwnProperty.call(req.query, 'language');
@@ -4301,9 +4558,21 @@ async function renderPendingNewsPage(req, res) {
       selectedLanguage = req.query.language || '';
     }
 
+    // Sub-editor AI-gate items (processing / review_required / failed) are the
+    // AUTHOR's own async pipeline — they live in that author's "My AI Queue" and
+    // must NOT show up in the team pending list for sub-editors (incl. state
+    // incharges). Those items either auto-publish (processing→verified) or are
+    // resolved by the author, so the team never needs to approve them here.
+    // Admin / superadmin keep full visibility for oversight.
+    const isPrivilegedReviewer =
+      adminDoc?.role === 'admin' || adminDoc?.role === 'superadmin';
+    const teamAiStatuses = isPrivilegedReviewer
+      ? ['none', 'processing', 'review_required', 'failed']
+      : ['none'];
+
     const baseTeamQuery = {
       isActive: false,
-      aiStatus: { $in: ['none', 'processing', 'review_required', 'failed'] },
+      aiStatus: { $in: teamAiStatuses },
       authorId: { $ne: String(req.admin.id) },
       isDeactivated: { $ne: true },
       $or: [
@@ -4318,11 +4587,29 @@ async function renderPendingNewsPage(req, res) {
 
     teamQuery = await buildPendingNewsFilterForSubEditor(Admin, adminDoc, teamQuery);
 
-    const teamPendingNewsRaw = await News.find(teamQuery)
-      .select('_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl imageUrls readFullLink ePaperLink views duplicateCheck revisionStatus actionHistory aiStatus')
-      .sort({ publishedAt: -1 })
-      .limit(100)
-      .lean();
+    // The page splits pending into two age tabs: "Latest (< 24h)" and
+    // "Pending > 24h". A single oldest-first + limit query would load only the
+    // very oldest backlog, so the Latest tab (recent news) would show NOTHING.
+    // So we load BOTH ends: every recent (< 24h) item, plus the oldest slice of
+    // the older backlog. Both tabs then have their data; the list is sorted
+    // oldest-first overall to match the default "Oldest" sort.
+    // `postedFrom` (phone / GPS / IP) is SUPER ADMIN ONLY — it is not even selected for
+    // anyone else, so an admin or State In-Charge never receives it.
+    const _canSeePostedFrom = req.admin && req.admin.role === 'superadmin';
+    const PENDING_SELECT = '_id title content category location language author authorId publishedAt mediaUrl mediaType thumbnailUrl imageUrl imageUrls readFullLink ePaperLink views duplicateCheck revisionStatus actionHistory aiStatus'
+      + (_canSeePostedFrom ? ' postedFrom' : '');
+    const RECENT_CUTOFF = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [recentRaw, olderRaw] = await Promise.all([
+      // Latest (< 24h): show them all (generous cap).
+      News.find({ ...teamQuery, publishedAt: { $gte: RECENT_CUTOFF } })
+        .select(PENDING_SELECT).sort({ publishedAt: 1 }).limit(400).lean(),
+      // Older backlog (>= 24h): oldest-first (FIFO — longest-waiting reviewed first).
+      News.find({ ...teamQuery, publishedAt: { $lt: RECENT_CUTOFF } })
+        .select(PENDING_SELECT).sort({ publishedAt: 1 }).limit(200).lean(),
+    ]);
+    // One oldest-first list containing both the old backlog and the recent news.
+    const teamPendingNewsRaw = [...olderRaw, ...recentRaw]
+      .sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
 
     
 
@@ -4330,9 +4617,16 @@ async function renderPendingNewsPage(req, res) {
 
     const allNews = [...teamPendingNewsRaw];
     const authorIds = [...new Set(allNews.map(n => n.authorId).filter(Boolean))];
-    const authors = await Admin.find({ _id: { $in: authorIds } }).select('name email mobileNumber constituency').lean();
+    // role/reporterTier: the review form uses the AUTHOR's role to decide whether
+    // the sub-editor content minimum applies (own news only, never a reporter's).
+    // Coverage fields (assigned*) let the in-charge lookup below match by geography.
+    const authors = await Admin.find({ _id: { $in: authorIds } }).select('name email mobileNumber constituency role reporterTier assignedState assignedStates assignedDistricts assignedConstituencies assignedLocations location').lean();
     const authorMap = {};
     authors.forEach(a => authorMap[a._id.toString()] = a);
+    // "Assignment & Approval" card: the reporter's actual State In-Charge (Bureau),
+    // resolved once for the whole page. Missing → the card shows "—".
+    let inchargeMap = {};
+    try { inchargeMap = await findStateInchargesForReporters(Admin, authors); } catch (e) { console.error('pending-news incharge lookup failed:', e.message); }
 
     const mapNewsWithDefaults = (newsArray) => newsArray.map(article => {
       let revisionStatus = article.revisionStatus || null;
@@ -4364,6 +4658,7 @@ async function renderPendingNewsPage(req, res) {
         ...article,
         revisionStatus,
         authorDetails: article.authorId ? authorMap[article.authorId.toString()] : null,
+        inchargeDetails: article.authorId ? (inchargeMap[article.authorId.toString()] || null) : null,
         duplicateCheck: dc,
       };
     });
@@ -4372,7 +4667,7 @@ async function renderPendingNewsPage(req, res) {
 
     res.render('pending-news', {
       teamPendingNews: mapNewsWithDefaults(teamPendingNewsRaw),
-      
+
       title: 'Pending News Review',
       selectedLanguage,
       admin: req.admin,
@@ -4421,7 +4716,9 @@ async function renderMyAiQueuePage(req, res) {
     });
 
     const authorIds = [...new Set(myPendingNewsRaw.map(n => n.authorId).filter(Boolean))];
-    const authors = await Admin.find({ _id: { $in: authorIds } }).select('name email mobileNumber constituency').lean();
+    // role/reporterTier: the review form uses the AUTHOR's role to decide whether
+    // the sub-editor content minimum applies (own news only, never a reporter's).
+    const authors = await Admin.find({ _id: { $in: authorIds } }).select('name email mobileNumber constituency role reporterTier').lean();
     const authorMap = {};
     authors.forEach(a => authorMap[a._id.toString()] = a);
 
@@ -4478,8 +4775,76 @@ async function renderMyAiQueuePage(req, res) {
 
 
 // ⚡ Lazy duplicate check API — refreshes stale/missing checks and persists to DB
+// Delete one of your OWN AI-queue drafts (My AI Queue). Soft delete
+// (isDeactivated:true) — removes it from the queue and every view, recoverable,
+// and never touches a published/live article. Author-only (admin/superadmin may
+// also remove). No env password (unlike rejected-news hard delete): this is the
+// author discarding their own unpublished draft.
+async function deleteMyAiQueueNews(req, res) {
+  try {
+    const { id } = req.params;
+    const adminId = req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString();
+    if (!adminId) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+    const admin = await Admin.findById(adminId).select('role username name').lean();
+    const news = await News.findById(id).select('authorId isActive aiStatus duplicateCheck.score').lean();
+    if (!news) {
+      return res.status(404).json({ success: false, message: 'Article not found' });
+    }
+    // The Sub Editor who owns the draft (or an admin/superadmin) can delete it.
+    // The soft delete + actionHistory below records WHO deleted it, so the item
+    // still stays on file for the work report / audit even after a sub editor
+    // removes it from their queue.
+    const isOwner = String(news.authorId) === String(adminId);
+    const isPrivileged = admin && (admin.role === 'admin' || admin.role === 'superadmin');
+    if (!isOwner && !isPrivileged) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own AI-queue articles.' });
+    }
+    // Guard: only an unpublished AI-queue draft can be deleted here — never a live article.
+    const aiQueueStatuses = ['processing', 'review_required', 'failed'];
+    if (news.isActive === true || !aiQueueStatuses.includes(news.aiStatus)) {
+      return res.status(400).json({ success: false, message: 'Only an unpublished AI-queue draft can be deleted here.' });
+    }
+    // Record WHO deleted it (audit + Sub-Editor Work Report). $push keeps the
+    // existing history intact.
+    const actorName = (admin && (admin.username || admin.name)) || 'Editor';
+    const actorRole = admin && (admin.role === 'superadmin' || admin.role === 'admin')
+      ? 'Admin'
+      : (admin && admin.role === 'subeditor' ? 'Sub Editor' : (admin && admin.role) || 'Editor');
+    await News.updateOne(
+      { _id: id },
+      {
+        $set: { isDeactivated: true },
+        $push: {
+          actionHistory: buildAdminNewsHistory(
+            'deleted', adminId, actorName, actorRole,
+            `Deleted from AI queue by ${actorRole}`,
+            { source: 'ai_queue', byOwner: isOwner, aiStatus: news.aiStatus, aiScore: (news.duplicateCheck && news.duplicateCheck.score) || null }
+          ),
+        },
+      }
+    );
+    return res.json({ success: true, message: 'Article deleted from the AI queue.' });
+  } catch (error) {
+    console.error('Error deleting my-ai-queue news:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+}
+
 async function getPendingNewsDuplicateCheck(req, res) {
   try {
+    // Previously hard-capped at the 100 most-recent pending items, which left
+    // older pending news never duplicate-checked. Now ALL pending news is
+    // covered. Work stays bounded because (a) pendingNeedsAiRecheck skips items
+    // already checked & clean, and (b) rechecks are batched with a per-request
+    // safety cap (oldest-unchecked first) — the rest are picked up on the next
+    // page load, so a large backlog can never stall the dashboard.
+    const PENDING_DUP_MAX_RECHECK = (() => {
+      const n = parseInt(process.env.PENDING_DUP_MAX_RECHECK, 10);
+      return Number.isFinite(n) && n > 0 ? n : 500;
+    })();
+
     const pendingNews = await News.find({
       isActive: false,
       isDeactivated: { $ne: true },
@@ -4489,10 +4854,9 @@ async function getPendingNewsDuplicateCheck(req, res) {
       ]
     })
       .select(
-        '_id title content language mediaUrl mediaType imageUrls thumbnailUrl videoUrl duplicateCheck mediaFingerprint'
+        '_id title content language location mediaUrl mediaType imageUrls thumbnailUrl videoUrl duplicateCheck mediaFingerprint publishedAt reporterAttestation'
       )
       .sort({ publishedAt: -1 })
-      .limit(100)
       .lean();
 
     if (!pendingNews || pendingNews.length === 0) {
@@ -4512,12 +4876,16 @@ async function getPendingNewsDuplicateCheck(req, res) {
       }
     }
 
+    // Recheck the oldest-unchecked first (they have waited longest), capped per
+    // request. Already-flagged / already-clean items are skipped by the filter.
     const recheckIds = pendingNews
       .filter((article) => pendingNeedsAiRecheck(article))
+      .sort((a, b) => new Date(a.publishedAt || 0) - new Date(b.publishedAt || 0))
+      .slice(0, PENDING_DUP_MAX_RECHECK)
       .map((article) => article._id);
 
     const rechecked = new Map();
-    const concurrency = 3;
+    const concurrency = 5;
     for (let i = 0; i < recheckIds.length; i += concurrency) {
       const batch = recheckIds.slice(i, i + concurrency);
       const batchResults = await Promise.all(
@@ -4547,7 +4915,13 @@ async function getPendingNewsDuplicateCheck(req, res) {
         }
         if (!dc.matchCount) { dc = { ...dc, isDuplicate: false, isSuspicious: false }; }
       }
-      return { newsId: id, duplicateCheck: dc };
+      // Reporter-app Confirm step: surface "reporter saw N similar and claimed
+      // unique" so the desk knows to compare before approving.
+      const att = article.reporterAttestation;
+      const reporterAttestation = att && att.claimedUnique === true
+        ? { claimedUnique: true, crossChecked: att.crossChecked === true, similarCount: att.similarCount || 0 }
+        : undefined;
+      return { newsId: id, duplicateCheck: dc, reporterAttestation };
     });
 
     res.set('Cache-Control', 'no-store');
@@ -4775,12 +5149,38 @@ async function updatePendingNews(req, res) {
     // Persist an edited image (blur / black-white) done in the moderator. Only
     // set these when the client actually sends image data, so a text-only edit
     // never wipes the existing media.
-    if (typeof mediaUrl === 'string' && mediaUrl.trim()) {
-      updatePayload.mediaUrl = mediaUrl.trim();
-    }
-    if (Array.isArray(imageUrls) && imageUrls.length) {
-      const cleaned = imageUrls.filter((u) => typeof u === 'string' && u.trim());
-      if (cleaned.length) updatePayload.imageUrls = cleaned;
+    const gotMedia = typeof mediaUrl === 'string' && !!mediaUrl.trim();
+    const cleanedImgs = Array.isArray(imageUrls)
+      ? imageUrls.filter((u) => typeof u === 'string' && u.trim())
+      : null;
+    const gotImgs = !!(cleanedImgs && cleanedImgs.length);
+
+    if (gotMedia) updatePayload.mediaUrl = mediaUrl.trim();
+    if (gotImgs) updatePayload.imageUrls = cleanedImgs;
+
+    // IMPORTANT: the app reads `imageUrl` / `thumbnailUrl`, while the admin list
+    // reads `mediaUrl` / `imageUrls`. If we update only the latter, a blur/B&W
+    // edit shows in the dashboard but the app keeps the OLD picture. So for an
+    // image news, sync EVERY picture field to the same edited image. (Never for
+    // a video — there mediaUrl is the clip and imageUrl is its poster.)
+    const isVideoNews = (existingNews.mediaType || 'image') === 'video';
+    if (!isVideoNews && (gotMedia || gotImgs)) {
+      const cover = (gotImgs && cleanedImgs.length > 1)
+        ? cleanedImgs[0]                                   // multi-image → first = cover
+        : (updatePayload.mediaUrl || (gotImgs ? cleanedImgs[0] : '')); // single → edited image
+      if (cover) {
+        updatePayload.imageUrl = cover;
+        updatePayload.thumbnailUrl = cover;
+        updatePayload.mediaType = 'image';
+        if (!updatePayload.mediaUrl) updatePayload.mediaUrl = cover;
+        // 🛠️ BUGFIX: blurring/B&W-editing a SINGLE-image news changed mediaUrl but
+        // left the ORIGINAL sitting in imageUrls — the app/preview builds its photo
+        // list from mediaUrl + imageUrls, so the untouched original leaked as a 2nd
+        // photo. Collapse to the edited image for a single-photo edit; only a real
+        // multi-image array (length > 1) keeps its own list.
+        const isMultiImage = gotImgs && cleanedImgs.length > 1;
+        updatePayload.imageUrls = isMultiImage ? cleanedImgs : [cover];
+      }
     }
 
     const changedFields = [];
@@ -4906,6 +5306,23 @@ async function approveNews(req, res) {
       return res.status(403).json({ error: 'You do not have permission to approve news' });
     }
 
+    // Reporter Security (Super Admin switch): a State In-Charge may not approve the news of a
+    // reporter they themselves proposed as stringer / district in-charge (within the window) —
+    // another approver (Desk / Admin) must. Stops "propose an account, approve its news, get paid".
+    if (admin.role === 'subeditor' && existingNews.authorId && String(existingNews.authorId) !== String(adminId)) {
+      const _sec = await require('../services/security/reporterSecuritySettings').get();
+      if (_sec.sicSelfApprovalBlock) {
+        const { sicProposal } = require('../services/security/accountLinks');
+        const proposal = await sicProposal(adminId, existingNews.authorId, _sec.sicSelfApprovalWindowDays);
+        if (proposal) {
+          return res.status(403).json({
+            code: 'SELF_PROPOSED_REPORTER',
+            error: 'You proposed this reporter as ' + (proposal.tier === 'stringer' ? 'a stringer' : 'district in-charge') + ', so their news must be approved by another approver (Desk / Admin).'
+          });
+        }
+      }
+    }
+
     if (existingNews.isActive === true) {
       return res.status(400).json({ error: 'News is already published.' });
     }
@@ -4987,6 +5404,10 @@ async function approveNews(req, res) {
       }
     }
 
+    // "Publish Anyway": approving while the AI duplicate check still flags it.
+    // Recorded in the history entry (metadata.aiOverride) for the work report.
+    const _dc = existingNews.duplicateCheck || {};
+    const _aiOverride = existingNews.aiStatus === 'review_required' || _dc.isDuplicate === true || _dc.isSuspicious === true;
     const actionHistory = Array.isArray(existingNews.actionHistory) ? [...existingNews.actionHistory] : [];
     actionHistory.push(
       buildAdminNewsHistory(
@@ -4994,8 +5415,8 @@ async function approveNews(req, res) {
         adminId,
         adminName,
         adminRole,
-        'News approved and moved to active state',
-        { fromStatus: existingNews.isActive, toStatus: true }
+        _aiOverride ? 'News approved (Publish Anyway — AI duplicate flag overridden)' : 'News approved and moved to active state',
+        { fromStatus: existingNews.isActive, toStatus: true, ...(_aiOverride ? { aiOverride: true, aiStatus: existingNews.aiStatus, aiScore: Number(_dc.score) || 0, matchCount: Number(_dc.matchCount) || 0 } : {}) }
       )
     );
 
@@ -5080,6 +5501,13 @@ async function approveNews(req, res) {
         }
       );
     }
+
+    // Push to the reporter's phone (fire-and-forget; never blocks approval).
+    require('../services/reporterNotifier').notifyReporterAsync('approved', {
+      reporterId: updatedNews.authorId,
+      newsId: updatedNews._id,
+      title: updatedNews.title,
+    });
 
     if (existingNews.authorId) {
        // Reward belongs to the reporter's SUBMISSION day (immutable _id creation time,
@@ -5213,6 +5641,14 @@ async function rejectNews(req, res) {
       { new: true }
     );
 
+    // Strict rule: the moment a story is rejected it must vanish everywhere —
+    // including every feed/item cache. (Guarded by the atomic filter above, so
+    // this only runs when the reject actually happened.)
+    if (rejectedNews) {
+      const { bustNewsCaches } = require('../services/newsCacheBust');
+      await bustNewsCaches(rejectedNews._id, 'reject');
+    }
+
     if (!rejectedNews) {
       return res.status(409).json({
         error: 'News state changed. Refresh and try again.',
@@ -5239,6 +5675,14 @@ async function rejectNews(req, res) {
         }
       );
     }
+
+    // Push to the reporter's phone (fire-and-forget; never blocks rejection).
+    require('../services/reporterNotifier').notifyReporterAsync('rejected', {
+      reporterId: rejectedNews.authorId,
+      newsId: rejectedNews._id,
+      title: rejectedNews.title,
+      reason: feedback || reason,
+    });
 
     res.json({
       success: true,
@@ -5347,6 +5791,12 @@ async function revertRejectedNews(req, res) {
     if (!revertedNews) {
       return res.status(409).json({ error: 'News state changed. Refresh and try again.' });
     }
+
+    // Push to the reporter's phone (fire-and-forget; never blocks the revert).
+    require('../services/reporterNotifier').notifyReporterAsync(
+      targetState === 'approved' ? 'approved' : 'reverted',
+      { reporterId: revertedNews.authorId, newsId: revertedNews._id, title: revertedNews.title }
+    );
 
     res.json({ success: true, message: `News successfully moved to ${targetState} state.` });
   } catch (error) {
@@ -5527,6 +5977,12 @@ async function sendBackForEdit(req, res) {
       });
     }
 
+    // Strict rule: sent-back-for-revision is not public — clear every cache now.
+    {
+      const { bustNewsCaches } = require('../services/newsCacheBust');
+      await bustNewsCaches(savedNews._id, 'send-back');
+    }
+
     const io = req.app.locals.io;
     if (io) {
       const { emitWorkflowPair } = require('../services/realtime/workflowEmit');
@@ -5567,6 +6023,14 @@ async function sendBackForEdit(req, res) {
         }
       );
     }
+
+    // Push to the reporter's phone (fire-and-forget; never blocks send-back).
+    require('../services/reporterNotifier').notifyReporterAsync('needs_revision', {
+      reporterId: savedNews.authorId,
+      newsId: savedNews._id,
+      title: savedNews.title,
+      remarks,
+    });
 
     return res.json({
       success: true,
@@ -6088,8 +6552,8 @@ async function renderPollsPage(req, res) {
 async function createPollRest(req, res) {
   try {
     const Poll = require('../models/Poll');
-    const { question, language, options } = req.body;
-    
+    const { question, language, options, imageUrl } = req.body;
+
     if (!question || !language || !options || options.length < 2) {
       return res.status(400).json({ success: false, message: 'Question, language and at least 2 options are required' });
     }
@@ -6097,6 +6561,7 @@ async function createPollRest(req, res) {
     const newPoll = new Poll({
       question,
       language,
+      imageUrl: (imageUrl && String(imageUrl).trim()) || null,
       options: options.map(opt => ({ text: opt, votes: 0 })),
       totalVotes: 0,
       votedUsers: [],
@@ -6111,11 +6576,26 @@ async function createPollRest(req, res) {
   }
 }
 
+// Poll background image upload — same auth as the polls page (requireAuth), so
+// non-superadmin poll managers can upload too (the shared popup endpoint is
+// requireAdmin-only and was returning 403 for them → "upload not working").
+async function uploadPollImage(req, res) {
+  try {
+    if (!req.file || !req.file.path) {
+      return res.status(400).json({ success: false, error: 'No image uploaded.' });
+    }
+    res.json({ success: true, imageUrl: req.file.path });
+  } catch (error) {
+    console.error('Error uploading poll image:', error.message);
+    res.status(500).json({ success: false, error: 'Upload failed' });
+  }
+}
+
 async function deletePollRest(req, res) {
   try {
     const Poll = require('../models/Poll');
     const { id } = req.params;
-    
+
     await Poll.findByIdAndDelete(id);
     res.json({ success: true });
   } catch (error) {
@@ -6142,8 +6622,8 @@ async function updatePollRest(req, res) {
   try {
     const Poll = require('../models/Poll');
     const { id } = req.params;
-    const { question, language, options } = req.body;
-    
+    const { question, language, options, imageUrl } = req.body;
+
     if (!question || !language || !options || options.length < 2) {
       return res.status(400).json({ success: false, message: 'Question, language and at least 2 options are required' });
     }
@@ -6155,6 +6635,10 @@ async function updatePollRest(req, res) {
 
     poll.question = question;
     poll.language = language;
+    // imageUrl is optional; '' clears it, undefined leaves it unchanged.
+    if (imageUrl !== undefined) {
+      poll.imageUrl = (imageUrl && String(imageUrl).trim()) || null;
+    }
     
     // Update existing options or add new ones
     // We shouldn't lose existing votes for matched options by text, but for simplicity we will reset votes for now
@@ -6422,7 +6906,8 @@ const updateReferralStatus = async (req, res) => {
     
     const referral = await Referral.findById(id);
     if (!referral) return res.status(404).json({ error: 'Referral not found' });
-    
+    const prevReferralStatus = referral.status; // capture BEFORE mutation, for audit
+
     if (status === 'verified' && referral.status !== 'verified') {
       // Credit wallet
       referral.verifiedAt = new Date();
@@ -6444,6 +6929,22 @@ const updateReferralStatus = async (req, res) => {
     }
 
     await referral.save();
+
+    // Audit (observational only): referral status change. Never blocks the save.
+    try {
+      const { logAudit } = require('../utils/auditLogger');
+      logAudit({
+        req,
+        action: 'referral_status_change',
+        entityType: 'Referral',
+        entityId: referral._id,
+        targetName: String(referral.referrerUserId || ''),
+        description: `Referral ${referral._id} status ${prevReferralStatus} → ${status}`,
+        before: { status: prevReferralStatus },
+        after: { status, commissionAmount: referral.commissionAmount }
+      });
+    } catch (_) {}
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error updating referral status:', error);
@@ -6775,6 +7276,83 @@ function resolveReporterId(req) {
   return req.adminId || req.userId || req.admin?.id || req.admin?._id?.toString() || null;
 }
 
+/**
+ * District overview for the reporter dashboard strip.
+ * Server derives the reporter's district (never trusts the client), lists every
+ * constituency in that district from the Location master, and returns a LIVE
+ * news count per constituency (district-wide, all reporters). Additive & read-only.
+ * Response: { district: String, constituencies: [{ name, count }] }
+ */
+async function getReporterDistrictOverview(req, res) {
+  try {
+    const reporterId = resolveReporterId(req);
+    if (!reporterId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const admin = await Admin.findById(reporterId).lean();
+    if (!admin) return res.status(404).json({ error: 'Account not found' });
+
+    const Location = require('../models/Location');
+    const { getReporterCoverage } = require('../utils/editorCoverageHelper');
+
+    const coverage = getReporterCoverage(admin);
+    let district = (coverage.districts && coverage.districts[0]) || '';
+
+    // Fallback: derive district from the reporter's constituency parent.
+    if (!district && admin.constituency) {
+      const cLoc = await Location.findOne({
+        isActive: true, locationType: 'constituency', name: admin.constituency
+      }).select('parentName').lean();
+      if (cLoc && cLoc.parentName) district = cLoc.parentName;
+    }
+
+    if (!district) return res.json({ district: '', constituencies: [] });
+
+    const consDocs = await Location.find({
+      isActive: true, locationType: 'constituency', parentName: district
+    }).select('name').sort({ name: 1 }).lean();
+
+    const names = consDocs.map(c => c.name).filter(Boolean);
+
+    // TODAY's counts (IST day), district-wide, live feed only.
+    const { istDayRange } = require('../utils/indianDateTime');
+    const cutoff = istDayRange(new Date()).startUTC;
+    const baseMatch = { isActive: { $ne: false }, authorConstituency: { $in: names }, publishedAt: { $gte: cutoff } };
+
+    // Per-constituency count (all constituencies shown, even 0).
+    let consCounts = {};
+    // Per-village count (grouped by News.location) — only villages with news.
+    const villages = [];
+    if (names.length) {
+      const [consAgg, vilAgg] = await Promise.all([
+        News.aggregate([
+          { $match: baseMatch },
+          { $group: { _id: '$authorConstituency', count: { $sum: 1 } } }
+        ]),
+        News.aggregate([
+          { $match: { ...baseMatch, location: { $nin: [null, ''] } } },
+          { $group: { _id: '$location', count: { $sum: 1 } } }
+        ]),
+      ]);
+      consCounts = Object.fromEntries(consAgg.map(a => [a._id, a.count]));
+      const consSet = new Set(names.map(n => String(n).toLowerCase()));
+      for (const v of vilAgg) {
+        const name = v._id;
+        // Skip empties and any location that is actually a constituency name (avoid dupes).
+        if (name && v.count > 0 && !consSet.has(String(name).toLowerCase())) {
+          villages.push({ name, count: v.count });
+        }
+      }
+      villages.sort((a, b) => b.count - a.count);
+    }
+
+    const constituencies = names.map(n => ({ name: n, count: consCounts[n] || 0 }));
+    return res.json({ district, constituencies, villages });
+  } catch (e) {
+    console.error('getReporterDistrictOverview error:', e);
+    return res.status(500).json({ error: 'Failed to load district overview' });
+  }
+}
+
 // List wallet transactions for the logged-in reporter
 async function getReporterWalletTransactions(req, res) {
   try {
@@ -7088,13 +7666,60 @@ async function createReporterWithdrawal(req, res) {
       return res.status(400).json({ error: 'You already have a pending withdrawal request' });
     }
 
+    // 24-hour cooldown after a successful (approved) payout: the reporter can
+    // raise the next request only once 24h have passed since their last approval
+    // (measured from processedAt). Rejected requests do not trigger the cooldown.
+    const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+    const lastApproved = await WithdrawalRequest
+      .findOne({ adminId: reporterId, status: 'approved', processedAt: { $ne: null } })
+      .sort({ processedAt: -1 })
+      .select('processedAt');
+    if (lastApproved && lastApproved.processedAt) {
+      const elapsed = Date.now() - new Date(lastApproved.processedAt).getTime();
+      if (elapsed >= 0 && elapsed < COOLDOWN_MS) {
+        const remMin = Math.ceil((COOLDOWN_MS - elapsed) / 60000);
+        const wait = remMin >= 60 ? `${Math.ceil(remMin / 60)} hour(s)` : `${remMin} minute(s)`;
+        return res.status(400).json({
+          error: `Your last withdrawal was approved. Please wait ${wait} before requesting again.`
+        });
+      }
+    }
+
+    // Reporter Security: the same UPI / bank account / mobile on another reporter account
+    // usually means one person running several accounts. With the Super Admin switch ON
+    // the request is held for review (the reporter just sees a normal pending request).
+    const { payoutKey: _payoutKeyOf, findLinksFor } = require('../services/security/accountLinks');
+    const payoutKey = _payoutKeyOf(validated.data);
+    let fraudHold = null;
+    try {
+      const _sec = await require('../services/security/reporterSecuritySettings').get();
+      if (_sec.payoutLinkHold) {
+        const links = await findLinksFor(admin._id, { payoutKeys: [payoutKey], mobile: admin.mobileNumber });
+        if (links.linkedAdminIds.length) {
+          fraudHold = { held: true, reasons: links.reasons, linkedAdminIds: links.linkedAdminIds, at: new Date() };
+        }
+      }
+    } catch (e) {
+      console.error('withdrawal link check failed:', e.message); // never blocks a genuine request
+    }
+
     const withdrawal = await WithdrawalRequest.create({
       adminId: reporterId,
       amount,
       paymentDetails,
       payoutType,
+      payoutKey,
+      ...(fraudHold ? { fraudHold } : {}),
       status: 'pending'
     });
+    if (fraudHold) {
+      require('../services/security/alertEngine').record({
+        type: 'account_link', persist: true, severity: 'HIGH',
+        account: admin.username, accountId: admin._id, endpoint: '/admin/api/reporter/wallet/withdrawals',
+        message: `Withdrawal held: ${fraudHold.reasons.map((r) => r.label).join(' · ')} also used by ${fraudHold.linkedAdminIds.length} other account(s)`,
+        details: { withdrawalId: String(withdrawal._id), reasons: fraudHold.reasons },
+      });
+    }
 
     res.json({
       success: true,
@@ -7163,12 +7788,17 @@ async function addReporterPayoutMethod(req, res) {
       });
     }
 
-    // Prevent duplicate UPI / account number
+    // Prevent duplicate UPI / PhonePe number / account number
     if (validated.data.type === 'upi') {
       const exists = admin.payoutMethods.some(
         m => m.type === 'upi' && m.upiId === validated.data.upiId
       );
       if (exists) return res.status(400).json({ error: 'This UPI ID is already saved' });
+    } else if (validated.data.type === 'phonepe') {
+      const exists = admin.payoutMethods.some(
+        m => m.type === 'phonepe' && m.phoneNumber === validated.data.phoneNumber
+      );
+      if (exists) return res.status(400).json({ error: 'This PhonePe number is already saved' });
     } else {
       const exists = admin.payoutMethods.some(
         m => m.type === 'bank' && m.accountNumber === validated.data.accountNumber
@@ -7285,7 +7915,7 @@ async function listWalletWithdrawals(req, res) {
 
     const [withdrawals, counts] = await Promise.all([
       WithdrawalRequest.find(filter)
-        .populate('adminId', 'username name displayRole mobileNumber email walletBalance createdAt')
+        .populate('adminId', 'username name displayRole mobileNumber email walletBalance createdAt reporterTier assignedState assignedStates assignedDistrict assignedDistricts assignedConstituencies assignedLocations location constituency permissions')
         .populate('processedBy', 'username name')
         .sort({ createdAt: -1 })
         .limit(limit)
@@ -7294,6 +7924,22 @@ async function listWalletWithdrawals(req, res) {
         { $group: { _id: '$status', count: { $sum: 1 }, amount: { $sum: '$amount' } } }
       ])
     ]);
+
+    // Reporter → primary State In-Charge (for the Accounts PDF's state-wise grouping).
+    // Uses the SAME resolver as the Editors page / Profile Overview so the grouping
+    // always matches. State In-Charge role is preferred, then Bureau. Names come only
+    // from live assignment data.
+    let subEditorsForInc = [];
+    try {
+      subEditorsForInc = await Admin.find({ role: 'subeditor', isActive: { $ne: false } })
+        .select('role isActive name username displayRole assignedState assignedStates permissions').lean();
+    } catch (e) { subEditorsForInc = []; }
+    const inchargeFor = (reporterDoc) => {
+      try {
+        const r = resolveResponsibilityFor(reporterDoc, subEditorsForInc);
+        return (r.state && r.state[0]) ? { name: r.state[0].name, role: r.state[0].role } : null;
+      } catch (e) { return null; }
+    };
 
     const statusCounts = { pending: 0, approved: 0, rejected: 0 };
     const statusAmounts = { pending: 0, approved: 0, rejected: 0 };
@@ -7312,6 +7958,13 @@ async function listWalletWithdrawals(req, res) {
         paymentDetails: w.paymentDetails,
         remarks: w.remarks || '',
         utr: w.utr || '',
+        fraudHold: (w.fraudHold && w.fraudHold.held) ? {
+          active: !w.fraudHold.clearedAt,
+          reasons: (w.fraudHold.reasons || []).map((r) => r.label),
+          linkedCount: (w.fraudHold.linkedAdminIds || []).length,
+          clearedByName: w.fraudHold.clearedByName || '',
+          clearedAt: w.fraudHold.clearedAt || null,
+        } : null,
         createdAt: w.createdAt,
         processedAt: w.processedAt,
         processedBy: w.processedBy
@@ -7324,13 +7977,80 @@ async function listWalletWithdrawals(req, res) {
           mobileNumber: w.adminId.mobileNumber || '',
           email: w.adminId.email || '',
           walletBalance: w.adminId.walletBalance ?? 0,
-          joinedAt: w.adminId.createdAt || null // account join date (for Accounts PDF)
+          reporterTier: w.adminId.reporterTier || null,   // district_incharge | stringer | null
+          state: w.adminId.assignedState || ((w.adminId.assignedStates || [])[0]) || '',
+          district: w.adminId.assignedDistrict || ((w.adminId.assignedDistricts || [])[0]) || '',
+          joinedAt: w.adminId.createdAt || null, // account join date (for Accounts PDF)
+          // Primary State In-Charge for the state-wise grouped PDF (null → No In-Charge group).
+          stateIncharge: (inchargeFor(w.adminId) || {}).name || '',
+          stateInchargeRole: (inchargeFor(w.adminId) || {}).role || ''
         } : null
       }))
     });
   } catch (error) {
     console.error('Error listing withdrawals:', error);
     res.status(500).json({ error: 'Failed to list withdrawals' });
+  }
+}
+
+// Admin: full profile + wallet drilldown for one reporter (clicked from the queue).
+// Read-only. Shows month-wise earnings/cleared (reuses the Wallet-Clear logic), all
+// their withdrawal requests, recent ledger, and a "already cleared this month" flag
+// so the admin doesn't double-pay someone whose wallet was settled offline.
+async function getWithdrawalUserDetail(req, res) {
+  try {
+    const { adminId } = req.params;
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(adminId)) return res.status(400).json({ error: 'Invalid reporter id' });
+    const db = mongoose.connection.db;
+    const Admin = require('../models/Admin');
+    const WithdrawalRequest = require('../models/WithdrawalRequest');
+    const { computeMonths } = require('./walletClearController');
+
+    const admin = await Admin.findById(adminId)
+      .select('name username mobileNumber email reporterTier displayRole assignedState assignedDistrict walletBalance createdAt unlimitedDailyNews')
+      .lean();
+    if (!admin) return res.status(404).json({ error: 'Reporter not found' });
+
+    const months = await computeMonths(db, { _id: admin._id });
+
+    const withdrawals = await WithdrawalRequest.find({ adminId: admin._id })
+      .populate('processedBy', 'name username')
+      .sort({ createdAt: -1 }).limit(50).lean();
+
+    const txs = await db.collection('adminwallettransactions')
+      .find({ $or: [{ adminId: admin._id }, { adminId: String(admin._id) }] })
+      .project({ amount: 1, type: 1, description: 1, referenceId: 1, balanceAfter: 1, createdAt: 1 })
+      .sort({ createdAt: -1 }).limit(15).toArray();
+
+    const totalEarned = months.reduce((s, m) => s + (m.earned || 0), 0);
+    const totalCleared = months.reduce((s, m) => s + (m.cleared || 0), 0);
+    const withdrawnPaid = withdrawals.filter((w) => w.status === 'approved').reduce((s, w) => s + (w.amount || 0), 0);
+
+    res.json({
+      reporter: {
+        id: admin._id, name: admin.name || admin.username, username: admin.username,
+        mobileNumber: admin.mobileNumber || '', email: admin.email || '',
+        tier: admin.reporterTier || null, role: admin.displayRole || '',
+        state: admin.assignedState || '', district: admin.assignedDistrict || '',
+        walletBalance: admin.walletBalance ?? 0, joinedAt: admin.createdAt || null,
+        salaryBased: admin.unlimitedDailyNews === true,
+      },
+      summary: { totalEarned, totalCleared, withdrawnPaid },
+      months,
+      withdrawals: withdrawals.map((w) => ({
+        id: w._id, amount: w.amount, status: w.status, paymentDetails: w.paymentDetails,
+        utr: w.utr || '', remarks: w.remarks || '', createdAt: w.createdAt, processedAt: w.processedAt,
+        processedBy: w.processedBy ? (w.processedBy.name || w.processedBy.username) : null,
+      })),
+      ledger: txs.map((t) => ({
+        amount: t.amount, type: t.type, description: t.description || '',
+        referenceId: t.referenceId || '', balanceAfter: t.balanceAfter, createdAt: t.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('getWithdrawalUserDetail:', error);
+    res.status(500).json({ error: 'Failed to load reporter details' });
   }
 }
 
@@ -7354,6 +8074,12 @@ async function processWalletWithdrawal(req, res) {
     if (!withdrawal) return res.status(404).json({ error: 'Withdrawal not found' });
     if (withdrawal.status !== 'pending') {
       return res.status(400).json({ error: `Request already ${withdrawal.status}` });
+    }
+    if (action === 'approve' && withdrawal.fraudHold && withdrawal.fraudHold.held && !withdrawal.fraudHold.clearedAt) {
+      return res.status(423).json({
+        hold: true,
+        error: 'On HOLD: this UPI / bank / mobile is also used by other reporter accounts. Super Admin must review and clear the hold on the Reporter Security page before it can be paid.'
+      });
     }
 
     const processorId = resolveReporterId(req);
@@ -7385,18 +8111,32 @@ async function processWalletWithdrawal(req, res) {
 
     // Approve → debit wallet then mark approved
     const { processWalletTransaction } = require('../utils/walletHelpers');
+    const AdminWalletTransaction = require('../models/AdminWalletTransaction');
     const referenceId = `withdraw_${withdrawal._id}`;
 
-    try {
-      await processWalletTransaction({
-        adminId: reporterId,
-        amount: withdrawal.amount,
-        type: 'debit',
-        description: `Withdrawal approved — ${withdrawal.paymentDetails}`.slice(0, 200),
-        referenceId
-      });
-    } catch (err) {
-      return res.status(400).json({ error: err.message || 'Failed to debit wallet' });
+    // Idempotency: a previous approval may have already debited the wallet (its
+    // ledger entry exists) but then failed to mark the request approved, leaving
+    // it stuck on 'pending'. Re-debiting would (correctly) hit the unique
+    // referenceId index and throw E11000. So debit only if not already done; in
+    // either case we finalize the request below — never a double deduction.
+    const alreadyDebited = await AdminWalletTransaction.exists({ referenceId });
+    if (!alreadyDebited) {
+      try {
+        await processWalletTransaction({
+          adminId: reporterId,
+          amount: withdrawal.amount,
+          type: 'debit',
+          description: `Withdrawal approved — ${withdrawal.paymentDetails}`.slice(0, 200),
+          referenceId
+        });
+      } catch (err) {
+        // A concurrent approval (double-click) may have inserted it in the race
+        // window — treat that as already-debited and finalize; otherwise report.
+        const isDup = err && (err.code === 11000 || /E11000/.test(String(err.message || '')));
+        if (!isDup) {
+          return res.status(400).json({ error: err.message || 'Failed to debit wallet' });
+        }
+      }
     }
 
     withdrawal.status = 'approved';
@@ -10403,11 +11143,28 @@ async function updateReporterEarningAdmin(req, res) {
 
     const payload = mergeEarningDoc({ ...body, language: code }, code);
     const ReporterEarning = require('../models/ReporterEarning');
+    const prevEarning = await ReporterEarning.findOne({ language: code }).lean(); // audit before-value
     const doc = await ReporterEarning.findOneAndUpdate(
       { language: code },
       { ...payload, language: code },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
+
+    // Audit (observational only): earning-page config change. Never blocks the save.
+    try {
+      const { logAudit } = require('../utils/auditLogger');
+      const stripMeta = (d) => { if (!d) return null; const { _id, __v, createdAt, updatedAt, ...rest } = d; return rest; };
+      logAudit({
+        req,
+        action: 'reporter_earning_config_update',
+        entityType: 'ReporterEarning',
+        entityId: doc._id,
+        targetName: `language:${code}`,
+        description: `Reporter earning config updated for ${code}`,
+        before: stripMeta(prevEarning),
+        after: stripMeta(doc.toObject ? doc.toObject() : doc)
+      });
+    } catch (_) {}
 
     res.json({
       success: true,
@@ -10464,7 +11221,7 @@ async function getEditorReport(req, res) {
     const editorId = req.params.id;
     const { startDate, endDate, month } = req.query;
 
-    const editor = await Admin.findById(editorId).select('name role email mobile createdAt');
+    const editor = await Admin.findById(editorId).select('name role email mobile createdAt walletBalance walletConfig');
     if (!editor) {
       return res.status(404).json({ error: 'Editor not found' });
     }
@@ -10554,6 +11311,75 @@ async function getEditorReport(req, res) {
     const approvedCount = await News.countDocuments({ authorId: editorId, isActive: true });
     const rejectedCount = await News.countDocuments({ authorId: editorId, 'rejectionStatus.isRejected': true });
 
+    // ── Wallet / Earnings & Withdrawals (additive, read-only) ──────────────────
+    // Same authoritative sources as the reporter wallet: AdminWalletTransaction
+    // (credit = admitted earnings, debit = payout/deduction) + WithdrawalRequest.
+    // Shown so the admin sees, per editor: day-wise credited amount, total
+    // admitted, each withdrawal's requested & cleared dates, and the balance left.
+    let wallet = { enabled: false };
+    try {
+      const AdminWalletTransaction = require('../models/AdminWalletTransaction');
+      const WithdrawalRequest = require('../models/WithdrawalRequest');
+      const AppSettings = require('../models/AppSettings');
+      const { resolveWalletConfig } = require('../utils/walletHelpers');
+      const settings = await AppSettings.findOne({ key: 'update_flags' });
+      const walletCfg = resolveWalletConfig(editor, settings);
+
+      const adminOid = new mongoose.Types.ObjectId(editorId);
+      const [creditAgg, debitAgg, earningsByDate, withdrawals] = await Promise.all([
+        AdminWalletTransaction.aggregate([
+          { $match: { adminId: adminOid, type: 'credit' } },
+          { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
+        ]),
+        AdminWalletTransaction.aggregate([
+          { $match: { adminId: adminOid, type: 'debit' } },
+          { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
+        ]),
+        AdminWalletTransaction.aggregate([
+          { $match: { adminId: adminOid, type: 'credit' } },
+          { $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'Asia/Kolkata' } },
+            amount: { $sum: '$amount' }, count: { $sum: 1 }, lastAt: { $max: '$createdAt' }
+          } },
+          { $sort: { _id: -1 } },
+          { $limit: 90 }
+        ]),
+        WithdrawalRequest.find({ adminId: editorId }).sort({ createdAt: -1 }).limit(100).lean()
+      ]);
+
+      const wd = { pending: 0, pendingAmount: 0, approvedAmount: 0, rejected: 0 };
+      withdrawals.forEach(w => {
+        if (w.status === 'pending') { wd.pending += 1; wd.pendingAmount += (w.amount || 0); }
+        else if (w.status === 'approved') { wd.approvedAmount += (w.amount || 0); }
+        else if (w.status === 'rejected') { wd.rejected += 1; }
+      });
+
+      wallet = {
+        enabled: walletCfg.enabled === true,
+        balance: editor.walletBalance || 0,
+        totalEarned: creditAgg[0]?.total || 0,
+        creditCount: creditAgg[0]?.count || 0,
+        totalWithdrawn: wd.approvedAmount,
+        totalDebited: debitAgg[0]?.total || 0,
+        pendingAmount: wd.pendingAmount,
+        pendingCount: wd.pending,
+        earningsByDate: earningsByDate.map(d => ({ date: d._id, amount: d.amount, count: d.count, lastAt: d.lastAt })),
+        withdrawals: withdrawals.map(w => ({
+          amount: w.amount || 0,
+          status: w.status,
+          requestedAt: w.createdAt,
+          clearedAt: w.processedAt || null,
+          payoutType: w.payoutType || '',
+          paymentDetails: w.paymentDetails || '',
+          utr: w.utr || '',
+          remarks: w.remarks || ''
+        }))
+      };
+    } catch (walletErr) {
+      console.error('Editor report wallet section error:', walletErr.message);
+      wallet = { enabled: false, error: true };
+    }
+
     res.json({
       editor,
       firstArticleDate,
@@ -10565,7 +11391,8 @@ async function getEditorReport(req, res) {
       topCategories: topCategories.map(c => ({ category: c._id, count: c.count })),
       totalViews,
       approvedCount,
-      rejectedCount
+      rejectedCount,
+      wallet
     });
 
   } catch (error) {
@@ -10574,8 +11401,113 @@ async function getEditorReport(req, res) {
   }
 }
 
+/**
+ * Superadmin read-only: reporter reliability scores (compute-only signal).
+ * Optionally recompute on demand with ?recompute=1. Never restricts anyone.
+ */
+async function getReporterReliability(req, res) {
+  try {
+    const ReporterReliability = require('../models/ReporterReliability');
+    if (String(req.query.recompute || '') === '1') {
+      const { computeAllReporters } = require('../services/integrity/reporterReliabilityService');
+      await computeAllReporters({});
+    }
+    const tier = String(req.query.tier || '').trim();
+    const q = tier ? { tier } : {};
+    const rows = await ReporterReliability.find(q)
+      .sort({ score: 1, totalSubmissions: -1 })
+      .limit(1000)
+      .lean();
+    const summary = rows.reduce((acc, r) => {
+      acc[r.tier] = (acc[r.tier] || 0) + 1;
+      return acc;
+    }, {});
+    res.set('Cache-Control', 'no-store');
+    return res.json({ success: true, summary, count: rows.length, reporters: rows });
+  } catch (error) {
+    console.error('Error fetching reporter reliability:', error);
+    return res.status(500).json({ success: false, error: 'Failed to load reliability' });
+  }
+}
+
+// Category Insights — which categories users view the most, language-wise.
+// Uses News.views (PRISTINE organic counter — never the synthetic engine).
+// Default window: last 30 days by publishedAt; ?range=all = all time.
+async function renderCategoryInsightsPage(req, res) {
+  try {
+    const Language = require('../models/Language');
+    const allTime = req.query.range === 'all';
+    const toDate = req.query.to
+      ? new Date(`${req.query.to}T23:59:59.999+05:30`)
+      : new Date();
+    let fromDate;
+    if (req.query.from) {
+      fromDate = new Date(`${req.query.from}T00:00:00.000+05:30`);
+    } else {
+      fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - 30);
+    }
+
+    const match = { isActive: true };
+    if (!allTime) match.publishedAt = { $gte: fromDate, $lte: toDate };
+
+    const [rows, languages] = await Promise.all([
+      News.aggregate([
+        { $match: match },
+        { $group: {
+            _id: { language: '$language', category: '$category' },
+            totalViews: { $sum: '$views' },
+            count: { $sum: 1 },
+        }},
+        { $sort: { totalViews: -1 } },
+      ]),
+      Language.getActiveLanguages().catch(() => []),
+    ]);
+
+    const langName = {};
+    (languages || []).forEach(l => { langName[l.code] = l.nativeName || l.name || l.code; });
+
+    const byLang = {};
+    const langTotals = {};
+    rows.forEach(r => {
+      const lang = (r._id.language || 'unknown').toString();
+      const cat = (r._id.category && r._id.category.toString().trim()) || '(none)';
+      (byLang[lang] = byLang[lang] || []).push({
+        category: cat,
+        views: r.totalViews || 0,
+        count: r.count || 0,
+        avg: r.count ? Math.round((r.totalViews || 0) / r.count) : 0,
+      });
+      langTotals[lang] = (langTotals[lang] || 0) + (r.totalViews || 0);
+    });
+    Object.keys(byLang).forEach(lang => {
+      byLang[lang].sort((a, b) => b.views - a.views);
+      const t = langTotals[lang] || 1;
+      byLang[lang].forEach(c => { c.percent = Math.round((c.views / t) * 1000) / 10; });
+    });
+
+    const fmt = (d) => new Date(d.getTime() + 5.5 * 3600000).toISOString().slice(0, 10);
+    res.render('category-insights', {
+      title: 'Category Insights',
+      admin: req.admin,
+      activePage: 'category-insights',
+      byLang,
+      langTotals,
+      langName,
+      allTime,
+      fromStr: req.query.from || fmt(fromDate),
+      toStr: req.query.to || fmt(toDate),
+    });
+  } catch (error) {
+    console.error('Error rendering category insights:', error);
+    res.status(500).send('Error loading category insights');
+  }
+}
+
 module.exports = {
   renderMyAiQueuePage,
+  getReporterReliability,
+  deleteMyAiQueueNews,
   deleteUserById,
   renderLoginPage,
   login,
@@ -10643,6 +11575,7 @@ module.exports = {
   updateReporterApplication,
   renderPollsPage,
   createPollRest,
+  uploadPollImage,
   deletePollRest,
   updatePollStatusRest,
   updatePollRest,
@@ -10656,6 +11589,7 @@ module.exports = {
   updateWalletSettings,
   getReporterWalletTransactions,
   getReporterWalletSummary,
+  getReporterDistrictOverview,
   getReporterWithdrawals,
   createReporterWithdrawal,
   cancelReporterWithdrawal,
@@ -10664,6 +11598,7 @@ module.exports = {
   setDefaultReporterPayoutMethod,
   deleteReporterPayoutMethod,
   listWalletWithdrawals,
+  getWithdrawalUserDetail,
   processWalletWithdrawal,
   renderWithdrawalsQueuePage,
   renderWalletTransactionsPage,
@@ -10675,6 +11610,7 @@ module.exports = {
   renderAuditLogsPage,
   listAuditLogs,
   renderReporterAnalyticsPage,
+  renderCategoryInsightsPage,
   getReporterAnalyticsOverview,
   getReporterLeaderboard,
   getReporterLocationAnalytics,

@@ -23,6 +23,7 @@ const { validateAiDetectResponse } = require('./validateAiResponse');
 const { mapAiResponseToDuplicateCheck } = require('./mapAiToLegacy');
 const { enrichSimilarArticlesFromDb } = require('./enrichSimilarArticles');
 const { fetchAiCandidates } = require('./fetchCandidates');
+const { createSemanticDecisionService } = require('./semantic/semanticDecisionService');
 const {
   createSemanticShadowService,
 } = require('./semantic/semanticShadowService');
@@ -47,6 +48,26 @@ function createGateway(deps = {}) {
     isEnabled: () => isAiDuplicateEnabled(env),
   });
 
+  // Layer-0 exact-hash guard + "Meaning + shared facts" semantic decision.
+  // Both flag-gated (AI_EXACT_GUARD / AI_SEMANTIC_DECISIVE, default OFF) and
+  // can only ADD evidence — they never clear a flag the AI already set.
+  const semanticDecision =
+    deps.semanticDecision ||
+    createSemanticDecisionService({
+      env,
+      log,
+      News: deps.News,
+      NewsVector: deps.NewsVector,
+      embedText: deps.decisionEmbedText,
+      http: deps.http,
+    });
+  async function applyDecisionLayers(duplicateCheck, ctx) {
+    try {
+      return await semanticDecision.applyLayers(duplicateCheck, ctx);
+    } catch (_) {
+      return duplicateCheck; // never affects gateway control flow
+    }
+  }
   const httpClient =
     deps.httpClient ||
     createHttpClient({
@@ -126,6 +147,14 @@ function createGateway(deps = {}) {
       title,
       content,
     };
+    const layerCtx = {
+      requestId,
+      excludeId: excludeId ? String(excludeId) : null,
+      language,
+      title,
+      content,
+      contentHash: hashFn(title, content),
+    };
 
     // Permanent fallback path — identical to today's production behavior
     const fallback = async () => {
@@ -133,6 +162,7 @@ function createGateway(deps = {}) {
         { title, content, language },
         { excludeId, includePendingCorpus }
       );
+      result.duplicateCheck = await applyDecisionLayers(result.duplicateCheck, layerCtx);
       return maybeScheduleShadow(result, {
         ...shadowBase,
         source: 'legacy',
@@ -163,6 +193,7 @@ function createGateway(deps = {}) {
     try {
       const candidates = await fetchCandidates(language, excludeId, {
         News: deps.News,
+        location: (article && (article.location || article.location_name)) || null,
       });
 
       const aiResult = await httpClient.detectDuplicate({
@@ -211,6 +242,7 @@ function createGateway(deps = {}) {
         validated.data,
         candidates
       );
+      duplicateCheck = await applyDecisionLayers(duplicateCheck, layerCtx);
       try {
         const enriched = await enrichSimilarArticlesFromDb(
           duplicateCheck.similarArticles || [],

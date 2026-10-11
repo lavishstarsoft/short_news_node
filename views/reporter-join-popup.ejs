@@ -1,0 +1,174 @@
+<%- include('partials/header') %>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'Reporter Join Popup', backButton: true, backUrl: '/' }) %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .jp-wrap { padding: 22px; max-width: 1200px; }
+  .jp-card { background:#fff; border:1px solid #eef0f3; border-radius:14px; box-shadow:0 4px 14px rgba(0,0,0,.04); padding:18px 20px; margin-bottom:18px; }
+  .jp-help { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 16px; font-size:13.5px; color:#475569; margin-bottom:16px; }
+  .jp-help b { color:#0f172a; }
+  .jp-stage-wrap { display:flex; gap:22px; flex-wrap:wrap; }
+  .jp-stage { position:relative; width:420px; max-width:100%; border:2px dashed #cbd5e1; border-radius:14px; overflow:hidden; background:#f1f5f9; user-select:none; touch-action:none; }
+  .jp-stage img { width:100%; display:block; pointer-events:none; }
+  .jp-stage.empty { min-height:360px; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:14px; text-align:center; }
+  .jp-box { position:absolute; border:2px solid #2563eb; background:rgba(37,99,235,.14); box-sizing:border-box; cursor:move; }
+  .jp-box .jp-box-label { position:absolute; top:-20px; left:0; font-size:11px; font-weight:700; color:#fff; background:#2563eb; padding:1px 6px; border-radius:5px; white-space:nowrap; }
+  .jp-box .jp-handle { position:absolute; right:-6px; bottom:-6px; width:14px; height:14px; background:#2563eb; border:2px solid #fff; border-radius:3px; cursor:nwse-resize; }
+  .jp-box.sel { border-color:#dc2626; background:rgba(220,38,38,.16); }
+  .jp-box.sel .jp-box-label, .jp-box.sel .jp-handle { background:#dc2626; }
+  .jp-side { flex:1; min-width:320px; }
+  .jp-hs-row { display:grid; grid-template-columns:22px 1fr 1.2fr auto; gap:8px; align-items:center; padding:8px; border:1px solid #eef0f3; border-radius:10px; margin-bottom:8px; }
+  .jp-hs-row .idx { width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center; }
+  .jp-hs-row.sel { border-color:#dc2626; box-shadow:0 0 0 2px rgba(220,38,38,.12); }
+  .jp-hs-row.sel .idx { background:#dc2626; }
+  .jp-hs-row select, .jp-hs-row input { font-size:13px; }
+  .jp-actions { display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  .jp-muted { color:#64748b; font-size:12.5px; }
+</style>
+
+<div class="main-content" id="mainContent">
+  <div class="jp-wrap">
+    <div class="jp-help">
+      <b>Image Hotspot Editor.</b> Oka full popup image upload cheyandi → image paina <b>mouse tho drag chesi boxes gీయandi</b> → prati box ki oka action (Login / Register / URL / Close) ivvandi → <b>Save</b>. App lo guest ki ee image popup laga vస్తుంది; box paina tap cheste aa page ki veళ్తుంది. Coordinates image size batti auto-scale అవుతాయి.
+    </div>
+
+    <div class="jp-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+        <h4 style="margin:0;font-weight:700;">Join as a Reporter — Popup</h4>
+        <div class="form-check form-switch" style="font-size:15px;">
+          <input class="form-check-input" type="checkbox" id="jpActive" style="width:44px;height:24px;">
+          <label class="form-check-label ms-2" for="jpActive"><b>Active</b> (app lo chupinchu)</label>
+        </div>
+      </div>
+      <hr>
+      <div class="jp-stage-wrap">
+        <div>
+          <div class="jp-actions" style="margin-bottom:10px;">
+            <input type="file" id="jpFile" accept="image/*" hidden>
+            <button class="btn btn-primary btn-sm" id="jpUploadBtn"><i class="fas fa-upload me-1"></i>Upload Image</button>
+            <span class="jp-muted" id="jpUploadStatus"></span>
+          </div>
+          <div class="jp-stage empty" id="jpStage">Upload an image, then drag on it to draw clickable areas.</div>
+          <div class="jp-muted mt-2">Drag empty area = new box · Drag box = move · Corner = resize · Click box = select</div>
+        </div>
+        <div class="jp-side">
+          <h6 style="font-weight:700;">Hotspots (<span id="jpCount">0</span>)</h6>
+          <div id="jpList"></div>
+          <div class="jp-muted" id="jpEmpty">No hotspots yet. Draw a box on the image.</div>
+          <div class="jp-actions">
+            <button class="btn btn-success" id="jpSaveBtn"><i class="fas fa-save me-1"></i>Save</button>
+            <button class="btn btn-outline-danger btn-sm" id="jpDelSel" disabled><i class="fas fa-trash me-1"></i>Delete selected</button>
+            <span class="jp-muted" id="jpSaveStatus"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var stage=document.getElementById('jpStage');
+  var state={ imageUrl:'', aspectRatio:0.75, hotspots:[], sel:-1, img:null };
+  function api(url,opts){ return fetch(url,Object.assign({credentials:'same-origin',headers:{'Content-Type':'application/json'}},opts)).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});}); }
+  function actionLabel(a){ return {login:'Login',register:'Register',url:'URL',close:'Close'}[a]||a; }
+
+  function renderStage(){
+    stage.innerHTML='';
+    if(!state.imageUrl){ stage.classList.add('empty'); stage.textContent='Upload an image, then drag on it to draw clickable areas.'; return; }
+    stage.classList.remove('empty');
+    var img=document.createElement('img'); img.src=state.imageUrl; img.draggable=false; stage.appendChild(img); state.img=img;
+    state.hotspots.forEach(function(h,i){
+      var b=document.createElement('div'); b.className='jp-box'+(i===state.sel?' sel':''); b.dataset.i=i;
+      b.style.left=(h.x*100)+'%'; b.style.top=(h.y*100)+'%'; b.style.width=(h.w*100)+'%'; b.style.height=(h.h*100)+'%';
+      var lab=document.createElement('div'); lab.className='jp-box-label'; lab.textContent=(i+1)+'. '+actionLabel(h.action); b.appendChild(lab);
+      var hd=document.createElement('div'); hd.className='jp-handle'; hd.dataset.resize='1'; b.appendChild(hd);
+      stage.appendChild(b);
+    });
+  }
+  function renderList(){
+    document.getElementById('jpCount').textContent=state.hotspots.length;
+    document.getElementById('jpEmpty').style.display=state.hotspots.length?'none':'block';
+    var host=document.getElementById('jpList'); host.innerHTML='';
+    state.hotspots.forEach(function(h,i){
+      var row=document.createElement('div'); row.className='jp-hs-row'+(i===state.sel?' sel':''); row.dataset.i=i;
+      row.innerHTML='<div class="idx">'+(i+1)+'</div>'+
+        '<select class="form-select form-select-sm jp-act">'+['login','register','url','close'].map(function(a){return '<option value="'+a+'"'+(a===h.action?' selected':'')+'>'+actionLabel(a)+'</option>';}).join('')+'</select>'+
+        '<input class="form-control form-control-sm jp-url" placeholder="https://… (URL action only)" value="'+(h.url||'').replace(/"/g,'&quot;')+'" '+(h.action==='url'?'':'disabled')+'>'+
+        '<button class="btn btn-outline-danger btn-sm jp-del"><i class="fas fa-times"></i></button>';
+      row.querySelector('.jp-act').addEventListener('change',function(e){ h.action=e.target.value; row.querySelector('.jp-url').disabled=(h.action!=='url'); if(h.action!=='url')h.url=''; renderStage(); });
+      row.querySelector('.jp-url').addEventListener('input',function(e){ h.url=e.target.value; });
+      row.querySelector('.jp-del').addEventListener('click',function(){ state.hotspots.splice(i,1); if(state.sel===i)state.sel=-1; renderAll(); });
+      row.addEventListener('click',function(e){ if(e.target.closest('.jp-del')||e.target.closest('select')||e.target.closest('input'))return; selectHotspot(i); });
+      host.appendChild(row);
+    });
+    document.getElementById('jpDelSel').disabled=(state.sel<0);
+  }
+  function renderAll(){ renderStage(); renderList(); }
+
+  // Select a hotspot WITHOUT rebuilding the list DOM — rebuilding while a <select>
+  // dropdown is open would destroy it and close it mid-choice.
+  function selectHotspot(i){
+    state.sel=i;
+    document.querySelectorAll('#jpList .jp-hs-row').forEach(function(r){ r.classList.toggle('sel', (+r.dataset.i)===i); });
+    document.querySelectorAll('#jpStage .jp-box').forEach(function(b){ b.classList.toggle('sel', (+b.dataset.i)===i); });
+    var del=document.getElementById('jpDelSel'); if(del) del.disabled=(i<0);
+  }
+
+  // Drag to draw / move / resize
+  var drag=null;
+  stage.addEventListener('pointerdown',function(e){
+    if(!state.imageUrl) return;
+    var rect=stage.getBoundingClientRect();
+    var box=e.target.closest('.jp-box');
+    var px=(e.clientX-rect.left)/rect.width, py=(e.clientY-rect.top)/rect.height;
+    if(box){
+      var i=+box.dataset.i; selectHotspot(i);
+      if(e.target.dataset.resize){ drag={mode:'resize',i:i,rect:rect}; }
+      else { var h=state.hotspots[i]; drag={mode:'move',i:i,rect:rect,offx:px-h.x,offy:py-h.y}; }
+    } else {
+      var h2={x:px,y:py,w:0,h:0,action:'login',url:'',label:''}; state.hotspots.push(h2); state.sel=state.hotspots.length-1;
+      drag={mode:'draw',i:state.sel,rect:rect,sx:px,sy:py};
+    }
+    stage.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  stage.addEventListener('pointermove',function(e){
+    if(!drag) return;
+    var r=drag.rect; var px=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)), py=Math.max(0,Math.min(1,(e.clientY-r.top)/r.height));
+    var h=state.hotspots[drag.i];
+    if(drag.mode==='draw'){ h.x=Math.min(drag.sx,px); h.y=Math.min(drag.sy,py); h.w=Math.abs(px-drag.sx); h.h=Math.abs(py-drag.sy); }
+    else if(drag.mode==='move'){ h.x=Math.max(0,Math.min(1-h.w,px-drag.offx)); h.y=Math.max(0,Math.min(1-h.h,py-drag.offy)); }
+    else if(drag.mode==='resize'){ h.w=Math.max(0.02,Math.min(1-h.x,px-h.x)); h.h=Math.max(0.02,Math.min(1-h.y,py-h.y)); }
+    renderStage();
+  });
+  stage.addEventListener('pointerup',function(){ if(drag){ if(state.hotspots[drag.i] && (state.hotspots[drag.i].w<0.02||state.hotspots[drag.i].h<0.02) && drag.mode==='draw'){ state.hotspots.splice(drag.i,1); state.sel=-1; } drag=null; renderAll(); } });
+
+  document.getElementById('jpUploadBtn').addEventListener('click',function(){ document.getElementById('jpFile').click(); });
+  document.getElementById('jpFile').addEventListener('change',function(e){
+    var f=e.target.files[0]; if(!f) return;
+    var st=document.getElementById('jpUploadStatus'); st.textContent='Uploading…';
+    var fd=new FormData(); fd.append('image',f);
+    fetch('/admin/api/reporter-join-popup/upload-image',{method:'POST',credentials:'same-origin',body:fd}).then(function(r){return r.json();}).then(function(j){
+      if(!j.success){ st.textContent='Upload failed: '+(j.error||''); return; }
+      state.imageUrl=j.imageUrl; st.textContent='Uploaded ✓';
+      var probe=new Image(); probe.onload=function(){ state.aspectRatio=probe.width/probe.height; }; probe.src=j.imageUrl;
+      renderAll();
+    }).catch(function(){ st.textContent='Upload error'; });
+  });
+  document.getElementById('jpDelSel').addEventListener('click',function(){ if(state.sel>=0){ state.hotspots.splice(state.sel,1); state.sel=-1; renderAll(); } });
+
+  document.getElementById('jpSaveBtn').addEventListener('click',function(){
+    var st=document.getElementById('jpSaveStatus'); st.textContent='Saving…';
+    api('/admin/api/reporter-join-popup',{method:'POST',body:JSON.stringify({ imageUrl:state.imageUrl, aspectRatio:state.aspectRatio, hotspots:state.hotspots, isActive:document.getElementById('jpActive').checked })})
+      .then(function(x){ st.textContent=(x.ok&&x.j.ok)?'Saved ✓':('Error: '+((x.j&&x.j.error)||'')); });
+  });
+
+  // load existing
+  api('/admin/api/reporter-join-popup').then(function(x){
+    if(x.ok&&x.j.ok&&x.j.config){ var c=x.j.config; state.imageUrl=c.imageUrl||''; state.aspectRatio=c.aspectRatio||0.75; state.hotspots=(c.hotspots||[]).map(function(h){return {x:h.x,y:h.y,w:h.w,h:h.h,action:h.action||'login',url:h.url||'',label:h.label||''};}); document.getElementById('jpActive').checked=!!c.isActive; renderAll(); }
+  });
+})();
+</script>
+
+<%- include('partials/footer') %>

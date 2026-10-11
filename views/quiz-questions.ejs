@@ -65,6 +65,21 @@
                     <small class="text-muted" style="font-size:11px">IST — when the 10 weekly winners become visible.</small>
                   </div>
                 </div>
+                <div class="row g-2 mb-2">
+                  <div class="col-6">
+                    <label class="fw-bold small text-muted" for="qzRolloverHour">New Question Time (daily)</label>
+                    <select id="qzRolloverHour" class="form-select form-select-sm">
+                      <% for (var h = 0; h < 24; h++) {
+                           var ampm = h === 0 ? '12:00 AM (midnight)' : (h < 12 ? (h + ':00 AM') : (h === 12 ? '12:00 PM (noon)' : ((h - 12) + ':00 PM'))); %>
+                        <option value="<%= h %>"><%= ampm %></option>
+                      <% } %>
+                    </select>
+                    <small class="text-muted" style="font-size:11px">IST — every day at this time the quiz shows a NEW question (default 10:00 AM).</small>
+                  </div>
+                </div>
+                <div class="alert alert-info py-2 px-2 mb-2" style="font-size:11.5px">
+                  <b>ℹ️ New Question Time:</b> ప్రతిరోజూ ఈ టైమ్ కి కొత్త question వస్తుంది. ఉదా: 10:00 AM పెడితే — నిన్నటి 10 AM నుండి ఈరోజు 10 AM వరకు అదే question, 10 AM అయ్యాక కొత్తది.
+                </div>
                 <button class="btn btn-sm btn-primary" onclick="qzSaveSettings()">Save Settings</button>
                 <span id="qzSetMsg" class="ms-2 small fw-bold"></span>
               </div>
@@ -311,6 +326,8 @@
         }
         if (s.revealTime) document.getElementById('qzRevealTime').value = s.revealTime;
         if (s.winnerReleaseTime) document.getElementById('qzWinnerReleaseTime').value = s.winnerReleaseTime;
+        var rh = (s.dayRolloverHour === undefined || s.dayRolloverHour === null) ? 10 : s.dayRolloverHour;
+        document.getElementById('qzRolloverHour').value = String(rh);
       } catch(e) {}
     };
     window.qzSaveSettings=async function(){
@@ -319,10 +336,12 @@
       var sel = Array.from(document.getElementById('qzLangSelect').selectedOptions).map(function(o){ return o.value; });
       var revealTime = document.getElementById('qzRevealTime').value || '23:30';
       var winnerReleaseTime = document.getElementById('qzWinnerReleaseTime').value || '10:00';
+      var dayRolloverHour = parseInt(document.getElementById('qzRolloverHour').value, 10);
+      if (!(dayRolloverHour >= 0 && dayRolloverHour <= 23)) dayRolloverHour = 10;
       try {
         var r = await fetch('/admin/quiz/api/settings', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isEnabled: isEnabled, enabledLanguages: sel, revealTime: revealTime, winnerReleaseTime: winnerReleaseTime })
+          body: JSON.stringify({ isEnabled: isEnabled, enabledLanguages: sel, revealTime: revealTime, winnerReleaseTime: winnerReleaseTime, dayRolloverHour: dayRolloverHour })
         });
         if (!r.ok) throw new Error();
         msg.textContent = 'Saved!'; msg.className = 'ms-2 small text-success';

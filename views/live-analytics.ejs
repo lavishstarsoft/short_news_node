@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Analytics — Tehelka News</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root { --bg:#0e1124; --card:#171b3a; --line:#262c54; --ink:#e9ecff; --mut:#8d93c7;
+      --accent:#5b6cff; --green:#16d886; --pink:#ff7aa0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family:-apple-system,'Segoe UI',Roboto,'Noto Sans Telugu',sans-serif; background:var(--bg); color:var(--ink); padding:16px; }
+    a { color:inherit; }
+    .top { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+    .top h1 { font-size:19px; font-weight:800; }
+    .live-dot { width:10px; height:10px; border-radius:50%; background:var(--green);
+      animation:pulse 1.8s infinite; flex:0 0 auto; }
+    @keyframes pulse {0%{box-shadow:0 0 0 0 rgba(22,216,134,.6)}70%{box-shadow:0 0 0 10px rgba(22,216,134,0)}100%{box-shadow:0 0 0 0 rgba(22,216,134,0)}}
+    .muted { color:var(--mut); font-size:12px; }
+    .spacer { margin-left:auto; }
+    .ctrl { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .btn { background:#23284d; color:var(--ink); border:1px solid var(--line); padding:7px 11px;
+      border-radius:8px; font-size:13px; cursor:pointer; text-decoration:none; }
+    .btn:hover { background:#2c3360; }
+    .btn.on { background:var(--green); color:#06231a; border-color:var(--green); font-weight:700; }
+    select { background:#23284d; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:13px; }
+    .alert { border-radius:10px; padding:10px 12px; font-size:13px; font-weight:600; margin:8px 0; display:none; }
+    .alert.up { background:#123b2a; color:#46e6a0; display:block; }
+    .alert.down { background:#3b1620; color:#ff8aa0; display:block; }
+    .filters { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-height:34px;
+      background:#12152e; border:1px dashed var(--line); border-radius:10px; padding:8px 10px; margin-bottom:12px; }
+    .filters .lbl { font-size:12px; color:var(--mut); }
+    .chip { background:var(--accent); color:#fff; border:none; border-radius:16px; padding:5px 10px;
+      font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+    .chip .x { font-weight:800; opacity:.8; }
+    .chip.clear { background:#3b1620; color:#ff9db0; }
+    .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:14px; }
+    .kpi { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+    .kpi .k { font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--mut); margin-bottom:6px; }
+    .kpi .v { font-size:30px; font-weight:800; line-height:1; }
+    .kpi .s { font-size:11px; color:var(--mut); margin-top:5px; }
+    .grid { display:grid; gap:14px; }
+    .g-charts { grid-template-columns:2fr 1fr; }
+    .g-mid { grid-template-columns:1fr 1fr; }
+    .g-tables { grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; min-width:0; }
+    .card h3 { font-size:12px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:#9aa0d6;
+      margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+    canvas { max-height:220px; }
+    .row { display:flex; align-items:center; gap:8px; margin:6px 0; font-size:13.5px; cursor:pointer; border-radius:6px; padding:2px 4px; }
+    .row:hover { background:#20264d; }
+    .row.active { background:#1c2b22; outline:1px solid var(--green); }
+    .row .lbl { flex:0 0 auto; min-width:120px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
+    .bar { flex:1; height:8px; background:#23284d; border-radius:6px; overflow:hidden; }
+    .bar>span { display:block; height:100%; border-radius:6px; background:linear-gradient(90deg,var(--accent),var(--green)); }
+    .cnt { flex:0 0 auto; min-width:52px; text-align:right; font-weight:700; }
+    .cnt small { color:var(--mut); font-weight:500; margin-left:4px; }
+    .empty { color:#6b70a0; font-size:13px; padding:10px 0; text-align:center; }
+    table.heat { border-collapse:collapse; width:100%; font-size:12px; }
+    table.heat th, table.heat td { border:1px solid var(--line); padding:6px 8px; text-align:center; }
+    table.heat th { color:var(--mut); font-weight:600; }
+    table.heat td.rowh { text-align:left; color:var(--ink); white-space:nowrap; }
+    table.heat td.cell { cursor:pointer; color:#fff; font-weight:700; }
+    table.heat td.cell:hover { outline:2px solid var(--green); }
+    .help { background:#15284a; border:1px solid #244a7a; border-radius:12px; padding:14px 16px; font-size:13.5px; line-height:1.7; margin-top:16px; }
+    .help b { color:#7fd0ff; }
+    .cap { color:#ffcf6b; font-size:12px; margin-bottom:8px; display:none; }
+    @media (max-width:900px){ .g-charts,.g-mid{ grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <span class="live-dot"></span>
+    <h1>Live Analytics Workbench</h1>
+    <span id="updated" class="muted"></span>
+    <div class="spacer"></div>
+    <div class="ctrl">
+      <button id="autoBtn" class="btn on">⏸ Pause</button>
+      <select id="interval">
+        <option value="2000">2s</option>
+        <option value="4000" selected>4s</option>
+        <option value="8000">8s</option>
+        <option value="15000">15s</option>
+      </select>
+      <button id="refreshBtn" class="btn">↻ Refresh</button>
+      <a class="btn" href="/admin/dashboard">← Dashboard</a>
+    </div>
+  </div>
+
+  <div id="cap" class="cap"></div>
+  <div id="alert" class="alert"></div>
+
+  <div class="filters">
+    <span class="lbl">🔎 Filters (click any value to explore):</span>
+    <span id="filterChips"></span>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="k">🟢 Online (total)</div><div class="v" id="kOnline">—</div><div class="s" id="kPeak"></div></div>
+    <div class="kpi"><div class="k">🔎 Showing (filtered)</div><div class="v" id="kShowing">—</div><div class="s" id="kPct"></div></div>
+    <div class="kpi"><div class="k">⏱️ Avg session</div><div class="v" id="kAvg">—</div><div class="s">filtered users</div></div>
+    <div class="kpi"><div class="k">📱 Active screens</div><div class="v" id="kScreens">—</div><div class="s" id="kTopScreen"></div></div>
+    <div class="kpi"><div class="k">🗺️ States</div><div class="v" id="kStates">—</div><div class="s" id="kTopState"></div></div>
+    <div class="kpi"><div class="k">📍 Districts</div><div class="v" id="kDistricts">—</div><div class="s"></div></div>
+  </div>
+
+  <div class="grid g-charts" style="margin-bottom:14px">
+    <div class="card"><h3>📈 Online trend — last 60 minutes</h3><canvas id="cTrend"></canvas></div>
+    <div class="card"><h3>📱 Screen distribution</h3><canvas id="cScreen"></canvas></div>
+  </div>
+
+  <div class="grid g-mid" style="margin-bottom:14px">
+    <div class="card"><h3>⏱️ Session-time distribution</h3><canvas id="cSession"></canvas></div>
+    <div class="card"><h3>🗣️ By language</h3><canvas id="cLang"></canvas></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <h3>🔲 Screen × Language cross-tab (click a cell → filters both)</h3>
+    <div id="heat"></div>
+  </div>
+
+  <div class="grid g-tables">
+    <div class="card"><h3>📱 Screens</h3><div id="tScreen"></div></div>
+    <div class="card"><h3>🗣️ Languages</h3><div id="tLang"></div></div>
+    <div class="card"><h3>🔥 Most-read news now</h3><div id="tNews"></div></div>
+    <div class="card"><h3>🗺️ States</h3><div id="tState"></div></div>
+    <div class="card"><h3>📍 Districts</h3><div id="tDistrict"></div></div>
+  </div>
+
+  <div class="help">
+    <b>ℹ️ About this page:</b> a <b>live analytics workbench</b> — it shows every user currently in the app (no PII) broken down by screen / language / state / district / news.
+    <br>• Click any <b>row / chip / cell</b> to <b>filter</b> — e.g. click "Telugu" + "Quiz" and only users playing Quiz in Telugu appear across every card, chart and table. You can drill down across all dimensions combined.
+    <br>• Use <b>⏸ Pause / interval / ↻ Refresh</b> at the top to control auto-refresh.
+    <br><b>Note:</b> screen / language / district data populates only after the <b>new app build</b> ships. Until then, only Online count &amp; session time are available.
+  </div>
+
+<script>
+  const SCREEN = {
+    news:{t:'News Card',e:'📰'}, quiz:{t:'Quiz',e:'🧠'}, train:{t:'Train',e:'🚆'},
+    videos:{t:'Videos',e:'🎬'}, long_videos:{t:'Long Videos',e:'🎞️'}, games:{t:'Games',e:'🎮'},
+    language:{t:'Language Select',e:'🗣️'}, profile:{t:'Profile',e:'👤'}, wallet:{t:'Wallet',e:'👛'},
+    search:{t:'Search',e:'🔍'}, saved:{t:'Saved',e:'🔖'}, unknown:{t:'Other / Unknown',e:'•'}
+  };
+  const LANG = {te:'Telugu',en:'English',hi:'Hindi',ta:'Tamil',kn:'Kannada',ml:'Malayalam',mr:'Marathi',bn:'Bengali',gu:'Gujarati',pa:'Punjabi'};
+  const DIMS = {s:'Screen', l:'Language', st:'State', d:'District', n:'News'};
+
+  const filters = {s:new Set(), l:new Set(), st:new Set(), d:new Set(), n:new Set()};
+  let DATA = null, titles = {}, prevOnline = null, peak = 0;
+  let auto = true, timer = null;
+  const charts = {};
+
+  const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const fmtDur = s => s>=3600 ? Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m'
+    : s>=60 ? Math.floor(s/60)+'m '+(s%60)+'s' : (s||0)+'s';
+
+  function labelFor(dim, val) {
+    if (dim==='s') { const m=SCREEN[val]||{t:val,e:'•'}; return m.e+' '+m.t; }
+    if (dim==='l') return LANG[val]||val;
+    if (dim==='n') return (titles[val]||('…'+String(val).slice(-6)));
+    return val;
+  }
+  function pass(r) {
+    for (const k in filters) if (filters[k].size && !filters[k].has(r[k])) return false;
+    return true;
+  }
+  function toggle(dim, val) {
+    const set = filters[dim];
+    if (set.has(val)) set.delete(val); else set.add(val);
+    render(); // instant, from cache
+  }
+  function clearAll(){ for(const k in filters) filters[k].clear(); render(); }
+
+  function agg(rows, key, emptyAs) {
+    const m = {};
+    for (const r of rows) {
+      let v = r[key];
+      if (!v) { if (emptyAs) v = emptyAs; else continue; }
+      m[v] = (m[v]||0)+1;
+    }
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({k,v}));
+  }
+
+  function tableInto(elId, dim, items, total) {
+    const el = document.getElementById(elId);
+    if (!items.length) { el.innerHTML='<div class="empty">No data</div>'; return; }
+    const top = items[0].v||1;
+    el.innerHTML = items.slice(0,15).map(it=>{
+      const pct = Math.max(5, Math.round(it.v/top*100));
+      const share = total ? Math.round(it.v/total*100) : 0;
+      const active = filters[dim].has(it.k) ? ' active' : '';
+      return `<div class="row${active}" data-dim="${dim}" data-val="${esc(it.k)}">`
+        +`<span class="lbl" title="${esc(labelFor(dim,it.k))}">${esc(labelFor(dim,it.k))}</span>`
+        +`<span class="bar"><span style="width:${pct}%"></span></span>`
+        +`<span class="cnt">${it.v}<small>${share}%</small></span></div>`;
+    }).join('');
+    el.querySelectorAll('.row').forEach(n=>n.onclick=()=>toggle(n.dataset.dim, n.dataset.val));
+  }
+
+  function renderChips() {
+    const box = document.getElementById('filterChips');
+    const parts = [];
+    for (const dim in filters) for (const v of filters[dim])
+      parts.push(`<button class="chip" data-dim="${dim}" data-val="${esc(v)}">${esc(DIMS[dim])}: ${esc(labelFor(dim,v))} <span class="x">✕</span></button>`);
+    if (!parts.length) { box.innerHTML = '<span class="muted">— none (all users) —</span>'; return; }
+    parts.push('<button class="chip clear" data-clear="1">Clear all ✕</button>');
+    box.innerHTML = parts.join(' ');
+    box.querySelectorAll('.chip').forEach(n=>n.onclick=()=> n.dataset.clear ? clearAll() : toggle(n.dataset.dim, n.dataset.val));
+  }
+
+  function bucketSessions(rows) {
+    const b = [0,0,0,0,0,0]; // <30s,30-60,1-3m,3-5m,5-10m,10m+
+    for (const r of rows){ const t=r.t||0;
+      if(t<30)b[0]++; else if(t<60)b[1]++; else if(t<180)b[2]++; else if(t<300)b[3]++; else if(t<600)b[4]++; else b[5]++; }
+    return b;
+  }
+
+  function lineChart(id, labels, data) {
+    if (!charts[id]) charts[id]=new Chart(document.getElementById(id),{type:'line',
+      data:{labels,datasets:[{data,borderColor:'#16d886',backgroundColor:'rgba(22,216,134,.12)',fill:true,tension:.35,pointRadius:0,borderWidth:2}]},
+      options:{plugins:{legend:{display:false}},animation:false,
+        scales:{x:{ticks:{color:'#6b70a0',maxTicksLimit:8},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#6b70a0',precision:0},grid:{color:'#23284d'}}}}});
+    else { charts[id].data.labels=labels; charts[id].data.datasets[0].data=data; charts[id].update(); }
+  }
+  const PALETTE=['#5b6cff','#16d886','#ff7aa0','#ffb44d','#9b6bff','#4dd0ff','#ff6b6b','#7ee081','#c77dff','#ffd166','#06d6a0','#ef476f'];
+  function barChart(id, labels, data, horizontal) {
+    const cfg={type:'bar',data:{labels,datasets:[{data,backgroundColor:PALETTE,borderRadius:5}]},
+      options:{indexAxis:horizontal?'y':'x',plugins:{legend:{display:false}},animation:false,
+        scales:{x:{ticks:{color:'#6b70a0',precision:0},grid:{color:'#23284d'}},y:{ticks:{color:'#9aa0d6'},grid:{display:false}}}}};
+    if(!charts[id]) charts[id]=new Chart(document.getElementById(id),cfg);
+    else { charts[id].data.labels=labels; charts[id].data.datasets[0].data=data;
+      charts[id].data.datasets[0].backgroundColor=PALETTE; charts[id].options.indexAxis=horizontal?'y':'x'; charts[id].update(); }
+  }
+  function doughnut(id, labels, data) {
+    if(!charts[id]) charts[id]=new Chart(document.getElementById(id),{type:'doughnut',
+      data:{labels,datasets:[{data,backgroundColor:PALETTE,borderColor:'#171b3a',borderWidth:2}]},
+      options:{plugins:{legend:{position:'right',labels:{color:'#9aa0d6',boxWidth:12,font:{size:11}}}},animation:false,cutout:'58%'}});
+    else { charts[id].data.labels=labels; charts[id].data.datasets[0].data=data; charts[id].update(); }
+  }
+
+  function renderHeat(rows) {
+    const screens = agg(rows,'s','unknown').slice(0,7);
+    const langs = agg(rows,'l').slice(0,6);
+    const el = document.getElementById('heat');
+    if (!rows.length || !langs.length) { el.innerHTML='<div class="empty">Will populate after the new app build</div>'; return; }
+    const cross = {};
+    for (const r of rows){ const s=r.s||'unknown'; const l=r.l; if(!l) continue; cross[s+'|'+l]=(cross[s+'|'+l]||0)+1; }
+    let max=1; for(const k in cross) max=Math.max(max,cross[k]);
+    let html='<table class="heat"><tr><th></th>'+langs.map(l=>`<th>${esc(LANG[l.k]||l.k)}</th>`).join('')+'</tr>';
+    for (const s of screens){ const m=SCREEN[s.k]||{t:s.k,e:'•'};
+      html+=`<tr><td class="rowh">${m.e} ${esc(m.t)}</td>`;
+      for (const l of langs){ const c=cross[s.k+'|'+l.k]||0; const a=c/max;
+        const bg=c?`rgba(91,108,255,${(0.15+a*0.75).toFixed(2)})`:'transparent';
+        html+=`<td class="cell" style="background:${bg}" data-s="${esc(s.k)}" data-l="${esc(l.k)}">${c||''}</td>`; }
+      html+='</tr>'; }
+    html+='</table>';
+    el.innerHTML=html;
+    el.querySelectorAll('td.cell').forEach(td=>td.onclick=()=>{
+      if(!filters.s.has(td.dataset.s))filters.s.add(td.dataset.s);
+      if(!filters.l.has(td.dataset.l))filters.l.add(td.dataset.l); render(); });
+  }
+
+  function render() {
+    if (!DATA) return;
+    const all = DATA.rows;
+    const rows = all.filter(pass);
+
+    // KPIs
+    document.getElementById('kOnline').textContent = DATA.online;
+    peak = Math.max(peak, DATA.online, ...(DATA.minuteSeries||[]).map(p=>p.online||0));
+    document.getElementById('kPeak').textContent = 'Peak (60m): '+peak;
+    document.getElementById('kShowing').textContent = rows.length;
+    document.getElementById('kPct').textContent = all.length ? Math.round(rows.length/all.length*100)+'% of online' : '';
+    const avg = rows.length ? Math.round(rows.reduce((a,r)=>a+(r.t||0),0)/rows.length) : 0;
+    document.getElementById('kAvg').textContent = fmtDur(avg);
+    const sc = agg(rows,'s','unknown'), lg = agg(rows,'l'), stt = agg(rows,'st'), dst = agg(rows,'d'), nw = agg(rows,'n');
+    document.getElementById('kScreens').textContent = sc.filter(x=>x.k!=='unknown').length;
+    document.getElementById('kTopScreen').textContent = sc.length ? ('Top: '+labelFor('s',sc[0].k)) : '';
+    document.getElementById('kStates').textContent = stt.length;
+    document.getElementById('kTopState').textContent = stt.length ? ('Top: '+stt[0].k) : '';
+    document.getElementById('kDistricts').textContent = dst.length;
+
+    // charts
+    const ms = DATA.minuteSeries||[];
+    lineChart('cTrend', ms.map(p=>{const d=new Date(p.t);return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}), ms.map(p=>p.online));
+    doughnut('cScreen', sc.slice(0,8).map(x=>labelFor('s',x.k)), sc.slice(0,8).map(x=>x.v));
+    barChart('cSession', ['<30s','30–60s','1–3m','3–5m','5–10m','10m+'], bucketSessions(rows), false);
+    barChart('cLang', lg.slice(0,8).map(x=>LANG[x.k]||x.k), lg.slice(0,8).map(x=>x.v), true);
+
+    // heatmap + tables
+    renderHeat(rows);
+    tableInto('tScreen','s',sc,rows.length);
+    tableInto('tLang','l',lg,rows.length);
+    tableInto('tNews','n',nw,rows.length);
+    tableInto('tState','st',stt,rows.length);
+    tableInto('tDistrict','d',dst,rows.length);
+
+    renderChips();
+
+    // spike/drop vs previous poll (global online)
+    const a=document.getElementById('alert');
+    if (prevOnline!=null && prevOnline>0) {
+      const diff=DATA.online-prevOnline, pc=Math.round(diff/prevOnline*100);
+      if (pc>=25&&diff>=3){a.className='alert up';a.textContent=`⬆️ Spike: online up ${pc}% (+${diff})`;}
+      else if (pc<=-25&&diff<=-3){a.className='alert down';a.textContent=`⬇️ Drop: online down ${Math.abs(pc)}% (${diff})`;}
+      else {a.className='alert';a.textContent='';}
+    }
+
+    const cap=document.getElementById('cap');
+    if (DATA.capped){cap.style.display='block';cap.textContent='⚠️ Very many online — showing a sample.';} else cap.style.display='none';
+
+    const now=new Date();
+    document.getElementById('updated').textContent='Last updated '+('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2)+':'+('0'+now.getSeconds()).slice(-2);
+  }
+
+  async function poll() {
+    try {
+      const r = await fetch('/admin/live-analytics/data', {credentials:'same-origin'});
+      if (r.ok) { const d=await r.json(); titles=d.titles||titles; prevOnline = DATA?DATA.online:null; DATA=d; render(); }
+    } catch(_){}
+  }
+  function schedule() { if(timer)clearInterval(timer); if(auto) timer=setInterval(poll, +document.getElementById('interval').value); }
+
+  document.getElementById('autoBtn').onclick=function(){ auto=!auto; this.classList.toggle('on',auto);
+    this.textContent=auto?'⏸ Pause':'▶ Resume'; schedule(); };
+  document.getElementById('interval').onchange=schedule;
+  document.getElementById('refreshBtn').onclick=poll;
+
+  poll(); schedule();
+</script>
+</body>
+</html>

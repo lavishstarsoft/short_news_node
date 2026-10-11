@@ -1,0 +1,397 @@
+<%- include('partials/header') %>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'Reporter Hub (Main App "+")', backButton: true, backUrl: '/' }) %>
+<%- include('partials/sidebar') %>
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
+<style>
+  .settings-card { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.04); }
+  .settings-card .card-header { background:#fff; border-bottom:1px solid #f0f0f0; padding:16px 22px; }
+  .settings-card .card-body { padding: 22px; }
+  .help-card { background:#FFF8E6; border:1px solid #F5D78E; border-radius:12px; padding:14px 18px; }
+  .lang-pill { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:7px 13px; font-weight:600; font-size:13px; color:#374151; margin:0 6px 8px 0; }
+  .lang-pill.active { background:#E31E24; border-color:#E31E24; color:#fff; }
+  .lang-pill .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-left:6px; background:#9ca3af; }
+  .lang-pill .dot.on { background:#16a34a; }
+  html { scroll-behavior: smooth; }
+  .section-label { scroll-margin-top: 80px; font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#6b7280; margin:18px 0 10px; }
+  .row-item { border:1px solid #eef0f3; border-radius:10px; padding:12px; margin-bottom:10px; background:#fafbfc; }
+  .row-item .rm { float:right; }
+  .thumb { width:64px; height:64px; object-fit:cover; border-radius:8px; background:#eee; display:none; }
+  /* phone preview */
+  .phone { background:#F4F7FB; border-radius:22px; padding:14px; border:8px solid #111; max-width:360px; margin:0 auto; font-family: inherit; }
+  .pv-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .pv-avatar { width:34px; height:34px; border-radius:50%; background:#e5e7eb; }
+  .pv-plus { margin-left:auto; width:34px; height:34px; border-radius:50%; background:#1E6FE8; color:#fff; font-weight:900; display:flex; align-items:center; justify-content:center; }
+  .pv-banner { background:linear-gradient(135deg,#E9F1FF,#F6FAFF); border-radius:14px; padding:12px; margin-bottom:12px; }
+  .pv-chip { display:inline-block; background:#DCE9FF; color:#1E6FE8; font-size:10px; font-weight:800; padding:3px 8px; border-radius:999px; }
+  .pv-title { font-size:20px; font-weight:900; color:#0B3A8C; line-height:1.15; margin:6px 0 4px; }
+  .pv-sub { font-size:11px; color:#4b5563; }
+  .pv-cta { display:inline-block; background:#1E6FE8; color:#fff; font-size:11px; font-weight:800; padding:6px 12px; border-radius:999px; margin-top:8px; }
+  .pv-cards { display:flex; gap:8px; margin-bottom:12px; }
+  .pv-card { flex:1; border-radius:14px; padding:10px; color:#fff; min-height:110px; }
+  .pv-card.blue { background:linear-gradient(160deg,#1F4FA6,#0B2B66); }
+  .pv-card.gold { background:linear-gradient(160deg,#4A3A0A,#2A2107); }
+  .pv-card.dark { background:#1f2937; } .pv-card.light { background:#e5e7eb; color:#111; }
+  .pv-card .n { opacity:.5; font-weight:900; font-size:14px; }
+  .pv-card .t { font-weight:900; font-size:13px; margin-top:16px; }
+  .pv-card .s { font-size:10px; opacity:.85; }
+  .pv-card .lb { font-size:9px; opacity:.8; margin-top:8px; }
+  .pv-faq { background:#fff; border-radius:12px; padding:10px; }
+  .pv-faq .q { font-size:11px; padding:7px 0; border-bottom:1px solid #f1f5f9; }
+  .pv-nav { display:flex; justify-content:space-around; font-size:10px; margin-top:10px; color:#374151; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-4 pb-3 mb-3 border-bottom">
+    <h1 class="h2 page-title">Reporter Hub — Main App "+" screen</h1>
+    <p class="text-muted mb-0">Main Short News app లో "+" నొక్కితే వచ్చే screen. Language-wise content ఇక్కడే edit చేయండి.</p>
+  </div>
+
+  <div class="help-card mb-4">
+    <strong>ఇది ఏమిటి? (సహాయం)</strong>
+    <ul class="mb-0 mt-2 small">
+      <li>User తన app language ఎంచుకున్నట్టుగానే ఈ content ఆ language లో కనిపిస్తుంది. ఒక language లో ఏ field ఖాళీగా ఉన్నా English/default వాడుతుంది — ఖాళీ screen రాదు.</li>
+      <li><strong>Enabled</strong> switch OFF ఉంటే ఆ language users కి "+" అస్సలు కనిపించదు (production safe). ముందు content నింపి, తర్వాత ON చేయండి.</li>
+      <li><strong>Action</strong>: <em>register</em> = రిజిస్ట్రేషన్ ఫారమ్, <em>login</em> = రిపోర్టర్ లాగిన్, <em>url</em> = వెబ్ లింక్, <em>whatsapp</em> = WhatsApp నంబర్ (Action value లో ఇవ్వండి).</li>
+      <li>Labels / Tags ని comma తో వేరు చేయండి (ఉదా: ఫోటో, వీడియో, టెక్స్ట్). Save నొక్కితేనే మార్పులు app కి వెళ్తాయి (1 నిమిషం లోపు).</li>
+    </ul>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-7 mb-4">
+      <div class="card settings-card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h5 class="mb-0 fw-bold">Edit content</h5>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="enabled">
+            <label class="form-check-label fw-bold" for="enabled">Enabled (show "+" in app)</label>
+          </div>
+        </div>
+        <div class="card-body">
+          <span id="sec-settings"></span>
+          <div id="langPills" class="mb-3"></div>
+          <form id="hubForm">
+            <input type="hidden" id="language" value="">
+
+            <div class="section-label" id="sec-header">Header</div>
+            <div class="alert alert-secondary py-2 px-3 small mb-3" style="background:#f1f5f9;border:1px solid #e2e8f0;">
+              <i class="fas fa-user-circle me-1"></i> The header is now <b>automatic</b>: it shows <b>Guest</b> when the person is not logged in, and the <b>reporter's own name</b> once they log in. Nothing to set here.
+            </div>
+
+            <div class="section-label" id="sec-banner">Banner (single image)</div>
+            <div class="alert alert-info py-2 px-3 small mb-2" style="background:#eef6ff;border:1px solid #bfdbfe;">
+              <i class="fas fa-crop-simple me-1"></i> Upload <b>one</b> banner image. Recommended size <b>1080 × 450 px</b> (ratio <b>2.4 : 1</b>, wide rectangle). After you choose a file a <b>crop tool</b> opens so the image fits exactly. Tapping the banner in the app opens the reporter registration.
+            </div>
+            <div class="d-flex gap-2 align-items-start mb-3">
+              <img class="thumb rounded border" id="bnThumb" style="width:200px;height:auto;">
+              <div class="flex-grow-1">
+                <input type="hidden" id="bnImageUrl" value="">
+                <input type="file" class="form-control form-control-sm" id="bannerFile" accept="image/*">
+                <div class="form-text">JPG or PNG. The crop tool locks the correct wide shape (2.4:1). Leave empty to hide the banner.</div>
+                <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="bnClear" style="display:none">Remove banner</button>
+              </div>
+            </div>
+
+
+            <div class="section-label" id="sec-cards">Cards (2 images, side by side)</div>
+            <div class="alert alert-info py-2 px-3 small mb-2" style="background:#eef6ff;border:1px solid #bfdbfe;">
+              <i class="fas fa-crop-simple me-1"></i> Two full images shown side by side. Recommended size <b>900 × 1500 px</b> (ratio <b>3 : 5</b>, tall portrait). A crop tool opens after you choose each file.
+            </div>
+            <div class="row g-3 mb-3">
+              <% [0,1].forEach(function(idx){ %>
+              <div class="col-6">
+                <div class="border rounded p-2 h-100">
+                  <div class="fw-bold small mb-1">Card <%= idx+1 %> <span class="text-muted fw-normal">(<%= idx===0 ? 'Become a reporter' : 'Advertise' %>)</span></div>
+                  <img class="thumb rounded border mb-1" id="cardThumb<%= idx %>" style="width:100%;height:auto;display:none;">
+                  <input type="file" class="form-control form-control-sm mb-1" id="cardFile<%= idx %>" accept="image/*">
+                  <input type="text" class="form-control form-control-sm mb-1" id="cardLink<%= idx %>" placeholder="Tap link — empty = registration, or URL / WhatsApp no.">
+                  <button type="button" class="btn btn-sm btn-outline-danger" id="cardClear<%= idx %>" style="display:none">Remove image</button>
+                </div>
+              </div>
+              <% }) %>
+            </div>
+
+            <div class="section-label" id="sec-faq">FAQ <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="addFaq">+ Add question</button></div>
+            <div class="row g-2 mb-2">
+              <div class="col-5"><input class="form-control" id="fqTitle" placeholder="తరచుగా అడిగే ప్రశ్నలు"></div>
+              <div class="col-5"><input class="form-control" id="fqSubtitle" placeholder="subtitle"></div>
+              <div class="col-2"><input class="form-control" id="fqSeeAll" placeholder="See all"></div>
+            </div>
+            <div id="faqs"></div>
+
+            <div class="section-label" id="sec-nav">Bottom nav labels</div>
+            <div class="row g-2">
+              <div class="col-3"><input class="form-control" id="nvDash" placeholder="Dashboard"></div>
+              <div class="col-3"><input class="form-control" id="nvStories" placeholder="My Stories"></div>
+              <div class="col-3"><input class="form-control" id="nvDistrict" placeholder="My District"></div>
+              <div class="col-3"><input class="form-control" id="nvApp" placeholder="App Details"></div>
+            </div>
+
+            <div id="saveAlert" class="alert d-none mt-3"></div>
+            <button type="submit" id="saveBtn" class="btn btn-primary fw-bold px-4 mt-3">Save for this language</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5 mb-4">
+      <div class="card settings-card">
+        <div class="card-header"><h5 class="mb-0 fw-bold">Live preview (app)</h5></div>
+        <div class="card-body">
+          <div class="phone">
+            <div class="pv-head">
+              <div class="pv-avatar"></div>
+              <div><div class="small text-muted">Welcome</div><div class="fw-bold">Guest</div><div class="small text-muted">Login to share your stories</div></div>
+              <div class="pv-plus">+</div>
+            </div>
+            <div class="pv-banner" id="pvBanner" style="padding:0;overflow:hidden;background:#e9eef6;">
+              <img id="pvBannerImg" style="width:100%;display:none;border-radius:14px;">
+              <div id="pvBannerEmpty" class="small text-muted" style="padding:22px 12px;text-align:center;">No banner image (hidden in app)</div>
+            </div>
+            <div class="pv-cards" id="pvCards"></div>
+            <div class="fw-bold mb-1" id="pvFqTitle">FAQ</div>
+            <div class="pv-faq" id="pvFaq"></div>
+            <div class="pv-nav" id="pvNav"></div>
+          </div>
+          <p class="small text-muted mt-3 mb-0">App `GET /api/public/reporter-hub?lang=xx` ద్వారా ఈ content తీసుకుంటుంది. <span id="pvStatus" class="badge bg-secondary">OFF</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Banner crop overlay -->
+<div id="bnCropOverlay" style="display:none; position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,.72); align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:12px; padding:16px; max-width:760px; width:94%;">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="mb-0 fw-bold" id="bnCropTitle"><i class="fas fa-crop me-1"></i> Crop image</h6>
+      <button type="button" class="btn-close" id="bnCropClose" aria-label="Close"></button>
+    </div>
+    <div style="max-height:62vh; overflow:hidden; background:#f1f5f9; border-radius:8px;"><img id="bnCropImg" style="max-width:100%; display:block;"></div>
+    <div class="form-text mt-1">Drag / zoom the image inside the box. The shape is locked to the correct size.</div>
+    <div class="d-flex justify-content-end gap-2 mt-3">
+      <button type="button" class="btn btn-secondary" id="bnCropCancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="bnCropDo"><i class="fas fa-cloud-arrow-up me-1"></i> Crop &amp; Upload</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const $ = (id) => document.getElementById(id);
+  // set a hidden imageUrl input's value and its sibling .thumb preview
+  const setImg = (hid, url) => {
+    const inp = $(hid); if (!inp) return; inp.value = url || '';
+    const thumb = inp.closest('.d-flex')?.querySelector('.thumb');
+    if (thumb) { if (url) { thumb.src = url; thumb.style.display = 'block'; } else { thumb.removeAttribute('src'); thumb.style.display = 'none'; } }
+  };
+  let items = [], meta = { actions: [], themes: [], icons: [] };
+  const alertBox = $('saveAlert');
+  const showAlert = (t, m) => { alertBox.className = 'alert alert-' + t + ' mt-3'; alertBox.textContent = m; alertBox.classList.remove('d-none'); setTimeout(() => alertBox.classList.add('d-none'), 3500); };
+  const opt = (list, sel) => list.map((v) => `<option value="${v}" ${v === sel ? 'selected' : ''}>${v}</option>`).join('');
+  const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+  // ---------- list editors
+  // ---------- generic image crop (banner + 2 cards) ----------
+  // State for the 2 card image slots (key order is fixed: reporter, advertise).
+  const cardSlots = [
+    { key: 'reporter', imageUrl: '', action: 'register', actionValue: '' },
+    { key: 'advertise', imageUrl: '', action: 'url', actionValue: '' },
+  ];
+  let _cropper = null, _cropTarget = null;
+  // _cropTarget = { ratio, w, h, label, onDone(url) }
+  function openCrop(file, target) {
+    _cropTarget = target;
+    const reader = new FileReader();
+    reader.onload = () => {
+      $('bnCropTitle').textContent = target.label;
+      $('bnCropImg').src = reader.result;
+      $('bnCropOverlay').style.display = 'flex';
+      if (_cropper) { _cropper.destroy(); _cropper = null; }
+      _cropper = new Cropper($('bnCropImg'), { aspectRatio: target.ratio, viewMode: 1, autoCropArea: 1, background: false, movable: true, zoomable: true });
+    };
+    reader.readAsDataURL(file);
+  }
+  function closeCrop() { if (_cropper) { _cropper.destroy(); _cropper = null; } $('bnCropOverlay').style.display = 'none'; if (_cropTarget && _cropTarget.input) $(_cropTarget.input).value = ''; _cropTarget = null; }
+  async function cropUpload() {
+    if (!_cropper || !_cropTarget) return;
+    const t = _cropTarget;
+    const canvas = _cropper.getCroppedCanvas({ width: t.w, height: t.h, imageSmoothingQuality: 'high' });
+    const btn = $('bnCropDo'); const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = 'Uploading...';
+    canvas.toBlob(async (blob) => {
+      try {
+        const fd = new FormData(); fd.append('image', blob, 'crop.jpg');
+        const r = await fetch('/admin/api/reporter-hub/upload-image', { method: 'POST', body: fd });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Upload failed');
+        t.onDone(d.imageUrl || ''); preview();
+        showAlert('success', 'Image uploaded — click Save to apply');
+        closeCrop();
+      } catch (err) { showAlert('danger', err.message); btn.disabled = false; btn.innerHTML = orig; }
+      finally { if (btn.disabled) { btn.disabled = false; btn.innerHTML = orig; } }
+    }, 'image/jpeg', 0.9);
+  }
+  // banner
+  function setBanner(url) {
+    $('bnImageUrl').value = url || '';
+    const t = $('bnThumb');
+    if (url) { t.src = url; t.style.display = 'block'; } else { t.removeAttribute('src'); t.style.display = 'none'; }
+    $('bnClear').style.display = url ? 'inline-block' : 'none';
+  }
+  // cards
+  function setCard(idx, url) {
+    cardSlots[idx].imageUrl = url || '';
+    const t = $('cardThumb' + idx);
+    if (url) { t.src = url; t.style.display = 'block'; } else { t.removeAttribute('src'); t.style.display = 'none'; }
+    $('cardClear' + idx).style.display = url ? 'inline-block' : 'none';
+  }
+  // wire (DOM is already ready inside this handler)
+  $('bannerFile').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) openCrop(f, { ratio: 1080 / 450, w: 1080, h: 450, label: 'Crop banner — 1080 × 450 (2.4 : 1)', input: 'bannerFile', onDone: setBanner }); });
+  $('bnClear').onclick = () => { setBanner(''); preview(); };
+  [0, 1].forEach((idx) => {
+    $('cardFile' + idx).addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) openCrop(f, { ratio: 900 / 1500, w: 900, h: 1500, label: 'Crop card image — 900 × 1500 (3 : 5, tall)', input: 'cardFile' + idx, onDone: (url) => setCard(idx, url) }); });
+    $('cardClear' + idx).onclick = () => { setCard(idx, ''); preview(); };
+    $('cardLink' + idx).addEventListener('input', preview);
+  });
+  $('bnCropClose').onclick = closeCrop;
+  $('bnCropCancel').onclick = closeCrop;
+  $('bnCropDo').onclick = cropUpload;
+
+  // link <-> action helpers (empty = registration; http = url; else = whatsapp)
+  function linkToAction(link) {
+    link = (link || '').trim();
+    if (!link) return { action: 'register', actionValue: '' };
+    if (/^https?:\/\//i.test(link)) return { action: 'url', actionValue: link };
+    return { action: 'whatsapp', actionValue: link };
+  }
+  function actionToLink(c) { return (c && (c.action === 'url' || c.action === 'whatsapp')) ? (c.actionValue || '') : ''; }
+
+  function faqRow(f = {}) {
+    return `<div class="row-item" data-kind="faq">
+      <button type="button" class="btn btn-sm btn-outline-danger rm">Remove</button>
+      <div class="row g-2">
+        <div class="col-9"><input class="form-control form-control-sm" data-f="q" placeholder="Question" value="${esc(f.q)}"></div>
+        <div class="col-3"><select class="form-select form-select-sm" data-f="icon">${opt(meta.icons, f.icon || 'help')}</select></div>
+        <div class="col-12"><textarea class="form-control form-control-sm" data-f="a" rows="2" placeholder="Answer">${esc(f.a)}</textarea></div>
+      </div></div>`;
+  }
+  function renderList(id, list, rowFn) { $(id).innerHTML = (list || []).map(rowFn).join(''); }
+  function readList(id) {
+    return [...$(id).querySelectorAll('.row-item')].map((row, i) => {
+      const o = { order: i + 1 };
+      row.querySelectorAll('[data-f]').forEach((el) => { o[el.dataset.f] = el.value; });
+      if ('tags' in o) o.tags = o.tags.split(',').map((s) => s.trim()).filter(Boolean);
+      if ('labels' in o) o.labels = o.labels.split(',').map((s) => s.trim()).filter(Boolean);
+      return o;
+    });
+  }
+  document.addEventListener('click', (e) => { if (e.target.classList.contains('rm')) { e.target.closest('.row-item').remove(); preview(); } });
+  document.addEventListener('input', preview);
+  document.addEventListener('change', async (e) => {
+    if (!e.target.classList.contains('up')) return;
+    const file = e.target.files && e.target.files[0]; if (!file) return;
+    const fd = new FormData(); fd.append('image', file);
+    try {
+      const r = await fetch('/admin/api/reporter-hub/upload-image', { method: 'POST', body: fd });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Upload failed');
+      // works whether the file input is a direct child of the .d-flex (row items)
+      // or nested one level deeper (header / post-section image blocks).
+      const wrap = e.target.closest('.d-flex') || e.target.parentElement;
+      const hidden = wrap.querySelector('[data-f="imageUrl"]');
+      if (hidden) hidden.value = d.imageUrl || '';
+      const img = wrap.querySelector('.thumb'); if (img) { img.src = d.imageUrl; img.style.display = 'block'; }
+      showAlert('success', 'Image uploaded — click Save to apply');
+    } catch (err) { showAlert('danger', err.message); e.target.value = ''; }
+  });
+  $('addFaq').onclick = () => { $('faqs').insertAdjacentHTML('beforeend', faqRow()); };
+
+  // ---------- form <-> item
+  function fill(it) {
+    $('enabled').checked = !!it.enabled;
+    setBanner((it.banner && it.banner.imageUrl) || '');
+    (it.cards || []).slice(0, 2).forEach((c, idx) => {
+      if (idx > 1) return;
+      cardSlots[idx].key = c.key || cardSlots[idx].key;
+      cardSlots[idx].action = c.action || cardSlots[idx].action;
+      cardSlots[idx].actionValue = c.actionValue || '';
+      setCard(idx, c.imageUrl || '');
+      $('cardLink' + idx).value = actionToLink(c);
+    });
+    $('fqTitle').value = it.faq.title; $('fqSubtitle').value = it.faq.subtitle; $('fqSeeAll').value = it.faq.seeAll;
+    renderList('faqs', it.faq.items, faqRow);
+    $('nvDash').value = it.nav.dashboard; $('nvStories').value = it.nav.myStories; $('nvDistrict').value = it.nav.myDistrict; $('nvApp').value = it.nav.appDetails;
+    preview();
+  }
+  function collect() {
+    return {
+      language: $('language').value,
+      enabled: $('enabled').checked,
+      banner: { imageUrl: $('bnImageUrl').value },
+      cards: [0, 1].map((idx) => {
+        const la = linkToAction($('cardLink' + idx).value);
+        return { order: idx + 1, key: cardSlots[idx].key, imageUrl: cardSlots[idx].imageUrl, action: la.action, actionValue: la.actionValue };
+      }),
+      faq: { title: $('fqTitle').value, subtitle: $('fqSubtitle').value, seeAll: $('fqSeeAll').value, items: readList('faqs') },
+      nav: { dashboard: $('nvDash').value, myStories: $('nvStories').value, myDistrict: $('nvDistrict').value, appDetails: $('nvApp').value },
+    };
+  }
+  function preview() {
+    const d = collect();
+    const bnUrl = d.banner && d.banner.imageUrl;
+    $('pvBannerImg').style.display = bnUrl ? 'block' : 'none';
+    $('pvBannerEmpty').style.display = bnUrl ? 'none' : 'block';
+    if (bnUrl) $('pvBannerImg').src = bnUrl;
+    $('pvCards').innerHTML = d.cards.slice(0, 2).map((c) => c.imageUrl
+      ? `<div style="flex:1;border-radius:14px;overflow:hidden;aspect-ratio:3/5;background:#e9eef6;"><img src="${esc(c.imageUrl)}" style="width:100%;height:100%;object-fit:cover;display:block;"></div>`
+      : `<div style="flex:1;border-radius:14px;aspect-ratio:3/5;background:#e9eef6;display:flex;align-items:center;justify-content:center;color:#9aa6b8;font-size:22px;">+</div>`).join('');
+    $('pvFqTitle').textContent = d.faq.title;
+    $('pvFaq').innerHTML = d.faq.items.slice(0, 4).map((f) => `<div class="q">${esc(f.q)}</div>`).join('');
+    $('pvNav').innerHTML = [d.nav.dashboard, d.nav.myStories, d.nav.myDistrict, d.nav.appDetails].map((n) => `<span>${esc(n)}</span>`).join('');
+    const st = $('pvStatus'); st.textContent = d.enabled ? 'ON' : 'OFF'; st.className = 'badge ' + (d.enabled ? 'bg-success' : 'bg-secondary');
+  }
+
+  // ---------- languages
+  function renderPills() {
+    const box = $('langPills'); box.innerHTML = '';
+    items.forEach((it) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'lang-pill'; b.dataset.lang = it.language;
+      b.innerHTML = `${it.name}${it.nativeName ? ' · ' + it.nativeName : ''}<span class="dot ${it.enabled ? 'on' : ''}"></span>`;
+      b.onclick = () => select(it.language); box.appendChild(b);
+    });
+    if (items.length) select(items.find((i) => i.language === 'te') ? 'te' : items[0].language);
+  }
+  function select(code) {
+    $('language').value = code;
+    const it = items.find((i) => i.language === code); if (it) fill(it);
+    [...$('langPills').querySelectorAll('.lang-pill')].forEach((b) => b.classList.toggle('active', b.dataset.lang === code));
+  }
+  async function load() {
+    const r = await fetch('/admin/api/reporter-hub'); if (!r.ok) throw new Error('load failed');
+    const d = await r.json(); items = d.items || []; meta = { actions: d.actions || [], themes: d.themes || [], icons: d.icons || [] };
+    renderPills();
+  }
+
+  $('hubForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('saveBtn'); const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = 'Saving...';
+    try {
+      const r = await fetch('/admin/api/reporter-hub', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(collect()) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Save failed');
+      const idx = items.findIndex((i) => i.language === d.item.language);
+      if (idx >= 0) items[idx] = { ...items[idx], ...d.item };
+      renderPills(); select(d.item.language);
+      showAlert('success', `Saved ${d.item.language.toUpperCase()} — ${d.item.enabled ? 'ENABLED (visible in app within 1 min)' : 'still OFF (hidden in app)'}`);
+    } catch (err) { showAlert('danger', err.message || 'Could not save'); }
+    finally { btn.disabled = false; btn.innerHTML = orig; }
+  });
+
+  load().catch((err) => { console.error(err); showAlert('danger', 'Could not load languages / content'); });
+});
+</script>
+
+<%- include('partials/footer') %>

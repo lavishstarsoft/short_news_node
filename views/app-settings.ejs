@@ -378,7 +378,69 @@
                                             </div>
                                         </div>
                                     </div>
-                                    
+
+                                    <div class="p-3 rounded-3 mt-3" style="background-color: rgba(46, 107, 238, 0.06); border: 1px solid rgba(46, 107, 238, 0.25);">
+                                        <div class="form-check form-switch d-flex align-items-center mb-0">
+                                            <input class="form-check-input me-3" type="checkbox" id="showTrain" name="showTrain" <%= settings.showTrain !== false ? 'checked' : '' %>>
+                                            <div>
+                                                <label class="form-check-label fw-bold text-dark mb-0" for="showTrain">🚆 Show "Where is my Train"</label>
+                                                <div class="text-muted small mt-1">
+                                                    <strong>ON:</strong> Train feature visible &amp; working in the app.<br>
+                                                    <strong>OFF:</strong> Hidden in the app AND the server blocks all train data (can't be opened even by a direct/hacked request).
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="p-3 rounded-3 mt-3" style="background-color: rgba(31, 163, 99, 0.06); border: 1px solid rgba(31, 163, 99, 0.25);">
+                                        <div class="form-check form-switch d-flex align-items-center mb-0">
+                                            <input class="form-check-input me-3" type="checkbox" id="showGames" name="showGames" <%= settings.showGames !== false ? 'checked' : '' %>>
+                                            <div>
+                                                <label class="form-check-label fw-bold text-dark mb-0" for="showGames">🎮 Show Games</label>
+                                                <div class="text-muted small mt-1">
+                                                    <strong>ON:</strong> Games feature visible &amp; working in the app.<br>
+                                                    <strong>OFF:</strong> Hidden in the app AND the server blocks all games data (can't be opened even by a direct/hacked request).
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="p-3 rounded-3 mt-3" style="background-color: rgba(255, 152, 0, 0.06); border: 1px solid rgba(255, 152, 0, 0.3);">
+                                        <div class="form-check form-switch d-flex align-items-center mb-2">
+                                            <input class="form-check-input me-3" type="checkbox" id="adPersonalizationEnabled" name="adPersonalizationEnabled" <%= settings.adPersonalizationEnabled === true ? 'checked' : '' %>>
+                                            <div>
+                                                <label class="form-check-label fw-bold text-dark mb-0" for="adPersonalizationEnabled">🧠 Smart Ad Pacing (per-user fatigue)</label>
+                                                <div class="text-muted small mt-1">
+                                                    <strong>ON:</strong> each user's ad gap adapts to their behaviour — a user who keeps skipping ads fast starts seeing them spaced further apart (and it recovers over time). Protects retention &amp; long-term impressions.<br>
+                                                    <strong>OFF:</strong> current fixed pacing (unchanged).
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-4">
+                                                <label class="form-label small mb-1" for="adMinInterval">Min gap (cards)</label>
+                                                <input class="form-control form-control-sm" type="number" id="adMinInterval" name="adMinInterval" min="2" max="40" value="<%= settings.adMinInterval != null ? settings.adMinInterval : 6 %>">
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label small mb-1" for="adMaxInterval">Max gap (cards)</label>
+                                                <input class="form-control form-control-sm" type="number" id="adMaxInterval" name="adMaxInterval" min="2" max="60" value="<%= settings.adMaxInterval != null ? settings.adMaxInterval : 20 %>">
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label small mb-1" for="adFatigueMax">Max widen (0–2)</label>
+                                                <input class="form-control form-control-sm" type="number" step="0.1" id="adFatigueMax" name="adFatigueMax" min="0" max="2" value="<%= settings.adFatigueMax != null ? settings.adFatigueMax : 0.6 %>">
+                                            </div>
+                                        </div>
+                                        <div class="mt-2 p-2 rounded" style="background:#fff8e1;border:1px solid #ffe082;">
+                                            <div class="small text-dark">
+                                                <strong>తెలుగులో:</strong> ఇది ON చేస్తే, ఒక user ads ని పదే పదే వెంటనే skip చేస్తే అతనికి ads మధ్య gap పెరుగుతుంది (విసుగు తగ్గుతుంది, app మానడు). కాసేపటికి తనంతట తానే మామూలుకి వస్తుంది.<br>
+                                                • <strong>Min gap</strong> = కనీసం ఎన్ని cards తర్వాత ఒక ad (మరీ తక్కువ పెడితే AdMob fill పడిపోతుంది — 6 safe).<br>
+                                                • <strong>Max gap</strong> = గరిష్ఠంగా ఎన్ని cards దాకా ad రాకుండా.<br>
+                                                • <strong>Max widen</strong> = విసిగిన user కి gap ఎంత పెంచాలి (0.6 = 60% వరకు).<br>
+                                                App update అవసరం లేదు — ఇక్కడ మార్చితే చాలు.
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div class="p-3 rounded-3 mt-3" style="background-color: rgba(156, 39, 176, 0.05); border: 1px solid rgba(156, 39, 176, 0.2);">
                                         <div class="form-check form-switch d-flex align-items-center mb-0">
                                             <input class="form-check-input me-3" type="checkbox" id="isReferralEnabled" name="isReferralEnabled" <%= (settings.isReferralEnabled === true || settings.isReferralEnabled === undefined) ? 'checked' : '' %>>
@@ -604,6 +666,12 @@
             showLongVideos: document.getElementById('showLongVideos').checked,
             showDistrictSelection: document.getElementById('showDistrictSelection').checked,
             enableLocationModule: document.getElementById('enableLocationModule').checked,
+            showTrain: document.getElementById('showTrain').checked,
+            showGames: document.getElementById('showGames').checked,
+            adPersonalizationEnabled: document.getElementById('adPersonalizationEnabled').checked,
+            adMinInterval: document.getElementById('adMinInterval').value,
+            adMaxInterval: document.getElementById('adMaxInterval').value,
+            adFatigueMax: document.getElementById('adFatigueMax').value,
 
             // Collect language arrays
             calendarEnabledLanguages: Array.from(document.querySelectorAll('.cal-lang-toggle')).filter(cb => cb.checked).map(cb => cb.dataset.lang),

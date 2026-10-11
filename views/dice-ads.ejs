@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Dice Page Ads - Short News Admin' }) %>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+<style>
+#dicePage .help{background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:14px;line-height:1.6}
+#dicePage .card{background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:16px;margin-bottom:16px}
+#dicePage label{display:block;font-weight:600;font-size:13px;margin:10px 0 4px}
+#dicePage input[type=text],#dicePage input[type=number],#dicePage select{width:100%;padding:8px 10px;border:1px solid #ccd1d6;border-radius:8px;font-size:14px}
+#dicePage button{cursor:pointer;border:none;border-radius:8px;padding:9px 16px;font-weight:700;font-size:14px}
+#dicePage .btn-primary{background:#5E35B1;color:#fff}#dicePage .btn-light{background:#eef0f3;color:#333}#dicePage .btn-danger{background:#fdecec;color:#c62828}
+#dicePage .muted{color:#6b7280;font-size:12px}
+#dicePage .faces{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:8px}
+#dicePage .face{border:1px solid #e0e4ea;border-radius:10px;padding:10px}
+#dicePage .face .up{border:2px dashed #c7cdd4;border-radius:8px;padding:12px;text-align:center;cursor:pointer;min-height:80px;display:flex;align-items:center;justify-content:center}
+#dicePage .face img{max-width:90px;max-height:70px;border-radius:6px}
+.crop-modal{display:none;position:fixed;z-index:9999;inset:0;background:rgba(0,0,0,.9)}
+.crop-modal.active{display:flex;align-items:center;justify-content:center}
+.crop-container{background:#fff;border-radius:10px;padding:16px;max-width:92%;max-height:92vh;overflow:auto}
+.crop-image-container{max-width:100%;max-height:62vh;margin:14px 0}
+.crop-image-container img{max-width:100%;display:block}
+.crop-controls{display:flex;gap:10px;justify-content:center;align-items:center;margin-top:14px}
+.aspect-ratio-info{background:#eef2ff;padding:10px;border-radius:6px;margin-bottom:10px;text-align:center;font-weight:700}
+.cropper-crop-box .safe-area-box{position:absolute;top:5%;left:5%;width:90%;height:90%;border:2px dashed rgba(255,255,255,.6);pointer-events:none;z-index:10}
+#dicePage .drow{display:flex;gap:10px}#dicePage .drow>div{flex:1}
+#dicePage table{width:100%;border-collapse:collapse;margin-top:10px}#dicePage th,#dicePage td{text-align:left;padding:8px;border-bottom:1px solid #eee;font-size:13px}
+#dicePage .pill{padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700}#dicePage .on{background:#e7f6ec;color:#1b8a4b}#dicePage .off{background:#f0f1f3;color:#6b7280}
+</style>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Dice Page Ads', backButton: false }) %>
+  <div class="container-fluid">
+    <div class="row">
+      <%- include('partials/sidebar', { activePage: 'dice-ads' }) %>
+      <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+        <div class="content-area" id="dicePage">
+
+          <div class="help"><b>Dice Page అంటే?</b> feed లో swipe చేస్తున్నప్పుడు మధ్యలో ఒక <b>పెద్ద 3D dice</b> వస్తుంది — user వేలితో తిప్పుకుంటాడు. ప్రతి <b>face</b> కి image + link ఇక్కడ పెట్టండి. ఏ face మీద tap చేస్తే ఆ link కి వెళ్తుంది. ప్రతి N news cards కి ఒకసారి, ఎంచుకున్న భాషలో వస్తుంది. <b>Active</b> చేస్తేనే కనిపిస్తుంది.</div>
+
+          <div class="card">
+            <h3 id="formTitle" style="margin-top:0">కొత్త Dice Page</h3>
+            <input type="hidden" id="editId" value="">
+            <label>Title (మీ గుర్తు)</label><input type="text" id="title" placeholder="ఉదా: Home dice">
+            <div class="drow">
+              <div><label>ప్రతి ఎన్ని news cards కి ఒకసారి?</label><input type="number" id="everyNCards" value="8" min="2" max="100"></div>
+              <div><label>Language</label><select id="language"><option value="">All</option><option value="te">Telugu</option><option value="hi">Hindi</option><option value="ta">Tamil</option><option value="en">English</option></select></div>
+            </div>
+            <label style="margin-top:14px">🎲 4 Faces (ఒక్కో face కి image + target) — <b>1080×2400 portrait</b> full-screen images పెట్టండి. Upload చేస్తే <b>9:20 కి crop</b> అవుతుంది (normal ads లాగే screen కి perfect fit).</label>
+            <div class="faces" id="faces"></div>
+            <input type="file" id="faceFile" accept="image/*" style="display:none">
+            <label style="margin-top:14px"><input type="checkbox" id="isActive" style="width:auto"> Active (app లో చూపించు)</label>
+            <div style="margin-top:14px"><button class="btn-primary" onclick="save()">Save</button> <button class="btn-light" onclick="resetForm()">Clear</button> <span id="status" class="muted"></span></div>
+          </div>
+
+          <div class="card"><h3 style="margin-top:0">ఉన్న Dice Pages</h3>
+            <table><thead><tr><th>Title</th><th>Faces</th><th>Every N</th><th>Lang</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="listBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody></table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="crop-modal" id="cropModal">
+    <div class="crop-container">
+      <div class="aspect-ratio-info">🎲 Image Crop — 9:20 (1080×2400)</div>
+      <div class="crop-image-container"><img id="cropImage" src="" alt="Crop preview"></div>
+      <div style="text-align:center"><small class="muted">ముఖ్యమైన content "Safe Area" గీతల లోపల ఉంచండి.</small></div>
+      <div class="crop-controls">
+        <button type="button" class="btn-light" id="cancelCrop">Cancel</button>
+        <button type="button" class="btn-primary" id="applyCrop">Crop &amp; Upload</button>
+        <span id="cropStatus" class="muted"></span>
+      </div>
+    </div>
+  </div>
+  <%- include('partials/footer') %>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const FACES=['Front','Right','Back','Left'];
+const TARGETS=[['none','— ఏదీ కాదు —'],['news','News (ID)'],['games','Games'],['train','Train'],['quiz','Quiz'],['viral','Viral Videos'],['url','URL'],['meta','Meta/Sponsor (URL)']];
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function faceHtml(i,f){f=f||{};
+  const opts=TARGETS.map(t=>'<option value="'+t[0]+'"'+(f.targetType===t[0]?' selected':'')+'>'+t[1]+'</option>').join('');
+  return '<div class="face" data-i="'+i+'"><b>'+FACES[i]+'</b>'+
+    '<div class="up" onclick="pickFace('+i+')"><span class="ph"'+(f.imageUrl?' style="display:none"':'')+'>📤 Image upload</span><img class="img" '+(f.imageUrl?('src="'+esc(f.imageUrl)+'"'):'style="display:none"')+'></div>'+
+    '<input type="hidden" class="fimg" value="'+esc(f.imageUrl||'')+'">'+
+    '<label>Target</label><select class="ftype">'+opts+'</select>'+
+    '<input type="text" class="fval" placeholder="URL / newsId (అవసరమైతే)" value="'+esc(f.targetValue||'')+'" style="margin-top:6px">'+
+    '<input type="text" class="flabel" placeholder="Label (optional)" value="'+esc(f.label||'')+'" style="margin-top:6px"></div>';
+}
+function renderFaces(list){$('faces').innerHTML=FACES.map((_,i)=>faceHtml(i,(list||[])[i])).join('')}
+let _slot=-1,_cropper=null;
+function pickFace(i){_slot=i;$('faceFile').click()}
+// File chosen → open the 9:20 cropper (same as /ads/add-ad), then upload the
+// cropped 1080x2400 result so dice faces fit the screen exactly like normal ads.
+$('faceFile').addEventListener('change',e=>{const file=e.target.files[0];if(!file||_slot<0){e.target.value='';return;}
+  const reader=new FileReader();
+  reader.onload=ev=>{const ci=$('cropImage');ci.src=ev.target.result;$('cropModal').classList.add('active');
+    if(_cropper)_cropper.destroy();
+    _cropper=new Cropper(ci,{aspectRatio:9/20,viewMode:1,dragMode:'move',autoCropArea:1,ready(){
+      const box=document.querySelector('.cropper-crop-box');
+      if(box&&!document.querySelector('.safe-area-box')){const sa=document.createElement('div');sa.className='safe-area-box';box.appendChild(sa);}
+    }});
+  };
+  reader.readAsDataURL(file);e.target.value='';});
+function closeCrop(){$('cropModal').classList.remove('active');if(_cropper){_cropper.destroy();_cropper=null;}$('cropStatus').textContent='';}
+$('cancelCrop').addEventListener('click',closeCrop);
+$('applyCrop').addEventListener('click',()=>{if(!_cropper||_slot<0)return;$('cropStatus').textContent='Uploading…';
+  const canvas=_cropper.getCroppedCanvas({width:1080,height:2400,imageSmoothingEnabled:true,imageSmoothingQuality:'high'});
+  canvas.toBlob(async blob=>{
+    try{const fd=new FormData();fd.append('media',blob,'dice_face.jpg');
+      const r=await fetch('/dice-ads/api/upload',{method:'POST',body:fd});const d=await r.json();const url=d.mediaUrl||d.imageUrl||'';if(!url)throw 0;
+      const face=document.querySelector('.face[data-i="'+_slot+'"]');face.querySelector('.fimg').value=url;const img=face.querySelector('.img');img.src=url;img.style.display='inline-block';face.querySelector('.ph').style.display='none';
+      $('status').textContent='Uploaded ✓';closeCrop();
+    }catch(_){$('cropStatus').textContent='Upload failed';}
+  },'image/jpeg',0.95);});
+function collectFaces(){return [...document.querySelectorAll('#faces .face')].map(f=>({imageUrl:f.querySelector('.fimg').value.trim(),targetType:f.querySelector('.ftype').value,targetValue:f.querySelector('.fval').value.trim(),label:f.querySelector('.flabel').value.trim()}))}
+async function save(){const faces=collectFaces();const body={title:$('title').value.trim(),faces,everyNCards:parseInt($('everyNCards').value,10)||8,language:$('language').value,isActive:$('isActive').checked};
+  if(!body.title||!faces.some(f=>f.imageUrl)){$('status').textContent='Title + కనీసం 1 face image కావాలి';return}
+  const id=$('editId').value;$('status').textContent='Saving…';
+  try{const r=await fetch(id?('/dice-ads/api/'+id):'/dice-ads/api',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!d.ok)throw new Error(d.error||'failed');$('status').textContent='Saved ✓';resetForm();loadList()}catch(e){$('status').textContent='Save failed: '+e.message}}
+function resetForm(){$('editId').value='';$('title').value='';$('everyNCards').value=8;$('language').value='';$('isActive').checked=false;renderFaces([]);$('formTitle').textContent='కొత్త Dice Page';$('status').textContent=''}
+function editRow(r){$('editId').value=r._id;$('title').value=r.title||'';$('everyNCards').value=r.everyNCards||8;$('language').value=r.language||'';$('isActive').checked=!!r.isActive;renderFaces(r.faces||[]);$('formTitle').textContent='Edit: '+(r.title||'');window.scrollTo({top:0,behavior:'smooth'})}
+async function toggleRow(id){await fetch('/dice-ads/api/'+id+'/toggle',{method:'POST'});loadList()}
+async function delRow(id){if(!confirm('Delete this dice page?'))return;await fetch('/dice-ads/api/'+id,{method:'DELETE'});loadList()}
+let _rows={};
+async function loadList(){try{const r=await fetch('/dice-ads/api/list');const d=await r.json();_rows={};(d.rows||[]).forEach(x=>_rows[x._id]=x);const rows=(d.rows||[]).map(x=>'<tr><td>'+esc(x.title)+'</td><td>'+(x.faces||[]).filter(f=>f.imageUrl).length+'/4</td><td>'+(x.everyNCards||8)+'</td><td>'+(x.language||'all')+'</td><td><span class="pill '+(x.isActive?'on">ON':'off">OFF')+'</span></td><td><button class="btn-light" data-act="edit" data-id="'+x._id+'">Edit</button> <button class="btn-light" data-act="toggle" data-id="'+x._id+'">'+(x.isActive?'Off':'On')+'</button> <button class="btn-danger" data-act="del" data-id="'+x._id+'">Del</button></td></tr>').join('');$('listBody').innerHTML=rows||'<tr><td colspan="6" class="muted">ఇంకా ఏదీ లేదు</td></tr>'}catch(e){$('listBody').innerHTML='<tr><td colspan="6" class="muted">Failed</td></tr>'}}
+$('listBody').addEventListener('click',e=>{const b=e.target.closest('button[data-act]');if(!b)return;const id=b.getAttribute('data-id');const act=b.getAttribute('data-act');if(act==='edit'&&_rows[id])editRow(_rows[id]);else if(act==='toggle')toggleRow(id);else if(act==='del')delRow(id)});
+(function(){var t=document.getElementById('menuToggle'),s=document.getElementById('sidebar'),m=document.getElementById('mainContent');if(t&&s)t.addEventListener('click',function(e){e.stopPropagation();s.classList.toggle('active');if(m)m.classList.toggle('sidebar-active');});})();
+renderFaces([]);loadList();
+</script>
+</body>
+</html>

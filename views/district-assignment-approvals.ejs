@@ -16,6 +16,7 @@
           <button type="button" class="btn btn-warning" data-status="pending">Pending</button>
           <button type="button" class="btn btn-outline-secondary" data-status="approved">Approved</button>
           <button type="button" class="btn btn-outline-secondary" data-status="rejected">Rejected</button>
+          <button type="button" class="btn btn-outline-secondary" data-status="revoked">Removed</button>
         </div>
 
         <div id="daList" class="d-flex flex-column gap-2">
@@ -44,12 +45,16 @@
           const actions = x.status==='pending'
             ? '<div class="d-flex gap-2"><button class="btn btn-sm btn-success" onclick="approveDA(\''+x._id+'\',this)"><i class="fas fa-check"></i> Approve</button>'
               +'<button class="btn btn-sm btn-outline-danger" onclick="rejectDA(\''+x._id+'\',this)"><i class="fas fa-xmark"></i> Reject</button></div>'
-            : '<span class="badge '+(x.status==='approved'?'bg-success':'bg-secondary')+'">'+esc(x.status)+(x.reviewedByName?' · by '+esc(x.reviewedByName):'')+'</span>';
+            : x.status==='approved'
+            ? '<div class="d-flex align-items-center gap-2"><span class="badge bg-success">approved'+(x.reviewedByName?' · by '+esc(x.reviewedByName):'')+'</span>'
+              +'<button class="btn btn-sm btn-outline-danger" onclick="revokeDA(\''+x._id+'\',this)" title="Reporter will no longer be in-charge of this district"><i class="fas fa-user-minus"></i> Remove</button></div>'
+            : '<span class="badge '+(x.status==='revoked'?'bg-dark':'bg-secondary')+'">'+esc(x.status==='revoked'?'removed':x.status)+(x.status==='revoked'&&x.revokedByName?' · by '+esc(x.revokedByName):(x.reviewedByName?' · by '+esc(x.reviewedByName):''))+'</span>';
           return '<div class="border rounded p-3 bg-white d-flex flex-wrap justify-content-between align-items-center gap-2" id="da-'+x._id+'">'
             +'<div>'
               +'<div><b>'+esc(x.reporterName||'Reporter')+'</b> → <b>'+esc(x.district)+'</b> <span class="badge bg-warning text-dark">'+tierLabel(x.tier)+'</span></div>'
               +'<div class="text-muted" style="font-size:13px">State: '+esc(x.state)+' · Proposed by: '+esc(x.stateInchargeName||'—')+' · '+esc(when)+'</div>'
               +(x.rejectReason?'<div class="text-danger" style="font-size:12px">Reason: '+esc(x.rejectReason)+'</div>':'')
+              +(x.status==='revoked'?'<div class="text-muted" style="font-size:12px">Removed'+(x.revokedAt?' on '+new Date(x.revokedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'')+(x.revokeReason?' · Reason: '+esc(x.revokeReason):'')+'</div>':'')
             +'</div>'
             +actions
           +'</div>';
@@ -63,6 +68,18 @@
         const r=await fetch('/admin/api/district-assignments/'+id+'/approve',{method:'POST'});
         const d=await r.json();
         if(!r.ok||!d.ok){ alert(d.error||'Could not approve'); btn.disabled=false; return; }
+        document.getElementById('da-'+id)?.remove();
+      }catch(e){ alert('Network error'); btn.disabled=false; }
+    }
+
+    async function revokeDA(id,btn){
+      if(!confirm('Remove this district assignment? The reporter will no longer be in-charge of this district.')) return;
+      const reason=prompt('Reason for removing (optional):')||'';
+      btn.disabled=true;
+      try{
+        const r=await fetch('/admin/api/district-assignments/'+id+'/revoke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason})});
+        const d=await r.json();
+        if(!r.ok||!d.ok){ alert(d.error||'Could not remove'); btn.disabled=false; return; }
         document.getElementById('da-'+id)?.remove();
       }catch(e){ alert('Network error'); btn.disabled=false; }
     }

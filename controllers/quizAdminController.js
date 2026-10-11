@@ -14,7 +14,8 @@ const QuizSettings = require('../models/QuizSettings');
 const User = require('../models/User');
 const { logAudit } = require('../utils/auditLogger');
 const { dayInfo, weekMeta, isWeekOver, weekDayKeys, TEST_WEEK_MONDAY, WINNER_COUNT, QUIZ_DAYS } = require('../utils/quizWeek');
-const { computeWeekStats, selectWinners } = require('../services/quizWinnerService');
+const { computeWeekStats, lotteryPool, selectWinners } = require('../services/quizWinnerService');
+const { screenPastWinners } = require('../services/quizPastWinnerService');
 const { analyzeCollusion } = require('../services/quizCollusionService');
 const { closeExpiredWeeks, sendDailyReminder } = require('../services/quizMaintenanceService');
 const { weekAnalytics, participantStats } = require('../services/quizAnalyticsService');
@@ -53,6 +54,48 @@ exports.renderQuestions = (req, res) => res.render('quiz-questions', { admin: re
 
 // Dedicated sidebar page for the feed-position setting (Quiz & Rewards → Feed Position).
 exports.renderPlacement = (req, res) => res.render('quiz-placement', { admin: req.admin, activePage: 'quiz-placement' });
+
+// ── Quiz Ad-Banner (image shown in the app feed; tap → quiz) ──
+exports.renderBanner = (req, res) => res.render('quiz-banner', { admin: req.admin, activePage: 'quiz-banner' });
+
+exports.getBanner = async (req, res) => {
+  try {
+    const s = await QuizSettings.findOne({ key: 'quiz_config' }).lean();
+    res.json({
+      bannerImageUrl: (s && s.bannerImageUrl) || '',
+      bannerEnabled: s ? s.bannerEnabled !== false : true,
+      signinImageUrl: (s && s.signinImageUrl) || '',
+      termsText: (s && s.termsText) || '',
+      signinButtonRect: (s && s.signinButtonRect) || { x: 0, y: 0, w: 0, h: 0 },
+      profileImageUrl: (s && s.profileImageUrl) || '',
+      profileButtonRect: (s && s.profileButtonRect) || { x: 0, y: 0, w: 0, h: 0 },
+    });
+  } catch (e) { console.error('quiz getBanner:', e.message); res.status(500).json({ error: 'Failed to get banner.' }); }
+};
+
+exports.saveBanner = async (req, res) => {
+  try {
+    const b = req.body || {};
+    // Only update the fields that were sent (each section saves independently).
+    const set = { updatedByName: (req.admin && (req.admin.username || req.admin.name)) || 'admin' };
+    if (b.bannerImageUrl !== undefined) set.bannerImageUrl = String(b.bannerImageUrl || '').trim();
+    if (b.bannerEnabled !== undefined) set.bannerEnabled = b.bannerEnabled !== false;
+    if (b.signinImageUrl !== undefined) set.signinImageUrl = String(b.signinImageUrl || '').trim();
+    if (b.termsText !== undefined) set.termsText = String(b.termsText || '');
+    const clampRect = (r) => {
+      const c = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+      return { x: c(r.x), y: c(r.y), w: c(r.w), h: c(r.h) };
+    };
+    if (b.signinButtonRect && typeof b.signinButtonRect === 'object') set.signinButtonRect = clampRect(b.signinButtonRect);
+    if (b.profileImageUrl !== undefined) set.profileImageUrl = String(b.profileImageUrl || '').trim();
+    if (b.profileButtonRect && typeof b.profileButtonRect === 'object') set.profileButtonRect = clampRect(b.profileButtonRect);
+    const doc = await QuizSettings.findOneAndUpdate(
+      { key: 'quiz_config' }, { $set: set },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    res.json({ success: true, bannerImageUrl: doc.bannerImageUrl, bannerEnabled: doc.bannerEnabled, signinImageUrl: doc.signinImageUrl, termsText: doc.termsText, signinButtonRect: doc.signinButtonRect, profileImageUrl: doc.profileImageUrl, profileButtonRect: doc.profileButtonRect });
+  } catch (e) { console.error('quiz saveBanner:', e.message); res.status(500).json({ error: 'Failed to save.' }); }
+};
 
 // PUT /admin/quiz/api/settings/feed-position  { feedPosition, feedPositionPlayed }
 // Updates ONLY the two feed positions (not enabled/languages/times), then clears cache.
@@ -520,13 +563,54 @@ exports.exportWinners = async (req, res) => {
 };
 
 // GET /admin/quiz/api/week/eligible?weekId=...
+// Each row carries its lottery tags (6/6? won before? same name as a winner?) and
+// `lottery` sums up who the random draw will pick from — and who it keeps out.
 exports.eligibleList = async (req, res) => {
   try {
     const weekId = targetWeekId(req);
     const { eligible } = await computeWeekStats(weekId);
-    const names = await namesFor(eligible.map((e) => e.userId));
-    res.json({ weekId, count: eligible.length, eligible: eligible.map((e, i) => ({ rankIfSorted: i + 1, userId: e.userId, name: (names[e.userId] || {}).name || '(unknown)', device: (names[e.userId] || {}).device || '', correct: e.correct, answered: e.answered, lastSubmittedAt: e.lastSubmittedAt })) });
+    const ids = eligible.map((e) => e.userId);
+    const [names, screen] = await Promise.all([namesFor(ids), screenPastWinners(weekId, ids)]);
+    const lottery = await lotteryPool(weekId, eligible, screen);
+    const inDraw = new Set(lottery.pool.map((e) => e.userId));
+    res.json({
+      weekId,
+      count: eligible.length,
+      eligible: eligible.map((e, i) => {
+        const s = screen.get(e.userId) || {};
+        return {
+          rankIfSorted: i + 1, userId: e.userId, name: (names[e.userId] || {}).name || '(unknown)', device: (names[e.userId] || {}).device || '',
+          correct: e.correct, answered: e.answered, lastSubmittedAt: e.lastSubmittedAt,
+          perfect: e.correct >= QUIZ_DAYS, inDraw: inDraw.has(e.userId), pastWin: s.pastWin || null, nameMatch: s.nameMatch || null,
+        };
+      }),
+      lottery: {
+        scoredPerfect: lottery.perfect,
+        pastWinners: lottery.excluded.length,
+        pool: lottery.pool.length,
+        needed: WINNER_COUNT,
+        excluded: lottery.excluded.map((x) => ({ name: x.name || '(unknown)', reason: x.reason, weekId: x.weekId, wonAs: x.wonAs })),
+      },
+    });
   } catch (e) { console.error('quiz eligibleList:', e.message); res.status(500).json({ error: 'Failed to load eligible users.' }); }
+};
+
+// GET /admin/quiz/api/week/eligible/pdf?weekId=... — the eligible table as a PDF,
+// with the week's winners on top and a 6/6 + "won before?" check for each.
+exports.eligiblePdf = async (req, res) => {
+  try {
+    const weekId = targetWeekId(req);
+    const { eligibleReportData, renderEligiblePdf } = require('../services/reports/quizEligibleReport');
+    const data = await eligibleReportData(weekId);
+    const doc = renderEligiblePdf(data);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Quiz-Eligible-Users_${weekId}.pdf"`);
+    doc.pipe(res);
+    logAudit({ req, action: 'quiz_eligible_pdf', entityType: 'QuizWeek', entityId: weekId, description: `Downloaded eligible users PDF for ${weekId} (${data.rows.length} users, ${data.winners.length} winners)` });
+  } catch (e) {
+    console.error('quiz eligiblePdf:', e.message);
+    if (!res.headersSent) res.status(500).json({ error: 'Failed to build the PDF.' });
+  }
 };
 
 // POST /admin/quiz/api/week/winners  { weekId, mode: 'random_lottery'|'admin_select', userIds? }
@@ -749,9 +833,10 @@ exports.getSettings = async (req, res) => {
   try {
     const s = await QuizSettings.findOne({ key: 'quiz_config' }).lean();
     const pos = (v, def) => (Number.isInteger(v) && v >= 1 ? v : def);
-    if (!s) return res.json({ isEnabled: false, enabledLanguages: [], revealTime: '23:30', winnerReleaseTime: '10:00', feedPosition: 1, feedPositionPlayed: 7 });
+    const roll = (v) => (Number.isInteger(v) && v >= 0 && v <= 23 ? v : 10);
+    if (!s) return res.json({ isEnabled: false, enabledLanguages: [], revealTime: '23:30', winnerReleaseTime: '10:00', feedPosition: 1, feedPositionPlayed: 7, dayRolloverHour: 10 });
     const feedPosition = pos(s.feedPosition, 1);
-    res.json({ isEnabled: !!s.isEnabled, enabledLanguages: s.enabledLanguages || [], revealTime: s.revealTime || '23:30', winnerReleaseTime: s.winnerReleaseTime || '10:00', feedPosition, feedPositionPlayed: pos(s.feedPositionPlayed, feedPosition) });
+    res.json({ isEnabled: !!s.isEnabled, enabledLanguages: s.enabledLanguages || [], revealTime: s.revealTime || '23:30', winnerReleaseTime: s.winnerReleaseTime || '10:00', feedPosition, feedPositionPlayed: pos(s.feedPositionPlayed, feedPosition), dayRolloverHour: roll(s.dayRolloverHour) });
   } catch (e) { console.error('quiz getSettings:', e.message); res.status(500).json({ error: 'Failed to get settings.' }); }
 };
 
@@ -765,8 +850,13 @@ exports.updateSettings = async (req, res) => {
     const hhmm = (v, def) => (/^\d{1,2}:\d{2}$/.test(String(v || '')) ? String(v) : def);
     const revealTime = hhmm(req.body.revealTime, '23:30');
     const winnerReleaseTime = hhmm(req.body.winnerReleaseTime, '10:00');
-
+    // Daily question rollover hour (0–23 IST). Only update when sent, so other
+    // settings saves never reset it. Falls back to 10 (10 AM) on a bad value.
     const set = { isEnabled, enabledLanguages, revealTime, winnerReleaseTime, updatedByName: req.admin ? (req.admin.name || req.admin.username) : 'admin' };
+    if (req.body.dayRolloverHour !== undefined) {
+      const h = parseInt(req.body.dayRolloverHour, 10);
+      set.dayRolloverHour = (Number.isInteger(h) && h >= 0 && h <= 23) ? h : 10;
+    }
     // feedPosition lives on its own page now — only touch it if this request sent it,
     // so saving the general settings never resets the admin's chosen position.
     if (req.body.feedPosition !== undefined) {

@@ -28,7 +28,7 @@
                                     </div>
                                 </div>
 
-                                <form id="addNewsForm">
+                                <form id="addNewsForm" autocomplete="off">
                                     <input type="hidden" id="newsId" value="<%= typeof news !== 'undefined' ? news._id : '' %>">
                                     <textarea id="title" class="d-none" aria-hidden="true"><%= typeof news !== 'undefined' ? news.title : '' %></textarea>
                                     <textarea id="content" class="d-none" aria-hidden="true"><%= typeof news !== 'undefined' ? news.content : '' %></textarea>
@@ -570,7 +570,7 @@
                                     } else {
                                         showFeedback('News updated successfully!', 'success');
                                         setTimeout(() => {
-                                            window.location.href = '/news-list';
+                                            window.location.href = (<%- JSON.stringify((typeof returnUrl !== 'undefined' && returnUrl) ? returnUrl : '') %> || '/news-list');
                                         }, 1500);
                                     }
                                 } else {
@@ -580,7 +580,7 @@
                                         showFeedback('✅ News published successfully!', 'success');
                                     }
                                     setTimeout(() => {
-                                        window.location.href = '/news-list';
+                                        window.location.href = (<%- JSON.stringify((typeof returnUrl !== 'undefined' && returnUrl) ? returnUrl : '') %> || '/news-list');
                                     }, 1500);
                                 }
                             } else {
@@ -815,6 +815,37 @@
                         setupMobileMenu();
                         refreshMultipleImagesUI();
                     });
+
+                    // ── Guard against a stale image after Back/Forward (bfcache) ──────────
+                    // After publishing one news the admin often presses Back to add another.
+                    // The browser can restore this page — INCLUDING the hidden image fields —
+                    // from its back/forward cache, so the next post would silently carry the
+                    // PREVIOUS post's image. For a brand-new post we wipe the media whenever
+                    // the page is restored, forcing a fresh upload (an empty mediaUrl is
+                    // already blocked by validation, so nothing can be posted image-less).
+                    <% if (typeof news === 'undefined') { %>
+                    function resetMediaState() {
+                        const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+                        setVal('mediaUrl', '');
+                        setVal('thumbnailUrl', '');
+                        setVal('imageUrls', '[]');
+                        setVal('mediaType', '');
+                        const ip = document.getElementById('imagePreview');
+                        if (ip) { ip.src = '/images/placeholder.png'; ip.style.display = 'block'; }
+                        const vp = document.getElementById('videoPreview');
+                        if (vp) { vp.src = ''; vp.style.display = 'none'; }
+                        const mb = document.getElementById('mainModerateBtn');
+                        if (mb) mb.style.display = 'none';
+                        const ts = document.getElementById('thumbnailSelection');
+                        if (ts) ts.style.display = 'none';
+                        if (typeof refreshMultipleImagesUI === 'function') refreshMultipleImagesUI();
+                    }
+                    // Run on every show of a NEW-post page: on a genuinely fresh load the
+                    // fields are already empty (harmless), and on any restore — bfcache
+                    // (e.persisted), session restore, or browser form restoration — it wipes
+                    // the leftover image so a new post can never inherit the previous one.
+                    window.addEventListener('pageshow', function () { resetMediaState(); });
+                    <% } %>
 
                     function refreshMultipleImagesUI() {
                         const container = document.getElementById('multipleImagesContainer');

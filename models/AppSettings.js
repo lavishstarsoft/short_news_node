@@ -54,6 +54,33 @@ const appSettingsSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  /** Master switch for the "Where is my Train" feature (UI + server data). */
+  showTrain: {
+    type: Boolean,
+    default: true
+  },
+  /** Master switch for the Games feature (UI + server data). */
+  showGames: {
+    type: Boolean,
+    default: true
+  },
+  // ── Per-user Ad Personalization (fatigue pacing) — dashboard-controlled, OFF by default ──
+  adPersonalizationEnabled: {
+    type: Boolean,
+    default: false
+  },
+  adMinInterval: {
+    type: Number,
+    default: 6
+  },
+  adMaxInterval: {
+    type: Number,
+    default: 20
+  },
+  adFatigueMax: {
+    type: Number,
+    default: 0.6
+  },
   calendarEnabledLanguages: {
     type: [String],
     default: ['te']

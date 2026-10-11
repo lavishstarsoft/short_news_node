@@ -34,6 +34,7 @@ const ViewDistributionState = require('./models/ViewDistributionState');
 const ViewCycleLog = require('./models/ViewCycleLog');
 const signalProvider = require('./signalProvider');
 const allocator = require('./allocator');
+const { engagementDelta } = require('./engagementModel');
 require('./strategy/AdaptiveStrategy'); // self-registers the 'adaptive' strategy
 const { resolveStrategy } = require('./strategy/AllocationStrategy');
 const { LOG_PREFIX } = require('./constants');
@@ -210,15 +211,20 @@ async function applyCycle(campaign, cycleIndex, timing) {
     for (const d of boosted) {
       const oid = toObjectId(d.itemId);
       if (!oid) continue;
-      // $inc syntheticViews ONLY — organic `views` is never touched.
-      newsOps.push({ 
-        updateOne: { 
-          filter: { _id: oid }, 
-          update: { 
-            $inc: { syntheticViews: d.delta },
+      // $inc synthetic counters ONLY — organic views/likes/dislikes untouched.
+      // Natural, jittered likes/dislikes ride along with the view delta.
+      const { likeDelta, dislikeDelta } = engagementDelta(d.itemId, d.delta);
+      const inc = { syntheticViews: d.delta };
+      if (likeDelta > 0) inc.syntheticLikes = likeDelta;
+      if (dislikeDelta > 0) inc.syntheticDislikes = dislikeDelta;
+      newsOps.push({
+        updateOne: {
+          filter: { _id: oid },
+          update: {
+            $inc: inc,
             $set: { viewEngineCampaignId: campaign._id }
-          } 
-        } 
+          }
+        }
       });
     }
     await bulkWriteChunked(News, newsOps);

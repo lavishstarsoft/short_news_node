@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/header', { title: 'Quiz Banners & Terms' }) %>
+<body>
+  <%- include('partials/top-nav', { pageTitle: 'Quiz Banners & Terms', backButton: true, backUrl: '/admin/quiz/dashboard' }) %>
+  <div class="container-fluid"><div class="row">
+    <%- include('partials/sidebar', { activePage: 'quiz-banner' }) %>
+    <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="mainContent">
+      <div class="content-area py-3">
+        <style>
+          .qb-card{border:1px solid #eef0f3;border-radius:12px;padding:18px;background:#fff;margin-bottom:16px;max-width:680px}
+          .qb-help{background:#f0f7ff;border:1px solid #cfe6ff;border-radius:10px;padding:12px 14px;font-size:13px;color:#334}
+          .qb-preview{width:100%;max-width:250px;aspect-ratio:9/20;border-radius:14px;border:1px solid #e6e6ef;object-fit:cover;background:#f5f0fc;display:block}
+          .qb-card h5{font-weight:700;font-size:15px}
+        </style>
+
+        <div class="mb-3">
+          <h3 class="mb-1"><i class="fas fa-image me-2 text-primary"></i>Quiz Banners &amp; Terms</h3>
+          <p class="text-muted mb-0">Everything the Daily-Quiz app shows — all admin-controlled, updates without an app release.</p>
+        </div>
+
+        <!-- 1. FEED BANNER -->
+        <div class="qb-card">
+          <h5><i class="fas fa-ad me-2 text-secondary"></i>Feed Ad Banner <span class="text-muted small fw-normal">— shown in the news feed (tap → quiz)</span></h5>
+          <input type="hidden" id="qbBanner">
+          <input type="file" accept="image/*" onchange="qbOnFile(event,'banner')" class="mb-2">
+          <div class="d-flex align-items-center gap-3">
+            <img id="qbBannerPreview" class="qb-preview" src="" alt="No banner" onerror="this.style.opacity=.3" style="opacity:.3">
+            <label class="mb-0"><input type="checkbox" id="qbEnabled" checked> Show in feed</label>
+          </div>
+        </div>
+
+        <!-- 2. SIGN-IN PAGE IMAGE + draggable Sign-In button box -->
+        <div class="qb-card">
+          <h5><i class="fas fa-sign-in-alt me-2 text-secondary"></i>Sign-in Page Image</h5>
+          <p class="text-muted small mb-2">Upload → crop → then <b>drag the green box</b> onto the "Sign In to Play" button in your image. Only that spot signs users in. Position is saved as % so it fits <b>all device sizes</b>. (Leave/clear the box to make the whole image tappable.)</p>
+          <input type="hidden" id="qbSignin">
+          <input type="file" accept="image/*" onchange="qbOnFile(event,'signin')" class="mb-2">
+          <div class="d-flex align-items-start gap-3">
+            <div id="qbSigninWrap" style="position:relative;width:230px;flex:0 0 auto;">
+              <img id="qbSigninPreview" class="qb-preview" src="" alt="No image" onerror="this.style.opacity=.3" style="opacity:.3;width:230px">
+              <div id="qbSigninBox" style="position:absolute;border:2px solid #16a34a;background:rgba(22,163,74,.20);cursor:move;display:none;box-sizing:border-box;">
+                <span style="position:absolute;top:-11px;left:2px;font-size:9px;font-weight:700;background:#16a34a;color:#fff;padding:0 5px;border-radius:3px;white-space:nowrap;">Sign In tap area</span>
+                <div id="qbSigninHandle" style="position:absolute;right:-7px;bottom:-7px;width:15px;height:15px;background:#16a34a;border:2px solid #fff;border-radius:50%;cursor:se-resize;"></div>
+              </div>
+            </div>
+            <div class="d-flex flex-column gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="qbResetBox()">Reset box</button>
+              <button type="button" class="btn btn-sm btn-outline-danger" onclick="qbClear('signin')">Remove image</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2b. COMPLETE PROFILE PAGE IMAGE + draggable button box -->
+        <div class="qb-card">
+          <h5><i class="fas fa-id-card me-2 text-secondary"></i>Complete Profile Page Image</h5>
+          <p class="text-muted small mb-2">Shown when a user's profile is incomplete. Upload → crop → <b>drag the green box</b> onto the "Complete Profile to Play" button. Tapping it opens the profile form. Saved as % → fits all devices.</p>
+          <input type="hidden" id="qbProfile">
+          <input type="file" accept="image/*" onchange="qbOnFile(event,'profile')" class="mb-2">
+          <div class="d-flex align-items-start gap-3">
+            <div id="qbProfileWrap" style="position:relative;width:230px;flex:0 0 auto;">
+              <img id="qbProfilePreview" class="qb-preview" src="" alt="No image" onerror="this.style.opacity=.3" style="opacity:.3;width:230px">
+              <div id="qbProfileBox" style="position:absolute;border:2px solid #16a34a;background:rgba(22,163,74,.20);cursor:move;display:none;box-sizing:border-box;">
+                <span style="position:absolute;top:-11px;left:2px;font-size:9px;font-weight:700;background:#16a34a;color:#fff;padding:0 5px;border-radius:3px;white-space:nowrap;">Button tap area</span>
+                <div id="qbProfileHandle" style="position:absolute;right:-7px;bottom:-7px;width:15px;height:15px;background:#16a34a;border:2px solid #fff;border-radius:50%;cursor:se-resize;"></div>
+              </div>
+            </div>
+            <div class="d-flex flex-column gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="qbResetBox('profile')">Reset box</button>
+              <button type="button" class="btn btn-sm btn-outline-danger" onclick="qbClear('profile')">Remove image</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. TERMS & CONDITIONS → managed via the existing Quiz Rules page -->
+        <div class="qb-card">
+          <h5><i class="fas fa-file-contract me-2 text-secondary"></i>Terms &amp; Conditions</h5>
+          <p class="text-muted small mb-2">The "Terms &amp; Conditions" button on the sign-in page shows your existing <b>Quiz Rules</b> content (About / How to Play / Eligibility). Edit it there — no separate text needed here.</p>
+          <a class="btn btn-sm btn-outline-primary" href="/admin/quiz/rules"><i class="fas fa-edit me-1"></i>Edit Quiz Rules</a>
+        </div>
+
+        <div class="qb-card" style="border:none;padding:0">
+          <button class="btn btn-primary" onclick="qbSaveAll()"><i class="fas fa-save me-1"></i>Save all</button>
+          <span id="qbMsg" class="small ms-2"></span>
+          <div class="qb-help mt-3">ℹ️ Upload → crop (9:20) → the small preview updates → press <b>Save all</b>. Changes reach app users on their next open.</div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
+  <div id="qbCropOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1060;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:16px;max-width:520px;width:92%">
+      <h6 class="fw-bold mb-2">Crop image (9:20)</h6>
+      <div style="max-height:62vh;overflow:hidden"><img id="qbCropImg" style="max-width:100%;display:block"></div>
+      <div class="mt-2 d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="qbCropCancel()">Cancel</button>
+        <button type="button" id="qbCropBtn" class="btn btn-sm btn-primary" onclick="qbCropUpload()">Crop &amp; Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/footer') %>
+  <script>
+  (function(){
+    function q(id){return document.getElementById(id);}
+    var _cropper=null, _target='banner';
+    var DEF_RECT={x:0.10,y:0.78,w:0.80,h:0.09};
+    var BOX = {
+      signin:  { wrap:'qbSigninWrap',  box:'qbSigninBox',  handle:'qbSigninHandle',  img:'qbSigninPreview',  hidden:'qbSignin',  rect:{x:0,y:0,w:0,h:0} },
+      profile: { wrap:'qbProfileWrap', box:'qbProfileBox', handle:'qbProfileHandle', img:'qbProfilePreview', hidden:'qbProfile', rect:{x:0,y:0,w:0,h:0} },
+    };
+
+    async function load(){
+      try{
+        var d=await (await fetch('/admin/quiz/api/banner')).json();
+        var sr=d.signinButtonRect||{};  BOX.signin.rect  = (sr.w>0&&sr.h>0)?{x:sr.x,y:sr.y,w:sr.w,h:sr.h}:{x:0,y:0,w:0,h:0};
+        var pr=d.profileButtonRect||{}; BOX.profile.rect = (pr.w>0&&pr.h>0)?{x:pr.x,y:pr.y,w:pr.w,h:pr.h}:{x:0,y:0,w:0,h:0};
+        setImg('banner', d.bannerImageUrl||'');
+        setImg('signin', d.signinImageUrl||'');
+        setImg('profile', d.profileImageUrl||'');
+        q('qbEnabled').checked=d.bannerEnabled!==false;
+      }catch(e){ q('qbMsg').innerHTML='<span class="text-danger">Load failed</span>'; }
+    }
+    function setImg(target, url){
+      if(target==='banner'){ q('qbBanner').value=url; var pb=q('qbBannerPreview'); pb.src=url; pb.style.opacity=url?1:.3; return; }
+      var cfg=BOX[target]; q(cfg.hidden).value=url;
+      var p=q(cfg.img); p.src=url; p.style.opacity=url?1:.3;
+      showBox(target, !!url);
+    }
+    window.qbClear=function(target){ setImg(target,''); };
+
+    // ── Draggable / resizable button box, generic over target ──
+    function showBox(target, show){
+      var cfg=BOX[target], box=q(cfg.box);
+      if(!show){ box.style.display='none'; return; }
+      if(!(cfg.rect.w>0)) cfg.rect=Object.assign({},DEF_RECT);
+      box.style.display='block';
+      var img=q(cfg.img);
+      var pos=function(){ positionBox(target); };
+      if(img.complete) pos(); else img.onload=pos;
+      setTimeout(pos,120);
+    }
+    function positionBox(target){
+      var cfg=BOX[target], img=q(cfg.img), box=q(cfg.box);
+      var W=img.clientWidth||230, H=img.clientHeight||(W*20/9);
+      box.style.left=(cfg.rect.x*W)+'px'; box.style.top=(cfg.rect.y*H)+'px';
+      box.style.width=(cfg.rect.w*W)+'px'; box.style.height=(cfg.rect.h*H)+'px';
+    }
+    function commitRect(target){
+      var cfg=BOX[target], img=q(cfg.img), box=q(cfg.box);
+      var W=img.clientWidth||230, H=img.clientHeight||(W*20/9);
+      cfg.rect={ x:box.offsetLeft/W, y:box.offsetTop/H, w:box.offsetWidth/W, h:box.offsetHeight/H };
+    }
+    window.qbResetBox=function(target){ BOX[target].rect=Object.assign({},DEF_RECT); positionBox(target); };
+
+    var _drag=null;
+    ['signin','profile'].forEach(function(target){
+      var cfg=BOX[target];
+      q(cfg.box).addEventListener('mousedown',function(e){
+        if(e.target.id===cfg.handle)return;
+        _drag={target:target,mode:'move',sx:e.clientX,sy:e.clientY,r:q(cfg.box).getBoundingClientRect()}; e.preventDefault();
+      });
+      q(cfg.handle).addEventListener('mousedown',function(e){
+        _drag={target:target,mode:'resize',sx:e.clientX,sy:e.clientY,r:q(cfg.box).getBoundingClientRect()}; e.stopPropagation(); e.preventDefault();
+      });
+    });
+    document.addEventListener('mousemove',function(e){
+      if(!_drag)return;
+      var cfg=BOX[_drag.target];
+      var wrap=q(cfg.wrap).getBoundingClientRect(), box=q(cfg.box);
+      if(_drag.mode==='move'){
+        var nl=(_drag.r.left-wrap.left)+(e.clientX-_drag.sx), nt=(_drag.r.top-wrap.top)+(e.clientY-_drag.sy);
+        nl=Math.max(0,Math.min(wrap.width-box.offsetWidth,nl)); nt=Math.max(0,Math.min(wrap.height-box.offsetHeight,nt));
+        box.style.left=nl+'px'; box.style.top=nt+'px';
+      }else{
+        var nw=_drag.r.width+(e.clientX-_drag.sx), nh=_drag.r.height+(e.clientY-_drag.sy);
+        nw=Math.max(24,Math.min(wrap.width-box.offsetLeft,nw)); nh=Math.max(16,Math.min(wrap.height-box.offsetTop,nh));
+        box.style.width=nw+'px'; box.style.height=nh+'px';
+      }
+      commitRect(_drag.target);
+    });
+    document.addEventListener('mouseup',function(){ _drag=null; });
+
+    window.qbOnFile=function(e,target){
+      var f=e.target.files&&e.target.files[0]; if(!f)return; _target=target;
+      var reader=new FileReader();
+      reader.onload=function(ev){
+        q('qbCropImg').src=ev.target.result;
+        q('qbCropOverlay').style.display='flex';
+        if(_cropper){ _cropper.destroy(); _cropper=null; }
+        _cropper=new Cropper(q('qbCropImg'),{ aspectRatio:9/20, viewMode:1, autoCropArea:1, background:false, movable:true, zoomable:true });
+      };
+      reader.readAsDataURL(f); e.target.value='';
+    };
+    window.qbCropCancel=function(){ if(_cropper){ _cropper.destroy(); _cropper=null; } q('qbCropOverlay').style.display='none'; };
+    window.qbCropUpload=function(){
+      if(!_cropper)return;
+      var canvas=_cropper.getCroppedCanvas({ width:1080, height:2400 });
+      if(!canvas){ alert('Crop failed'); return; }
+      canvas.toBlob(function(blob){
+        if(!blob){ alert('Crop failed'); return; }
+        var fd=new FormData(); fd.append('image', blob, 'quiz-'+_target+'.jpg');
+        var btn=q('qbCropBtn'); btn.disabled=true; btn.textContent='Uploading…';
+        fetch('/admin/api/in-app-popup/upload-image',{ method:'POST', body:fd })
+          .then(function(r){ return r.json().then(function(d){ return { ok:r.ok, d:d }; }); })
+          .then(function(res){
+            if(!res.ok || !res.d.imageUrl){ alert(res.d.error||'Upload failed'); return; }
+            setImg(_target, res.d.imageUrl); qbCropCancel();
+            q('qbMsg').innerHTML='<span class="text-success">Uploaded — now press Save all.</span>';
+          })
+          .catch(function(){ alert('Network error'); })
+          .finally(function(){ btn.disabled=false; btn.textContent='Crop & Upload'; });
+      }, 'image/jpeg', 0.92);
+    };
+
+    window.qbSaveAll=async function(){
+      var body={
+        bannerImageUrl:q('qbBanner').value, bannerEnabled:q('qbEnabled').checked,
+        signinImageUrl:q('qbSignin').value,  signinButtonRect:BOX.signin.rect,
+        profileImageUrl:q('qbProfile').value, profileButtonRect:BOX.profile.rect,
+      };
+      var r=await fetch('/admin/quiz/api/banner',{ method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+      var d=await r.json();
+      q('qbMsg').innerHTML = r.ok ? '<span class="text-success">Saved ✓</span>' : '<span class="text-danger">'+(d.error||'Save failed')+'</span>';
+    };
+
+    load();
+  })();
+  </script>
+</body>
+</html>

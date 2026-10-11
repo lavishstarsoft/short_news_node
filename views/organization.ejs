@@ -1,0 +1,119 @@
+<%- include('partials/header') %>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'Organization & Access', backButton: true, backUrl: '/' }) %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .org-card { border-radius:12px; border:1px solid #f0f0f0; box-shadow:0 4px 6px rgba(0,0,0,.04); background:#fff; }
+  .org-stat { border-radius:12px; padding:16px; background:#fff; border:1px solid #f0f0f0; }
+  .org-stat .num { font-size:1.7rem; font-weight:800; line-height:1; }
+  .tile { display:flex; gap:12px; align-items:flex-start; text-decoration:none; color:inherit; border:1px solid #eee; border-radius:12px; padding:14px; transition:.15s; height:100%; }
+  .tile:hover { border-color:#cfe0ff; box-shadow:0 4px 10px rgba(0,0,0,.05); }
+  .tile .ic { width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto; }
+  .soon { opacity:.6; cursor:not-allowed; }
+  .pill { font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="pt-3">
+
+    <div class="mb-3">
+      <h4 class="fw-bold mb-1 d-flex align-items-center gap-2">
+        <i class="fas fa-sitemap me-1 text-primary"></i>Organization &amp; Access
+        <button type="button"
+                class="btn btn-sm p-0 border-0 bg-transparent"
+                data-bs-toggle="modal"
+                data-bs-target="#orgHandbookModal"
+                title="How Organization & Access works"
+                aria-label="Open the Organization & Access Handbook"
+                style="line-height:1;">
+          <i class="fas fa-info-circle text-primary" style="font-size:1.15rem;"></i>
+        </button>
+      </h4>
+      <p class="text-muted mb-0">Super-Admin view of your organization and the new access-control system. Read-only — nothing here changes staff access.
+        <a href="#" data-bs-toggle="modal" data-bs-target="#orgHandbookModal" class="ms-1">Open the Handbook →</a>
+      </p>
+    </div>
+
+    <!-- Real staff stats -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3"><div class="org-stat"><div class="num"><%= stats.total %></div><div class="small text-muted mt-1">Total staff</div></div></div>
+      <div class="col-6 col-md-3"><div class="org-stat"><div class="num text-success"><%= stats.active %></div><div class="small text-muted mt-1">Active</div></div></div>
+      <div class="col-6 col-md-3"><div class="org-stat"><div class="num text-secondary"><%= stats.inactive %></div><div class="small text-muted mt-1">Inactive</div></div></div>
+      <div class="col-6 col-md-3"><div class="org-stat">
+        <div class="small text-muted mb-1">By role</div>
+        <% if (stats.byRole && stats.byRole.length) { stats.byRole.forEach(function(r){ %>
+          <div class="d-flex justify-content-between small"><span class="text-capitalize"><%= r._id || '—' %></span><span class="fw-bold"><%= r.n %></span></div>
+        <% }); } else { %><span class="small text-muted">No data.</span><% } %>
+      </div></div>
+    </div>
+
+    <!-- LIVE tools -->
+    <h6 class="fw-bold text-muted text-uppercase small mb-2">Live now</h6>
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-4">
+        <a class="tile" href="/admin/authorization">
+          <div class="ic" style="background:#eef2ff;color:#4f46e5"><i class="fas fa-key"></i></div>
+          <div><div class="fw-bold">Authorization</div><div class="small text-muted">The permission catalog, in plain language.</div></div>
+        </a>
+      </div>
+      <div class="col-12 col-md-4">
+        <a class="tile" href="/admin/shadow-mode">
+          <div class="ic" style="background:#e7f5ee;color:#198754"><i class="fas fa-user-shield"></i></div>
+          <div><div class="fw-bold">Shadow Mode <span class="pill bg-light text-muted border">observe</span></div><div class="small text-muted">New rules checked in the background — never blocks anyone.</div></div>
+        </a>
+      </div>
+      <div class="col-12 col-md-4">
+        <a class="tile" href="/admin/audit-logs">
+          <div class="ic" style="background:#fff3cd;color:#8a6d00"><i class="fas fa-clipboard-list"></i></div>
+          <div><div class="fw-bold">Audit Logs</div><div class="small text-muted">Who did what, when — sensitive actions.</div></div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Existing management (link, don't duplicate) -->
+    <h6 class="fw-bold text-muted text-uppercase small mb-2">Manage (existing)</h6>
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-4">
+        <a class="tile" href="/admin/users">
+          <div class="ic" style="background:#eaf1ff;color:#1d4ed8"><i class="fas fa-users"></i></div>
+          <div><div class="fw-bold">Staff &amp; Users</div><div class="small text-muted">Your existing staff/reporter directory.</div></div>
+        </a>
+      </div>
+      <div class="col-12 col-md-4">
+        <a class="tile" href="/admin/district-assignment-approvals">
+          <div class="ic" style="background:#f3e8ff;color:#7e22ce"><i class="fas fa-user-check"></i></div>
+          <div><div class="fw-bold">Assignment Approvals</div><div class="small text-muted">Existing district-assignment approval queue.</div></div>
+        </a>
+      </div>
+      <div class="col-12 col-md-4">
+        <a class="tile" href="/admin/security">
+          <div class="ic" style="background:#fde8e8;color:#c81e1e"><i class="fas fa-shield-alt"></i></div>
+          <div><div class="fw-bold">Security</div><div class="small text-muted">Existing security centre.</div></div>
+        </a>
+      </div>
+    </div>
+
+    <!-- COMING (honest placeholders — no fake data) -->
+    <h6 class="fw-bold text-muted text-uppercase small mb-2">Coming in the next phase</h6>
+    <div class="row g-3">
+      <% ['Departments','Teams','Roles','Organization Chart','Approval Center'].forEach(function(name){ %>
+        <div class="col-6 col-md-4 col-lg-3">
+          <div class="tile soon">
+            <div class="ic" style="background:#f1f2f4;color:#888"><i class="fas fa-lock"></i></div>
+            <div><div class="fw-bold small"><%= name %></div><span class="pill bg-light text-muted border">not configured yet</span></div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+    <p class="small text-muted mt-2 mb-0">Departments, Teams and Roles require a data-model change and will be introduced as an approved later phase. No placeholder data is shown.</p>
+
+  </div>
+</main>
+
+<%/* Organization & Access Handbook modal (Super-Admin page only; documentation, no actions) */%>
+<%- include('partials/org-handbook', { guide: guide, shadowOn: shadowOn }) %>
+
+<%- include('partials/footer') %>
+</body>
+</html>

@@ -40,6 +40,17 @@ async function sendDailyReminder(now = new Date()) {
   try {
     const one = require('./oneSignalService');
     await one.sendNotificationToAll("Today's Quiz is live! 🧠", "Answer today's question — weekly top players win ₹1,000.", { type: 'quiz' });
+    // Our own FCM transport (free, unlimited) — additive, flag-gated, never throws.
+    try {
+      const fcm = require('./fcmService');
+      if (fcm.isReady()) {
+        await fcm.sendToAll({
+          title: "Today's Quiz is live! 🧠",
+          message: "Answer today's question — weekly top players win ₹1,000.",
+          data: { type: 'quiz', route: 'quiz' },
+        });
+      }
+    } catch (_) { /* push failure must not break quiz maintenance */ }
     return { sent: true };
   } catch (e) { return { sent: false, error: e.message }; }
 }

@@ -140,10 +140,10 @@
                                 <div class="pn-age-tabs-container">
                                     <div class="pn-age-tabs" id="ageTabs">
                                         <button type="button" class="pn-age-tab active" data-tab="latest" onclick="setAgeTab('latest', event)">
-                                            <i class="fas fa-clock"></i> Latest (&lt; 24h)
+                                            <i class="fas fa-clock"></i> Latest (&lt; 24h) <span class="pn-age-count" id="ageCountLatest" style="margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(0,0,0,.08);font-size:11px;font-weight:700;"></span>
                                         </button>
                                         <button type="button" class="pn-age-tab" data-tab="older" onclick="setAgeTab('older', event)">
-                                            <i class="fas fa-history"></i> Pending &gt; 24h
+                                            <i class="fas fa-history"></i> Pending &gt; 24h <span class="pn-age-count" id="ageCountOlder" style="margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(0,0,0,.08);font-size:11px;font-weight:700;"></span>
                                         </button>
                                     </div>
                                 </div>
@@ -151,8 +151,8 @@
                                 <div class="pn-toolbar">
                                     <span class="pn-toolbar-label">Sort by</span>
                                     <div class="sort-options pn-sort-pills">
-                                        <button type="button" onclick="sortNews('recent')" class="active" data-sort="recent"><i class="fas fa-arrow-down-wide-short"></i> Most recent</button>
-                                        <button type="button" onclick="sortNews('oldest')" data-sort="oldest"><i class="fas fa-arrow-up-wide-short"></i> Oldest</button>
+                                        <button type="button" onclick="sortNews('recent')" data-sort="recent"><i class="fas fa-arrow-down-wide-short"></i> Most recent</button>
+                                        <button type="button" onclick="sortNews('oldest')" class="active" data-sort="oldest"><i class="fas fa-arrow-up-wide-short"></i> Oldest</button>
                                         <button type="button" onclick="sortNews('views')" data-sort="views"><i class="fas fa-chart-line"></i> Title length</button>
                                     </div>
                                 </div>
@@ -163,6 +163,12 @@
                                         <% 
                                             const showFullDetails = admin.role === 'superadmin' || (admin.permissions && admin.permissions.canViewReporterDetails);
                                             const canApproveNews = admin.role === 'superadmin' || admin.role === 'admin' || (admin.role === 'subeditor' && admin.permissions && admin.permissions.canApproveNews);
+                                            // Every sub-editor / state incharge who reviews the team pending list
+                                            // sees the reporter's NAME + MOBILE (to contact/verify them), even
+                                            // without the full reporter-details permission. Reporters themselves
+                                            // don't reach this team page. Email/constituency stay behind
+                                            // showFullDetails.
+                                            const showReporterContact = showFullDetails || admin.role === 'subeditor';
                                         %>
                                         <% if (pendingNews.length > 0) { %>
                                             <div class="news-grid" id="newsGrid">
@@ -172,8 +178,10 @@
                                                         isAIQueue: news.aiStatus !== 'none',
                                                         pendingLangLabels: pendingLangLabels,
                                                         showFullDetails: showFullDetails,
+                                                        showReporterContact: showReporterContact,
                                                         canApproveNews: canApproveNews,
-                                                        isSuperAdmin: (admin.role === 'superadmin')
+                                                        isSuperAdmin: (admin.role === 'superadmin'),
+                                                        canDeleteAiQueue: (admin.role === 'superadmin')
                                                     }) %>
                                                 <% }); %>
                                             </div>
@@ -464,6 +472,7 @@
                         title: <%- JSON.stringify(news.title || '') %>,
                         author: <%- JSON.stringify(news.author || '') %>,
                         authorDetails: <%- JSON.stringify(news.authorDetails || null) %>,
+                        inchargeDetails: <%- JSON.stringify(news.inchargeDetails || null) %>,
                         category: <%- JSON.stringify(news.category || 'Uncategorized') %>,
                         location: <%- JSON.stringify(news.location || 'Not specified') %>,
                         language: <%- JSON.stringify(news.language || 'te') %>,
@@ -502,12 +511,36 @@
                 }
                 
                 filterNews();
-                const cards = visibleCards();
-                if (cards.length) {
-                    if (!isMobile()) select(cards[0], { openMobile: false });
-                } else {
-                    clearPreview();
+                // The split-view helpers live inside the boot closure and are exposed
+                // on window there; guard so a tab click can never throw.
+                if (typeof window.pnVisibleCards === 'function') {
+                    const cards = window.pnVisibleCards();
+                    if (cards.length) {
+                        if (!window.pnIsMobile()) window.pnSelect(cards[0], { openMobile: false });
+                    } else {
+                        window.pnClearPreview();
+                    }
                 }
+            };
+
+            // How many loaded cards fall in each age tab (age only, independent of
+            // the other filters) — shown as a count on the tab buttons so it is
+            // obvious when a tab is empty.
+            window.ageTabCounts = function() {
+                let latest = 0, older = 0;
+                document.querySelectorAll('#newsGrid .news-card').forEach(card => {
+                    const hrs = (Date.now() - parseInt(card.dataset.date || '0', 10)) / 36e5;
+                    if (hrs < 24) latest++; else older++;
+                });
+                return { latest, older };
+            };
+            window.renderAgeTabCounts = function() {
+                const c = window.ageTabCounts();
+                const l = document.getElementById('ageCountLatest');
+                const o = document.getElementById('ageCountOlder');
+                if (l) l.textContent = c.latest;
+                if (o) o.textContent = c.older;
+                return c;
             };
 
             function filterNews() {
@@ -794,6 +827,60 @@
             }
             window.openPreview = openPreview;
 
+            // Delete a review_required AI-queue draft from the pending page.
+            // Super Admin only (server enforces). Works even if SweetAlert (Swal)
+            // failed to load: falls back to the browser's native confirm/alert.
+            async function deleteMyAiQueueNews(newsId, title) {
+                const t = String(title || 'this article').slice(0, 90);
+                const hasSwal = (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function');
+                let confirmed;
+                if (hasSwal) {
+                    confirmed = await Swal.fire({
+                        title: 'Delete this article?',
+                        html: `"${t}"<br><small>It will be removed from the AI queue. It is not published.</small>`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#dc2626',
+                        confirmButtonText: '<i class="fas fa-trash"></i> Delete',
+                        cancelButtonText: 'Cancel'
+                    }).then(r => r.isConfirmed);
+                } else {
+                    confirmed = window.confirm(`Delete this article?\n\n"${t}"\n\nIt will be removed from the AI queue. It is not published.`);
+                }
+                if (!confirmed) return;
+                try {
+                    const res = await fetch(`/admin/api/my-ai-queue/${newsId}`, {
+                        method: 'DELETE',
+                        credentials: 'same-origin',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data.success) {
+                        throw new Error(data.message || data.error || `Delete failed (HTTP ${res.status})`);
+                    }
+                    if (hasSwal) {
+                        await Swal.fire({ icon: 'success', title: 'Deleted', timer: 1000, showConfirmButton: false });
+                    }
+                    const card = document.querySelector(`.news-card[data-id="${newsId}"]`);
+                    if (card) {
+                        card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0.95)';
+                        setTimeout(() => {
+                            card.remove();
+                            try { if (typeof newsDataCache !== 'undefined') delete newsDataCache[newsId]; } catch (_) {}
+                            if (typeof filterNews === 'function') filterNews();
+                        }, 400);
+                    } else if (typeof filterNews === 'function') {
+                        filterNews();
+                    }
+                } catch (e) {
+                    if (hasSwal) Swal.fire('Error', e.message || 'Could not delete', 'error');
+                    else window.alert('Could not delete: ' + (e.message || 'unknown error'));
+                }
+            }
+            window.deleteMyAiQueueNews = deleteMyAiQueueNews;
+
             function openModeratorForPendingNews(newsId, idx = null) {
                 const news = newsDataCache[newsId];
                 if (!news) return;
@@ -909,8 +996,13 @@
                     return;
                 }
 
-                if (CURRENT_USER_ROLE === 'subeditor' && stripTags(payload.content).length < (limits.contentMin || 0)) {
-                    alert(`Content must be at least ${limits.contentMin} characters for Sub Editors.`);
+                // The content MINIMUM applies only to a sub editor's / state incharge's OWN
+                // news (author role = subeditor). A reporter's post (stringer / district
+                // incharge, role = editor) edited here by a state incharge must save /
+                // approve at any length — only the max limits above apply to it.
+                const authorRole = (newsDataCache[newsId] && newsDataCache[newsId].authorDetails && newsDataCache[newsId].authorDetails.role) || '';
+                if (authorRole === 'subeditor' && stripTags(payload.content).length < (limits.contentMin || 0)) {
+                    alert(`Content must be at least ${limits.contentMin} characters for a Sub Editor's own news.`);
                     return;
                 }
 
@@ -1615,15 +1707,9 @@
             });
             // Listen for global custom event to update grid dynamically
             // Context for building a live-inserted card identical to a server reload:
-            // whether the viewer is a super admin (who sees the assignment block) and
-            // the viewer's own details (shown as the "Incharge").
+            // whether the viewer is a super admin (who sees the assignment block).
             window.__pnCtx = {
-                isSuperAdmin: <%- (typeof isSuperAdmin !== 'undefined' && isSuperAdmin === true) ? 'true' : 'false' %>,
-                incharge: {
-                    name: <%- JSON.stringify((typeof admin !== 'undefined' && (admin.name || admin.fullName)) || '') %>,
-                    mobile: <%- JSON.stringify((typeof admin !== 'undefined' && (admin.mobileNumber || admin.mobile || admin.phone)) || '') %>,
-                    email: <%- JSON.stringify((typeof admin !== 'undefined' && admin.email) || '') %>
-                }
+                isSuperAdmin: <%- (typeof isSuperAdmin !== 'undefined' && isSuperAdmin === true) ? 'true' : 'false' %>
             };
 
             document.addEventListener('new_pending_news_received', function (e) {
@@ -1707,9 +1793,12 @@
                 // Build the SAME "Reporter Details / Assignment" block + full
                 // description the server renders, so a live-arriving card is complete
                 // without a page reload.
-                const _ctx = window.__pnCtx || { isSuperAdmin: false, incharge: {} };
+                const _ctx = window.__pnCtx || { isSuperAdmin: false };
                 const _rep = news.authorDetails || {};
-                const _inc = _ctx.incharge || {};
+                // Reporter's State In-Charge (attached server-side); a live socket card
+                // may not carry it yet, in which case the row shows "—" until reload.
+                const _inc = news.inchargeDetails || {};
+                const _incState = news.assignedState || _inc.state || _rep.assignedState || (Array.isArray(_rep.assignedStates) && _rep.assignedStates[0]) || news.location || '—';
                 const assignBlockHtml = _ctx.isSuperAdmin ? `
                         <div class="pn-assign-block pn-assign-2col">
                             <div class="pn-assign-col">
@@ -1724,10 +1813,10 @@
                             <div class="pn-assign-col">
                                 <div class="pn-assign-title"><i class="fas fa-user-shield"></i> Assignment &amp; Approval</div>
                                 <div class="pn-assign-rows">
-                                    <div class="pn-assign-item"><span class="pn-assign-label">Incharge</span><span class="pn-assign-value">${escapeHtml(_inc.name || '—')}</span></div>
-                                    <div class="pn-assign-item"><span class="pn-assign-label">Mobile</span><span class="pn-assign-value">${escapeHtml(_inc.mobile || '—')}</span></div>
+                                    <div class="pn-assign-item"><span class="pn-assign-label">Incharge</span><span class="pn-assign-value">${escapeHtml(_inc.name ? (_inc.name + (_inc.displayRole ? ' (' + _inc.displayRole + ')' : '')) : '—')}</span></div>
+                                    <div class="pn-assign-item"><span class="pn-assign-label">Mobile</span><span class="pn-assign-value">${escapeHtml(_inc.mobileNumber || '—')}</span></div>
                                     <div class="pn-assign-item"><span class="pn-assign-label">Email</span><span class="pn-assign-value">${escapeHtml(_inc.email || '—')}</span></div>
-                                    <div class="pn-assign-item"><span class="pn-assign-label">State</span><span class="pn-assign-value">${escapeHtml(news.assignedState || news.location || '—')}</span></div>
+                                    <div class="pn-assign-item"><span class="pn-assign-label">State</span><span class="pn-assign-value">${escapeHtml(_incState)}</span></div>
                                 </div>
                             </div>
                         </div>` : '';
@@ -2172,6 +2261,18 @@
                             }
                         }
 
+                        // Reporter-app Confirm step: the reporter was SHOWN similar news
+                        // and still claimed it is unique — tell the desk to compare first.
+                        const att = result.reporterAttestation;
+                        if (att && att.claimedUnique && badgeGroup && !badgeGroup.querySelector('.badge-reporter-claim')) {
+                            const claim = document.createElement('span');
+                            claim.className = 'badge badge-reporter-claim';
+                            claim.style.cssText = 'background:#EEF2FF;color:#3730A3;border:1px solid #C7D2FE;';
+                            claim.title = 'Reporter saw ' + (att.similarCount || 0) + ' similar story(ies) before filing and confirmed this one is unique' + (att.crossChecked ? ' (cross-checked)' : '');
+                            claim.innerHTML = '<i class="fas fa-user-check"></i> Reporter: claimed unique' + (att.similarCount ? ' (' + att.similarCount + ' similar)' : '');
+                            badgeGroup.appendChild(claim);
+                        }
+
                         const cardContent = card.querySelector('.news-card-content');
                         const cardActions = card.querySelector('.card-actions');
                         if (cardContent && cardActions && !card.querySelector('.duplicate-warning')) {
@@ -2231,8 +2332,12 @@
                     const sameImage = (currentMedia && matchedMedia && currentMedia === matchedMedia)
                         ? '<span class="badge" style="background: #22c55e; color: white; margin-left: 8px;">Same Image</span>'
                         : (currentMedia && matchedMedia ? '<span class="badge" style="background: #ef4444; color: white; margin-left: 8px;">Different Image</span>' : '');
-                    const simRaw = (m.similarityPercent != null) ? m.similarityPercent
-                        : (m.similarity != null ? Math.round(m.similarity * 100) : null);
+                    // similarity may be a 0-100 number, a 0-1 fraction, or an object
+                    // { title, content, keywords, overall } — never do object * 100 (NaN%).
+                    const _ov = (typeof getOverallSimilarity === 'function') ? getOverallSimilarity(m)
+                        : (m.similarity && typeof m.similarity === 'object' ? (m.similarity.overall || 0) : (m.similarity || 0));
+                    const simRaw = (m.similarityPercent != null) ? Math.round(m.similarityPercent)
+                        : (_ov > 0 ? (_ov <= 1 ? Math.round(_ov * 100) : Math.round(_ov)) : null);
                     const simBadge = (simRaw != null)
                         ? `<span class="badge" style="background:#f59e0b; color:white; margin-left:8px;">${simRaw}% similar</span>` : '';
                     return `
@@ -2340,7 +2445,10 @@
                 chip.innerHTML = '<i class="fas fa-hourglass-half"></i> ' + label;
                 chip.title = 'Pending for ' + label;
             }
-            function refreshAges() { grid.querySelectorAll('.news-card').forEach(ageChip); }
+            function refreshAges() {
+                grid.querySelectorAll('.news-card').forEach(ageChip);
+                if (typeof renderAgeTabCounts === 'function') renderAgeTabCounts(); // keep tab counts live
+            }
 
             function lazyThumbs(scope) {
                 (scope || grid).querySelectorAll('.news-card-image img').forEach(img => {
@@ -2516,10 +2624,26 @@
             });
 
             // ── boot ──
+            // Expose the split-view helpers for the global setAgeTab() (tab clicks).
+            window.pnVisibleCards = visibleCards;
+            window.pnSelect = select;
+            window.pnClearPreview = clearPreview;
+            window.pnIsMobile = isMobile;
             split.classList.add('pn-split--ready');
             refreshAges();
             lazyThumbs();
             setInterval(refreshAges, 60000);
+            // Smart default age tab. The list is sorted OLDEST-first and capped at 100,
+            // so with a big backlog every loaded card can be > 24h old; landing on the
+            // "Latest (< 24h)" tab would then show an EMPTY list the moment a filter
+            // runs. Pick the tab that actually has cards, apply the filter once so the
+            // list always matches the active tab, and show the counts on both tabs.
+            const ageCounts = (typeof renderAgeTabCounts === 'function') ? renderAgeTabCounts() : { latest: 1, older: 0 };
+            if (ageCounts.latest === 0 && ageCounts.older > 0) {
+                window.currentAgeTab = 'older';
+                document.querySelectorAll('#ageTabs .pn-age-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === 'older'));
+            }
+            filterNews();
             const first = visibleCards()[0];
             if (first && !isMobile()) select(first, { openMobile: false });
             else updateCounter();
@@ -2537,6 +2661,26 @@
             } else {
                 window.addEventListener('load', () => setTimeout(rerenderSelected, 250));
             }
+        })();
+        </script>
+        <!-- NEXA verification deep-link: gently highlight #article-<id> when arriving from a verification link. Additive, self-contained. -->
+        <script>
+        (function(){
+          function focusFromHash(){
+            try{
+              var h=location.hash||''; var m=h.match(/^#article-([a-fA-F0-9]{6,})$/); if(!m) return;
+              var el=document.getElementById('article-'+m[1]); if(!el) return;
+              el.scrollIntoView({behavior:'smooth',block:'center'});
+              el.style.transition='box-shadow .4s ease, outline-color .4s ease';
+              el.style.outline='3px solid #22c55e'; el.style.outlineOffset='2px'; el.style.boxShadow='0 0 0 6px rgba(34,197,94,.15)';
+              setTimeout(function(){ el.style.boxShadow=''; el.style.outlineColor='transparent'; setTimeout(function(){ el.style.outline=''; },500); }, 2600);
+            }catch(e){}
+          }
+          if(location.hash.indexOf('#article-')===0){
+            if(document.readyState==='complete'){ setTimeout(focusFromHash,300); }
+            else{ window.addEventListener('load',function(){ setTimeout(focusFromHash,300); }); }
+          }
+          window.addEventListener('hashchange',focusFromHash);
         })();
         </script>
     </body>

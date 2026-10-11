@@ -1,0 +1,152 @@
+<%- include('partials/header') %>
+<body>
+<%- include('partials/top-nav', { pageTitle: 'Database Backups', backButton: true, backUrl: '/' }) %>
+<%- include('partials/sidebar') %>
+
+<style>
+  .bk-card { background:#fff; border:1px solid #eef0f2; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,.04); padding:16px 18px; }
+  .bk-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:14px; }
+  .bk-item { border:1px solid #eef0f2; border-radius:12px; padding:14px 16px; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.04); }
+  .bk-date { font-weight:800; font-size:15px; color:#111; }
+  .bk-time { font-size:12.5px; color:#6b7280; }
+  .bk-size { display:inline-block; margin-top:6px; font-size:12px; color:#374151; background:#f3f4f6; border-radius:20px; padding:2px 10px; }
+  .bk-actions { margin-top:12px; display:flex; gap:8px; }
+  .bk-icon { width:40px;height:40px;border-radius:10px;background:#eafaf0;color:#16a34a;display:inline-flex;align-items:center;justify-content:center;font-size:18px; }
+</style>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content pb-5">
+  <div class="container-fluid py-4" style="max-width:1000px;">
+
+    <!-- Telugu help card -->
+    <div class="bk-card mb-3" style="border-left:4px solid #16a34a;">
+      <div class="fw-bold mb-1">💾 Database Backups — తెలుగులో</div>
+      <div class="text-muted" style="font-size:13.5px; line-height:1.6;">
+        మన MongoDB data ప్రతి <b>3 గంటలకి</b> ఆటోమేటిక్‌గా backup అయ్యి Cloudflare లో (private గా) భద్రపరచబడుతుంది.
+        చివరి <b><%= retention %></b> backups మాత్రమే ఉంచుతాం (పాతవి ఆటో-తొలగింపు). కింద ఒక్కో backup ని <b>Download</b>
+        చేసుకోవచ్చు. <b>Delete</b> చేసే ముందు మీ ఈమెయిల్ (<b><%= otpEmailMasked %></b>) కి <b>OTP</b> వస్తుంది — అది
+        సరైతేనే తొలగుతుంది. కావాలంటే "Run backup now" తో ఇప్పుడే ఒక backup తీసుకోవచ్చు.
+      </div>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div class="text-muted small"><%= backups.length %> backup<%= backups.length === 1 ? '' : 's' %> stored</div>
+      <button id="runNowBtn" class="btn btn-success btn-sm"><i class="fas fa-bolt me-1"></i> Run backup now</button>
+    </div>
+
+    <% if (loadError) { %>
+      <div class="alert alert-warning"><%= loadError %></div>
+    <% } %>
+
+    <% if (!backups.length && !loadError) { %>
+      <div class="bk-card text-center text-muted py-4">ఇంకా backups లేవు. "Run backup now" నొక్కండి లేదా ప్రతి 3 గంటల schedule కోసం ఆగండి.</div>
+    <% } %>
+
+    <div class="bk-grid">
+      <% backups.forEach(function(b) {
+           var nice = b.lastModified ? new Date(b.lastModified) : null;
+           var istStr = nice ? new Date(nice.getTime() + 5.5*3600000).toISOString().replace('T',' ').slice(0,16) + ' IST' : '';
+           var mb = (b.sizeBytes/1048576); var sizeStr = mb >= 1 ? mb.toFixed(1)+' MB' : (b.sizeBytes/1024).toFixed(0)+' KB';
+      %>
+        <div class="bk-item" data-key="<%= b.key %>">
+          <div class="d-flex align-items-center gap-2">
+            <span class="bk-icon"><i class="fas fa-database"></i></span>
+            <div>
+              <div class="bk-date"><%= istStr.slice(0,10) %></div>
+              <div class="bk-time"><%= istStr.slice(11) %></div>
+            </div>
+          </div>
+          <div class="bk-size"><%= sizeStr %></div>
+          <div class="bk-actions">
+            <a class="btn btn-outline-primary btn-sm flex-fill" href="/admin/db-backups/download?key=<%= encodeURIComponent(b.key) %>"><i class="fas fa-download me-1"></i> Download</a>
+            <button class="btn btn-outline-danger btn-sm bk-del" data-key="<%= b.key %>"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+</main>
+
+<!-- Delete OTP modal -->
+<div class="modal fade" id="delModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Delete backup</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <p class="small text-muted mb-2">ఈ backup ని శాశ్వతంగా తొలగించడానికి, మీ ఈమెయిల్‌కి వచ్చే OTP నమోదు చేయండి.</p>
+        <div class="small mb-2" id="delTarget" style="word-break:break-all;color:#374151;"></div>
+        <button id="sendOtpBtn" class="btn btn-sm btn-primary mb-2">Send OTP to <%= otpEmailMasked %></button>
+        <input type="text" id="otpInput" class="form-control" maxlength="6" inputmode="numeric" placeholder="6-digit OTP" disabled>
+        <div id="delMsg" class="small mt-2"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button id="confirmDelBtn" class="btn btn-danger btn-sm" disabled>Delete permanently</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var currentKey = null;
+  var modalEl = document.getElementById('delModal');
+  var modal = null;
+  // Lazily build the Bootstrap modal — this inline script runs BEFORE the footer
+  // loads bootstrap.bundle.js, so creating it at load time would throw and break
+  // every button on the page. Create it on first use (by then bootstrap exists).
+  function getModal(){ if(!modal && modalEl && window.bootstrap){ modal = new bootstrap.Modal(modalEl); } return modal; }
+  function msg(t, ok){ var m=document.getElementById('delMsg'); m.textContent=t; m.style.color= ok ? '#16a34a' : '#dc2626'; }
+
+  document.getElementById('runNowBtn').addEventListener('click', async function(){
+    var btn = this;
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Starting…';
+    try {
+      var r = await fetch('/admin/db-backups/run', { method:'POST', headers:{'Content-Type':'application/json'} });
+      var d = await r.json();
+      if (d.ok) {
+        // The backup runs in the background (couple of minutes). Auto-refresh so
+        // the new card appears when it's ready.
+        btn.innerHTML = '<i class="fas fa-clock me-1"></i> Backup running… refreshing soon';
+        setTimeout(function(){ location.reload(); }, 120000);
+      } else {
+        alert(d.error || 'Could not start backup'); btn.disabled=false; btn.innerHTML='<i class="fas fa-bolt me-1"></i> Run backup now';
+      }
+    } catch(e){ alert('Could not start backup'); btn.disabled=false; btn.innerHTML='<i class="fas fa-bolt me-1"></i> Run backup now'; }
+  });
+
+  document.querySelectorAll('.bk-del').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      currentKey = this.getAttribute('data-key');
+      document.getElementById('delTarget').textContent = currentKey;
+      document.getElementById('otpInput').value=''; document.getElementById('otpInput').disabled=true;
+      document.getElementById('confirmDelBtn').disabled=true; msg('', true);
+      var m = getModal(); if (m) m.show();
+    });
+  });
+
+  document.getElementById('sendOtpBtn').addEventListener('click', async function(){
+    this.disabled=true;
+    try {
+      var r = await fetch('/admin/db-backups/delete/send-otp', { method:'POST', headers:{'Content-Type':'application/json'} });
+      var d = await r.json();
+      if (d.ok) { msg('OTP sent to '+d.sentTo, true); document.getElementById('otpInput').disabled=false; document.getElementById('confirmDelBtn').disabled=false; }
+      else { msg(d.error || 'Could not send OTP', false); this.disabled=false; }
+    } catch(e){ msg('Could not send OTP', false); this.disabled=false; }
+  });
+
+  document.getElementById('confirmDelBtn').addEventListener('click', async function(){
+    var otp = (document.getElementById('otpInput').value||'').trim();
+    if (!/^\d{6}$/.test(otp)) { msg('Enter the 6-digit OTP', false); return; }
+    this.disabled=true;
+    try {
+      var r = await fetch('/admin/db-backups/delete/confirm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key: currentKey, otp: otp }) });
+      var d = await r.json();
+      if (d.ok) { location.reload(); } else { msg(d.error || 'Delete failed', false); this.disabled=false; }
+    } catch(e){ msg('Delete failed', false); this.disabled=false; }
+  });
+})();
+</script>
+
+<%- include('partials/footer') %>
+</body>
+</html>
